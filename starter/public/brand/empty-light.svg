@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" width="200" height="140" role="img" aria-label="">
+  <!-- Empty-state illustration. Line art disappears on a same-value surface, which is why this
+       needs a per-theme variant exactly like the wordmark does. -->
+  <rect x="34" y="30" width="132" height="88" rx="10" fill="#FFFFFF" stroke="#6B7488" stroke-width="2.5"/>
+  <rect x="52" y="52" width="76" height="7" rx="3.5" fill="#D6DAE3"/>
+  <rect x="52" y="70" width="96" height="7" rx="3.5" fill="#D6DAE3"/>
+  <rect x="52" y="88" width="58" height="7" rx="3.5" fill="#D6DAE3"/>
+  <circle cx="150" cy="100" r="20" fill="none" stroke="#6B7488" stroke-width="2.5"/>
+  <path d="M150 92 V108 M142 100 H158" stroke="#6B7488" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

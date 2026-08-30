@@ -1,0 +1,28 @@
+{
+  "$comment": [
+    "Project settings for Claude Code. This file is what makes the framework LOAD rather than",
+    "merely exist: without it, the guards are shell scripts nobody invokes and the runbooks are",
+    "documents nobody opens.",
+    "",
+    "COMMIT IT. Settings that live only on one machine enforce nothing on anyone else's.",
+    "Personal overrides belong in .claude/settings.local.json, which is gitignored.",
+    "",
+    "The PreToolUse hook fires on EVERY Bash call, in EVERY session - including the ad-hoc",
+    "five-minute fix that never opened a runbook. That is precisely the session where close-out",
+    "obligations get skipped, so that is where enforcement belongs."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/pre-tool-use-guard.mjs",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

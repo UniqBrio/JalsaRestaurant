@@ -1,0 +1,105 @@
+# CI — runs exactly the same gate developers run locally.
+#
+# If CI and local run different checks, one of them is decoration — and it is always the one
+# that is slower to fix.
+#
+# Copy to .github/workflows/ci.yml
+
+name: CI
+
+on:
+  push: { branches: [main, dev] }
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The ratchets and the fail-first guard both need history, not a shallow clone.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `ci`, never `install`. A CI run that resolves different versions than the lockfile is
+      # not testing what will ship.
+      - run: npm ci
+
+      # ---- Cheap, always-runnable gates first -------------------------------------------
+      # These need no browser and no credentials, so they run in every environment and
+      # therefore always actually run.
+
+      - name: Theme artifacts are in sync with the token source
+        run: npm run theme:check
+
+      - name: Contrast, all declared pairs, both themes
+        run: npm run theme:contrast
+
+      - name: Theme assets present per theme
+        run: npm run theme:assets
+
+      - name: No hard-coded colours
+        run: npm run audit:colors
+
+      - name: Every rule names its enforcement point
+        run: npm run audit:rules
+
+      - name: Automation addressability
+        run: npm run audit:testids
+
+      - name: Wide tables are configurable
+        run: npm run audit:columns
+
+      - name: Commit guards are reachable (incl. upgrade/lineage suite)
+        run: npm run guard:test
+
+      - name: Backward compatibility - fixtures must not go green to red
+        run: npm run audit:compat
+
+      # ---- Application gates --------------------------------------------------------------
+      # The application's dependencies are separate from the framework's. Without this step
+      # every gate below fails on a missing toolchain, not on the code - and `npx tsc` with no
+      # local TypeScript would fetch an unrelated registry package of that name and run it.
+      # The starter ships deliberately unpinned (a shape, not a lockfile), hence `install`;
+      # in a scaffolded app, commit the lockfile and change this to `npm ci`.
+      - name: Install application dependencies
+        working-directory: starter
+        run: npm install
+
+      - name: Types
+        working-directory: starter
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: starter
+        run: npm run lint
+
+      - name: Unit + pure specs
+        working-directory: starter
+        run: npm run test:unit
+
+      - name: Install browsers
+        working-directory: starter
+        run: npx playwright install --with-deps chromium
+
+      - name: Render + functional
+        working-directory: starter
+        run: npm run test:functional
+
+      # Uploaded on failure only. A green run does not need 200MB of traces.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: starter/playwright-report/
+          retention-days: 14

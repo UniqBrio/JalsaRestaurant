@@ -1,0 +1,32 @@
+{
+  "name": "custom-web-app-development-framework",
+  "version": "1.3.0",
+  "private": true,
+  "type": "module",
+  "description": "A domain-agnostic, gate-driven application development framework: SDLC workflows, quality ratchets, a centralised theme system with enforced contrast, and runnable starter code.",
+  "scripts": {
+    "theme:build": "node scripts/theme-build.mjs",
+    "theme:check": "node scripts/theme-build.mjs --check",
+    "theme:contrast": "node scripts/check-contrast.mjs",
+    "theme:contrast:report": "node scripts/check-contrast.mjs --report",
+    "theme:assets": "node scripts/check-theme-assets.mjs",
+    "audit:colors": "node scripts/audits/check-hardcoded-colors.mjs",
+    "audit:testids": "node scripts/audits/check-testid-coverage.mjs",
+    "audit:rules": "node scripts/audits/check-rule-coverage.mjs",
+    "audit:columns": "node scripts/audits/check-column-control.mjs",
+    "audit:all": "npm run theme:check && npm run theme:contrast && npm run theme:assets && npm run audit:colors && npm run audit:testids && npm run audit:rules && npm run audit:columns && npm run audit:deadweight && npm run audit:compat",
+    "gate": "node scripts/gate-runner.mjs",
+    "guard:test": "bash scripts/hooks/guard-reachability.test.sh && bash .claude/hooks/adapter.test.sh && bash scripts/upgrade.test.sh",
+    "guard:install": "node -e \"require('fs').copyFileSync('scripts/hooks/pre-commit-guard.sh','.git/hooks/pre-commit');require('fs').chmodSync('.git/hooks/pre-commit',0o755);console.log('installed .git/hooks/pre-commit — note: .claude/settings.json already wires the same guards for Claude Code sessions')\"",
+    "new:app": "node scripts/new-app.mjs",
+    "audit:deadweight": "node scripts/audits/check-dead-weight.mjs",
+    "lineage": "node scripts/lineage.mjs",
+    "upgrade": "node scripts/upgrade.mjs",
+    "conformance": "node scripts/conformance.mjs",
+    "audit:compat": "node scripts/audits/check-backward-compat.mjs",
+    "upgrade:test": "bash scripts/upgrade.test.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
