@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — intake is the single entry point
+
+Routed-out classifications (list, open situation, restructure, process failure) produce no
+request file, so `/request` now continues directly into triage / brainstorm / refactor /
+framework-update in the same run — the destination runbook's own gates still stop the work.
+Mixed input hands its process half to framework-update in the same run. The field-review STOP
+for NEW/CHANGE/BUG is unchanged. See `UPGRADES.md`.
+
 ## 1.4.0 — intake
 
 `/request` turns rough words into ONE binding request file (`requests/`): classify, fill only

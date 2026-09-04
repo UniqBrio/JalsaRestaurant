@@ -38,11 +38,20 @@ Read the rough description and pick exactly one:
 | Something that does not exist yet | **NEW** | Fill [templates/requests/REQUEST_NEW.md](../templates/requests/REQUEST_NEW.md) → Track A |
 | Something works, but should behave or look different | **CHANGE** | Fill [templates/requests/REQUEST_CHANGE.md](../templates/requests/REQUEST_CHANGE.md) → Track B |
 | Something is broken — erroring, wrong output, wrong data | **BUG** | Fill [templates/requests/REQUEST_BUG.md](../templates/requests/REQUEST_BUG.md) → Track C |
-| Same behaviour, better structure | no file — run [/refactor](./refactor.md) directly; its scope statement is its own intake |
-| A LIST of several things | no file — run [/triage](./triage.md) on the list; each surviving item returns here individually |
-| A situation with no clear next action ("what should happen when…", weighing options) | no file — run [/brainstorm](./brainstorm.md); its decision summary drafts the request file afterwards if one is needed |
-| The PROCESS misbehaved — a track skipped a step, a gate stayed silent, a template has a gap | no file — run [/framework-update](./framework-update.md) on the description |
+| Same behaviour, better structure | no file — continue directly into [workflows/refactor.md](./refactor.md); its scope statement is its own intake |
+| A LIST of several things | no file — continue directly into [workflows/triage.md](./triage.md) with the list; each surviving item returns here individually |
+| A situation with no clear next action ("what should happen when…", weighing options) | no file — continue directly into [workflows/brainstorm.md](./brainstorm.md); its decision summary drafts the request file afterwards if one is needed |
+| The PROCESS misbehaved — a track skipped a step, a gate stayed silent, a template has a gap | no file — continue directly into [workflows/framework-update.md](./framework-update.md) with the description |
 | Genuinely ambiguous (e.g. "improve X" where X may be broken) | ask exactly **one** question, then classify |
+
+**One entry point, two kinds of exit.** The requester starts here and only here. A
+classification that produces a request file (NEW / CHANGE / BUG) STOPS for field review —
+that review is the one cheap moment to catch a wrong classification or a wrong binding
+field. A routed-out classification (list, open situation, restructure, process failure)
+produces **no file**, so there is nothing to review — stopping there would only make the
+requester retype the same words into a second command. Continue directly into the named
+runbook **in this same run**; its own gates (triage's queue approval, framework-update's
+diff approval) still stop the work before anything changes.
 
 **The classification boundary that matters most:** "it should behave differently" (CHANGE) vs
 "it does not do what it already promises" (BUG). A bug run as a change skips root cause; a
@@ -52,7 +61,9 @@ error message, wrong data, or "stopped working" — it is a BUG. When they carry
 
 **Mixed input rule.** A description containing BOTH an app issue AND a process failure ("the
 price bug shipped AND the gate never caught it") produces the request file for the app issue
-AND names the process half for a `/framework-update` run — never silently drop either half.
+AND then continues directly into [workflows/framework-update.md](./framework-update.md) with
+the process half — never silently drop either half. The app file still waits for field review;
+the process half proceeds to framework-update's own diff-approval gate.
 
 ---
 
@@ -93,7 +104,9 @@ Binding rules, in order of how expensive their violation is:
    **"Review the FIELDS, then run `/<track> requests/<file>`."**
 3. **STOP. Never start the track yourself.** The requester reviewing the fields IS the gate —
    an intake that flows straight into execution removes the only moment the requester can
-   catch a wrong classification or a wrong binding field cheaply.
+   catch a wrong classification or a wrong binding field cheaply. (This stop is for the
+   file-producing classifications only; routed-out ones already continued at R1, gated by
+   their own runbooks.)
 
 ---
 

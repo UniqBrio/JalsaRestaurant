@@ -12,6 +12,30 @@
 
 ---
 
+## 1.5.0 — 04-Sep-2026 — MINOR
+
+**Intake is the single entry point.** In 1.4.0, a `/request` run that classified the ask as a
+list, an open situation, a pure restructure, or a process failure produced no file and told
+the requester to run `/triage`, `/brainstorm`, `/refactor`, or `/framework-update` themselves.
+That stop bought nothing — with no request file there is nothing to review — so it only made
+the requester retype the same words into a second command, and a retype the requester forgets
+is a process failure that never gets routed.
+
+### Changed
+- `workflows/request.md` + `.claude/commands/request.md` — routed-out classifications now
+  **continue directly into the destination runbook in the same run**; that runbook's own gates
+  (triage's queue approval, framework-update's diff approval) still stop the work before
+  anything changes. The field-review STOP is unchanged for the file-producing classifications
+  (NEW / CHANGE / BUG). Mixed input now continues into `workflows/framework-update.md` with the
+  process half in the same run, instead of leaving it as advice.
+- `docs/01-SDLC.md` §2 intake paragraph updated to match.
+- `tests/cases/FRAMEWORK_PROCESS_CASES.md` — FW-INTAKE-004 and FW-INTAKE-005 updated in place.
+
+### App action required
+**None.** Behaviour within a single command's run; no gate, baseline, or guard changed.
+
+---
+
 ## 1.4.0 — 04-Sep-2026 — MINOR
 
 **Intake: `/request` writes the binding request file.** Motivated by a real adoption failure:

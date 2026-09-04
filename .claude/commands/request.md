@@ -26,8 +26,11 @@ one, and downstream it binds like one. Uncovered = `unknown`.
 ## Hard boundaries
 
 - Stated fields are **binding** on the track that consumes the file.
-- A LIST routes to `/triage`, an open situation to `/brainstorm`, a process failure to
-  `/framework-update`, a pure restructure to `/refactor` — with **no file generated**.
-- Mixed input (app issue + process failure) produces the app request file AND names the
-  process half for `/framework-update` — never drop either half.
-- End with: **"Review the FIELDS, then run `/<track> requests/<file>`."** — and STOP.
+- A LIST, an open situation, a pure restructure, or a process failure generates **no file** —
+  continue directly into `workflows/triage.md`, `workflows/brainstorm.md`,
+  `workflows/refactor.md`, or `workflows/framework-update.md` **in this same run**; that
+  runbook's own gates stop the work. The requester never retypes into a second command.
+- Mixed input (app issue + process failure) produces the app request file AND continues
+  directly into `workflows/framework-update.md` with the process half — never drop either half.
+- When a request file was produced, end with:
+  **"Review the FIELDS, then run `/<track> requests/<file>`."** — and STOP.

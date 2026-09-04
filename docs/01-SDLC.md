@@ -61,8 +61,11 @@ a Track B change being run as a Track A one, or a Track C fix skipping root caus
 
 **Intake is how a rough ask enters safely.** `/request` classifies the description, fills the
 matching template from `templates/requests/` using **only what the requester said** — every
-uncovered field is written as `unknown`, never invented — and stops. Stated fields bind the
-track; `unknown` fields are the questions the track must ask. The silent alternative — a track
+uncovered field is written as `unknown`, never invented — and stops for field review. Stated
+fields bind the track; `unknown` fields are the questions the track must ask. A description
+that is a list, an open situation, a pure restructure, or a process failure produces no file:
+`/request` continues straight into triage, brainstorm, refactor, or framework-update in the
+same run — one entry point, and the destination runbook's own gates still stop the work. The silent alternative — a track
 fed a one-liner filling the gaps itself — is where correction-on-correction loops begin: every
 silently filled gap is a design decision the requester never made, discovered only after the
 build.
