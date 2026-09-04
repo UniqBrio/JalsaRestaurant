@@ -1,5 +1,5 @@
 ---
-description: Intake - turn rough words into ONE binding request file; classify, fill, STOP
+description: The single entry point - classify rough words, write the binding request file, continue into the right track
 ---
 
 # /request
@@ -8,7 +8,8 @@ description: Intake - turn rough words into ONE binding request file; classify, 
 for intake; this command exists to route you to it, not to restate it. Do not work from a
 summary — the details this file omits are the ones that get skipped.
 
-**Use when:** the ask exists only as rough words and has not yet been classified into a track
+**Use when:** starting ANY piece of work from rough words — this is the single entry point;
+the run continues into the right track by itself
 
 **The rough description:** $ARGUMENTS
 
@@ -16,12 +17,14 @@ summary — the details this file omits are the ones that get skipped.
 
 ## The governing instruction
 
-**Capture what was said, mark what was not, and stop.**
+**Capture what was said, mark what was not, and hand off.**
 
-You produce exactly one artifact: a filled request file in `requests/`, built from the matching
-template in `templates/requests/`. You never build, never plan, never start a track, and never
-fill an uncovered field with a plausible value — an invented value reads exactly like a stated
-one, and downstream it binds like one. Uncovered = `unknown`.
+Intake produces exactly one artifact: a filled request file in `requests/`, built from the
+matching template in `templates/requests/`. The intake step itself never builds and never
+plans, and never fills an uncovered field with a plausible value — an invented value reads
+exactly like a stated one, and downstream it binds like one. Uncovered = `unknown`. Then the
+run continues into the classified track, whose first gate restates the FIELDS for the
+requester to confirm or correct before anything else happens.
 
 ## Hard boundaries
 
@@ -31,6 +34,9 @@ one, and downstream it binds like one. Uncovered = `unknown`.
   `workflows/refactor.md`, or `workflows/framework-update.md` **in this same run**; that
   runbook's own gates stop the work. The requester never retypes into a second command.
 - Mixed input (app issue + process failure) produces the app request file AND continues
-  directly into `workflows/framework-update.md` with the process half — never drop either half.
-- When a request file was produced, end with:
-  **"Review the FIELDS, then run `/<track> requests/<file>`."** — and STOP.
+  directly into `workflows/framework-update.md` with the process half — never drop either half;
+  process half first.
+- When a request file was produced: continue directly into its track in this same run. The
+  track's FIRST gate restates the FIELDS verbatim, marked "from your request — correct
+  anything wrong"; a correction there updates the request file before work proceeds. Never
+  end an intake by asking the requester to run a second command.

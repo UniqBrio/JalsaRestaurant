@@ -56,19 +56,21 @@ a Track B change being run as a Track A one, or a Track C fix skipping root caus
 | A list of several things | **0 — Triage first** | [workflows/triage.md](../workflows/triage.md) | Queue approval, then per-item tracks |
 | No clear next action yet | **E — Brainstorm** | [workflows/brainstorm.md](../workflows/brainstorm.md) | Decision summary; no code |
 | The *process itself* failed | **F — Framework update** | [workflows/framework-update.md](../workflows/framework-update.md) | Diff approval |
-| Rough words, not yet classified | **Intake** | [workflows/request.md](../workflows/request.md) | The requester reviews the filled request file, then runs its track |
+| Rough words — the single entry point | **Intake** | [workflows/request.md](../workflows/request.md) | Writes the request file, continues into its track; FIELDS confirmed at that track’s first gate |
 | Unclear | Ask exactly one clarifying question, then classify. | | |
 
-**Intake is how a rough ask enters safely.** `/request` classifies the description, fills the
+**Intake is the single entry point.** `/request` classifies the description, fills the
 matching template from `templates/requests/` using **only what the requester said** — every
-uncovered field is written as `unknown`, never invented — and stops for field review. Stated
-fields bind the track; `unknown` fields are the questions the track must ask. A description
-that is a list, an open situation, a pure restructure, or a process failure produces no file:
-`/request` continues straight into triage, brainstorm, refactor, or framework-update in the
-same run — one entry point, and the destination runbook's own gates still stop the work. The silent alternative — a track
-fed a one-liner filling the gaps itself — is where correction-on-correction loops begin: every
-silently filled gap is a design decision the requester never made, discovered only after the
-build.
+uncovered field is written as `unknown`, never invented — and continues into the classified
+track in the same run. The requester's review is not lost: the track's first gate restates the
+FIELDS verbatim for confirmation, and a correction there updates the request file before work
+proceeds. Stated fields bind the track; `unknown` fields are the questions the track must ask.
+A description that is a list, an open situation, a pure restructure, or a process failure
+produces no file: `/request` continues straight into triage, brainstorm, refactor, or
+framework-update the same way — one entry point, and every destination runbook's own gates
+still stop the work. The silent alternative — a track fed a one-liner filling the gaps
+itself — is where correction-on-correction loops begin: every silently filled gap is a design
+decision the requester never made, discovered only after the build.
 
 ---
 

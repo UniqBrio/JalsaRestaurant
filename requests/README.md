@@ -20,6 +20,7 @@ three things possible:
 
 - **Committed**, like any other artifact — a request file is the "why" of the diff that closed it.
 - **Append-only in spirit:** a filled request is a record of what was asked. Correcting the
-  ask means a new file (the next round), not editing history. The one legitimate edit is the
-  requester revising FIELDS **before** running the track.
+  ask means a new file (the next round), not editing history. The one legitimate edit is a
+  FIELDS correction at the consuming track's **first gate** — before any work has proceeded —
+  which is applied to the file so the file and the work never tell different stories.
 - Superseded requests stay. Delete nothing.

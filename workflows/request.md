@@ -1,9 +1,11 @@
 # Intake — Write the Request
 
-> Run this when the ask exists only as **rough words**. It produces ONE filled request file —
-> nothing else. It never builds, never plans, never starts a track.
+> Run this when the ask exists only as **rough words** — the ONE command a requester ever
+> needs to start work. It writes ONE filled request file, then continues into the classified
+> track, whose first gate restates the FIELDS for confirmation. The intake step itself never
+> builds and never plans.
 >
-> **The governing instruction: capture what was said, mark what was not, and stop.**
+> **The governing instruction: capture what was said, mark what was not, and hand off.**
 
 **ROUGH DESCRIPTION:** `<the requester's words, however rough>`
 
@@ -44,14 +46,14 @@ Read the rough description and pick exactly one:
 | The PROCESS misbehaved — a track skipped a step, a gate stayed silent, a template has a gap | no file — continue directly into [workflows/framework-update.md](./framework-update.md) with the description |
 | Genuinely ambiguous (e.g. "improve X" where X may be broken) | ask exactly **one** question, then classify |
 
-**One entry point, two kinds of exit.** The requester starts here and only here. A
-classification that produces a request file (NEW / CHANGE / BUG) STOPS for field review —
-that review is the one cheap moment to catch a wrong classification or a wrong binding
-field. A routed-out classification (list, open situation, restructure, process failure)
-produces **no file**, so there is nothing to review — stopping there would only make the
-requester retype the same words into a second command. Continue directly into the named
-runbook **in this same run**; its own gates (triage's queue approval, framework-update's
-diff approval) still stop the work before anything changes.
+**One entry point, every exit continues.** The requester starts here and only here, and
+never retypes into a second command. A classification that produces a request file
+(NEW / CHANGE / BUG) writes it and continues into its track **in this same run**; the review
+of the FIELDS is not lost — it moves to the track's first gate, which restates them for
+confirmation (see R3). A routed-out classification (list, open situation, restructure,
+process failure) produces no file and continues into its runbook the same way. Either way,
+the first stop the requester meets is a gate with real content in front of it — never a
+prompt to run another command.
 
 **The classification boundary that matters most:** "it should behave differently" (CHANGE) vs
 "it does not do what it already promises" (BUG). A bug run as a change skips root cause; a
@@ -62,8 +64,10 @@ error message, wrong data, or "stopped working" — it is a BUG. When they carry
 **Mixed input rule.** A description containing BOTH an app issue AND a process failure ("the
 price bug shipped AND the gate never caught it") produces the request file for the app issue
 AND then continues directly into [workflows/framework-update.md](./framework-update.md) with
-the process half — never silently drop either half. The app file still waits for field review;
-the process half proceeds to framework-update's own diff-approval gate.
+the process half — never silently drop either half. Both halves proceed: the app half into its
+track (FIELDS confirmed at its first gate), the process half to framework-update's own
+diff-approval gate. Run the process half FIRST — if the process gap caused the app issue, the
+track that fixes the app should run with the gap already repaired.
 
 ---
 
@@ -96,17 +100,20 @@ Binding rules, in order of how expensive their violation is:
 
 ---
 
-## R3 — Deliver, then STOP
+## R3 — Deliver, then continue into the track
 
 1. Write the filled file to `requests/<yyyy-mm-dd>-<short-slug>.md` (see
    [requests/README.md](../requests/README.md) for the folder's lifecycle).
-2. Report: the classification, the file path, every field left `unknown`, and the one line:
-   **"Review the FIELDS, then run `/<track> requests/<file>`."**
-3. **STOP. Never start the track yourself.** The requester reviewing the fields IS the gate —
-   an intake that flows straight into execution removes the only moment the requester can
-   catch a wrong classification or a wrong binding field cheaply. (This stop is for the
-   file-producing classifications only; routed-out ones already continued at R1, gated by
-   their own runbooks.)
+2. Report, briefly: the classification and why, the file path, and every field left `unknown`.
+3. **Continue directly into the classified track with the file — in this same run.** Do not
+   ask the requester to run a second command.
+4. **The field review happens at the track's first gate, not here.** The first stop the track
+   presents (Track A's Gate 1 questionnaire, Track B's B3 questions or B4 plan, Track C's
+   root-cause statement) MUST restate the request file's FIELDS verbatim at the top, marked
+   "from your request — correct anything wrong". A wrong classification or a wrong binding
+   field corrected there costs nothing; the same error discovered after the build is the next
+   correction round. If the requester corrects a field at that gate, update the request file
+   to match before proceeding — the file and the work must never tell different stories.
 
 ---
 
@@ -123,5 +130,7 @@ last week's fix, and finance says the totals row is missing too — totals worke
 - WHAT HAPPENS: old columns in export; totals row missing. WAS WORKING BEFORE?: totals — yes.
 - Fields not covered by the description — repro steps, when it started, which report variants —
   are written as `unknown`, and Track C will ask.
-- Output: `requests/2026-09-04-report-export-columns.md`, then
-  "Review the FIELDS, then run `/bug requests/2026-09-04-report-export-columns.md`."
+- Output: `requests/2026-09-04-report-export-columns.md`, then the run continues directly
+  into [workflows/bug.md](./bug.md) with that file. Track C's first stop — the root-cause
+  statement, and before it the round-2 account of what last week's fix missed — opens by
+  restating these FIELDS for confirmation.

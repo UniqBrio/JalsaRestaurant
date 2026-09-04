@@ -10,7 +10,9 @@
 When the request is a `requests/` file: its stated fields are **binding** and are never re-asked
 at Gate 1; every field marked `unknown` becomes a Gate 1 question with a reasoned
 recommendation. VISIBLE STRINGS the requester stated verbatim enter the A3.5 string table as
-given.
+given. Arriving via `/request` in the same run, the Gate 1 questionnaire OPENS by restating
+the FIELDS verbatim — "from your request — correct anything wrong" — because the requester has
+not reviewed them yet; a correction there updates the request file before anything proceeds.
 
 ---
 

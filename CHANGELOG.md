@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0 — one command, end to end
+
+`/request` now continues into the classified track after writing the request file — for every
+classification. The field review moves to the track's first gate, which opens by restating the
+FIELDS "from your request — correct anything wrong"; a correction there updates the file before
+work proceeds. Mixed input repairs the process half first. See `UPGRADES.md`.
+
 ## 1.5.0 — intake is the single entry point
 
 Routed-out classifications (list, open situation, restructure, process failure) produce no

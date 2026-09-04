@@ -9,7 +9,10 @@
 When the request is a `requests/` file: its stated fields are **binding** — never re-ask them,
 never override them — and every field marked `unknown` is precisely a B3 question. Its
 MUST NOT CHANGE line seeds B4 item 2, and its DESIGN SURFACE block declares whether the B4
-correction design pass runs.
+correction design pass runs. Arriving via `/request` in the same run, the first stop (B3's
+questions, or the B4 plan when there are none) OPENS by restating the FIELDS verbatim — "from
+your request — correct anything wrong" — because the requester has not reviewed them yet; a
+correction there updates the request file before anything proceeds.
 
 ---
 

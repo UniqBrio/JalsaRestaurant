@@ -44,7 +44,7 @@ light/dark · `13` contrast and accessibility · `14` assets · `15` test cases 
 ## Runbooks — `workflows/`
 | File | Track |
 |---|---|
-| `request.md` | Intake — rough words → one binding request file in `requests/`, then STOP |
+| `request.md` | Intake, the single entry point — rough words → one binding request file in `requests/`, then straight into the classified track (FIELDS confirmed at its first gate) |
 | `feature.md` | A — new feature, gates 1–4 |
 | `enhance.md` | B — modify an existing feature |
 | `bug.md` | C — bug fix |

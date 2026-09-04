@@ -10,7 +10,10 @@ When the report is a `requests/` file: its stated fields are **binding** — the
 wording and the WHO IS AFFECTED selectivity are evidence for C2, verbatim — and every field
 marked `unknown` is a question to ask, never a blank to fill. CORRECTION ROUND ≥ 2 means a
 previous fix did not hold: read that attempt and state what it missed **before** theorising,
-and treat the recurrence itself as a process finding for /framework-update.
+and treat the recurrence itself as a process finding for /framework-update. Arriving via
+`/request` in the same run, the root-cause statement OPENS by restating the FIELDS verbatim —
+"from your request — correct anything wrong" — because the requester has not reviewed them
+yet; a correction there updates the request file before anything proceeds.
 
 ---
 

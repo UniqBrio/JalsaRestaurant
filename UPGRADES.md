@@ -12,6 +12,33 @@
 
 ---
 
+## 1.6.0 — 04-Sep-2026 — MINOR
+
+**One command, end to end.** In 1.5.0 only the routed-out classifications flowed onward; a
+NEW / CHANGE / BUG classification still stopped after writing the request file and asked the
+requester to run the track themselves. Owner decision (04-Sep-2026, reaffirmed): the requester
+types exactly one command.
+
+### Changed
+- `workflows/request.md` + `.claude/commands/request.md` — after writing the request file, the
+  run **continues directly into the classified track**. The field review is not removed, it is
+  **moved**: the track's first gate (Track A's Gate 1, Track B's B3/B4, Track C's root-cause
+  statement) opens by restating the request FIELDS verbatim — "from your request — correct
+  anything wrong" — and a correction there updates the request file before work proceeds, so
+  the file and the work never tell different stories. Mixed input runs the framework-update
+  half FIRST, so a process gap that caused the app issue is repaired before the app track runs.
+- `workflows/feature.md`, `workflows/enhance.md`, `workflows/bug.md` — each carries the
+  same-run arrival rule: first stop restates FIELDS.
+- `requests/README.md` — the legitimate-edit window is now the first gate.
+- `docs/01-SDLC.md` §2, `docs/00-OVERVIEW.md`, `FRAMEWORK_MANIFEST.md` aligned.
+- `tests/cases/FRAMEWORK_PROCESS_CASES.md` — FW-INTAKE-001, FW-INTAKE-005, FW-ENH-001 updated.
+
+### App action required
+**None.** Every track still accepts a plain one-line request or a hand-run `requests/` file;
+the human approval count is unchanged — the first approval simply carries the FIELDS with it.
+
+---
+
 ## 1.5.0 — 04-Sep-2026 — MINOR
 
 **Intake is the single entry point.** In 1.4.0, a `/request` run that classified the ask as a
