@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — intake
+
+`/request` turns rough words into ONE binding request file (`requests/`): classify, fill only
+what was said (`unknown` never invented), stop. Stated fields bind the track; `unknown` fields
+become its questions; CORRECTION ROUND ≥ 2 forces "what did the last fix miss" before any new
+fix. Track B's vague "mini design pass" became the defined, mandatory-when-visual correction
+design pass (states · both themes · string table · permissions). Ten process cases. See
+`UPGRADES.md`.
+
 ## 1.3.0 — CP-21, wide tables
 
 More than three columns means the user chooses which show and in what order, and the choice

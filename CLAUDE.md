@@ -116,7 +116,8 @@ Periodically propose **compaction**, not only growth.
 |---|---|
 | The map | `docs/00-OVERVIEW.md` |
 | The spine | `docs/01-SDLC.md` |
-| Runbooks | `workflows/` — invoked as `/feature`, `/bug`, `/enhance`, `/refactor`, `/triage`, `/brainstorm`, `/test`, `/gate`, `/promote`, `/framework-update` |
+| Runbooks | `workflows/` — invoked as `/request`, `/feature`, `/bug`, `/enhance`, `/refactor`, `/triage`, `/brainstorm`, `/test`, `/gate`, `/promote`, `/framework-update` |
+| Intake ledger | `requests/` — one binding request file per ask, written by `/request` |
 | Point-of-use checks | `checklists/` |
 | Living registers | `docs/registers/` |
 | The gates | `scripts/` |

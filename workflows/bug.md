@@ -4,7 +4,13 @@
 >
 > Not the symptom. Not the file where the error surfaced. The cause.
 
-**REPORT:** `<what was expected, what happened, how to reproduce>`
+**REPORT:** `<what was expected, what happened, how to reproduce — or the path of a requests/ file written by /request>`
+
+When the report is a `requests/` file: its stated fields are **binding** — the quoted error
+wording and the WHO IS AFFECTED selectivity are evidence for C2, verbatim — and every field
+marked `unknown` is a question to ask, never a blank to fill. CORRECTION ROUND ≥ 2 means a
+previous fix did not hold: read that attempt and state what it missed **before** theorising,
+and treat the recurrence itself as a process finding for /framework-update.
 
 ---
 

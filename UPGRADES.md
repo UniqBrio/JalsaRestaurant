@@ -12,6 +12,41 @@
 
 ---
 
+## 1.4.0 — 04-Sep-2026 — MINOR
+
+**Intake: `/request` writes the binding request file.** Motivated by a real adoption failure:
+rough one-line requests fed straight into `/enhance` and `/feature` had the tracks filling the
+gaps silently — each silent fill a design decision the requester never made — producing design
+gaps found only after the build, and correction-on-correction loops. The gap was at intake,
+not in the tracks.
+
+### Added
+- `workflows/request.md` + `/request` (`.claude/commands/request.md`) — classify rough words
+  into the right track, fill the matching template using **only what the requester said**
+  (uncovered = `unknown`, never invented), write `requests/<date>-<slug>.md`, and STOP.
+  Stated fields **bind** the consuming track; `unknown` fields become its questions.
+- `templates/requests/` — `REQUEST_NEW.md` (Track A) · `REQUEST_CHANGE.md` (Track B, with
+  always-populated MUST NOT CHANGE and a DESIGN SURFACE declaration) · `REQUEST_BUG.md`
+  (Track C, error wording verbatim, selectivity as root-cause evidence). CHANGE and BUG carry
+  a CORRECTION ROUND field: round ≥ 2 obliges the track to explain what the previous fix
+  missed before proposing anything.
+- `requests/README.md` — the intake ledger's contract (committed, superseded files kept).
+- `tests/cases/FRAMEWORK_PROCESS_CASES.md` — ten manual process cases (FW-INTAKE-001..006,
+  FW-ENH-001..004) on classification, binding-field discipline, and the design pass.
+
+### Changed
+- `workflows/enhance.md` — the optional, undefined "mini design pass" is now the **correction
+  design pass**: mandatory when the change is visual, still scoped to the touched area, and
+  defined (states · both themes in semantic tokens · string table · permission answer). A
+  "not visual" claim is verified against the diff at B6. B1 gains the correction-round check;
+  B4's "deliberately NOT changing" list is seeded by the request's MUST NOT CHANGE line.
+
+### App action required
+**None.** Intake is a new optional entry point; every track still accepts a plain one-line
+request. Adopt by using `/request` when the ask is rough. No gate, baseline, or guard changed.
+
+---
+
 ## 1.3.0 — 30-Aug-2026 — MINOR
 
 **CP-21: a wide table is the user's to arrange.** Promoted from `academies-dashboard` (see

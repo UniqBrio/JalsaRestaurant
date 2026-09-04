@@ -4,7 +4,12 @@
 >
 > **The governing instruction: do not regenerate the feature. Modify it surgically.**
 
-**REQUEST:** `<one line>`
+**REQUEST:** `<one line, or the path of a requests/ file written by /request>`
+
+When the request is a `requests/` file: its stated fields are **binding** — never re-ask them,
+never override them — and every field marked `unknown` is precisely a B3 question. Its
+MUST NOT CHANGE line seeds B4 item 2, and its DESIGN SURFACE block declares whether the B4
+correction design pass runs.
 
 ---
 
@@ -26,6 +31,15 @@ them, not a design document describing them, not last month's screenshot. The fi
 
 State, in one short paragraph, how the feature works today. If you cannot, you are not ready to
 change it.
+
+**The correction-round check.** If this surface was corrected before — the request says so
+(CORRECTION ROUND ≥ 2), or the words "still" / "again" / "after the last fix" appear, or the
+git log shows these files recently changed for the same complaint — read the previous request
+and the diff that closed it, and state **what the last attempt missed and why**, before
+proposing anything. A second correction that cannot explain the first is about to repeat it.
+If the miss was the process's fault (a step skipped, a gap no track covers), also flag it for
+[/framework-update](./framework-update.md) — fixing the symptom twice is how it ships a third
+time.
 
 ---
 
@@ -67,10 +81,27 @@ A short plan, but it must contain all three of:
 
 1. **What changes** — files and behaviour.
 2. **What is deliberately NOT changing** — the guarantee the requester is actually buying.
+   When the request carries a MUST NOT CHANGE line, it seeds this list verbatim; the plan may
+   add to it, never subtract.
 3. **Regression risks and their mitigations** — from B2, each with the test that covers it.
 
-If the change is visual or interactive, add a mini design pass **scoped to the touched area
-only**. An enhancement is not a licence to redesign the screens around it.
+**The correction design pass (mandatory when the change is visual or interactive).** This is
+Track A's design discipline, **scoped to the touched area only** — an enhancement is not a
+licence to redesign the screens around it, but a smaller canvas does not waive the obligations
+on it. The plan states, explicitly:
+
+| Obligation | What the plan must contain |
+|---|---|
+| States | For the touched area: empty · loading · error · offline · permission-denied — what each renders, or N/A per state with a reason |
+| Both themes | What the touched surfaces render as in light AND dark, **semantic tokens only** — never "it will inherit" |
+| Strings | The string table for every string this change adds or alters (surface · placement · final string) |
+| Permissions | Does who-can-see-or-do change? If yes, the five RBAC questions; if no, say so |
+
+The design gaps that force a second correction live exactly here: a correction built without
+this pass ships the happy path in one theme and leaves every other state to be discovered by
+the requester — who then files the next correction. Skipping the pass requires the claim
+**"not visual"**, and the diff review in B6 checks that claim against the files actually
+touched.
 
 **Copy scope (the freeze rule).** Only strings this change *adds*, or whose meaning it
 genuinely alters, get new wording. Every other string on the touched screen stays exactly as
@@ -98,7 +129,12 @@ any entry depends on.
 ## B6 — Verify
 
 **Diff review: every changed line must trace to the request.** A line you cannot justify is
-either an unrequested change or a mistake, and both are worth finding before merge.
+either an unrequested change or a mistake, and both are worth finding before merge. If the
+plan claimed **"not visual"**, verify it here: a diff touching anything rendered voids the
+claim, and the B4 correction design pass runs before this change proceeds.
+
+If the change is visual: **render and look at the touched area, in both themes**, before
+calling it done. "The build compiled" is not evidence that text is readable.
 
 Then the close-out checklist and the test gate
 ([workflows/test-gate.md](./test-gate.md)). The blast radius from B2 defines the regression

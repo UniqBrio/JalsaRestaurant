@@ -5,7 +5,12 @@
 >
 > As a slash command: save to `.claude/commands/feature.md` and invoke `/feature <request>`.
 
-**REQUEST:** `<one line — e.g. "Bulk import for records from a spreadsheet">`
+**REQUEST:** `<one line — e.g. "Bulk import for records from a spreadsheet" — or the path of a requests/ file written by /request>`
+
+When the request is a `requests/` file: its stated fields are **binding** and are never re-asked
+at Gate 1; every field marked `unknown` becomes a Gate 1 question with a reasoned
+recommendation. VISIBLE STRINGS the requester stated verbatim enter the A3.5 string table as
+given.
 
 ---
 

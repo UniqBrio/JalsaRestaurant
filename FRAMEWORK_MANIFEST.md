@@ -22,7 +22,7 @@ list above is the authority for what gets linked, and everything under `starter/
 |---|---|
 | `CLAUDE.md` | Binding rules, read before every task |
 | `.claude/settings.json` | Wires the commit guard as a PreToolUse hook. **Committed.** |
-| `.claude/commands/*.md` | Ten slash commands — **pointers to `workflows/`, never copies** |
+| `.claude/commands/*.md` | Eleven slash commands — **pointers to `workflows/`, never copies** |
 | `.claude/agents/*.md` | Eleven review sub-agents, each with a boundary and a verdict format |
 | `.claude/hooks/pre-tool-use-guard.mjs` | Bridges the hook protocol to the git guard |
 | `.claude/hooks/adapter.test.sh` | **Executes** the adapter — a correct guard behind a broken adapter enforces nothing |
@@ -44,6 +44,7 @@ light/dark · `13` contrast and accessibility · `14` assets · `15` test cases 
 ## Runbooks — `workflows/`
 | File | Track |
 |---|---|
+| `request.md` | Intake — rough words → one binding request file in `requests/`, then STOP |
 | `feature.md` | A — new feature, gates 1–4 |
 | `enhance.md` | B — modify an existing feature |
 | `bug.md` | C — bug fix |
@@ -70,7 +71,17 @@ Eleven narrow reviewers with explicit boundaries and machine-readable verdicts.
 ## Templates — `templates/`
 `gates/` GATE1_QUESTIONS · FEASIBILITY_BRIEF · IMPLEMENTATION_PLAN
 `docs/` ADR · MODULE_DOC · ROOT_CAUSE_ENTRY · RELEASE_NOTES · AGENTS
+`requests/` REQUEST_NEW · REQUEST_CHANGE · REQUEST_BUG *(filled by `/request`, consumed by tracks A/B/C)*
 `tests/` TEST_CASE · TEST_SUMMARY
+
+## Intake ledger — `requests/`
+`README.md` *(the folder contract)* plus one committed `<date>-<slug>.md` per ask, written by
+`workflows/request.md`. Stated fields bind the consuming track; correction round N names
+round N−1's file.
+
+## Framework process cases — `tests/cases/`
+`FRAMEWORK_PROCESS_CASES.md` — manually-executed cases for the process's own behaviour
+(intake classification, binding-field discipline, the Track B correction design pass).
 
 ## Executable — `scripts/`
 | File | What it enforces |

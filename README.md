@@ -142,7 +142,7 @@ three-state theme system, and contrast enforced by construction.
 CLAUDE.md           Binding rules, read before every task.
 .claude/            THE WIRING — without this, the rest is documentation.
   settings.json       runs the commit guards in every session (committed on purpose)
-  commands/           /feature /bug /enhance /refactor /triage /brainstorm /test /gate /promote /framework-update
+  commands/           /request /feature /bug /enhance /refactor /triage /brainstorm /test /gate /promote /framework-update
   agents/             eleven review sub-agents
   hooks/              hook-protocol adapter + its executable test
 docs/               23 reference documents. Start at 00-OVERVIEW.md.
@@ -191,8 +191,8 @@ Then, in order — full detail in [docs/02](docs/02-PROJECT-INITIALIZATION.md):
 
 `.claude/` and `CLAUDE.md` come with the scaffold, so in a Claude Code session:
 
-- `/feature`, `/bug`, `/enhance`, `/refactor`, `/triage`, `/brainstorm`, `/test`, `/gate`,
-  `/framework-update` route to the canonical runbooks.
+- `/request`, `/feature`, `/bug`, `/enhance`, `/refactor`, `/triage`, `/brainstorm`, `/test`,
+  `/gate`, `/framework-update` route to the canonical runbooks.
 - Eleven review sub-agents are available, each with a boundary and a machine-readable verdict.
 - The commit guards run on **every** `git commit` and `git push`, in every session — including
   the ad-hoc fix that never opened a runbook, which is exactly where obligations get skipped.

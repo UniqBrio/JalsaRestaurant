@@ -13,8 +13,8 @@
 .claude/
 ├── settings.json                    Wires the commit guard as a PreToolUse hook. COMMITTED.
 ├── settings.local.json.example      Personal overrides. The real file is gitignored.
-├── commands/                        Slash commands: /feature /bug /enhance /refactor
-│                                    /triage /brainstorm /test /gate /framework-update
+├── commands/                        Slash commands: /request /feature /bug /enhance
+│                                    /refactor /triage /brainstorm /test /gate /framework-update
 ├── agents/                          Eleven review sub-agents, each with a boundary and a verdict
 └── hooks/
     ├── pre-tool-use-guard.mjs       Bridges the hook protocol to the git guard

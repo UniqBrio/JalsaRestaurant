@@ -56,7 +56,16 @@ a Track B change being run as a Track A one, or a Track C fix skipping root caus
 | A list of several things | **0 — Triage first** | [workflows/triage.md](../workflows/triage.md) | Queue approval, then per-item tracks |
 | No clear next action yet | **E — Brainstorm** | [workflows/brainstorm.md](../workflows/brainstorm.md) | Decision summary; no code |
 | The *process itself* failed | **F — Framework update** | [workflows/framework-update.md](../workflows/framework-update.md) | Diff approval |
+| Rough words, not yet classified | **Intake** | [workflows/request.md](../workflows/request.md) | The requester reviews the filled request file, then runs its track |
 | Unclear | Ask exactly one clarifying question, then classify. | | |
+
+**Intake is how a rough ask enters safely.** `/request` classifies the description, fills the
+matching template from `templates/requests/` using **only what the requester said** — every
+uncovered field is written as `unknown`, never invented — and stops. Stated fields bind the
+track; `unknown` fields are the questions the track must ask. The silent alternative — a track
+fed a one-liner filling the gaps itself — is where correction-on-correction loops begin: every
+silently filled gap is a design decision the requester never made, discovered only after the
+build.
 
 ---
 
