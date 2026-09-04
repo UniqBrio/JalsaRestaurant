@@ -103,6 +103,23 @@ Focus order follows visual order. On opening a dialog, focus moves to its first 
 closing, it returns to the control that opened it. Focus is a **computable** property, so it is
 automated by definition — never an eyeball check.
 
+### Keyboard parity
+The whole application is operable with the keyboard alone — every core workflow completable
+end to end, same outcomes as with a mouse. The contract:
+
+- **Tab reaches every interactive element**, in visual and functional order; **Shift+Tab**
+  walks backward as cleanly. No trap anywhere except an open dialog, which traps *by design*
+  and releases on close.
+- **Enter activates** the focused button or action; a valid form submits on Enter.
+- **Space selects** a focused tab-style control or toggle.
+
+The cheap way to get all of this right is to never build a control out of a `div`: a native
+`button` is focusable, announces its role, and activates on both Enter and Space **for free**,
+while every hand-rolled substitute must re-earn each of those separately and usually loses one
+(CP-22). A keyboard gap is invisible on every mouse-driven happy-path run, which is why the
+design dry run and the test suite each make one full pass keyboard-only rather than trusting
+per-element checks.
+
 ### Touch targets
 44 × 44 CSS pixels minimum, including padding. Available as `--layout-min-touch-target`.
 
@@ -135,6 +152,7 @@ body**. Wide content — tables, diagrams, code — scrolls inside its own conta
 | A-7 | Every interactive element has an accessible name, role and state. | Review; `check-testid-coverage.mjs` covers addressability only |
 | A-8 | `prefers-reduced-motion` collapses to the end state. | Generated CSS + review |
 | A-9 | No horizontal page scroll at 320px or 200% zoom. | Responsive test matrix (geometry cases are automated) |
+| A-10 | Every core workflow is completable keyboard-only: Tab reaches in visual order, Enter activates, Space selects tab-style controls, no trap in either direction. | `starter/tests/functional/keyboard.functional.spec.ts` (the reference shape) + `ACCESSIBILITY_CHECKLIST.md` |
 
 Items marked "review" are honest debt: they are not syntactically decidable today.
 `scripts/audits/check-rule-coverage.mjs` counts them, and the count is ratcheted downward.

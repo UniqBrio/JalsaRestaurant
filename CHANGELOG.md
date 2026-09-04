@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0 — the design release
+
+The design stage becomes a design-intelligence layer. New: docs/24 (the planning method —
+discovery, infer/investigate/ask, IA-first placement, the ten-stage pipeline, scoring),
+docs/23 (the craft bar and the anti-gimmick rule), the 18-area design-quality checklist with
+verdict + evidence and a validate→refine→re-validate loop (Gate 3 sees Production-ready or
+better), the armed DESIGN_RULES register, the three-interaction budget, named primary actions,
+contextual dialogs, keyboard parity (CP-22, A-10, Space selects tabs, a reference spec), and
+the Claude Design canvas as a Gate 3 deliverable. Simplify the experience, not the capability.
+See `UPGRADES.md`.
+
 ## 1.6.0 — one command, end to end
 
 `/request` now continues into the classified track after writing the request file — for every

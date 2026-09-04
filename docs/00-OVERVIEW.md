@@ -51,6 +51,8 @@ Both are explained in [01-SDLC.md](./01-SDLC.md) and
 | [08-CLOUD-INTEGRATION.md](./08-CLOUD-INTEGRATION.md) | Migrations, functions, jobs, webhooks, third-party APIs. |
 | [09-CODE-QUALITY.md](./09-CODE-QUALITY.md) | Surgical discipline, diagnostic discipline, review. |
 | [10-DOCUMENTATION-STANDARDS.md](./10-DOCUMENTATION-STANDARDS.md) | Modules, registers, the copy layer. |
+| [23-DESIGN-CRAFT.md](./23-DESIGN-CRAFT.md) | The bar: what separates working from crafted — and the anti-gimmick rule. |
+| [24-DESIGN-PLANNING.md](./24-DESIGN-PLANNING.md) | The method: discovery, IA-first, the pipeline, scoring, the iteration loop. |
 
 ### Appearance — colours, themes, contrast, assets
 | | |
@@ -90,13 +92,13 @@ session. See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md). Without this the rest i
 [framework update](../workflows/framework-update.md)
 
 ### The point-of-use checks
-`checklists/` — screen · definition of done · code review · security · accessibility ·
-release readiness · business readiness · manual test
+`checklists/` — screen · design quality *(the Gate 3 judge)* · definition of done ·
+code review · security · accessibility · release readiness · business readiness · manual test
 
 ### The living registers
-`docs/registers/` — root causes · canonical patterns · known limitations · permissions ·
-feature truth · product lexicon · AI governance · candidates (promotion parking lot) ·
-environments · test accounts · technical debt · decisions
+`docs/registers/` — root causes · canonical patterns · design rules · known limitations ·
+permissions · feature truth · product lexicon · AI governance · candidates (promotion parking
+lot) · environments · test accounts · technical debt · decisions
 
 ---
 

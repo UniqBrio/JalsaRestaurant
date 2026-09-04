@@ -31,6 +31,7 @@
 | CP-18 | Bulk selection | Opt-in mode · scope is the **visible** set · the write shape follows the failure shape (partial failure must be reportable per item). | `src/components/BulkBar.tsx` |
 | CP-19 | Visual emphasis | A filled or coloured control is a semantic claim. Peers share one treatment; at most one is primary. | `src/components/BulkBar.tsx` · prose: [docs/04](../04-ARCHITECTURE-AND-DESIGN.md#5-interface-design) |
 | CP-20 | Theme-aware assets | CSS-driven variant switching, never JavaScript. One variant carries the alt text. | `src/theme/ThemedImage.tsx` |
+| CP-22 | Keyboard operability | Every interactive control is a real focusable element — a native `button`, link or input, never a `div` with a click handler — so Tab reaches it, Enter activates it, and Space selects tab-style controls **for free**. Core workflows are completable keyboard-only, verified by one full keyboard pass. `rung: starter/tests/functional/keyboard.functional.spec.ts` | `src/components/TabRow.tsx` · `src/components/Dialog.tsx` |
 | CP-21 | Wide tables | More than **three** columns means the user chooses which columns show and in what order, and the choice **persists**. Reorder with buttons, never drag-only. A column the table is unreadable without is `required` — reorderable, never hideable. `rung: scripts/audits/check-column-control.mjs` (floor: literal `<th>` tables only; dynamic tables are a review item) | `src/components/ColumnControl.tsx` · `src/hooks/useColumnPrefs.ts` |
 
 ---

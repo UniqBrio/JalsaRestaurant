@@ -23,7 +23,12 @@
       replacement makes the application unusable by keyboard.
 - [ ] Dialogs trap focus, focus the first field on open, and **return focus** to the opener on
       close.
-- [ ] Escape closes a dismissible dialog. No keyboard trap anywhere.
+- [ ] Escape closes a dismissible dialog. No keyboard trap anywhere; Shift+Tab walks backward
+      as cleanly as Tab walks forward.
+- [ ] Enter activates the focused button or action; Space selects a focused tab-style control
+      or toggle. A native `button` gives both keys free — a styled `div` gives neither (CP-22).
+- [ ] Every core workflow is completable keyboard-only, end to end, with the same outcomes as
+      by mouse — verified by one full keyboard-only pass, not per-element checks.
 
 ## Screen readers
 - [ ] Every interactive element has an accessible **name** — what a user would call it.

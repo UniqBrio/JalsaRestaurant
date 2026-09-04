@@ -99,12 +99,20 @@ on it. The plan states, explicitly:
 | Both themes | What the touched surfaces render as in light AND dark, **semantic tokens only** — never "it will inherit" |
 | Strings | The string table for every string this change adds or alters (surface · placement · final string) |
 | Permissions | Does who-can-see-or-do change? If yes, the five RBAC questions; if no, say so |
+| Keyboard | Touched controls stay Tab-reachable in visual order and Enter/Space-operable; the changed flow is walked once keyboard-only (CP-22, A-10) |
 
 The design gaps that force a second correction live exactly here: a correction built without
 this pass ships the happy path in one theme and leaves every other state to be discovered by
 the requester — who then files the next correction. Skipping the pass requires the claim
 **"not visual"**, and the diff review in B6 checks that claim against the files actually
 touched.
+
+For a **visual-change** scope, additionally run the touched areas of
+[checklists/DESIGN_QUALITY_CHECKLIST.md](../checklists/DESIGN_QUALITY_CHECKLIST.md) — verdicts
+with evidence, scoped to the surfaces this change touches — and where the change reshapes a
+screen (a consolidation, a new layout), a Claude Design canvas of the result is worth its
+cost at plan approval, exactly as at Gate 3. A correction is *more* likely than a feature to
+ship a design gap, because nobody budgeted design time for it.
 
 **Copy scope (the freeze rule).** Only strings this change *adds*, or whose meaning it
 genuinely alters, get new wording. Every other string on the touched screen stays exactly as

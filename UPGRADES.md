@@ -12,6 +12,69 @@
 
 ---
 
+## 1.7.0 — 04-Sep-2026 — MINOR
+
+**The design release: the design stage becomes a design-intelligence layer.** Motivated by a
+real adoption failure: simple design corrections were missed or misaligned with standards,
+designs shipped as first drafts, and the design QA was effectively outsourced to the
+requester — who paid for it in correction rounds. Built to the owner's Design Intelligence
+Blueprint (04-Sep-2026) as the reference specification.
+
+### Added
+- **`docs/24-DESIGN-PLANNING.md`** — the method: the discovery inventory and inspect-first
+  order; the infer/investigate/ask question framework ("ask only high-value questions", with
+  good and bad examples); the design-plan structure; the IA-first placement table
+  (tab/page/section/dialog/drawer/inline/disclosed/removed) and its anti-patterns; the
+  ten-stage screen-design pipeline with exit tests; design-system strategy
+  (reuse → extend → refactor → create); responsive planning per breakpoint; the state matrix;
+  real-world scenario validation (first-time/daily/expert/keyboard-only/role/dataset/failure
+  lenses); the iteration loop; the scoring model
+  (Basic → Acceptable → Production-ready → High quality → Exceptional).
+- **`docs/23-DESIGN-CRAFT.md`** — the bar: the wow factor decomposed into checkable
+  mechanisms; IA and grouping; consolidation rules (**simplify the experience, not the
+  capability** — nothing lost · logical groups · internal structure · scales); visual
+  hierarchy; information density; flows; interaction craft; the polish pass; the
+  **anti-gimmick rule** (no unnecessary animation/gradients/cards/colour/shadows/icons —
+  sophistication through simplicity); ask-instead-of-assume.
+- **`checklists/DESIGN_QUALITY_CHECKLIST.md`** — the judge: 18 areas (user flow → overall UX
+  quality), each requiring a verdict (PASS · NEEDS-IMPROVEMENT · CRITICAL) **with evidence**;
+  the validate → refine → re-validate protocol; the output verdict table that travels to
+  Gate 3 and is re-run on the rendered screens.
+- **`docs/registers/DESIGN_RULES.md`** — armed, empty: design lessons promoted via
+  `/promote` land here as DR rows with enforcement rungs, so repeated design mistakes are
+  prevented by process, not memory. Already parsed by `check-rule-coverage.mjs`.
+- **Interaction principles** in `docs/04 §5`: navigation predictability, the
+  **three-interaction budget** (counted in the scenario dry run, never estimated), one named
+  primary action per screen, quick actions in contextual dialogs (substitution row added).
+- **Keyboard parity** as a first-class contract: `docs/13 §4` (Tab/Shift+Tab order, Enter
+  activates, **Space selects tab-style controls**, no traps, keyboard-only workflow parity),
+  rule A-10, **CP-22** (real buttons, never div-as-button — Enter and Space come free), and
+  the executable reference shape `starter/tests/functional/keyboard.functional.spec.ts`.
+- Gate 3 gains the **design canvas deliverable**: where the environment provides Claude
+  Design (`/design`), the key screens are published as a visual canvas the requester refines
+  before approving; the spec remains the binding artifact, and unavailability is stated.
+
+### Changed
+- `workflows/feature.md` — A1 runs the docs/24 discovery order (inspect first, ask only
+  high-value); A3 reframed as the design-intelligence layer with the ask-don't-assume
+  discipline; A3.8 becomes the real-data **and scenario** dry run (interactions counted, one
+  pass keyboard-only); new **A3.9 validation loop** — Gate 3 sees Production-ready or better,
+  or the blocking findings with a question; A5 drives the primary flow once keyboard-only.
+- `workflows/enhance.md` — the correction design pass gains a Keyboard row and, for
+  visual-change scope, scoped design-quality validation with optional canvas.
+- `checklists/SCREEN_CHECKLIST.md` — item 4 **merged** (cap respected: focus chain +
+  keyboard operability in one item). Still 20 items, still full.
+- `checklists/ACCESSIBILITY_CHECKLIST.md` — Enter/Space semantics, Shift+Tab, and the
+  keyboard-only end-to-end pass.
+- `docs/01-SDLC.md` Stage 3 — Interaction and Validation-loop passes added to the table.
+
+### App action required
+**None.** All additions are process guidance and an advisory reference spec; no gate,
+baseline, or guard changed. The keyboard spec arrives as a reference shape — point it at
+your own screens and observe it fail before trusting it (fail-first).
+
+---
+
 ## 1.6.0 — 04-Sep-2026 — MINOR
 
 **One command, end to end.** In 1.5.0 only the routed-out classifications flowed onward; a

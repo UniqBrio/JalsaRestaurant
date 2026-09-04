@@ -39,7 +39,7 @@ list above is the authority for what gets linked, and everything under `starter/
 `07` security · `08` cloud · `09` code quality · `10` documentation · `11` theme · `12` themes
 light/dark · `13` contrast and accessibility · `14` assets · `15` test cases · `16` testing ·
 `17` ratchets · `18` deployment · `19` AI agents · `20` glossary · `21` agent wiring ·
-`22` framework evolution
+`22` framework evolution · `23` design craft · `24` design planning
 
 ## Runbooks — `workflows/`
 | File | Track |
@@ -56,7 +56,8 @@ light/dark · `13` contrast and accessibility · `14` assets · `15` test cases 
 | `framework-update.md` | F — the process learns |
 
 ## Point-of-use checks — `checklists/`
-`SCREEN_CHECKLIST.md` *(capped at 20 items)* · `DEFINITION_OF_DONE.md` ·
+`SCREEN_CHECKLIST.md` *(capped at 20 items)* · `DESIGN_QUALITY_CHECKLIST.md` *(the Gate 3
+judge — 18 areas, verdict + evidence each)* · `DEFINITION_OF_DONE.md` ·
 `CODE_REVIEW_CHECKLIST.md` · `SECURITY_CHECKLIST.md` · `ACCESSIBILITY_CHECKLIST.md` ·
 `RELEASE_READINESS.md` · `BUSINESS_READINESS.md` · `MANUAL_TEST_CHECKLIST.md`
 
@@ -64,9 +65,10 @@ light/dark · `13` contrast and accessibility · `14` assets · `15` test cases 
 Eleven narrow reviewers with explicit boundaries and machine-readable verdicts.
 
 ## Registers — `docs/registers/`
-`ROOT_CAUSE_REGISTER.md` · `CANONICAL_PATTERNS.md` · `KNOWN_LIMITATIONS.md` · `RBAC_MATRIX.md` ·
-`FEATURE_TRUTH.md` · `PRODUCT_LEXICON.md` · `AI_GOVERNANCE.md` · `ENVIRONMENTS.md` ·
-`TEST_ACCOUNTS.md` · `TECH_DEBT.md` · `DECISION_LOG.md` · `CANDIDATES.md`
+`ROOT_CAUSE_REGISTER.md` · `CANONICAL_PATTERNS.md` · `DESIGN_RULES.md` ·
+`KNOWN_LIMITATIONS.md` · `RBAC_MATRIX.md` · `FEATURE_TRUTH.md` · `PRODUCT_LEXICON.md` ·
+`AI_GOVERNANCE.md` · `ENVIRONMENTS.md` · `TEST_ACCOUNTS.md` · `TECH_DEBT.md` ·
+`DECISION_LOG.md` · `CANDIDATES.md`
 
 ## Templates — `templates/`
 `gates/` GATE1_QUESTIONS · FEASIBILITY_BRIEF · IMPLEMENTATION_PLAN

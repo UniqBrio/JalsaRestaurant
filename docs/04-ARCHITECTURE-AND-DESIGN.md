@@ -89,12 +89,35 @@ event*, and only the database can reliably tell them apart.
 When several designs work, choose the one with fewest taps. The most common case should need
 **zero** actions — the right default is already selected.
 
+### Navigation is predictable
+A user should be able to guess where a thing lives before looking. Screens in one area mount,
+navigate back, and carry chrome the way their siblings do; an entry point is named with the
+word the user would say (the lexicon), not the word the code uses; and nothing moves between
+visits. Every surprising placement is paid for on every visit, forever.
+
+### The three-interaction budget
+A key action or key piece of information is reachable within **three interactions** of where
+the user starts, wherever practical. This is a *measured* number, not a mood: the design
+stage's scenario dry run counts the taps for the most frequent real scenarios. A scenario
+over budget is a design finding with exactly two honest resolutions — remove a step (a
+confirmation that could be an undo, a screen that could be a contextual dialog, a navigation
+hop that could be an action at the point of need), or state in the design why the longer path
+is deliberate (a wizard that prevents expensive errors may earn its steps). What is not
+allowed is silently shipping the fourth and fifth click because nobody counted.
+
+### Every screen names its primary action
+Each screen states, in its design spec, the ONE thing a user most often comes there to do —
+and renders it unmistakably (see *Emphasis is a claim*: at most one primary). If no primary
+action can be named, that is a finding about the screen, not an exemption: either it is a
+read-only surface and says so, or it is two screens wearing one route.
+
 ### Substitute before you add
 | Instead of | Use |
 |---|---|
 | N buttons per row | a swipe/context action + a smart default |
 | dropdown + "add new" dialog | a type-to-create combobox |
 | a separate edit screen | inline edit |
+| a separate screen for a quick action | a small contextual dialog at the point of need |
 | a confirmation dialog | immediate action + undo *(destructive excepted)* |
 | a long form | smart defaults + progressive disclosure |
 

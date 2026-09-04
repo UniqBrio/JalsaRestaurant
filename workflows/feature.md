@@ -36,6 +36,12 @@ not reviewed them yet; a correction there updates the request file before anythi
 
 ## A1 — Requirements discovery → GATE 1
 
+Run discovery in the [docs/24-DESIGN-PLANNING.md](../docs/24-DESIGN-PLANNING.md) order:
+**inspect first** (registers, design system, sibling screens, real data), then ask only what
+inspection cannot answer, using its infer / investigate / ask framework — high-value questions
+that materially affect architecture, UX, business logic or implementation; never a question
+the codebase already answers.
+
 Produce an adaptive questionnaire. **One question, or one tight group, at a time.** Skip
 anything the loaded context already answers.
 
@@ -86,7 +92,18 @@ verdict with no way forward is an incomplete brief.
 
 ## A3 — Design (specification only) → GATE 3
 
-A design run produces documents. **It writes no application code and touches no database.**
+A design run produces documents and, where the environment provides the Claude Design canvas,
+a visual design. **It writes no application code and touches no database.**
+
+This stage is the framework's **design-intelligence layer**, not a formality between gates:
+it follows the method in [docs/24-DESIGN-PLANNING.md](../docs/24-DESIGN-PLANNING.md) (IA
+before screens, journeys before layout, patterns before pixels), holds the bar in
+[docs/23-DESIGN-CRAFT.md](../docs/23-DESIGN-CRAFT.md), and does not finish until the
+validation loop (A3.9) grades the design **Production-ready or better**. Its governing
+principle: **simplify the experience, not the capability.** And its question discipline is
+Gate 1's: a design decision that materially affects the experience — conflicting
+requirements, several defensible directions, a constraint forcing a visible trade-off — goes
+to the requester as a question with a recommendation, never a silent assumption.
 
 ### A3.1 Reuse first
 List the existing components this feature will use. A new component requires a written
@@ -100,6 +117,7 @@ Run the substitution table before adding any control:
 | N action buttons per row | a swipe/context action + a smart default |
 | dropdown + "add new" dialog | a type-to-create searchable combobox |
 | a separate edit screen | inline tap-to-edit |
+| a separate screen for a quick action | a small contextual dialog at the point of need |
 | a confirmation dialog | immediate action + undo (destructive actions excepted) |
 | a long form | smart defaults + progressive disclosure |
 | a global menu action | a context action at the point of need |
@@ -107,6 +125,15 @@ Run the substitution table before adding any control:
 **Fewest actions wins.** The most common case should need zero actions — the right default is
 already selected. Any gesture needs a discoverability cue, an undo path and a non-gesture
 fallback; never gesture-only.
+
+**The three-interaction budget** ([docs/04 §5](../docs/04-ARCHITECTURE-AND-DESIGN.md)): every
+key action and key piece of information sits within three interactions of where the user
+starts, wherever practical — counted, in A3.8's scenario walk, never estimated. Over budget
+means remove a step or state in the design why the longer path is deliberate.
+
+**Name the primary action of every screen** in the spec — the one thing a user most often
+comes there to do, rendered unmistakably, with at most one primary treatment. A screen whose
+primary action cannot be named is a finding, not an exemption.
 
 ### A3.3 Every state, every screen
 Empty · loading · error · offline · partial-data · permission-denied · first-run.
@@ -143,15 +170,42 @@ certificate — is a **product surface**, designed with the same rigour as a scr
 instructions for a non-technical user; sample data unmistakably marked as sample and separable
 from real input; editable areas explicit; multi-row semantics defined.
 
-### A3.8 Real-data dry run (before Gate 3)
+### A3.8 Real-data and scenario dry run (before Gate 3)
 Walk the design against 8–10 realistic records as a real user would produce them — including a
 duplicate, a missing required field, a mistyped value, and one record at the top of the size
 range. A design never exercised against realistic data is not ready.
 
-**Deliverable:** `DESIGN_SPEC_<feature>.md` — flow, screen hierarchy, every state, prescribed
-interaction patterns, exact token names, real component names, accessibility (focus order,
-labels, contrast, non-gesture fallbacks), and responsive behaviour from the narrowest supported
-width upward.
+Then walk the **3–5 most frequent real scenarios** end to end — "record a payment", "find last
+month's report", whatever this feature actually exists for — **counting the interactions**
+against the three-interaction budget, and make **one full pass keyboard-only** (Tab, Enter,
+Space — [docs/13 §4](../docs/13-CONTRAST-AND-ACCESSIBILITY.md)). A scenario over budget or a
+step that needs a pointer is a design gap to fix here, at the price of a sentence — the same
+gap found after the build is the next correction round.
+
+### A3.9 Design validation loop (before Gate 3)
+
+Run [checklists/DESIGN_QUALITY_CHECKLIST.md](../checklists/DESIGN_QUALITY_CHECKLIST.md) —
+all 18 areas, each with a verdict (PASS · NEEDS-IMPROVEMENT · CRITICAL) **and one line of
+evidence**, never a bare tick. Fix the findings, re-run the affected areas, and compute the
+grade ([docs/24 §11](../docs/24-DESIGN-PLANNING.md)). Iterate while critical or repeated
+findings remain: **Design → render/canvas → inspect → identify → refine → re-validate.**
+
+Gate 3 sees a design graded **Production-ready or better** — or it sees the specific blocking
+findings with a question for the requester. A first draft presented as final outsources the
+design QA to the requester, which is the exact failure this loop exists to end.
+
+**Deliverables:**
+
+1. `DESIGN_SPEC_<feature>.md` — flow, screen hierarchy, every state, prescribed
+   interaction patterns, exact token names, real component names, accessibility (focus order,
+   labels, contrast, non-gesture fallbacks), and responsive behaviour from the narrowest
+   supported width upward. **The spec is the binding artifact.**
+2. **The design canvas** — where the environment provides the Claude Design capability
+   (`/design`), publish a canvas of the key screens — both themes, the states that matter —
+   so the requester *sees* the design and can refine it visually before approving. Where the
+   capability is unavailable, say so and the spec stands alone.
+3. **The completed DESIGN QA verdict table** (checklist output format), including the grade
+   and the iteration count.
 
 → **GATE 3: STOP. The requester approves the design.**
 
@@ -210,6 +264,8 @@ Produce `IMPLEMENTATION_PLAN_<feature>.md` from
   the ✅/❌/N-A list. Any ❌ means not done.
 - **Render and look at every new screen, in both themes, before calling it done.** "The build
   compiled" is not evidence that text is readable.
+- **Drive the primary flow once keyboard-only** — Tab, Enter, Space, no pointer. A flow that
+  needs a mouse is unfinished (CP-22, rule A-10).
 
 ---
 

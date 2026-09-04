@@ -19,8 +19,11 @@ button — the user cannot tell whether it is broken or they are.
 **3.** Sensible max lengths. Formatted fields use the shared component. Date fields open the
 shared picker and render one canonical display format.
 
-**4.** Focus chain: the first field is auto-focused; a searchable dropdown focuses its search
-input on open; Enter submits when the form is valid.
+**4.** Keyboard-complete *(merged 04-Sep-2026: focus chain + keyboard operability, one item)*:
+the screen is fully operable by keyboard — Tab reaches every control in visual order with a
+visible focus ring, Enter activates and submits when valid, Space selects tab-style controls,
+no trap. Focus chain: the first field is auto-focused; a searchable dropdown focuses its
+search input on open.
 
 ## Navigation
 

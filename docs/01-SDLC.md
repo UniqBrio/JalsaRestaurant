@@ -141,8 +141,13 @@ and trade-offs. A dead-end verdict with no way forward is an incomplete brief.
 
 ### Stage 3 — Design → **GATE 3**
 
-Specification only. A design run produces documents; it does not write application code and
-does not touch a database.
+Specification only. A design run produces documents — and, where the Claude Design canvas is
+available, a visual design the requester can refine before approving. It does not write
+application code and does not touch a database. The method is
+[24-DESIGN-PLANNING.md](./24-DESIGN-PLANNING.md); the bar is
+[23-DESIGN-CRAFT.md](./23-DESIGN-CRAFT.md); the governing principle is **simplify the
+experience, not the capability**; and design decisions that materially affect the experience
+go to the requester as questions with recommendations, never silent assumptions.
 
 Mandatory passes:
 
@@ -151,11 +156,13 @@ Mandatory passes:
 | Reuse | Which existing components this uses. A new component needs a justification. | [09](./09-CODE-QUALITY.md) |
 | Simplification | The simplest pattern that keeps the functionality. Substitute before you add. | [09](./04-ARCHITECTURE-AND-DESIGN.md) |
 | States | Empty, loading, error, offline, partial, permission-denied — for every screen. | [checklists/SCREEN_CHECKLIST.md](../checklists/SCREEN_CHECKLIST.md) |
+| Interaction | Navigation predictable · key actions within the three-interaction budget · one named primary action per screen · quick actions in contextual dialogs, not separate screens · keyboard parity. | [04 §5](./04-ARCHITECTURE-AND-DESIGN.md), [13 §4](./13-CONTRAST-AND-ACCESSIBILITY.md) |
 | Themes | Semantic tokens only. Both themes specified. Contrast pairs declared. | [11](./11-THEME-AND-COLOR-SYSTEM.md), [13](./13-CONTRAST-AND-ACCESSIBILITY.md) |
 | Assets | Per-theme logo/illustration variants decided *here*, not at build. | [14](./14-LOGO-AND-IMAGE-ASSETS.md) |
 | Copy | Every visible string authored now, from the approved lexicon. | [18](./10-DOCUMENTATION-STANDARDS.md#the-copy-layer) |
 | Permissions | The five RBAC questions answered in the design. | [07](./07-SECURITY-AND-PRIVACY.md) |
-| Real-data dry run | Walk the design against 8–10 realistic records, including a duplicate, a missing field and a typo. | — |
+| Real-data + scenario dry run | Walk the design against 8–10 realistic records (a duplicate, a missing field, a typo) AND the most frequent scenarios — interactions counted against the budget, one pass keyboard-only. | [24 §9](./24-DESIGN-PLANNING.md) |
+| Validation loop | All 18 areas of the design-quality checklist, verdict + evidence each; refine and re-validate; Gate 3 sees **Production-ready or better**, or the findings with a question. | [checklists/DESIGN_QUALITY_CHECKLIST.md](../checklists/DESIGN_QUALITY_CHECKLIST.md), [24 §10–11](./24-DESIGN-PLANNING.md) |
 
 → **GATE 3: the requester approves the design.**
 
