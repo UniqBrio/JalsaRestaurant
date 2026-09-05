@@ -126,7 +126,12 @@ Binding rules, in order of how expensive their violation is:
 2. Report, briefly: the classification and why, the file path, and every field left `unknown`.
 3. **Continue directly into the classified track with the file — in this same run.** Do not
    ask the requester to run a second command.
-4. **The field review happens at the track's first gate, not here.** The first stop the track
+4. **Capture the run mode.** If the description says how to run — "don't wait for approvals",
+   "confirm each step" — record `RUN MODE: auto` or `confirm` in the file; say nothing and the
+   default (`auto`, [docs/01 §Run modes](../docs/01-SDLC.md)) applies. In auto mode the
+   FIELDS restatement below lands at the top of the run report instead of waiting at a gate —
+   stated fields bind identically in both modes.
+5. **The field review happens at the track's first gate, not here.** The first stop the track
    presents (Track A's Gate 1 questionnaire, Track B's B3 questions or B4 plan, Track C's
    root-cause statement) MUST restate the request file's FIELDS verbatim at the top, marked
    "from your request — correct anything wrong". A wrong classification or a wrong binding

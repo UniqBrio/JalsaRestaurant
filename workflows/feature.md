@@ -31,6 +31,16 @@ not reviewed them yet; a correction there updates the request file before anythi
    automated target.
 6. State your **assumptions** before acting. Where the request admits two readings, present
    both rather than silently choosing one.
+7. **Declare the run mode and the scale** ([docs/01 §Run modes](../docs/01-SDLC.md)) — one
+   line each. Mode: `auto` (default — gates 1–4 are checkpoints with an ASSUMPTIONS ledger)
+   or `confirm` (each gate waits). Scale: `scoped` (≤5 files, no schema change beyond
+   additive columns, no new navigation area, no new shared component) or `full`. A scoped
+   run produces ONE combined `RUN_<feature>.md` in place of the four gate artifacts and
+   skips A2 unless build-vs-buy is a real question — the obligations are identical, the
+   packaging shrinks.
+8. **Speed discipline.** Read each register once per run, not once per stage. Artifacts are
+   terse tables, not essays — never restate the runbook, never re-derive what an earlier
+   stage established. Independent checks run together, not in sequence.
 
 ---
 
@@ -64,7 +74,10 @@ Two mandatory items:
 Deliver as `templates/gates/GATE1_QUESTIONS.md`:
 `Question | Why it matters | Options | Recommendation | Answer`
 
-→ **GATE 1: STOP. The requester answers.** Do not proceed on assumptions.
+→ **GATE 1 — confirm mode: STOP, the requester answers. Auto mode:** take each written
+recommendation as the answer, log it to the ASSUMPTIONS ledger, and proceed — a stated FIELD
+is never overridden, and a hard-stop question ([docs/01 §Run modes](../docs/01-SDLC.md))
+still waits.
 
 ---
 
@@ -86,7 +99,9 @@ blocked by cost or a platform ceiling, the brief MUST offer at least one feasibl
 descoped, phased, or different tooling — each with its own cost and trade-offs. A dead-end
 verdict with no way forward is an incomplete brief.
 
-→ **GATE 2: STOP. The requester approves the direction.**
+→ **GATE 2 — confirm mode: STOP for approval. Auto mode:** a *Build now* verdict proceeds,
+logged; *Defer / Drop / Buy* or a real build-vs-buy fork is a hard stop. (Scoped scale: this
+stage is one paragraph inside `RUN_<feature>.md` unless build-vs-buy is real.)
 
 ---
 
@@ -207,7 +222,11 @@ design QA to the requester, which is the exact failure this loop exists to end.
 3. **The completed DESIGN QA verdict table** (checklist output format), including the grade
    and the iteration count.
 
-→ **GATE 3: STOP. The requester approves the design.**
+→ **GATE 3 — confirm mode: STOP for approval. Auto mode:** a design graded
+**Production-ready or better** proceeds, verdict table logged; a lower grade or a material
+design fork (docs/24 §2 hard triggers) is a hard stop. The canvas is produced in confirm
+mode and on request; in auto mode it is skipped by default — it exists for a human review
+that auto defers to the run report.
 
 ---
 
@@ -245,7 +264,9 @@ Produce `IMPLEMENTATION_PLAN_<feature>.md` from
 - The test plan, by dimension (functional · responsive · performance · security).
 - Rollback plan.
 
-→ **GATE 4: STOP. The requester approves the plan before any code is written.**
+→ **GATE 4 — confirm mode: STOP for approval before any code. Auto mode:** log the plan and
+start the build immediately. Hard stops regardless of mode: a destructive or non-additive
+migration, removing or reshaping an existing capability, anything on the safety floor.
 
 ---
 
@@ -279,4 +300,11 @@ and deliver that tier's outputs. Then discharge every obligation in
 **Nothing merges without an explicit PASS.**
 
 On PASS: merge, deploy to preview, report the preview URL. Automation stops there — production
-promotion is a separate approved step.
+promotion is a separate approved step, **in every run mode**.
+
+**The auto-mode run report** (delivered with the preview URL): the FIELDS restated from the
+request file · the ASSUMPTIONS ledger — every decision taken at a checkpoint, with its
+recommendation and why · the gate artifacts (or the one combined `RUN_<feature>.md`) · the QA
+verdict table · the gate result. The review the gates deferred happens here, with everything
+on one screen — and anything the requester corrects becomes the next `/request`, round 2,
+with the ledger showing exactly which assumption missed.

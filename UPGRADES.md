@@ -12,6 +12,48 @@
 
 ---
 
+## 1.9.0 — 05-Sep-2026 — MINOR
+
+**The speed release: run modes and proportional ceremony.** Root-cause finding from a real
+comparison (a bulk-import feature: ~40 minutes here vs ~5 minutes in the owner's previous
+lighter flow): (1) Track A blocked **four times** waiting for a human — the synchronous
+round-trips, not the work, dominated wall-clock; (2) every feature ran maximum ceremony —
+four separate gate artifacts, the full 18-area loop, a canvas — regardless of size; (3) prose
+restated and registers re-read across stages.
+
+### Added
+- **Run modes** (`docs/01` §Run modes). **auto** *(new default)*: gates 1–4 become
+  checkpoints — the artifact is produced in full, open decisions are taken on the written
+  recommendation and logged to the run's **ASSUMPTIONS ledger**, and the run proceeds
+  immediately. **confirm**: the pre-1.9.0 behaviour, every gate waits — chosen with
+  `RUN MODE: confirm` in the request file or by saying so. Auto moves the review to the end
+  (the run report: FIELDS + ledger + artifacts + QA verdicts + preview URL); it never removes
+  it. Stated request FIELDS bind identically in both modes.
+- **Hard stops that survive auto**: destructive/hard-to-reverse operations, capability
+  removal or reshaping, the safety floor, outbound sends, production (Gate 6 is human in
+  every mode), and genuine expensive forks. The mechanical test gate blocks in every mode.
+- **Proportional ceremony**: the run declares its **scale** at Step 0. A *scoped* feature
+  (≤5 files, additive-only schema, no new nav area or shared component) produces ONE combined
+  `RUN_<feature>.md` instead of four gate artifacts, skips the feasibility brief unless
+  build-vs-buy is real, and skips the canvas in auto mode. Obligations identical — states,
+  themes, keyboard, verdicts all still checked — only the packaging shrinks.
+- **Speed discipline** (Track A Step 0): registers read once per run, terse tables over
+  prose, no restating, independent checks batched.
+
+### Changed
+- `workflows/feature.md` (Step 0 items 7–8, gates 1–4, close-out run report),
+  `workflows/enhance.md` (B3/B4), `workflows/refactor.md` (D0), `workflows/request.md`
+  (RUN MODE capture), both request templates (RUN MODE field + standing instructions),
+  `docs/01-SDLC.md`, `README.md`, `.claude/commands/feature.md`. Cases FW-MODE-001..004.
+
+### App action required
+**None mechanically — but note the default changed:** a run with no `RUN MODE` stated now
+proceeds through gates 1–4 without waiting. Any requester who wants the old behaviour writes
+`RUN MODE: confirm` in the request file or says so. Production approval and the test gate
+are unchanged in every mode.
+
+---
+
 ## 1.8.0 — 05-Sep-2026 — MINOR
 
 **A new app can now be born through `/request`.** Audit finding: a whole-new-application ask

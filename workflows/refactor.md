@@ -11,7 +11,8 @@
 Refactors expand. State the boundary up front and get it approved:
 what moves, what does not, and what "done" looks like.
 
-→ **GATE: the requester approves the scope before you start.**
+→ **GATE — confirm mode: the requester approves the scope. Auto mode:** log the scope
+statement and proceed; growing the scope mid-run is a hard stop in any mode.
 
 ---
 

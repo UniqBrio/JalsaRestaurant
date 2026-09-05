@@ -19,12 +19,13 @@ Run **Track B** ([workflows/enhance.md](../../workflows/enhance.md)) with this r
 - SCREENS & STATES TOUCHED: `<which screens, and which of empty · loading · error · offline · permission-denied the change affects>`
 - STRINGS ADDED OR ALTERED: `<the requester's exact words where given — everything else on the screen is frozen (the freeze rule)>`
 - PERMISSIONS: `<does who-can-see-or-do change? yes / no / unknown>`
+- RUN MODE: `<auto (default: plan is logged, not awaited) | confirm (plan waits for approval)>`
 
 ## STANDING INSTRUCTIONS (do not edit)
 - Track B is SURGICAL: read the actual current files first (B1), run the impact analysis with
-  the sibling call-site sweep (B2) BEFORE proposing, present the plan with regression risks
-  (B4), wait for approval, then apply — touching only what DESIRED BEHAVIOUR requires. Every
-  changed line must trace to this request.
+  the sibling call-site sweep (B2) BEFORE proposing, produce the plan with regression risks
+  (B4) — confirm mode waits for approval; auto mode (default) logs it and applies — touching
+  only what DESIRED BEHAVIOUR requires. Every changed line must trace to this request.
 - MUST NOT CHANGE seeds the plan's "deliberately NOT changing" list; the plan may add to it,
   never subtract.
 - If VISUAL?=yes, the plan carries the correction design pass (B4), scoped to the touched

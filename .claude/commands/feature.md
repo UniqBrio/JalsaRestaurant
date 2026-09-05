@@ -1,5 +1,5 @@
 ---
-description: Track A - a new feature, through four approval gates
+description: Track A - a new feature, through four gates (auto: logged checkpoints; confirm: approvals)
 ---
 
 # /feature

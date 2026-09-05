@@ -94,7 +94,7 @@ generalised principle; every business-domain detail was left behind.
 
 | Extracted practice | Where it lives here |
 |---|---|
-| Gated pipeline with human approval at requirements, feasibility, design and plan | [docs/01](docs/01-SDLC.md), [workflows/feature.md](workflows/feature.md) |
+| Gated pipeline at requirements, feasibility, design and plan — approvals in confirm mode, logged checkpoints in auto mode | [docs/01](docs/01-SDLC.md), [workflows/feature.md](workflows/feature.md) |
 | Track classification — new / enhance / fix / refactor / triage / brainstorm | [docs/01](docs/01-SDLC.md) §2 |
 | A test gate that blocks merge, with a three-valued verdict where BLOCKED is not a pass | [workflows/test-gate.md](workflows/test-gate.md) |
 | **Ratchet gates** with committed baselines — the central mechanism | [docs/17](docs/17-ENFORCEMENT-RATCHETS.md), `scripts/lib/ratchet.mjs` |
@@ -219,8 +219,9 @@ Full detail: **[docs/01-SDLC.md](docs/01-SDLC.md)**.
               ▲GATE 1       ▲GATE 2    ▲GATE 3  ▲GATE 4        ▲GATE 5  ▲GATE 6
 ```
 
-Gates 1–4 are human approvals. Gate 5 is mechanical. Gate 6 is a human approval informed by a
-mechanical parity check.
+Gates 1–4 wait for the requester in confirm mode; in auto mode (the default) they are logged
+checkpoints and the run proceeds, with hard stops for destructive or irreversible decisions.
+Gate 5 is mechanical and always blocks. Gate 6 is a human approval in every mode.
 
 Not every track runs every gate — a one-line fix runs Ground, Build, Test, Deploy. It still runs
 the test gate, because a one-line change is exactly the size that ships regressions.

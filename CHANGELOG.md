@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.0 — the speed release
+
+Run modes: **auto** (new default) turns gates 1–4 into logged checkpoints with an ASSUMPTIONS
+ledger and an end-of-run report — no waiting; **confirm** keeps the old stop-and-approve.
+Hard stops (destructive ops, capability removal, safety floor, production) and the mechanical
+test gate bind in every mode. Proportional ceremony: a scoped feature produces one combined
+RUN document instead of four gate artifacts. Root cause of the 40-minute run: four synchronous
+human waits plus uniform maximum ceremony. See `UPGRADES.md`.
+
 ## 1.8.0 — a new app can be born through /request
 
 New NEW-APP classification: a whole-new-application ask now routes through initialization

@@ -74,7 +74,8 @@ Mirroring a sibling screen means mirroring its **guards**, not just its columns.
 
 Ask only what the code and context cannot answer. One question at a time, each with a
 recommendation. A small, well-specified change often needs zero questions — asking anyway is
-friction, not diligence.
+friction, not diligence. **Auto mode** ([docs/01 §Run modes](../docs/01-SDLC.md)): take the
+recommendation, log it to the ASSUMPTIONS ledger, proceed — hard-stop questions excepted.
 
 ---
 
@@ -123,7 +124,11 @@ memory, invalidates every support answer that quoted the old word, and invalidat
 expectation that asserted it — and none of those failures show up as a red test. If you notice
 off-voice copy nearby, log it as a candidate for a dedicated copy pass; do not fix it here.
 
-→ **GATE: the requester approves the plan.**
+→ **GATE — confirm mode: STOP, the requester approves the plan. Auto mode:** log the plan
+(with its MUST-NOT-CHANGE list and regression risks) and apply immediately. Hard stops in any
+mode: anything MUST NOT CHANGE would be violated by, a destructive operation, a capability
+removal, the safety floor. The run report delivers the plan, ledger and diff for the
+deferred review.
 
 ---
 

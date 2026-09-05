@@ -11,6 +11,7 @@ Run **Track A** ([workflows/feature.md](../../workflows/feature.md)) with this r
 - MUST-HAVE in v1: `<2–5 bullets — the non-negotiables; if the requester signalled no priority, everything lands here with "requester to trim at Gate 1">`
 - EXPLICITLY OUT of v1: `<what NOT to build now — or unknown>`
 - KNOWN CONSTRAINTS: `<timing / platform / budget notes — or none stated>`
+- RUN MODE: `<auto (default: gates 1–4 are logged checkpoints) | confirm (each gate waits)>`
 
 ## DESIGN SURFACE
 <!-- A new feature is always visual unless it is a pure API/background capability - say which. -->
@@ -20,7 +21,9 @@ Run **Track A** ([workflows/feature.md](../../workflows/feature.md)) with this r
 
 ## STANDING INSTRUCTIONS (do not edit)
 - Follow Track A end-to-end: Gate 1 questions → Gate 2 feasibility → Gate 3 design → Gate 4
-  plan → build → test gate. **Stop at every gate.**
+  plan → build → test gate. **Confirm mode stops at every gate; auto mode (default) logs each
+  checkpoint's decisions to the ASSUMPTIONS ledger and proceeds — hard stops and the
+  mechanical test gate bind in every mode.**
 - Anything stated in FIELDS is binding and overrides assumptions; every `unknown` becomes a
   Gate 1 question with a reasoned recommendation — never a silent assumption.
 - Ground first (Step 0): `CLAUDE.md`, `docs/registers/KNOWN_LIMITATIONS.md`,
