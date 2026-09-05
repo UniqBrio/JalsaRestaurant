@@ -18,6 +18,9 @@
 - [ ] Dead weight deleted: the superseded module, the one-off script, the now-unimported helper.
 - [ ] Every dependency introduced was **verified to exist and be the intended package** before
       installing, and is pinned.
+- [ ] Any component built from scratch for a **baseline concern** was contributed back to
+      `docs/registers/COMPONENT_LIBRARY.md` (GAP → READY); other reusable-looking components
+      were routed through `/promote`, not silently kept app-local.
 
 ## Behaviour
 - [ ] Every state exists and was **looked at**: empty, loading, error, offline, permission-denied.

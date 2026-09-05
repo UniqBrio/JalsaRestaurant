@@ -12,6 +12,44 @@
 
 ---
 
+## 1.11.0 — 05-Sep-2026 — MINOR
+
+**The component library: discover → reuse → build the missing piece → register → reuse.**
+The same functionality was being rebuilt per app — auth flows, theme plumbing, navigation,
+shared states — costing time and breeding inconsistency. The framework already *was* a
+component library for one stack (`starter/`); what was missing was the registry, the
+lookup-before-build step, and the contribute-back loop.
+
+### Added
+- **`docs/registers/COMPONENT_LIBRARY.md`** — the central registry. §1 the **standard
+  baseline** every app includes regardless of business requirements (light+dark themes and
+  theme configuration, login/logout/forgot/reset, navigation shell, shared states, data
+  plumbing, safety defaults) — the advisor pass places these in Must-Have automatically and
+  spends no research on them. §3 implementations **keyed by stack**: the reference stack
+  (`typescript-react-postgres`) seeded from `starter/` with honest **GAP** rows for what is
+  wanted but not yet built (login/logout screens, forgot/reset flow, header/footer shell,
+  common forms) — a row is a claim that working code exists, never an intention. New stacks
+  get their own subsection pointing at one implementation repository each.
+- **The lookup order** (feature.md A3.1, docs/24 §6): this app → the library for this stack →
+  build. Rebuilding a registered component is a defect — the CANONICAL_PATTERNS rule applied
+  to components.
+- **The contribute-back loop** (registry §4, promote.md, DoD): a component built for a
+  *baseline* concern is generalized (lexicon-grep clean), registered, and its GAP row flipped
+  READY **in the same change** — baseline concerns were declared common in advance, so they
+  skip the rule of three. Every other reusable-looking component still goes through
+  `/promote` (park n=1, promote at n=2 from a different app) — the museum-of-accidents guard
+  stands.
+- `docs/02` step 2: a non-reference stack reads the registry first; unbuilt baseline concerns
+  are built once against the same standards and contributed back, so the next app on that
+  stack starts where this one finished.
+- Cases FW-LIB-001..003; a DoD item carries the contribute-back obligation.
+
+### App action required
+**None.** Reference-stack apps already receive the library via the scaffold; the registry
+makes it discoverable and gives its gaps a place to close.
+
+---
+
 ## 1.10.0 — 05-Sep-2026 — MINOR
 
 **The product-advisor pass.** For a new application or a new module there is no codebase to

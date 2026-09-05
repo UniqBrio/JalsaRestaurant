@@ -66,6 +66,7 @@ Eleven narrow reviewers with explicit boundaries and machine-readable verdicts.
 
 ## Registers — `docs/registers/`
 `ROOT_CAUSE_REGISTER.md` · `CANONICAL_PATTERNS.md` · `DESIGN_RULES.md` ·
+`COMPONENT_LIBRARY.md` *(stack-keyed reusable implementations + the standard baseline)* ·
 `KNOWN_LIMITATIONS.md` · `RBAC_MATRIX.md` · `FEATURE_TRUTH.md` · `PRODUCT_LEXICON.md` ·
 `AI_GOVERNANCE.md` · `ENVIRONMENTS.md` · `TEST_ACCOUNTS.md` · `TECH_DEBT.md` ·
 `DECISION_LOG.md` · `CANDIDATES.md`

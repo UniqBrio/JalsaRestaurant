@@ -24,6 +24,14 @@ cd ../my-app && npm install
 Or copy `starter/` and adapt. The starter is a **shape**, not a lockfile — install the versions
 current when you scaffold, verify each package is the intended one, and commit the lockfile.
 
+The starter is also the **component library** for the reference stack
+([docs/registers/COMPONENT_LIBRARY.md](./registers/COMPONENT_LIBRARY.md)) — themes, auth
+plumbing, dialogs, tabs, states and data patterns arrive already built. For a **different
+stack**, read that registry first: use its implementation repository for the stack if one is
+registered; if not, the baseline concerns are built once against the same standards and
+**contributed back** (registry §4), so the next app on that stack starts where this one
+finished.
+
 ### 3. Set the colours — before writing any UI
 Edit `design/tokens.json`: brand colours, then any semantic role that should follow them.
 

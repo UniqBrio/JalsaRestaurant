@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.11.0 — the component library
+
+New COMPONENT_LIBRARY register: the standard baseline every app ships (themes, auth flows,
+navigation, states — auto-Must-Have in the advisor pass), stack-keyed implementations seeded
+from starter/ with honest GAP rows, a lookup-before-build order (app → library → build), and
+a contribute-back loop — baseline builds register immediately, everything else faces
+/promote's rule of three. Discover → reuse → build missing → register → reuse. See
+`UPGRADES.md`.
+
 ## 1.10.0 — the product-advisor pass
 
 For a new application or module, Gate 1 now researches comparable products (timeboxed,

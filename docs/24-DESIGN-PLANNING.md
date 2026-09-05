@@ -206,13 +206,19 @@ each component already implements.
 
 Then, for every need a screen has, in strict order:
 
-1. **Reuse** — the component as it stands. The default; deviation needs a reason.
+1. **Reuse** — the component as this app has it. The default; deviation needs a reason.
+1b. **Reuse from the library** — [registers/COMPONENT_LIBRARY.md](./registers/COMPONENT_LIBRARY.md),
+   matched to this app's stack. The registry is one read; rebuilding a registered component
+   is the same defect as inventing a second idiom.
 2. **Extend** — a new variant or prop on the existing component, upstreamed so every consumer
    gains it. Never a local fork.
 3. **Refactor** — when the third variant request reveals the component was carved wrong.
    A deliberate, separate change (Track D), not a drive-by.
 4. **Create** — only when nothing owns the concern. Arrives with: written justification, all
    states, both themes, keyboard model, and a canonical-patterns row if it embodies one.
+   A created component implementing a **baseline concern** is contributed back to the
+   component library in the same change (its §4 loop); other reusable-looking ones go
+   through `/promote`.
 
 A second way of doing the same thing is a defect, not a preference — this is the design-system
 form of that rule.

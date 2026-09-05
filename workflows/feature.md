@@ -58,7 +58,10 @@ existing area skips it. Research comparable products (timeboxed: 3–5 comparato
 web research where available, model knowledge declared and dated where not), filter every
 candidate through the context lenses (type, region, legal/regulatory, customers, scale,
 standards), and deliver the **feature triage**: Must-Have / Recommended / Good-to-Have, each
-tier reasoned, plus the ignored list with why. The triage and its questions are presented as
+tier reasoned, plus the ignored list with why. The **standard baseline**
+([COMPONENT_LIBRARY §1](../docs/registers/COMPONENT_LIBRARY.md) — themes, auth flows,
+navigation shell, shared states) enters Must-Have automatically; research effort goes to what
+is genuinely undecided, never to whether login should exist. The triage and its questions are presented as
 **one consolidated package and are a hard stop in every run mode** — scope is the requester's
 decision, and it is expensive to undo; everything else about auto mode stays as it is.
 
@@ -133,9 +136,18 @@ Gate 1's: a design decision that materially affects the experience — conflicti
 requirements, several defensible directions, a constraint forcing a visible trade-off — goes
 to the requester as a question with a recommendation, never a silent assumption.
 
-### A3.1 Reuse first
-List the existing components this feature will use. A new component requires a written
-justification. Follow the project's naming conventions for anything genuinely new.
+### A3.1 Reuse first — app, then library, then build
+Resolution order, one read each ([docs/registers/COMPONENT_LIBRARY.md](../docs/registers/COMPONENT_LIBRARY.md)):
+
+1. **This app** already has the component → use it.
+2. **The component library**, for this app's stack → use the registered implementation.
+   Rebuilding a registered component is a defect, not a preference.
+3. Neither → build it, with a written justification — and if it implements a **baseline
+   concern** (library §1), contribute it back in this same change: generalize (no domain
+   words), register, flip the GAP row to READY. Other reusable-looking components go through
+   `/promote` (n=2 rule) as always.
+
+Follow the project's naming conventions for anything genuinely new.
 
 ### A3.2 Simplify before you add
 Run the substitution table before adding any control:

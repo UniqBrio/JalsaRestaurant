@@ -146,7 +146,7 @@ CLAUDE.md           Binding rules, read before every task.
   agents/             eleven review sub-agents
   hooks/              hook-protocol adapter + its executable test
 docs/               25 reference documents. Start at 00-OVERVIEW.md.
-  registers/        The thirteen living registers.
+  registers/        The fourteen living registers.
 workflows/          The runbooks. One per kind of change.
 checklists/         Point-of-use verification. Eight of them.
 templates/          Gate documents, module docs, ADRs, test cases.

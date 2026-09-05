@@ -96,7 +96,8 @@ session. See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md). Without this the rest i
 code review · security · accessibility · release readiness · business readiness · manual test
 
 ### The living registers
-`docs/registers/` — root causes · canonical patterns · design rules · known limitations ·
+`docs/registers/` — root causes · canonical patterns · design rules · component library
+(stack-keyed reuse + the standard baseline) · known limitations ·
 permissions · feature truth · product lexicon · AI governance · candidates (promotion parking
 lot) · environments · test accounts · technical debt · decisions
 

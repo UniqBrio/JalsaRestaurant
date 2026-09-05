@@ -10,6 +10,12 @@
 **INPUT:** `<the app fix or improvement, with its root cause — usually straight from a Track C
 close-out>`
 
+> **Components:** a reusable-looking COMPONENT follows these same filters, with one carve-out —
+> a component implementing a **baseline concern** listed in
+> [docs/registers/COMPONENT_LIBRARY.md](../docs/registers/COMPONENT_LIBRARY.md) §1 was declared
+> common in advance and is contributed back immediately (registry §4), skipping the rule of
+> three. Everything else parks at n=1 like any other candidate.
+
 ---
 
 ## The three filters, in order — stop at the first NO
