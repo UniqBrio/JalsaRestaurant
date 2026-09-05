@@ -17,8 +17,8 @@
  *   5. Counts are text on collapsed section headers - the shape of access is visible
  *      without opening anything (same reasoning as ColumnControl's trigger count).
  *
- * KEYBOARD (CP-22): every control is a native <button>; sections toggle with Enter/Space,
- * grants are role="switch" buttons, Tab order follows the visual order.
+ * KEYBOARD (CP-22): every control is a native button element; sections toggle with
+ * Enter/Space, grants are role="switch" buttons, Tab order follows the visual order.
  */
 import React, { useState } from 'react';
 import {
