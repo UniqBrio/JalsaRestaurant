@@ -4,6 +4,11 @@
 >
 > Without it, the runbooks are documents nobody opens and the guards are shell scripts nobody
 > invokes. The content is not the system; the content plus the wiring is the system.
+>
+> **Invocation is proportional (05-Sep-2026).** Each agent's `description` is gated to the
+> review matrix in [workflows/agents/README.md](../workflows/agents/README.md): a scoped change
+> spawns `code-reviewer` plus only the conditional reviewers its diff triggers, in one parallel
+> message; the full set is for full-scale and hotspot changes. Every spawn is a cold start.
 
 ---
 

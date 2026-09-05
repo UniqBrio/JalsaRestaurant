@@ -1,6 +1,6 @@
 ---
 name: test-gate-runner
-description: Executes the deterministic gate and interprets its exit codes honestly. Use PROACTIVELY before any merge.
+description: Executes the deterministic gate and interprets its exit codes honestly. Use on FULL-SCALE runs, or when exit codes need independent interpretation (review matrix: workflows/agents/README.md). Scoped runs run `npm run gate` inline.
 tools: Read, Bash, Grep, Glob
 ---
 

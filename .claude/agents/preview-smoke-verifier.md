@@ -1,6 +1,6 @@
 ---
 name: preview-smoke-verifier
-description: Opens the RUNNING application against a deployed preview. Use PROACTIVELY after merge, before handing anything to a human.
+description: Opens the RUNNING application against a deployed preview. Use after EVERY merge, before handing anything to a human - never optional; the only stage that opens the running app (review matrix: workflows/agents/README.md).
 tools: Read, Bash
 ---
 

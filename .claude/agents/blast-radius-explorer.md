@@ -1,6 +1,6 @@
 ---
 name: blast-radius-explorer
-description: Read-only impact mapper. Use PROACTIVELY before planning any change, and before any refactor. Maps everything a change can affect.
+description: Read-only impact mapper. Use on FULL-SCALE or hotspot changes and refactors, before planning (review matrix: workflows/agents/README.md). Scoped runs do the impact table inline.
 tools: Read, Grep, Glob
 ---
 

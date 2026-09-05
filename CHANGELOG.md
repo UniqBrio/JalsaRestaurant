@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.15.0 — the third speed pass: reviewers by scale, in parallel
+
+Root cause: all eleven review agents self-described as "use PROACTIVELY" and the runbooks
+never scoped them, so a run could spawn up to ten cold sub-agents in sequence to review a
+scoped change already analysed inline. Fix: a review matrix (scoped vs full-scale) wired into
+every agent description — scoped runs spawn code-reviewer plus only the reviewers the diff
+triggers, in one parallel message; blast radius, plan, gate run and close-out stay inline.
+DoD and screen checklist now emit compact tables. See `UPGRADES.md`.
+
 ## 1.14.0 — module access + app customizer components
 
 Two contributed reference components: ModuleAccessPanel (role preset as reset-to-role,

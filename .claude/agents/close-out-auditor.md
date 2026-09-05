@@ -1,6 +1,6 @@
 ---
 name: close-out-auditor
-description: Verifies the close-out actually closed. Use PROACTIVELY before any merge.
+description: Verifies the close-out actually closed. Use before merge on FULL-SCALE or hotspot changes (review matrix: workflows/agents/README.md). Scoped runs close out via the DoD table inline.
 tools: Read, Grep, Glob, Bash
 ---
 

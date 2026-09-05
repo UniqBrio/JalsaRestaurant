@@ -12,6 +12,40 @@
 
 ---
 
+## 1.15.0 — 05-Sep-2026 — MINOR
+
+**The third speed pass: reviewers spawn by scale, in parallel.** After the waiting (1.9.0)
+and the process weight (1.13.0), the largest remaining sink was the review layer: all eleven
+agents self-described as "use PROACTIVELY", the runbooks never scoped them, so a run could
+spawn up to ten sub-agents **sequentially, each a cold start** re-reading rules, registers and
+files — to review a scoped change the main agent had already analysed inline. The close-out
+checklists (DoD's 33 items, 20 per screen) also still invited prose.
+
+### Added
+- **The review matrix** (`workflows/agents/README.md`): per pass, what a **scoped** run does
+  vs a **full-scale/hotspot** run. Scoped: blast radius, plan, gate run and close-out stay
+  **inline**; `code-reviewer` is spawned always (it built nothing, so it *is* the fresh
+  context); `copy-gate` / `permission` / `parity` reviewers spawn **only when the diff
+  triggers them**; `fresh-context-reviewer` is a full-scale second pass only;
+  `preview-smoke-verifier` remains never optional after merge. **Whatever applies is spawned
+  in ONE message, in parallel** — three reviewers cost the slowest one, not the sum.
+- **Agent descriptions gated to the matrix** (`.claude/agents/*.md`) — the actual lever that
+  stops auto-spawning: "PROACTIVELY" replaced with the matrix condition on ten agents.
+- **Compact close-out output**: DoD as one table (`item · done | N/A: <reason>`, gate-proven
+  items cite the gate); SCREEN_CHECKLIST as one row of 20 symbols per screen. Same close-out,
+  a fraction of the writing.
+- `feature.md` A5, `enhance.md` B6, `docs/21` aligned. Cases FW-SPEED-004..005.
+
+### App action required
+**None** — but note `.claude/agents/*.md` changed; workspace-mode apps carry a copy of
+`.claude/`, which `framework:upgrade` replaces wholesale (it is linked-managed).
+
+### What remains, honestly
+The floor is the build itself and the mechanical gate (`tsc`, the audits, the specs). If a run
+is still slow, the run report's **stage timings** line names the stage — send that line.
+
+---
+
 ## 1.14.0 — 05-Sep-2026 — MINOR
 
 **Two contributed components: module access and app customization.** Owner-commissioned from

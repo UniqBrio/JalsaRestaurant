@@ -343,6 +343,11 @@ migration, removing or reshaping an existing capability, anything on the safety 
   compiled" is not evidence that text is readable.
 - **Drive the primary flow once keyboard-only** — Tab, Enter, Space, no pointer. A flow that
   needs a mouse is unfinished (CP-22, rule A-10).
+- **Review passes per the matrix** ([workflows/agents/README.md](./agents/README.md)): a
+  scoped run spawns `code-reviewer` plus only the conditional reviewers the diff actually
+  triggers (visible strings → copy; roles/tenant data → permissions; schema → parity) — **in
+  one message, in parallel**. Blast radius, plan, gate run and close-out stay inline. Every
+  spawn is a cold start; ten of them in sequence was the largest time sink after the budgets.
 
 ---
 

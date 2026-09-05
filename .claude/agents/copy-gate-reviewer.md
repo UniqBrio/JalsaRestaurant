@@ -1,6 +1,6 @@
 ---
 name: copy-gate-reviewer
-description: Reviews every user-visible string a diff adds or changes. Use PROACTIVELY on any diff touching a visible string.
+description: Reviews every user-visible string a diff adds or changes. Use ONLY when the diff adds or alters a visible string, in parallel with code-reviewer (review matrix: workflows/agents/README.md).
 tools: Read, Grep, Glob
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Adversarial review between build and test. Use PROACTIVELY after any implementation and before the gate.
+description: Adversarial review between build and test. Use after EVERY implementation and before the gate - the one reviewer every run spawns; spawn it in the same message as any conditional reviewers (review matrix: workflows/agents/README.md).
 tools: Read, Grep, Glob
 ---
 

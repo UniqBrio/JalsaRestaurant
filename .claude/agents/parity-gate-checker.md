@@ -1,6 +1,6 @@
 ---
 name: parity-gate-checker
-description: Read-only schema diff between environments. Use PROACTIVELY before backend planning and before any production apply.
+description: Read-only schema diff between environments. Use ONLY when the change touches the schema, before backend planning, and before any production apply (review matrix: workflows/agents/README.md).
 tools: Read, Grep, Glob, Bash
 ---
 

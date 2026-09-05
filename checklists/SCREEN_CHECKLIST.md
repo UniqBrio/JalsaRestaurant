@@ -1,7 +1,9 @@
 # Screen Checklist
 
 > Run at build completion for **every new or modified screen**, and re-verify at the test gate.
-> Output ✅ / ❌ / N-A **per item, per screen**. Any ❌ means not done.
+> Output ✅ / ❌ / N-A **per item, per screen** — as ONE row per screen
+> (`<screen> · 1✅ 2✅ 3N-A … 20✅`), no prose; a ❌ gets one line naming the fix. Items a
+> mechanical audit proves (10 colours, 18 test ids) cite the audit. Any ❌ means not done.
 >
 > ### The cap: 20 items. This list is FULL.
 > Adding an item means **removing, merging or automating another**. That trade is the mechanism,

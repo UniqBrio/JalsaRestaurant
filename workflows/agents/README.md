@@ -44,15 +44,44 @@ Each agent below is specifically looking for one thing.
 
 ---
 
+## Which passes a change needs — the review matrix (added 05-Sep-2026)
+
+Every spawned agent is a **cold start**: it re-reads the rules, the registers and the files
+before it can say anything. Ten sequential cold starts per feature was the largest remaining
+time sink after the process budgets — and most of them were reviewing a scoped change the
+main agent had already analysed inline. Spawn by scale, never by habit:
+
+| Pass | Scoped run (≤5 files, additive schema) | Full-scale / hotspot run |
+|---|---|---|
+| blast-radius-explorer | **Inline** — the main agent does B2/A4's impact table itself | Spawn |
+| implementation-planner | **Inline** — the plan is a section of `RUN_<feature>.md` | Spawn |
+| parity-gate-checker | Only if the **schema** changed | Spawn if data is touched |
+| code-reviewer | **Spawn — always.** It has no memory of building the change, so for a scoped run it IS the fresh context | Spawn |
+| copy-gate-reviewer | Only if a **visible string** was added or altered | Same rule |
+| permission-reviewer | Only if **roles, policies or tenant data** were touched | Same rule |
+| fresh-context-reviewer | Not spawned — the spawned code-reviewer already satisfies it | Spawn, as a second pass after code-reviewer reports clean |
+| test-gate-runner | **Inline** — the main agent runs `npm run gate` and reads the verdict | Spawn when the exit codes need independent interpretation |
+| close-out-auditor | **Inline** — the DoD table is the close-out | Spawn |
+| preview-smoke-verifier | **Spawn — always**, after merge: the only stage that opens the running app | Same |
+| post-release-monitor | Production only, unchanged | Same |
+
+**Whatever applies, spawn it in ONE message, in parallel** — never one reviewer after another.
+Their boundaries are disjoint by design, so nothing is lost by running them together, and the
+wall-clock cost of three reviewers becomes the cost of the slowest one.
+
 ## Using them
 
 **With a coding agent** — one file per agent under your agent directory, each with its scope,
-its boundary, and its verdict format. Invoke the ones a change actually needs.
+its boundary, and its verdict format. Invoke the ones the **matrix above** selects — the
+descriptions in `.claude/agents/*.md` are gated to it, so a scoped change is not reviewed ten
+times by ten cold contexts.
 
 **Without one** — read the row as a review pass, and run the passes that apply. A UI-only change
 needs the code, copy and preview passes; a schema change needs blast radius, parity and
 permissions.
 
-**Two that are not optional:** `fresh-context-reviewer` and `preview-smoke-verifier`. Static gates prove *consistency* —
+**One that is never optional:** `preview-smoke-verifier`. Static gates prove *consistency* —
 that the code agrees with itself. Only opening the running application proves it *works*. Every
-defect that reaches a user was, by definition, runtime-visible.
+defect that reaches a user was, by definition, runtime-visible. (`fresh-context-reviewer` is
+mandatory at full scale; for a scoped run the spawned `code-reviewer`, which built nothing, is
+the fresh context by construction — a second one reviews the same diff with the same eyes.)

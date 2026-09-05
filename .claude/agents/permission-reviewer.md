@@ -1,6 +1,6 @@
 ---
 name: permission-reviewer
-description: Permission and tenant-isolation review. Use PROACTIVELY for any change touching roles, policies, or multi-tenant data.
+description: Permission and tenant-isolation review. Use ONLY when the change touches roles, policies, or multi-tenant data, in parallel with code-reviewer (review matrix: workflows/agents/README.md).
 tools: Read, Grep, Glob
 ---
 

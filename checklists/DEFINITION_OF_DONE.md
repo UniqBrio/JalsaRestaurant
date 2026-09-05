@@ -5,6 +5,11 @@
 >
 > Each item below has been skipped in isolation on real projects, and every skip was invisible
 > at the time. That is why this is a list and not a habit.
+>
+> **Output form (05-Sep-2026):** ONE compact table — `item · done | N/A: <≤8-word reason>`.
+> An item a mechanical gate proves cites the gate (`gate: PASS`) instead of prose; an item the
+> spawned code-reviewer verified cites its verdict. Thirty-three paragraphs is not more done
+> than thirty-three words — it is the same close-out, slower and less readable.
 
 ---
 

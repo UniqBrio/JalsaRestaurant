@@ -153,6 +153,8 @@ claim, and the B4 correction design pass runs before this change proceeds.
 If the change is visual: **render and look at the touched area, in both themes**, before
 calling it done. "The build compiled" is not evidence that text is readable.
 
-Then the close-out checklist and the test gate
-([workflows/test-gate.md](./test-gate.md)). The blast radius from B2 defines the regression
-scope — that is what B2 was for.
+Review passes per the matrix ([workflows/agents/README.md](./agents/README.md)):
+`code-reviewer` always, conditional reviewers only where the diff triggers them, all spawned
+in one message. Then the close-out checklist and the test gate
+([workflows/test-gate.md](./test-gate.md)) — run inline for a scoped correction. The blast
+radius from B2 defines the regression scope — that is what B2 was for.

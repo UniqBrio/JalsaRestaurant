@@ -1,6 +1,6 @@
 ---
 name: implementation-planner
-description: Turns an approved design plus a blast-radius report into an ordered implementation plan. Use PROACTIVELY at Gate 4, before any code is written.
+description: Turns an approved design plus a blast-radius report into an ordered implementation plan. Use at Gate 4 on FULL-SCALE changes (review matrix: workflows/agents/README.md). Scoped runs plan inline in RUN_<feature>.md.
 tools: Read, Grep, Glob
 ---
 

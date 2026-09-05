@@ -1,6 +1,6 @@
 ---
 name: fresh-context-reviewer
-description: Second reviewer with NO memory of building the change. Use PROACTIVELY after the primary review reports clean, on anything non-trivial.
+description: Second reviewer with NO memory of building the change. Use on FULL-SCALE or hotspot changes after code-reviewer reports clean (review matrix: workflows/agents/README.md). Not spawned for scoped runs - the spawned code-reviewer is already the fresh context.
 tools: Read, Grep, Glob
 ---
 
