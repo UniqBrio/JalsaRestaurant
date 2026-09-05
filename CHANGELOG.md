@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.0 — the second speed release
+
+Root cause of remaining slowness: process weight — ~1,700+ lines of process docs read up
+front and ~130 checklist items answered with hand-written evidence, much of it duplicating
+mechanical audits. Fix: the three budgets. Reading — runbook + rules + touched registers
+once, everything else opened at the named section; evidence — one verdict + one line per
+AREA, audits cited never re-verified, scoped runs cover the core six areas plus touched;
+writing — line caps on scoped artifacts. Run reports now carry stage timings. No check was
+removed. See `UPGRADES.md`.
+
 ## 1.12.0 — requirements that drive design
 
 The requirement→UI gap was a format gap: prose carries the what, not the facts simplicity is

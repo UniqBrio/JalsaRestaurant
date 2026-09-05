@@ -5,9 +5,14 @@
 > [docs/24-DESIGN-PLANNING.md](../docs/24-DESIGN-PLANNING.md) · craft:
 > [docs/23-DESIGN-CRAFT.md](../docs/23-DESIGN-CRAFT.md).
 >
-> **Protocol — validate, refine, re-validate.** Every area below gets a verdict:
-> **PASS · NEEDS-IMPROVEMENT · CRITICAL**, with one line of evidence ("counted 4 interactions
-> on scenario 2"), never a bare tick. Findings are fixed and the affected areas re-run.
+> **Protocol — validate, refine, re-validate.** Every AREA below gets ONE verdict:
+> **PASS · NEEDS-IMPROVEMENT · CRITICAL**, with ONE line of evidence ("counted 4 interactions
+> on scenario 2"), never a bare tick — and never per-item paperwork: the bullet items are
+> prompts for the reviewer's eye, not documents to write. Where an item overlaps a mechanical
+> audit (contrast, tokens, test ids, columns), the audit's result IS the evidence — cite it,
+> never re-verify by hand. Findings are fixed and the affected areas re-run.
+> **Scoped changes** run the core six areas (1 · 5 · 7 · 10 · 15 · 18) plus areas the change
+> touches; each untouched area is one line: "not touched". Full scale runs all 18.
 > Gate 3 sees a design at **Production-ready or better** (docs/24 §11), or sees the blocking
 > findings with a question — never a first draft presented as final.
 

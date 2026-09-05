@@ -38,9 +38,21 @@ not reviewed them yet; a correction there updates the request file before anythi
    run produces ONE combined `RUN_<feature>.md` in place of the four gate artifacts and
    skips A2 unless build-vs-buy is a real question — the obligations are identical, the
    packaging shrinks.
-8. **Speed discipline.** Read each register once per run, not once per stage. Artifacts are
-   terse tables, not essays — never restate the runbook, never re-derive what an earlier
-   stage established. Independent checks run together, not in sequence.
+8. **Speed discipline — the three budgets.**
+   - **Reading budget.** A run READS: this runbook, the project's `CLAUDE.md`, and the
+     registers relevant to the touched modules — once each. Everything else
+     (docs/23, docs/24, docs/04, docs/13, checklists) is **lookup material**: open the named
+     section at the moment a stage points at it, never front-load the library. The process
+     documents describe the work; reading all of them IS not the work.
+   - **Evidence budget.** Verdicts are per AREA or per screen, one evidence line each; a
+     checklist's bullet items are prompts for the eye, not documents to write. **Never
+     hand-verify what a mechanical gate already checks** — contrast, tokens, test ids,
+     column control are the audits' job; cite their result ("theme:contrast PASS") as the
+     evidence line and move on. Duplicating an audit by hand is waste on top of noise.
+   - **Writing budget.** Scoped scale: `RUN_<feature>.md` ≤ ~150 lines, ledger entries one
+     line each, the QA verdict table 18 lines + the grade. Artifacts are terse tables;
+     never restate the runbook, never re-derive what an earlier stage established.
+     Independent checks run together, not in sequence.
 
 ---
 
@@ -239,10 +251,15 @@ gap found after the build is the next correction round.
 ### A3.9 Design validation loop (before Gate 3)
 
 Run [checklists/DESIGN_QUALITY_CHECKLIST.md](../checklists/DESIGN_QUALITY_CHECKLIST.md) —
-all 18 areas, each with a verdict (PASS · NEEDS-IMPROVEMENT · CRITICAL) **and one line of
-evidence**, never a bare tick. Fix the findings, re-run the affected areas, and compute the
-grade ([docs/24 §11](../docs/24-DESIGN-PLANNING.md)). Iterate while critical or repeated
-findings remain: **Design → render/canvas → inspect → identify → refine → re-validate.**
+**one verdict per AREA** (PASS · NEEDS-IMPROVEMENT · CRITICAL) with **one line of evidence**;
+the bullet items under each area are prompts for the reviewer's eye, not per-item paperwork.
+Full scale: all 18 areas. **Scoped scale: the core six** — user flow · visual hierarchy ·
+accessibility · states · simplicity · overall — **plus any area the change touches**; the
+untouched rest is one line: "not touched by this change". Where an area overlaps a mechanical
+audit, the audit's result is the evidence — never re-verify it by hand. Fix the findings,
+re-run the affected areas, and compute the grade ([docs/24 §11](../docs/24-DESIGN-PLANNING.md)).
+Iterate while critical or repeated findings remain: **Design → render/canvas → inspect →
+identify → refine → re-validate.**
 
 Gate 3 sees a design graded **Production-ready or better** — or it sees the specific blocking
 findings with a question for the requester. A first draft presented as final outsources the
@@ -344,6 +361,8 @@ promotion is a separate approved step, **in every run mode**.
 **The auto-mode run report** (delivered with the preview URL): the FIELDS restated from the
 request file · the ASSUMPTIONS ledger — every decision taken at a checkpoint, with its
 recommendation and why · the gate artifacts (or the one combined `RUN_<feature>.md`) · the QA
-verdict table · the gate result. The review the gates deferred happens here, with everything
+verdict table · the gate result · **stage timings** — one line per stage (ground · plan ·
+build · verify · gate), minutes each, so a slow run names the stage that ate the time and the
+next process fix starts from data instead of a feeling. The review the gates deferred happens here, with everything
 on one screen — and anything the requester corrects becomes the next `/request`, round 2,
 with the ledger showing exactly which assumption missed.

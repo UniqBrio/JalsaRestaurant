@@ -121,6 +121,16 @@ question. A **full**-scale feature keeps every artifact. The obligations are ide
 the packaging and the prose shrink. This is the difference between a five-minute run and a
 forty-minute one, and none of it touches what is checked.
 
+**The three budgets (added 05-Sep-2026 after process weight itself became the bottleneck):**
+a run **reads** its runbook, the project rules, and the touched modules' registers — once;
+every other process document is opened at the section a stage names, never front-loaded. A
+run **writes** one verdict per checklist area or screen with one evidence line — bullet items
+are prompts, not paperwork — and **never hand-verifies what a mechanical audit already
+checks**: the audit's result is the evidence. Scoped artifacts carry line budgets
+(`RUN_<feature>.md` ≤ ~150 lines). The run report's **stage timings** make the next slow run
+attributable from data. The checks are unchanged; what shrank is reading the library and
+writing essays about what a script already proved.
+
 Not every track runs every gate. A one-line bug fix runs stages 0, 5, 6, 7 — and it still
 runs stage 6, because a one-line change is exactly the size of change that ships regressions.
 

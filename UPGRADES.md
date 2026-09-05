@@ -12,6 +12,36 @@
 
 ---
 
+## 1.13.0 — 05-Sep-2026 — MINOR
+
+**The second speed release: the process weight itself was the bottleneck.** After 1.9.0
+removed the waiting, runs were still slow. Measured root cause: the design releases stacked
+~1,700+ lines of process documents into Track A's orbit and ~130 checklist items into a run —
+and a faithful agent was (a) reading the whole library up front, and (b) hand-writing
+evidence per bullet item, much of it re-verifying what the mechanical audits already prove.
+The obligations were right; the reading and writing they induced were not.
+
+### Added — the three budgets (`docs/01` §Run modes, `feature.md` Step 0)
+- **Reading budget.** A run READS its runbook, the project rules, and the touched modules'
+  registers — once each. Every other process document (docs/23, docs/24, 04, 13, checklists)
+  is **lookup material**: opened at the section a stage names, never front-loaded. The
+  process documents describe the work; reading all of them is not the work.
+- **Evidence budget.** ONE verdict per checklist area (or screen) with ONE evidence line;
+  bullet items are prompts for the reviewer's eye, not paperwork. **Never hand-verify what a
+  mechanical audit already checks** — cite the audit ("theme:contrast PASS") as the evidence.
+  Design QA scoped runs cover the core six areas (1 · 5 · 7 · 10 · 15 · 18) plus touched
+  areas; untouched areas are one line each. Full scale still runs all 18.
+- **Writing budget.** Scoped `RUN_<feature>.md` ≤ ~150 lines; ledger entries one line; the
+  QA table 18 lines + grade.
+- **Stage timings** in the run report (ground · plan · build · verify · gate, minutes each) —
+  the next slow run is diagnosed from data, not feeling. Cases FW-SPEED-001..003.
+
+### App action required
+**None.** No check was removed — what shrank is reading the library and writing essays about
+what a script already proved.
+
+---
+
 ## 1.12.0 — 05-Sep-2026 — MINOR
 
 **Requirements that drive design.** Root cause of the requirement→UI gap: prose requirements
