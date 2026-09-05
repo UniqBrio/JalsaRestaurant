@@ -22,6 +22,7 @@ Regardless of business requirements, every application ships these; the product-
 | Authentication | Login · logout/sign-out · forgot password · reset password · session identity |
 | Layout & navigation | App shell (header/nav) · section tabs · back behaviour · cold-loadable routes |
 | States | Empty · loading · error · offline · permission-denied, as shared treatments |
+| Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
 | Data plumbing | Single API client · error taxonomy · idempotent writes · transactions |
 | Safety | Outbound-send deny-by-default · env trust boundary · tenant scoping |
 
@@ -57,6 +58,8 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | UI | Wide-table column control | `starter/src/components/ColumnControl.tsx` + `useColumnPrefs.ts` | READY |
 | UI | Bulk-action bar | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
+| Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |
+| Settings | Settings screen shell (the configurable-details area) | — | **GAP** — placement rule already binding: configuration is never a peer of daily work |
 | States | Permission-denied state | `starter/src/components/NoAccess.tsx` | READY |
 | States | Async loading (always terminates) | `starter/src/hooks/useAsync.ts` | READY |
 | Data | API client (single door) | `starter/src/lib/api-client.ts` | READY |
