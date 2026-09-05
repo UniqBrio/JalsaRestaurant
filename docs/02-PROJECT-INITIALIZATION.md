@@ -3,6 +3,10 @@
 > Everything below happens **before** the first feature. Each item is here because retrofitting
 > it costs an order of magnitude more than installing it, and because a project that skips it
 > spends its first year paying interest.
+>
+> Arriving from `/request` (a **NEW-APP** classification): the filled request file is the
+> brief for step 1; after step 2 it moves into the new app's `requests/` as the first ledger
+> entry, and Track A then runs **inside the new app** with it.
 
 ---
 

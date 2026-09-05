@@ -104,7 +104,9 @@ lot) · environments · test accounts · technical debt · decisions
 
 ## How to actually use it
 
-**Starting a new application** → [02-PROJECT-INITIALIZATION.md](./02-PROJECT-INITIALIZATION.md).
+**Starting a new application** → [02-PROJECT-INITIALIZATION.md](./02-PROJECT-INITIALIZATION.md) —
+or simply `/request` the app you want: intake classifies it NEW-APP and routes through
+initialization before Track A runs in the new app.
 
 **Doing a piece of work** → classify it ([01](./01-SDLC.md) §2), open that runbook, follow it.
 Or simply start every piece of work at [workflows/request.md](../workflows/request.md)

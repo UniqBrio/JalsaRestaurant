@@ -12,6 +12,37 @@
 
 ---
 
+## 1.8.0 — 05-Sep-2026 — MINOR
+
+**A new app can now be born through `/request`.** Audit finding: a whole-new-application ask
+("build me a CRM") classified as **NEW** and dropped into Track A — a feature track whose
+Step 0 reads the app's rules, registers and sibling screens, none of which exist for a
+greenfield product. There was no intake route to initialization, so the one command that is
+supposed to start *any* work could not start an application.
+
+### Added
+- **NEW-APP classification** in `workflows/request.md` — the test is whether a scaffolded
+  codebase exists to receive the work. The flow: REQUEST_NEW scoped to the **first shippable
+  slice** (the rest listed in EXPLICITLY OUT as later `/request` runs — an application is a
+  list, and a list is triage's job, not one request file's) → continue into
+  `docs/02-PROJECT-INITIALIZATION.md` (`npm run new:app`, day-one steps) → the request file
+  moves into the new app's `requests/` as its first ledger entry → Track A runs **inside the
+  new app**, first gate restating the FIELDS as always. Empty registers and the starter as
+  the sibling pattern are stated as expected, not blockers.
+- `scripts/new-app.mjs` seeds the **`requests/` intake ledger** (folder + contract README)
+  in every scaffold, so `/request` inside a new app finds its ledger armed like the registers.
+
+### Changed
+- `templates/requests/REQUEST_NEW.md` standing instructions carry the NEW-APP note;
+  `.claude/commands/request.md`, `docs/01-SDLC.md` §2 table, `docs/02` preamble and
+  `docs/00-OVERVIEW.md` aligned. Case FW-INTAKE-007 added.
+
+### App action required
+**None.** Existing apps already exist — this route only fires when nothing is scaffolded.
+An existing app missing `requests/README.md` gains it on the next upgrade or first `/request`.
+
+---
+
 ## 1.7.0 — 04-Sep-2026 — MINOR
 
 **The design release: the design stage becomes a design-intelligence layer.** Motivated by a

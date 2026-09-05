@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0 — a new app can be born through /request
+
+New NEW-APP classification: a whole-new-application ask now routes through initialization
+(docs/02, `npm run new:app`) before Track A runs inside the new app, with the request file —
+scoped to the first shippable slice — moving into the new app's `requests/` as entry #1.
+Scaffolds now seed the intake ledger. Previously such an ask misclassified as NEW and ran a
+feature track with no application under it. See `UPGRADES.md`.
+
 ## 1.7.0 — the design release
 
 The design stage becomes a design-intelligence layer. New: docs/24 (the planning method —

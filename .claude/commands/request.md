@@ -29,6 +29,10 @@ requester to confirm or correct before anything else happens.
 ## Hard boundaries
 
 - Stated fields are **binding** on the track that consumes the file.
+- A whole NEW APPLICATION (no scaffolded codebase yet) is **NEW-APP**: REQUEST_NEW scoped to
+  the first shippable slice, then initialization runs BEFORE Track A —
+  `docs/02-PROJECT-INITIALIZATION.md`, `npm run new:app` — the request file moves into the new
+  app's `requests/`, and Track A runs inside the new app.
 - A LIST, an open situation, a pure restructure, or a process failure generates **no file** —
   continue directly into `workflows/triage.md`, `workflows/brainstorm.md`,
   `workflows/refactor.md`, or `workflows/framework-update.md` **in this same run**; that

@@ -25,6 +25,10 @@ Run **Track A** ([workflows/feature.md](../../workflows/feature.md)) with this r
   Gate 1 question with a reasoned recommendation — never a silent assumption.
 - Ground first (Step 0): `CLAUDE.md`, `docs/registers/KNOWN_LIMITATIONS.md`,
   `docs/registers/CANONICAL_PATTERNS.md`, `docs/registers/ROOT_CAUSE_REGISTER.md`.
+- **No application scaffolded yet (NEW-APP)?** Initialization runs first —
+  `docs/02-PROJECT-INITIALIZATION.md`, `npm run new:app` — then this file moves into the new
+  app's `requests/` and Track A runs **inside the new app**, scoped to the first shippable
+  slice named above.
 
 ## EXAMPLE (filled)
 - FEATURE NAME: Saved filters

@@ -50,6 +50,7 @@ a Track B change being run as a Track A one, or a Track C fix skipping root caus
 | The request is… | Track | Runbook | Gates |
 |---|---|---|---|
 | A new capability | **A — New feature** | [workflows/feature.md](../workflows/feature.md) | 1, 2, 3, 4 + test gate |
+| A whole new application (nothing scaffolded yet) | **Intake → initialization → A** | [02-PROJECT-INITIALIZATION.md](./02-PROJECT-INITIALIZATION.md), then [workflows/feature.md](../workflows/feature.md) in the new app | Scaffold + day-one steps, then gates 1–4 |
 | A change to something that exists | **B — Enhancement** | [workflows/enhance.md](../workflows/enhance.md) | Plan approval + test gate |
 | Something is broken | **C — Bug fix** | [workflows/bug.md](../workflows/bug.md) | Root-cause statement + test gate |
 | Same behaviour, better structure | **D — Refactor** | [workflows/refactor.md](../workflows/refactor.md) | Scope approval + characterization + test gate |

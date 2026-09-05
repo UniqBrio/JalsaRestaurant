@@ -129,6 +129,12 @@ fs.writeFileSync(path.join(DEST, 'AGENTS.md'),
 fs.writeFileSync(path.join(DEST, 'TEST_SUMMARY.md'),
   '# Test summary\n\n_Newest run first. Append-only: never overwrite a prior run._\n\n---\n\n', 'utf8');
 fs.writeFileSync(path.join(DEST, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased\n\n', 'utf8');
+
+// The intake ledger arrives armed, like the registers: /request inside the app writes here,
+// and a NEW-APP request file moves here as entry #1. The README is the folder contract.
+fs.mkdirSync(path.join(DEST, 'requests'), { recursive: true });
+const reqReadme = path.join(ROOT, 'requests', 'README.md');
+if (fs.existsSync(reqReadme)) fs.copyFileSync(reqReadme, path.join(DEST, 'requests', 'README.md'));
 fs.writeFileSync(path.join(DEST, '.gitignore'),
   ['node_modules/', '.next/', 'dist/', '.env', '.env.*', '!.env.example',
    'test-results/', 'playwright-report/', '.gate-logs/', '.DS_Store',

@@ -37,7 +37,8 @@ Read the rough description and pick exactly one:
 
 | The description says… | Classification | Then |
 |---|---|---|
-| Something that does not exist yet | **NEW** | Fill [templates/requests/REQUEST_NEW.md](../templates/requests/REQUEST_NEW.md) → Track A |
+| A whole new APPLICATION — no scaffolded codebase exists to receive the work | **NEW-APP** | Fill [templates/requests/REQUEST_NEW.md](../templates/requests/REQUEST_NEW.md) for the **first shippable slice** → initialization, then Track A (see the NEW-APP flow below) |
+| Something that does not exist yet, in an app that does | **NEW** | Fill [templates/requests/REQUEST_NEW.md](../templates/requests/REQUEST_NEW.md) → Track A |
 | Something works, but should behave or look different | **CHANGE** | Fill [templates/requests/REQUEST_CHANGE.md](../templates/requests/REQUEST_CHANGE.md) → Track B |
 | Something is broken — erroring, wrong output, wrong data | **BUG** | Fill [templates/requests/REQUEST_BUG.md](../templates/requests/REQUEST_BUG.md) → Track C |
 | Same behaviour, better structure | no file — continue directly into [workflows/refactor.md](./refactor.md); its scope statement is its own intake |
@@ -54,6 +55,22 @@ confirmation (see R3). A routed-out classification (list, open situation, restru
 process failure) produces no file and continues into its runbook the same way. Either way,
 the first stop the requester meets is a gate with real content in front of it — never a
 prompt to run another command.
+
+**The NEW-APP flow.** NEW asks for a feature; NEW-APP asks for a product — the test is
+whether a scaffolded codebase exists to receive the work. When none does, Track A alone would
+build a feature with no application under it, so initialization comes first:
+
+1. Fill REQUEST_NEW as usual, scoped to the **first shippable slice** — the app's
+   one-paragraph brief comes from ONE-LINE GOAL. An application is a *list* of features, and
+   a list belongs to triage: note the remaining wants in EXPLICITLY OUT as later `/request`
+   runs, never as one request file trying to bind a whole product.
+2. Continue into [docs/02-PROJECT-INITIALIZATION.md](../docs/02-PROJECT-INITIALIZATION.md) —
+   scaffold (`npm run new:app`), then the day-one steps in order.
+3. Move the request file into the new app's `requests/` folder — its first ledger entry, the
+   "why" of the first build.
+4. Run Track A **inside the new app** with that file; its first gate restates the FIELDS as
+   always. A fresh scaffold has empty registers and no sibling screens — the starter's
+   reference implementation is the sibling pattern, and that is expected, not a blocker.
 
 **The classification boundary that matters most:** "it should behave differently" (CHANGE) vs
 "it does not do what it already promises" (BUG). A bug run as a change skips root cause; a
@@ -86,6 +103,8 @@ Binding rules, in order of how expensive their violation is:
    actually buying, and Track B's plan (B4 item 2) starts from it and may only add to it.
 4. **NEW:** split wants into MUST-HAVE vs EXPLICITLY OUT only if the requester signalled
    priority; otherwise put them all in MUST-HAVE and note `requester to trim at Gate 1`.
+   **NEW-APP:** scope MUST-HAVE to the first shippable slice only; every further want is
+   listed in EXPLICITLY OUT as a later `/request` run of its own.
 5. **DESIGN SURFACE (NEW and CHANGE):** if anything the user sees changes, fill the block —
    name the screens/states touched and which state and theme obligations apply. Writing
    `not visual` for a change that touches anything rendered is a defect: this block is what
