@@ -1,4 +1,7 @@
 {
+  // tsconfig is JSONC: real comments are legal here (tsc, Vite, esbuild, Next all accept them).
+  // The "//key": "comment" convention that works in package.json is an ERROR inside
+  // compilerOptions (TS5025 unknown option) - it made tsc fail in every scaffolded app.
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
@@ -6,12 +9,13 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
 
+    // Strictness is on from day one on purpose. Turning it ON later means paying for every
+    // unsound line written in between; turning it on at the start costs nothing.
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": true,
-    "//strict": "These are on from day one on purpose. Turning strictness ON later means paying for every unsound line written in between; turning it on at the start costs nothing.",
 
     "allowJs": false,
     "esModuleInterop": true,
@@ -20,10 +24,14 @@
     "skipLibCheck": true,
     "noEmit": true,
 
-    "//paths": "ONE alias source. Declaring aliases in both tsconfig and a bundler config produces two resolvers that disagree, and the divergence surfaces as an import that type-checks and then fails at runtime.",
+    // ONE alias source. Declaring aliases in both tsconfig and a bundler config produces two
+    // resolvers that disagree, and the divergence surfaces as an import that type-checks and
+    // then fails at runtime.
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*", "tests/**/*", "*.ts", "*.tsx"],
-  "//exclude": "Anything excluded here MUST name its replacement checker. An exclusion without one is coverage deletion that looks like configuration.",
+  // Anything excluded here MUST name its replacement checker. An exclusion without one is
+  // coverage deletion that looks like configuration. supabase/functions: checked by the Deno
+  // toolchain in its own environment, not by this tsconfig.
   "exclude": ["node_modules", ".next", "dist", "supabase/functions"]
 }

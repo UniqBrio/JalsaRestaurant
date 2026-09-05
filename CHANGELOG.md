@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.15.1 — fix: starter tsconfig rejected by tsc
+
+`"//strict"` and `"//paths"` inside compilerOptions were TS5025 errors (unknown compiler
+option) since the initial commit, making tsc fail on the config in every scaffolded app —
+so the type gate never truly ran. Converted to real JSONC comments; content preserved. Apps:
+remove or convert those two lines in your tsconfig, then re-run the gate. See `UPGRADES.md`.
+
 ## 1.15.0 — the third speed pass: reviewers by scale, in parallel
 
 Root cause: all eleven review agents self-described as "use PROACTIVELY" and the runbooks

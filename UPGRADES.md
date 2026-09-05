@@ -12,6 +12,34 @@
 
 ---
 
+## 1.15.1 — 05-Sep-2026 — PATCH (seed defect fix — one app action, see below)
+
+**`starter/tsconfig.json` made `tsc` fail in every scaffolded app.** Present since the
+initial commit. The file carried `"//strict": "…"` and `"//paths": "…"` inside
+`compilerOptions` — the `"//key"` comment convention that npm tolerates in `package.json`, but
+which TypeScript rejects: `error TS5025: Unknown compiler option '//strict'` (and `'//paths'`).
+Observed with `tsc --showConfig -p starter/tsconfig.json` before the fix; clean after. The
+consequence in an app: the gate's type step fails on the *config* before checking any source,
+so the type ratchet was never actually running.
+
+### Fixed
+- The three explanatory entries are now real JSONC `//` comments — legal for tsc, Vite,
+  esbuild and Next, and no framework script parses tsconfig as strict JSON. The didactic
+  content is preserved verbatim.
+
+### App action required
+**Yes, one edit:** in your app's `tsconfig.json`, delete the `"//strict"` and `"//paths"`
+lines inside `compilerOptions` (and optionally the top-level `"//exclude"`), or replace them
+with `//` comments. If the file is unmodified since scaffold, `npm run framework:upgrade`
+offers the corrected seed. Then run `npm run gate` — expect the type step to *start reporting*
+real results for the first time; a baseline regenerate (`scripts/hooks/tsc-baseline.sh`) may
+be needed to record the true starting debt.
+
+*Taxonomy note:* PATCH by content (a wording-level config fix), but it carries an action
+because the defect was hiding a gate — stated rather than buried.
+
+---
+
 ## 1.15.0 — 05-Sep-2026 — MINOR
 
 **The third speed pass: reviewers spawn by scale, in parallel.** After the waiting (1.9.0)
