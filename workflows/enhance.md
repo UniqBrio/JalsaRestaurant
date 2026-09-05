@@ -102,6 +102,7 @@ on it. The plan states, explicitly:
 | Permissions | Does who-can-see-or-do change? If yes, the five RBAC questions; if no, say so |
 | Keyboard | Touched controls stay Tab-reachable in visual order and Enter/Space-operable; the changed flow is walked once keyboard-only (CP-22, A-10) |
 | Subtraction | The three questions (docs/24 §3c) asked of the touched area — need to see it? need to do it? fewer steps? — with what was removed, or "nothing removable" |
+| Lists | A list or table touched carries the standard controls (CP-23): search fields, filter groups, date presets where dated, sortable columns — through the shared component, or a stated reason why not |
 
 The design gaps that force a second correction live exactly here: a correction built without
 this pass ships the happy path in one theme and leaves every other state to be discovered by

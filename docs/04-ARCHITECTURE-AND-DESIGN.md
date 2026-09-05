@@ -143,6 +143,15 @@ A backdrop tap does not dismiss an input dialog. Typed data survives until the u
 intentionally closes. Closing with unsaved changes asks first. One stray tap should never cost
 a user five minutes of typing.
 
+### Every list is searchable, filterable and sortable — by default
+A list or table view is never shipped bare. It carries, through the shared implementation
+(CP-23), one search box across the module's key fields, the contextual filters its data
+supports, the date presets where the data is dated (Today · This week · Last week · This
+month · Custom range), and ascending/descending sort on the relevant columns — with the count
+shown as *matching / total* so a narrowed list never reads as missing data. These are not
+per-module decisions: a user who has learned one list has learned them all, and the module's
+only job is to say which fields are searchable, which filters apply, and which columns sort.
+
 ### A wide table is the user's to arrange
 Past **three** columns a table stops fitting and starts scrolling sideways, so most of it is off
 screen at any moment. Which columns matter is a property of the **task**, not of the table:

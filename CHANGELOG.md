@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.17.0 — CP-23: every list searchable, filterable, sortable
+
+New ListControls / useListControls / list-controls lib: one search box across key fields
+(phone digits normalised), multi-select filters, date presets (Today · This week · Last week ·
+This month · Custom, local time, inclusive), stable asc/desc sort with blanks last, and a
+matching/total count. CP-23 with an executable rung; a baseline concern in the component
+library; asked for by A3.3b, the Track B Lists row, docs/04 and design QA. See `UPGRADES.md`.
+
 ## 1.16.0 — Codex wiring committed, four defects fixed first
 
 `.codex/` (agents, hook adapter, hooks.json) and root `AGENTS.md` are now tracked. Before

@@ -91,7 +91,7 @@
 
 ## 16. Production readiness
 - [ ] All roles walked: what each sees, cannot see, and the denial states.
-- [ ] Large-dataset day designed (paging, search, density); performance budget stated.
+- [ ] Large-dataset day designed (paging, density); every list/table view carries the CP-23 standard controls — search fields, filters, date presets where dated, sortable columns — via `ListControls`; performance budget stated.
 - [ ] Permissions answered (five RBAC questions); analytics/instrumentation named if required.
 
 ## 17. Edge cases

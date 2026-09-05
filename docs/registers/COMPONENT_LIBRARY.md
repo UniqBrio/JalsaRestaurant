@@ -21,6 +21,7 @@ Regardless of business requirements, every application ships these; the product-
 | Theme | Light AND dark theme · token-driven colour configuration · theme toggle · per-theme assets |
 | Authentication | Login · logout/sign-out · forgot password · reset password · session identity |
 | Layout & navigation | App shell (header/nav) · section tabs · back behaviour · cold-loadable routes |
+| Lists & tables | Every list/table view: search across key fields · contextual multi-select filters · date presets (Today · This week · Last week · This month · Custom) where dated · asc/desc sort on relevant columns · matching/total count (CP-23) |
 | States | Empty · loading · error · offline · permission-denied, as shared treatments |
 | Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
 | Data plumbing | Single API client · error taxonomy · idempotent writes · transactions |
@@ -56,6 +57,7 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Navigation | App shell: header / footer | — | **GAP** |
 | UI | Input dialog (focus, unsaved-changes, no backdrop dismiss) | `starter/src/components/Dialog.tsx` | READY |
 | UI | Wide-table column control | `starter/src/components/ColumnControl.tsx` + `useColumnPrefs.ts` | READY |
+| UI | List controls — search across key fields, contextual filters, date presets + custom range, asc/desc sort, honest count (CP-23) | `starter/src/components/ListControls.tsx` + `starter/src/hooks/useListControls.ts` + `starter/src/lib/list-controls.ts` | READY |
 | UI | Bulk-action bar | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
 | Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |

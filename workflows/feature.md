@@ -205,6 +205,14 @@ primary action cannot be named is a finding, not an exemption.
 Empty · loading · error · offline · partial-data · permission-denied · first-run.
 An empty state that only says "nothing here" is incomplete — it must offer the next action.
 
+### A3.3b Every list view: the standard controls
+Any screen that renders a list or table carries CP-23 through `ListControls` /
+`useListControls` — never a per-module search box or sort. The design states, per list:
+**search fields** (name, phone, email, and the module's own key fields) · **filter groups** ·
+**the date field**, if any, which turns on the presets (Today · This week · Last week · This
+month · Custom) · **sortable columns**. A list designed without these is incomplete, not
+minimal — the subtraction pass removes clutter, and these are how the user removes *theirs*.
+
 ### A3.4 Theme and contrast (see [docs/11](../docs/11-THEME-AND-COLOR-SYSTEM.md), [docs/13](../docs/13-CONTRAST-AND-ACCESSIBILITY.md))
 - **Semantic tokens only.** No colour literal enters the design or the code.
 - **Both themes specified.** Not "it will inherit" — state what each surface renders as.

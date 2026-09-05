@@ -12,6 +12,40 @@
 
 ---
 
+## 1.17.0 — 05-Sep-2026 — MINOR
+
+**CP-23: every list and table view is searchable, filterable and sortable — by default.**
+Owner standard: a list shipped bare, or with a per-module search box that behaves differently
+from the next screen's, is the inconsistency users stop trusting. The capability is now a
+canonical pattern with a shared implementation, and the design passes ask for it.
+
+### Added
+- **`ListControls`** (`starter/src/components/ListControls.tsx`) + **`useListControls`**
+  (`starter/src/hooks/useListControls.ts`) + the pure **`list-controls.ts`** lib: one search
+  box across the module's key fields (case-insensitive; **phone numbers compared
+  digit-to-digit**, so "98765 43210" finds "+91 98765-43210"); **multi-select contextual
+  filters** (OR within a field, AND across fields); **date presets** — Today · This week ·
+  Last week · This month · Last month · All time · **Custom range** (inline date inputs, no
+  dialog) — computed in local time, Monday weeks by default, inclusive ends; **stable
+  ascending/descending sort** per column (locale for strings, value for numbers and dates,
+  **blanks last in both directions**); the count shown as **matching / total**; one
+  "Clear all". Native inputs and buttons throughout (CP-22); host renders the list and its
+  own empty state.
+- **CP-23** in `CANONICAL_PATTERNS.md`, rung `starter/tests/unit/list-controls.unit.spec.ts`.
+  Fail-first: 40+ assertions executed against the esbuild-compiled actual lib (all passed);
+  a deliberately inverted blanks-last assertion observed failing.
+- **Lists & tables** as a baseline concern in `COMPONENT_LIBRARY.md` §1 (auto-Must-Have in
+  the advisor pass) + the READY row.
+- The design passes ask for it: `feature.md` **A3.3b** (per list: search fields · filter
+  groups · date field · sortable columns), `enhance.md` B4 **Lists** row (seven rows now),
+  `docs/04 §5`, design-QA area 16. Cases FW-LIST-001..002; FW-ENH-002 updated.
+
+### App action required
+**None.** New seed files; new scaffolds include them, existing apps copy via upgrade or by
+hand. Existing bare lists are debt to be closed as each is next touched (Track B's Lists row).
+
+---
+
 ## 1.16.0 — 05-Sep-2026 — MINOR
 
 **Codex wiring, committed properly.** The owner had built `.codex/` (a Codex-CLI mirror of
