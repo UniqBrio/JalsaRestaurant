@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.10.0 — the product-advisor pass
+
+For a new application or module, Gate 1 now researches comparable products (timeboxed,
+sources declared), filters through context lenses (region, legal, customers, scale, industry
+standards), and delivers a Must-Have / Recommended / Good-to-Have triage plus a reasoned
+ignored list. Every question ships with a recommendation, its reasoning, alternatives, and an
+always-available "Other" — the requester decides, in every run mode, in one consolidated
+stop. Scoped in-area features skip the pass. See `UPGRADES.md`.
+
 ## 1.9.0 — the speed release
 
 Run modes: **auto** (new default) turns gates 1–4 into logged checkpoints with an ASSUMPTIONS

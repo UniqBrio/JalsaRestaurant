@@ -12,6 +12,37 @@
 
 ---
 
+## 1.10.0 — 05-Sep-2026 — MINOR
+
+**The product-advisor pass.** For a new application or a new module there is no codebase to
+answer scope questions from — they are product decisions, and guessing them ships the wrong
+v1. Gate 1 now runs as an advisor for those cases: **research → context → questions →
+recommend with reasoning → alternatives → the requester decides.**
+
+### Added
+- **`docs/24` §2 — the product-advisor pass.** Timeboxed research (3–5 comparable products,
+  one pass; web research where available, model knowledge declared and dated where not);
+  candidate features filtered through explicit context lenses (complexity, type/purpose,
+  region and market, legal/regulatory/cultural, business context, target customers,
+  scale/growth, industry standards, deliberate exclusions); triaged **Must-Have /
+  Recommended / Good-to-Have**, each tier reasoned, plus the **ignored list** — features
+  found in research and deliberately excluded, with why. Research is input, never authority.
+- **Question format hardened** (`GATE1_QUESTIONS.md`, `feature.md` A1, `01-SDLC` Stage 1):
+  every question carries the recommendation, *why it wins here*, and real alternatives;
+  options always end with **"Other: describe your own"**; the requester's choice — including
+  a custom one — binds like a stated FIELD.
+- **Run-mode interaction defined:** the triage + questions are ONE consolidated package and
+  a **hard stop in every run mode** — scope is the requester's decision and is expensive to
+  undo. A scoped in-area feature skips the advisor pass entirely, so the 1.9.0 speed win is
+  untouched where it matters.
+- `REQUEST_NEW.md` gains a `MARKET / REGION` field feeding the regional/legal lenses.
+- Cases FW-ADVISOR-001..003.
+
+### App action required
+**None.** The pass fires only for new applications and new modules.
+
+---
+
 ## 1.9.0 — 05-Sep-2026 — MINOR
 
 **The speed release: run modes and proportional ceremony.** Root-cause finding from a real

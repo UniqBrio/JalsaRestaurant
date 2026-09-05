@@ -11,6 +11,7 @@ Run **Track A** ([workflows/feature.md](../../workflows/feature.md)) with this r
 - MUST-HAVE in v1: `<2–5 bullets — the non-negotiables; if the requester signalled no priority, everything lands here with "requester to trim at Gate 1">`
 - EXPLICITLY OUT of v1: `<what NOT to build now — or unknown>`
 - KNOWN CONSTRAINTS: `<timing / platform / budget notes — or none stated>`
+- MARKET / REGION: `<where the users are, if stated — feeds the advisor pass's regional, legal and cultural lenses; or unknown>`
 - RUN MODE: `<auto (default: gates 1–4 are logged checkpoints) | confirm (each gate waits)>`
 
 ## DESIGN SURFACE

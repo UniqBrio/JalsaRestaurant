@@ -1,14 +1,35 @@
 # Gate 1 — Requirements: `<feature>`
 
 > One question, or one tight group, at a time.
-> **Every question carries a reasoned recommendation.** A blank question hands the work back to
-> the requester; a recommendation lets them answer by agreeing.
+> **Every question carries a recommendation, its reasoning, and alternatives.** The
+> recommendation explains why that option wins in THIS context — not just which one. Options
+> always end with **"Other: describe your own"**; the requester may take the recommendation,
+> pick any option, or define their own. Their answer binds.
 >
 > Skip anything the loaded context already answers.
 
-| # | Question | Why it matters | Options | **Recommendation** | Answer |
+| # | Question | Why it matters | Options (last is always "Other: …") | **Recommendation + why** | Answer |
 |---|---|---|---|---|---|
 | 1 | | | | | |
+
+---
+
+## Feature triage *(new application / new module only — [docs/24 §2](../../docs/24-DESIGN-PLANNING.md))*
+
+> From timeboxed research (3–5 comparators; sources or "model knowledge, <date>") filtered
+> through the context lenses: type · region · legal/regulatory · customers · scale ·
+> standards. **The requester decides every row — in every run mode.**
+
+| Tier | Feature | Why this tier, here | Requester's decision |
+|---|---|---|---|
+| Must-Have | | | keep / move / drop |
+| Recommended | | | build next / promote to v1 / drop |
+| Good-to-Have | | | park / promote / drop |
+
+**Ignored (found in research, deliberately excluded):**
+
+| Feature seen in | Why it is wrong here |
+|---|---|
 
 ---
 

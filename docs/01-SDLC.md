@@ -140,8 +140,15 @@ Read, in this order:
 ### Stage 1 — Requirements → **GATE 1**
 
 Produce a question set, one question or one tight group at a time, each paired with a
-**reasoned recommendation** rather than a blank. A blank question transfers work to the
-requester; a recommendation lets them answer by saying "yes".
+**reasoned recommendation and real alternatives** (options always include "Other: describe
+your own") rather than a blank. A blank question transfers work to the requester; a
+recommendation with its reasoning lets them answer by saying "yes" — or overrule it, informed.
+
+For a **new application or new module**, the stage opens with the **product-advisor pass**
+([24 §2](./24-DESIGN-PLANNING.md)): timeboxed research of comparable products, filtered
+through the context lenses (type, region, legal/regulatory, customers, scale, standards),
+delivered as a Must-Have / Recommended / Good-to-Have triage plus a reasoned ignored list —
+one consolidated package, a hard stop in every run mode, the requester deciding every row.
 
 Cover: objective · users and roles · flow · entry points · navigation · permissions · business
 rules · validation · edge cases · states · fields · search/filter/sort · notifications ·

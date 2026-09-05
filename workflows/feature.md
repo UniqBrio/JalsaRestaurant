@@ -52,6 +52,16 @@ inspection cannot answer, using its infer / investigate / ask framework — high
 that materially affect architecture, UX, business logic or implementation; never a question
 the codebase already answers.
 
+**The product-advisor pass** ([docs/24 §2](../docs/24-DESIGN-PLANNING.md)) — runs for a
+NEW-APP, a new module, or a full-scale feature opening a new area; a scoped feature inside an
+existing area skips it. Research comparable products (timeboxed: 3–5 comparators, one pass;
+web research where available, model knowledge declared and dated where not), filter every
+candidate through the context lenses (type, region, legal/regulatory, customers, scale,
+standards), and deliver the **feature triage**: Must-Have / Recommended / Good-to-Have, each
+tier reasoned, plus the ignored list with why. The triage and its questions are presented as
+**one consolidated package and are a hard stop in every run mode** — scope is the requester's
+decision, and it is expensive to undo; everything else about auto mode stays as it is.
+
 Produce an adaptive questionnaire. **One question, or one tight group, at a time.** Skip
 anything the loaded context already answers.
 
@@ -60,8 +70,11 @@ permissions · business rules · validation · edge cases · empty/loading/error
 search, filter, sort · notifications · integrations · affected modules · analytics events ·
 security and data sensitivity · performance expectations.
 
-**Every question carries a reasoned recommendation.** A blank question hands the work back to
-the requester; a recommendation lets them answer by agreeing.
+**Every question carries a recommendation, its reasoning, and real alternatives.** State
+*why the recommended option wins here* — context, not preference; options always include
+**"Other: describe your own"**. A blank question hands the work back to the requester; a
+bare list of choices without a reasoned pick does the same thing more slowly. The requester
+may take the recommendation, pick any alternative, or define their own — their answer binds.
 
 Two mandatory items:
 

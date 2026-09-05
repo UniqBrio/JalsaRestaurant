@@ -73,6 +73,54 @@ different experiences · a constraint forcing a visible trade-off · a step in t
 necessity only the requester can judge · anything that removes or reshapes an existing
 capability.
 
+### The product-advisor pass — for a new application or a new module
+
+A scoped feature inside an existing area answers its questions from the codebase. A **new
+application or a new module** has no codebase to answer from — its scope questions are
+product decisions, and guessing them is how a product ships the wrong v1. For those, the
+question stage runs as an advisor: **research → understand context → identify the questions →
+evaluate approaches → recommend with reasoning → present alternatives → the requester
+decides.**
+
+**1. Research, timeboxed.** Survey how comparable products solve this — 3 to 5 comparators,
+one pass, findings as a table (feature · who offers it · why it exists). Use web research
+where the environment provides it; where it does not, say plainly that the survey comes from
+model knowledge and date it. Research is input, never authority: a feature every competitor
+ships may still be wrong here.
+
+**2. Filter through context, explicitly.** Evaluate every candidate feature and question
+against the lenses that change the answer:
+
+| Lens | What it changes |
+|---|---|
+| Complexity and scope | How much v1 can carry before it ships late and half-tested |
+| Type and purpose | A booking tool and a ledger share no defaults |
+| Region and market | Formats, languages, payment rails, channel preferences (e.g. WhatsApp-first vs email-first markets) |
+| Legal / regulatory / cultural | Data residency, consent, invoicing rules, accessibility law, cultural expectations |
+| Business context and requester's stated needs | Stated FIELDS bind; the business model shapes what "essential" means |
+| Target customers | Their expectations set the floor — what similar tools have taught them to assume |
+| Scale and growth | What must be designed for now vs deliberately deferred |
+| Industry standards and patterns | The conventions users arrive already knowing |
+| Deliberate exclusions | What comparable products carry that THIS product should refuse, to stay simple |
+
+**3. Triage every candidate feature into three tiers, each with its reasoning:**
+
+- **Must-Have** — v1 cannot do its job without it. The bar is *function*, not fashion.
+- **Recommended** — strongly advised by industry practice, context and user expectation;
+  scheduled next, not silently dropped.
+- **Good-to-Have** — real but optional value; listed so the decision not to build it is a
+  decision, with a one-line reason each.
+- Plus the **ignored list**: features found in research and deliberately excluded, with why.
+  Research without an ignored list is a shopping spree; *simplify the experience, not the
+  capability* applies to scope before it applies to screens.
+
+**4. Every question ships with a recommended answer AND its reasoning AND alternatives** —
+the format in `templates/gates/GATE1_QUESTIONS.md`: options always include **"Other:
+describe your own"**, the recommendation explains *why this option wins here* (not just which
+one), and the requester may take the recommendation, pick another option, or define their
+own. The advisor recommends; **the requester decides — in every run mode** (this consolidated
+decision is a hard stop, presented once as one package, never a drip of small questions).
+
 ---
 
 ## 3. The design plan — what exists before any screen is drawn
