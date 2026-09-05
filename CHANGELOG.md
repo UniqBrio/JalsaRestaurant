@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.14.0 — module access + app customizer components
+
+Two contributed reference components: ModuleAccessPanel (role preset as reset-to-role,
+per-capability custom grants, deny-by-default, worded confidential marks, honest save label)
+and ModuleCustomizer (enable/disable + button reorder, alwaysOn locks the toggle not the
+position, enabled-only position badges). Pure logic in libs with unit specs — executed
+against the compiled actual files, and observed failing when inverted. Registered under
+Settings and Permissions in COMPONENT_LIBRARY. See `UPGRADES.md`.
+
 ## 1.13.0 — the second speed release
 
 Root cause of remaining slowness: process weight — ~1,700+ lines of process docs read up

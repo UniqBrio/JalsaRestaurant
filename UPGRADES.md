@@ -12,6 +12,41 @@
 
 ---
 
+## 1.14.0 — 05-Sep-2026 — MINOR
+
+**Two contributed components: module access and app customization.** Owner-commissioned from
+a real app's screens, generalized (domain-free) into the reference stack's library — the
+contribute-back loop's first exercise.
+
+### Added
+- **`ModuleAccessPanel`** (`starter/src/components/ModuleAccessPanel.tsx` +
+  `starter/src/lib/module-access.ts`) — grant another member limited access: role preset as
+  a starting point (**reset-to-role, never a merge** — a merge would make "Manager preset"
+  a lie to every access reviewer), per-capability custom switches, **deny-by-default**
+  stated in the UI, confidential capabilities marked with a word never a colour, collapsed
+  sections showing granted/total counts, and an honest save button ("No changes" /
+  "Save N changes" — never silently disabled). Compose inside `Dialog.tsx`; the
+  login-lifecycle buttons beside it (enable/disable login, reset credential) are host-app
+  chrome, destructive ones isolated.
+- **`ModuleCustomizer`** (`starter/src/components/ModuleCustomizer.tsx` +
+  `starter/src/lib/module-customizer.ts`) — the user shapes their own app: per-module
+  enable/disable, **button reorder never drag** (CP-21 reasoning — this edits navigation,
+  where the least confident users end up), `alwaysOn` locks the **toggle not the position**
+  (a worded "Always on" mark, never a dead ghost toggle), children keep their flags across a
+  parent's disable, and position badges ("Main tab 2") count **enabled modules only**.
+- Unit specs for every branch (`starter/tests/unit/module-{access,customizer}.unit.spec.ts`).
+  Fail-first: the assertions were executed against the esbuild-compiled actual libs (20/20
+  passed) and a deliberately inverted alwaysOn assertion was observed failing.
+- Registry rows in `COMPONENT_LIBRARY.md`: Settings gains the customizer, Permissions gains
+  the access editor. All logic is in the pure libs; the components render state, never
+  compute it.
+
+### App action required
+**None.** New seed files — new scaffolds include them; existing apps copy them via upgrade
+or by hand when needed.
+
+---
+
 ## 1.13.0 — 05-Sep-2026 — MINOR
 
 **The second speed release: the process weight itself was the bottleneck.** After 1.9.0

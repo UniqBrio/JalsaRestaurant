@@ -59,6 +59,8 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | UI | Bulk-action bar | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
 | Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |
+| Settings | App customizer — per-module enable/disable, button reorder, always-on locks, enabled-only position badges | `starter/src/components/ModuleCustomizer.tsx` + `starter/src/lib/module-customizer.ts` | READY |
+| Permissions | Module-access editor — role preset (reset-to-role) + per-capability custom grants, deny-by-default, worded confidential marks, honest save label | `starter/src/components/ModuleAccessPanel.tsx` + `starter/src/lib/module-access.ts` | READY |
 | Settings | Settings screen shell (the configurable-details area) | — | **GAP** — placement rule already binding: configuration is never a peer of daily work |
 | States | Permission-denied state | `starter/src/components/NoAccess.tsx` | READY |
 | States | Async loading (always terminates) | `starter/src/hooks/useAsync.ts` | READY |
