@@ -114,7 +114,11 @@ Binding rules, in order of how expensive their violation is:
    and where the previous attempt lives (request file, commit, or "unknown"). Round ≥ 2
    obliges the track to read the previous attempt and state what it missed **before proposing
    anything** — a second correction that cannot explain the first is about to repeat it.
-7. **Keep the template's STANDING INSTRUCTIONS block verbatim.** It is the track contract,
+7. **USAGE PROFILE (NEW):** fill each line from the customer's words only — frequency,
+   essential vs optional information, frequent vs occasional actions, what to automate.
+   These facts are what the design SUBTRACTS with; invented ones produce a UI for an
+   imaginary user, so an uncovered line is `unknown` and Gate 1 asks it.
+8. **Keep the template's STANDING INSTRUCTIONS block verbatim.** It is the track contract,
    not per-request content.
 
 ---

@@ -28,7 +28,9 @@ into things that can be checked:
 | "The details are right" | Aligned edges, consistent spacing rhythm, one voice in the copy, both themes flawless, focus rings that look intentional |
 
 None of these is subjective. Each is a property the validation loop can look for and find
-missing.
+missing. And the whole table compresses to one sentence the customer should say unprompted:
+**"I don't need a manual — I immediately understand how to use it."** Simplicity is the
+selling point; every row above is in its service.
 
 ### What NOT to do — sophistication through simplicity, never gimmicks
 

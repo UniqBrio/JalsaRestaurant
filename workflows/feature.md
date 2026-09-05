@@ -79,7 +79,13 @@ security and data sensitivity · performance expectations.
 bare list of choices without a reasoned pick does the same thing more slowly. The requester
 may take the recommendation, pick any alternative, or define their own — their answer binds.
 
-Two mandatory items:
+Three mandatory items:
+
+- **Usage-profile completion.** Every `unknown` line of the request's USAGE PROFILE —
+  frequency, essential vs optional info, frequent vs occasional actions, what to automate —
+  is asked here, with a recommendation. The profile is what the design subtracts with
+  ([docs/24 §3b](../docs/24-DESIGN-PLANNING.md)); designing without it produces a UI for an
+  imaginary user.
 
 - **Cardinality check.** For every entity pair the feature touches, state 1:1 / 1:N / N:M
   explicitly, with a recommendation. Left implicit, it is discovered during build, and by then
@@ -148,6 +154,14 @@ Resolution order, one read each ([docs/registers/COMPONENT_LIBRARY.md](../docs/r
    `/promote` (n=2 rule) as always.
 
 Follow the project's naming conventions for anything genuinely new.
+
+### A3.1b Translate the usage profile, then subtract
+Apply the translation table ([docs/24 §3b](../docs/24-DESIGN-PLANNING.md)) mechanically:
+frequent/essential → primary screen, one interaction; occasional/optional → progressive
+disclosure; automatable → eliminated, outcome shown. Then run the **subtraction pass**
+([§3c](../docs/24-DESIGN-PLANNING.md)) on every screen: *need to see it? need to do it?
+fewer steps possible?* — recording what was removed (or "nothing removable", per screen) as
+design-QA evidence. A separate screen is never created merely because information exists.
 
 ### A3.2 Simplify before you add
 Run the substitution table before adding any control:

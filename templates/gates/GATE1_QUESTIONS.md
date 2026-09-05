@@ -35,6 +35,17 @@
 
 ## Mandatory sections
 
+### Usage profile *(every `unknown` line of the request's USAGE PROFILE)*
+The facts the design subtracts with — asked here, never invented:
+
+| Fact | Question | Recommendation + why | Answer |
+|---|---|---|---|
+| Frequency of use | | | |
+| Essential vs optional info | | | |
+| Frequent vs occasional actions | | | |
+| Automate vs must-stay-manual | | | |
+| Operating environment | | | |
+
 ### Cardinality
 For **every** entity pair this feature touches, state 1:1 / 1:N / N:M explicitly, with a
 recommendation. Left implicit, it is discovered during build — and by then the schema is wrong.

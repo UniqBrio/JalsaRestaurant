@@ -19,6 +19,7 @@ Run **Track B** ([workflows/enhance.md](../../workflows/enhance.md)) with this r
 - SCREENS & STATES TOUCHED: `<which screens, and which of empty · loading · error · offline · permission-denied the change affects>`
 - STRINGS ADDED OR ALTERED: `<the requester's exact words where given — everything else on the screen is frozen (the freeze rule)>`
 - PERMISSIONS: `<does who-can-see-or-do change? yes / no / unknown>`
+- USAGE: `<how often the touched flow is used and by whom — feeds placement, disclosure and the subtraction pass; or unknown>`
 - RUN MODE: `<auto (default: plan is logged, not awaited) | confirm (plan waits for approval)>`
 
 ## STANDING INSTRUCTIONS (do not edit)

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.12.0 — requirements that drive design
+
+The requirement→UI gap was a format gap: prose carries the what, not the facts simplicity is
+built from. REQUEST_NEW gains a structured USAGE PROFILE (objective, workflow, frequency,
+environment, essential/optional, frequent/occasional, automate/manual); docs/24 §3b translates
+those facts into forced UI decisions mechanically; §3c adds the subtraction pass (see it? do
+it? fewer steps?) with recorded evidence; the no-manual bar lands in the craft doc and design
+QA. Unknown profile lines are asked at Gate 1, never invented. See `UPGRADES.md`.
+
 ## 1.11.0 — the component library
 
 New COMPONENT_LIBRARY register: the standard baseline every app ships (themes, auth flows,

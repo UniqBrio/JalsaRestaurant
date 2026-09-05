@@ -76,8 +76,10 @@
 ## 14. Cognitive load
 - [ ] What the user must hold in their head is counted per step, and minimised.
 - [ ] Density matches the task (scan/decide/enter — docs/23 §4); nothing on screen that doesn't earn its place.
+- [ ] The usage-profile translation holds (docs/24 §3b): essential/frequent on the primary screen; optional/occasional progressively disclosed; no medium/low-priority information rendered by default.
 
 ## 15. Design simplicity
+- [ ] The subtraction pass ran per screen (docs/24 §3c) with its evidence: what was removed, or "nothing removable" — including fields eliminated through automation.
 - [ ] Substitution table applied; every removable step removed.
 - [ ] Consolidations pass all four rules (docs/23 §2): nothing lost · logical groups · internal structure · scales.
 - [ ] **Simplify the experience, not the capability** — capability inventory checked off.
@@ -92,6 +94,7 @@
 - [ ] Rare-but-critical workflows still findable; interruption/resume survivable.
 
 ## 18. Overall UX quality
+- [ ] The no-manual test: a first-time user completes the primary workflow with no instruction — walked in the scenario dry run.
 - [ ] The craft bar (docs/23 §1) walked feeling-by-feeling with evidence.
 - [ ] The anti-gimmick rule holds: no decoration doing hierarchy's job (docs/23 — what NOT to do).
 - [ ] Grade computed (docs/24 §11) and stated: Basic · Acceptable · Production-ready · High quality · Exceptional.

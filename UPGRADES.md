@@ -12,6 +12,43 @@
 
 ---
 
+## 1.12.0 — 05-Sep-2026 — MINOR
+
+**Requirements that drive design.** Root cause of the requirement→UI gap: prose requirements
+carry the *what* but not the facts a simple UI is built from — frequency, priority,
+essential-vs-optional, automatable-vs-manual. Fed prose, the design stage had nothing to
+subtract with, so it added: extra screens, extra fields, extra navigation. The correction is
+a structured, machine-interpretable requirement layer plus mechanical translation rules, so
+the conversion never depends on individual interpretation.
+
+### Added
+- **`REQUEST_NEW.md` §USAGE PROFILE** — the structured half of the requirement: primary
+  objective · primary workflow · frequency of use · operating environment · essential vs
+  optional information · frequent vs occasional actions · automate vs must-stay-manual.
+  Intake fills it from the customer's words only; every `unknown` becomes a Gate 1 question
+  (new mandatory usage-profile section in `GATE1_QUESTIONS.md`, asked with recommendations —
+  never invented). `REQUEST_CHANGE.md` gains a one-line USAGE field.
+- **`docs/24` §3b — the translation table**: requirement facts → forced UI decisions.
+  Frequent/essential → primary screen, one interaction, early Tab order; occasional/optional →
+  progressive disclosure, *never a separate screen just because the information exists*;
+  automatable → the field is **eliminated**, the outcome shown with an override;
+  must-stay-manual → an explicit visible decision; operating environment → density, targets,
+  keyboard model.
+- **`docs/24` §3c — the subtraction pass**, run per screen with recorded evidence: *does the
+  user really need to see this? really need to do this? can it take fewer steps?* Complexity
+  is never justified by "technically possible" or "other apps have it". New A3.1b executes
+  it in Track A; the Track B correction design pass gains a Subtraction row (six rows now).
+- **The no-manual bar**, stated in docs/23 and tested in design QA area 18: a first-time
+  user completes the primary workflow with no instruction — simplicity as the selling point.
+- Design-QA hooks: area 14 checks the usage-profile translation held; area 15 demands the
+  subtraction evidence. Cases FW-REQ-001..003; FW-ENH-002 updated.
+
+### App action required
+**None.** Old-format request files keep working — a missing USAGE PROFILE simply means Gate 1
+asks those questions.
+
+---
+
 ## 1.11.0 — 05-Sep-2026 — MINOR
 
 **The component library: discover → reuse → build the missing piece → register → reuse.**

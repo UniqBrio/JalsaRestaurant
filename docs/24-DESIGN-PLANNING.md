@@ -144,6 +144,43 @@ DESIGN PLAN
 The order is the method: IA before screens, journeys before layout, patterns before pixels.
 A plan written screen-first produces screens that each make sense and a product that doesn't.
 
+### 3b. Requirements → UI decisions: the translation table
+
+The gap between "the customer explained it in detail" and "the UI came out complicated" is a
+*format* gap: prose carries the what, but the UI is driven by the **usage profile** —
+frequency, priority, essentiality, automatability. The request file captures those facts
+(REQUEST_NEW §USAGE PROFILE); this table converts them, mechanically, so the conversion never
+depends on individual interpretation:
+
+| The requirement says | The design MUST do |
+|---|---|
+| Primary objective | It names the primary screen's primary action; the fewest-actions path to it is designed FIRST, everything else fits around it |
+| Frequent action | On the primary screen · one interaction · early in the Tab order · keyboard shortcut where it earns one |
+| Occasional action | Secondary access (context menu, overflow, settings) — never a peer of frequent actions |
+| Essential info | Visible by default, no interaction to reach it |
+| Optional info | Progressively disclosed: expand, click, hover, contextual — **never a separate screen just because the information exists** |
+| Rarely used info | Out of the default render entirely; reachable through a deliberate secondary interaction |
+| Automatable step | The field or step is **eliminated** — the system derives it, the UI shows the result with a way to override. A field that can be computed is a field the user never types |
+| Must stay manual | An explicit, visible user decision — never silently automated |
+| Operating environment | Density, touch-target sizes, keyboard model, network honesty follow the real context (a front-counter phone is not a desk) |
+| Explicitly excluded | Absent — and the exclusion recorded so it is not "helpfully" re-added later |
+
+### 3c. The subtraction pass — three questions, per screen, per element
+
+Run during design (A3) and again on the rendered screens; the answers are evidence in the
+design QA, not private judgement:
+
+1. **Does the user really need to see this?** No → not in the default render.
+2. **Does the user really need to do this?** Automatable or eliminable → gone; the UI shows
+   the outcome.
+3. **Can the same objective take fewer steps?** Yes → the shorter flow wins, whatever the
+   longer one cost to design.
+
+Complexity is never justified by "it is technically possible" or "other apps have it" — the
+advisor pass's ignored list (§2) is where those go. The bar, stated as the customer would:
+**"I don't need a manual — I immediately understand how to use it."** A first-time user
+completing the primary workflow with no instruction is the acceptance test of simplicity.
+
 ---
 
 ## 4. Information architecture first — the placement decision table
