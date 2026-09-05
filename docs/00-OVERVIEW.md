@@ -81,7 +81,8 @@ Both are explained in [01-SDLC.md](./01-SDLC.md) and
 ### The wiring
 `.claude/` — slash commands, review agents, and the hook that runs the commit guards in every
 session. See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md). Without this the rest is documentation.
-`CLAUDE.md` at the repository root carries the binding rules, read before every task.
+`.codex/` — the same agents and hook adapter for Codex; `AGENTS.md` at the root is a pointer to
+`CLAUDE.md`, which carries the binding rules, read before every task.
 
 ### The runbooks
 `workflows/` — [request (intake)](../workflows/request.md) ·

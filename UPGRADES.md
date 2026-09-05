@@ -12,6 +12,36 @@
 
 ---
 
+## 1.16.0 — 05-Sep-2026 — MINOR
+
+**Codex wiring, committed properly.** The owner had built `.codex/` (a Codex-CLI mirror of
+`.claude/`: eleven agents as TOML, the hook adapter, `hooks.json`) and a root `AGENTS.md`, both
+untracked. Committing them as found would have shipped four defects, so they are fixed first:
+
+### Fixed before committing
+- `.codex/hooks.json` hardcoded an **absolute path on one machine** — now
+  `node .codex/hooks/pre-tool-use-guard.mjs`, relative, like `.claude/settings.json`.
+- `.codex/hooks/adapter.test.sh` tested **`.claude/`'s adapter**, not the `.codex` copy — the
+  Codex adapter had never been executed by anything. It now tests its own copy, and
+  `npm run guard:test` runs it.
+- The ten Codex agent **descriptions still said "PROACTIVELY"** — pre-1.15.0 wording, so Codex
+  would have spawned every reviewer on every run. Synced verbatim to `.claude/agents` (the
+  review matrix applies to both); keep them synced together.
+- Root `AGENTS.md` was a **full copy of `CLAUDE.md` that had already drifted** (it named a
+  `.codex/commands/` folder that does not exist; its runbook list lacked `/request`). It is
+  now a pointer to `CLAUDE.md` — the same convention `new-app.mjs` writes into every app.
+
+### Added
+- `.codex/` and `AGENTS.md` registered in `FRAMEWORK_MANIFEST.md`, `docs/00-OVERVIEW.md`,
+  `docs/21-AGENT-WIRING.md`. Stated honestly: `.codex/` is framework-repo wiring today — not in
+  `HALF_A`, so scaffolds do not yet carry it (a future MINOR if wanted).
+
+### App action required
+**None.** `framework:upgrade` note: that script exists only in a *scaffolded app's*
+`package.json` (written by `new-app.mjs`); it is not a framework-repo command.
+
+---
+
 ## 1.15.1 — 05-Sep-2026 — PATCH (seed defect fix — one app action, see below)
 
 **`starter/tsconfig.json` made `tsc` fail in every scaffolded app.** Present since the

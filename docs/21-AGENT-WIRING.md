@@ -5,6 +5,12 @@
 > Without it, the runbooks are documents nobody opens and the guards are shell scripts nobody
 > invokes. The content is not the system; the content plus the wiring is the system.
 >
+> **Codex wiring (05-Sep-2026).** `.codex/` mirrors `.claude/` for Codex: the same eleven
+> agents as TOML (descriptions kept identical — sync them together), the same hook adapter, and
+> `hooks.json` using a **relative** command path (an absolute path breaks on every other clone).
+> Root `AGENTS.md` is a pointer to `CLAUDE.md`, never a copy: two rule files drift. `.codex/` is
+> framework-repo wiring today — it is not in `HALF_A`, so scaffolds do not yet carry it.
+>
 > **Invocation is proportional (05-Sep-2026).** Each agent's `description` is gated to the
 > review matrix in [workflows/agents/README.md](../workflows/agents/README.md): a scoped change
 > spawns `code-reviewer` plus only the conditional reviewers its diff triggers, in one parallel

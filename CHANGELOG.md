@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.16.0 — Codex wiring committed, four defects fixed first
+
+`.codex/` (agents, hook adapter, hooks.json) and root `AGENTS.md` are now tracked. Before
+committing: the absolute machine path in hooks.json made relative; the Codex adapter test now
+tests the .codex copy (it was testing .claude's) and runs in guard:test; agent descriptions
+synced to the v1.15.0 review matrix; AGENTS.md turned into a pointer to CLAUDE.md instead of
+a drifted copy. Registered in manifest/overview/docs 21. See `UPGRADES.md`.
+
 ## 1.15.1 — fix: starter tsconfig rejected by tsc
 
 `"//strict"` and `"//paths"` inside compilerOptions were TS5025 errors (unknown compiler

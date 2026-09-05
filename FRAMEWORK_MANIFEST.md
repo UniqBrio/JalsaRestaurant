@@ -26,6 +26,8 @@ list above is the authority for what gets linked, and everything under `starter/
 | `.claude/agents/*.md` | Eleven review sub-agents, each with a boundary and a verdict format |
 | `.claude/hooks/pre-tool-use-guard.mjs` | Bridges the hook protocol to the git guard |
 | `.claude/hooks/adapter.test.sh` | **Executes** the adapter — a correct guard behind a broken adapter enforces nothing |
+| `.codex/agents/*.toml` · `.codex/hooks/*` · `.codex/hooks.json` | The same wiring for Codex: eleven agents (descriptions kept identical to `.claude/agents` — the review matrix applies), the same hook adapter, `hooks.json` with a **relative** command path. Framework-repo wiring today: not yet in `HALF_A`, so scaffolds do not carry it |
+| `AGENTS.md` | Vendor-neutral **pointer** to `CLAUDE.md` — never a second copy of the rules |
 
 ## Entry points
 | File | Role |
