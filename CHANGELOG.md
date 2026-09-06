@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.18.0 — CP-24: analytics and dashboards as a reusable module
+
+A dashboard is now configuration, not code: business-agnostic components (MetricCard,
+DashboardShell, InsightCard, BarChart, Sparkline, ProgressMeter, AnalyticsTable) driven by a
+DashboardConfig, with four honesty rules enforced in the logic — direction is not sentiment,
+growth from zero is null, absent is never zero, restricted metrics are removed not hidden.
+Filters reuse CP-23; no charting dependency. Restaurant, gym, academy and badminton configs
+ship as the proof. See `UPGRADES.md` and `docs/25`.
+
 ## 1.17.0 — CP-23: every list searchable, filterable, sortable
 
 New ListControls / useListControls / list-controls lib: one search box across key fields

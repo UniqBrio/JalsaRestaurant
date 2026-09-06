@@ -21,6 +21,7 @@ Regardless of business requirements, every application ships these; the product-
 | Theme | Light AND dark theme · token-driven colour configuration · theme toggle · per-theme assets |
 | Authentication | Login · logout/sign-out · forgot password · reset password · session identity |
 | Layout & navigation | App shell (header/nav) · section tabs · back behaviour · cold-loadable routes |
+| Analytics & dashboards | Every business needs to know what is happening and what to do: configurable metric tiles · comparisons and targets · insight/exception cards · ranking and trend visuals · drill-down ladders · role-scoped visibility (CP-24) |
 | Lists & tables | Every list/table view: search across key fields · contextual multi-select filters · date presets (Today · This week · Last week · This month · Custom) where dated · asc/desc sort on relevant columns · matching/total count (CP-23) |
 | States | Empty · loading · error · offline · permission-denied, as shared treatments |
 | Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
@@ -58,6 +59,16 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | UI | Input dialog (focus, unsaved-changes, no backdrop dismiss) | `starter/src/components/Dialog.tsx` | READY |
 | UI | Wide-table column control | `starter/src/components/ColumnControl.tsx` + `useColumnPrefs.ts` | READY |
 | UI | List controls — search across key fields, contextual filters, date presets + custom range, asc/desc sort, honest count (CP-23) | `starter/src/components/ListControls.tsx` + `starter/src/hooks/useListControls.ts` + `starter/src/lib/list-controls.ts` | READY |
+| Analytics | Metric tile (value · comparison · target · sparkline), business-agnostic | `starter/src/components/analytics/MetricCard.tsx` | READY |
+| Analytics | Metric model + aggregations + growth/target logic | `starter/src/lib/analytics/metrics.ts` | READY |
+| Analytics | Value formatting (currency incl. lakh/crore, percent, compact, duration, dates) | `starter/src/lib/analytics/format.ts` | READY |
+| Analytics | Dashboard config, role resolution, drill-down ladder | `starter/src/lib/analytics/dashboard.ts` | READY |
+| Analytics | Dashboard shell (header, filter slot, metric grid, sections) | `starter/src/components/analytics/DashboardShell.tsx` | READY |
+| Analytics | Insight / exception / recommendation / goal / alert cards | `starter/src/components/analytics/InsightCard.tsx` | READY |
+| Analytics | Ranking + comparison bars, sparkline, progress meter (inline SVG, no chart dependency) | `starter/src/components/analytics/{BarChart,Sparkline,ProgressMeter}.tsx` | READY |
+| Analytics | Analytics table (composes CP-23 controls; cards below 48rem) | `starter/src/components/analytics/AnalyticsTable.tsx` | READY |
+| Analytics | Domain configs: restaurant · gym · academy · badminton | `starter/src/lib/analytics/examples.ts` | READY |
+| Analytics | Donut / funnel / heatmap / calendar-heatmap / stacked / area / timeline | — | **GAP** — deliberately unbuilt; first app with a real need contributes back (docs/25 §4) |
 | UI | Bulk-action bar | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
 | Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |

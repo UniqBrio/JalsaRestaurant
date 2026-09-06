@@ -41,7 +41,7 @@ list above is the authority for what gets linked, and everything under `starter/
 `07` security · `08` cloud · `09` code quality · `10` documentation · `11` theme · `12` themes
 light/dark · `13` contrast and accessibility · `14` assets · `15` test cases · `16` testing ·
 `17` ratchets · `18` deployment · `19` AI agents · `20` glossary · `21` agent wiring ·
-`22` framework evolution · `23` design craft · `24` design planning
+`22` framework evolution · `23` design craft · `24` design planning · `25` analytics and dashboards
 
 ## Runbooks — `workflows/`
 | File | Track |

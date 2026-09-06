@@ -213,6 +213,13 @@ Any screen that renders a list or table carries CP-23 through `ListControls` /
 month · Custom) · **sortable columns**. A list designed without these is incomplete, not
 minimal — the subtraction pass removes clutter, and these are how the user removes *theirs*.
 
+### A3.3c Dashboards and analytics
+A screen that reports numbers uses CP-24 (`DashboardShell` + `MetricCard` + the analytics
+config), never a bespoke dashboard. The design states, per dashboard: the **question each
+section answers** · which metrics are **cost-like** (`higherIsBetter: false`) · the **breakdown
+ladder** for anything drillable · **role visibility** per metric. A section whose question
+cannot be written is decoration and does not ship ([docs/25](../docs/25-ANALYTICS-AND-DASHBOARDS.md)).
+
 ### A3.4 Theme and contrast (see [docs/11](../docs/11-THEME-AND-COLOR-SYSTEM.md), [docs/13](../docs/13-CONTRAST-AND-ACCESSIBILITY.md))
 - **Semantic tokens only.** No colour literal enters the design or the code.
 - **Both themes specified.** Not "it will inherit" — state what each surface renders as.

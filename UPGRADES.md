@@ -12,6 +12,49 @@
 
 ---
 
+## 1.18.0 — 06-Sep-2026 — MINOR
+
+**CP-24: analytics and dashboards become a reusable module.** Owner directive: every business
+application needs a dashboard, and regenerating one per app is both slow and inconsistent. A
+dashboard is now **configuration, not code** — the largest single block of generated code
+removed from a new-app run.
+
+### Added — `starter/src/lib/analytics/` (pure) + `starter/src/components/analytics/`
+- **Metric model** (`metrics.ts`): `MetricDefinition` (dataSource · aggregation · format ·
+  comparison · target · priority · visualization · breakdown · visibleTo · actions) and the
+  aggregations `count · sum · avg · min · max · distinct · ratio · percentage`.
+- **Four honesty rules, enforced in code and covered by the spec:**
+  **(1) Direction is not sentiment** — `higherIsBetter: false` makes rising expenses, churn,
+  cancellations and outstanding report as *bad*; the arrow says which way, the **word** says
+  whether that is good. **(2) Growth from zero is `null`**, never `+∞%` or a silent `+100%`.
+  **(3) An absent value renders `—`, never `0`** — and suppresses its comparison.
+  **(4) Role-restricted metrics are REMOVED** from the resolved config, not CSS-hidden.
+- **Formatting** (`format.ts`): currency with the lakh/crore ladder *or* K/M/B, percent,
+  compact, duration, dates — locale and convention are options, never literals.
+- **Components:** `MetricCard` (value · comparison · target · sparkline as layers, not five
+  components), `DashboardShell`, `InsightCard`/`InsightList` (insight · exception ·
+  recommendation · goal · alert), `BarChart` (ranking and comparison), `Sparkline`,
+  `ProgressMeter`, `AnalyticsTable` — which **composes CP-23** rather than building a second
+  filter system, and becomes cards below 48rem.
+- **No charting dependency.** Every visual is inline SVG or CSS: nothing to install, nothing to
+  version, and the theme is inherited automatically.
+- **Four domain configs** (`examples.ts`): restaurant · gym · academy · badminton — the standing
+  proof that a new domain is a config, not a component edit.
+- `docs/25-ANALYTICS-AND-DASHBOARDS.md`; CP-24; component-library baseline concern + rows,
+  including **honest GAP rows** for donut/funnel/heatmap/stacked/area/timeline — deliberately
+  unbuilt until an application has a real need. `feature.md` **A3.3c** asks for it at design
+  time. Cases FW-DASH-001..002.
+
+**Fail-first evidence:** ~70 assertions executed against the esbuild-compiled actual libs. The
+role-visibility assertion was **observed failing** and caught a real defect — the academy
+example gated the fee *section* but not the fee *metrics*, leaving them in the instructor's
+resolved config. The config was fixed, not the assertion.
+
+### App action required
+**None.** New seed files; new scaffolds include them, existing apps copy via upgrade or by hand.
+
+---
+
 ## 1.17.0 — 05-Sep-2026 — MINOR
 
 **CP-23: every list and table view is searchable, filterable and sortable — by default.**
