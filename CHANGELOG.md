@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.20.0 — validated parallel build
+
+Generation is the slowest part of a run and the only part parallel agents genuinely shorten. A
+plan with 3+ independent tasks now builds in concurrent lanes: `scripts/fanout-check.mjs`
+validates the plan first (blocking a file written by two tasks, a task reading a file another is
+rewriting, or a task with no contract/acceptance), then one `implementation-builder` per lane is
+spawned in a single message. Contracts are declared before any lane starts; integration and the
+gate happen once, centrally. Review still follows the build — it never overlaps it. See
+`UPGRADES.md`.
+
 ## 1.19.0 — the micro lane
 
 A third scale below scoped, for the corrections you make every day: ≤2 files, no schema, no

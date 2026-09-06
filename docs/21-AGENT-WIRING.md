@@ -5,7 +5,7 @@
 > Without it, the runbooks are documents nobody opens and the guards are shell scripts nobody
 > invokes. The content is not the system; the content plus the wiring is the system.
 >
-> **Codex wiring (05-Sep-2026).** `.codex/` mirrors `.claude/` for Codex: the same eleven
+> **Codex wiring (05-Sep-2026).** `.codex/` mirrors `.claude/` for Codex: the same twelve
 > agents as TOML (descriptions kept identical — sync them together), the same hook adapter, and
 > `hooks.json` using a **relative** command path (an absolute path breaks on every other clone).
 > Root `AGENTS.md` is a pointer to `CLAUDE.md`, never a copy: two rule files drift. `.codex/` is
@@ -26,7 +26,7 @@
 ├── settings.local.json.example      Personal overrides. The real file is gitignored.
 ├── commands/                        Slash commands: /request /feature /bug /enhance
 │                                    /refactor /triage /brainstorm /test /gate /framework-update
-├── agents/                          Eleven review sub-agents, each with a boundary and a verdict
+├── agents/                          Twelve sub-agents (11 reviewers + 1 builder), each with a boundary and a verdict
 └── hooks/
     ├── pre-tool-use-guard.mjs       Bridges the hook protocol to the git guard
     └── adapter.test.sh              EXECUTES the adapter against the protocol

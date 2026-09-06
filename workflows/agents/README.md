@@ -1,6 +1,6 @@
 # Review Agents
 
-> Eleven narrow reviewers, each with a scope, a boundary, and a machine-readable verdict.
+> Eleven narrow reviewers and one builder, each with a scope, a boundary, and a machine-readable verdict.
 >
 > Use them as sub-agent definitions for a coding agent, as role descriptions for human
 > reviewers, or as a checklist of *review passes* a change needs. The value is the same either
@@ -40,6 +40,7 @@ Each agent below is specifically looking for one thing.
 | **preview-smoke-verifier** | After merge, before handoff | **The only stage that opens the running application.** Scripted journeys against the deployed preview | Substitute a local build when there is no preview URL — that is BLOCKED |
 | **fresh-context-reviewer** | After the primary review loop reports clean | The change with **no memory of building it** — extends the previous reviewer no trust and re-derives the verdict. Self-review has a blind spot that no amount of re-checking removes: a reviewer who has already accepted a premise keeps accepting it | Close the run. It reports; someone else decides |
 | *(gate step G10, mechanical)* | Every framework change | Live conformance vs `fixtures/expected-verdicts.json` — no fixture may go green → red | It is a script (`check-backward-compat.mjs`), not an agent: machines prove, agents judge |
+| **implementation-builder** | Build stage, one per task, only on a validated 3+ task fan-out plan | Implements ONE task inside its declared file lane, against declared contracts | Write outside its `files`, change a declared signature, or run the gate. It reports `DONE` / `BLOCKED` / `CONTRACT-DEFECT` and stops |
 | **post-release-monitor** | Deploy +1h, +24h | Groups production errors by **signature**, diffs against the pre-deploy window, checks for silent failures (jobs stopped, queues stalled, sends not sending) | Invent causation. Map a signature to the release only where the link is defensible |
 
 ---
@@ -68,6 +69,13 @@ main agent had already analysed inline. Spawn by scale, never by habit:
 **Whatever applies, spawn it in ONE message, in parallel** — never one reviewer after another.
 Their boundaries are disjoint by design, so nothing is lost by running them together, and the
 wall-clock cost of three reviewers becomes the cost of the slowest one.
+
+**The same logic applies to BUILDING, with one hard limit.** `implementation-builder` lanes run
+concurrently when the plan has 3+ independent tasks and `scripts/fanout-check.mjs` passes — that
+is the only place in the run where generation, the slowest part, happens in parallel. But a
+**reviewer still cannot run concurrently with the code it reviews**: a reviewer reading a
+half-written file produces findings about code that no longer exists, which is rework wearing
+the costume of speed. Build in parallel; review after.
 
 ## Using them
 

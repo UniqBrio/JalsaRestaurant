@@ -347,6 +347,32 @@ migration, removing or reshaping an existing capability, anything on the safety 
 ## A5 — Build
 
 - Implement to the plan. Minimum change for the ask. No drive-by refactors.
+- **Build in parallel when the plan supports it.** Token *generation* is the slowest part of a
+  run, and it is the only part that parallel agents genuinely shorten. When the plan has **3+
+  independent tasks**, serialise them to `fanout.json` and validate first:
+
+  ```bash
+  npm run fanout:check -- fanout.json     # BLOCKED on a collision, a race read, or a task
+  ```                                     # that declares no contract or no acceptance
+
+  Then spawn one `implementation-builder` per task, **all in one message**, and the wall-clock
+  becomes the slowest lane instead of the sum. Each task declares `files` (owned exclusively),
+  `reads` (never written by a parallel task — the validator proves it), `contract` (the exported
+  signatures, **written by the planner before any agent starts**) and `acceptance`.
+
+  **Contract-first is the rule that makes this work.** Agents implement against declared
+  signatures, never against each other's in-progress code — interface drift discovered at
+  integration costs every lane that built on it. A lane that needs a file outside its set
+  reports back; it never takes it.
+
+  Fan out **only** the build. Design and planning are sequential by nature — each stage
+  constrains the next — and a reviewer cannot run concurrently with the code it reviews
+  ([workflows/agents/README.md](./agents/README.md)). Below three tasks, build inline: the
+  per-agent context costs more than it saves. Never at `micro` scale.
+- **Integrate, then gate — once, centrally.** When every lane returns, the coordinating agent
+  reconciles the reports, checks that nothing was written outside its declared lane
+  (`git status` against the union of `files`), and runs the gate on the whole tree. A lane that
+  gates alone is testing a half-built repository.
 - **Verify every dependency before installing**: it exists, it is the intended name, it is
   pinned. An unverified dependency blocks the change.
 - Implement the approved string table verbatim. A string the design never covered is a NEW

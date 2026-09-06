@@ -257,7 +257,18 @@ The plan is the last cheap place to be wrong. It contains:
 Auto mode: the plan is logged and the build starts immediately; destructive migrations and
 capability removals are hard stops.
 
-### Stage 5 — Build + close-out
+### Stage 5 — Build
+
+**Parallel where the plan proves it is safe.** Generation is the slowest part of any run and the
+only part parallel agents genuinely shorten. A plan with **3+ independent tasks** is serialised
+to `fanout.json`, validated by `node scripts/fanout-check.mjs` (which BLOCKS on a file written by
+two tasks, a task reading a file another is rewriting, or a task with no declared contract or
+acceptance), and then built by one `implementation-builder` per lane, all spawned in one message.
+Contracts are written by the planner **before** any lane starts; lanes implement against them,
+never against each other's in-progress code. Integration and the gate happen once, centrally.
+Below three tasks, or at `micro` scale, build inline — the per-agent context costs more than it
+saves.
+ + close-out
 
 Implement to the plan. Minimum change for the ask; no drive-by refactors; state assumptions
 before acting rather than silently picking one interpretation.

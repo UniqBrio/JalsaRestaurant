@@ -23,10 +23,10 @@ list above is the authority for what gets linked, and everything under `starter/
 | `CLAUDE.md` | Binding rules, read before every task |
 | `.claude/settings.json` | Wires the commit guard as a PreToolUse hook. **Committed.** |
 | `.claude/commands/*.md` | Eleven slash commands — **pointers to `workflows/`, never copies** |
-| `.claude/agents/*.md` | Eleven review sub-agents, each with a boundary and a verdict format |
+| `.claude/agents/*.md` | Twelve sub-agents — eleven reviewers and one `implementation-builder` — each with a boundary and a verdict format |
 | `.claude/hooks/pre-tool-use-guard.mjs` | Bridges the hook protocol to the git guard |
 | `.claude/hooks/adapter.test.sh` | **Executes** the adapter — a correct guard behind a broken adapter enforces nothing |
-| `.codex/agents/*.toml` · `.codex/hooks/*` · `.codex/hooks.json` | The same wiring for Codex: eleven agents (descriptions kept identical to `.claude/agents` — the review matrix applies), the same hook adapter, `hooks.json` with a **relative** command path. Framework-repo wiring today: not yet in `HALF_A`, so scaffolds do not carry it |
+| `.codex/agents/*.toml` · `.codex/hooks/*` · `.codex/hooks.json` | The same wiring for Codex: twelve agents (descriptions kept identical to `.claude/agents` — the review matrix applies), the same hook adapter, `hooks.json` with a **relative** command path. Framework-repo wiring today: not yet in `HALF_A`, so scaffolds do not carry it |
 | `AGENTS.md` | Vendor-neutral **pointer** to `CLAUDE.md` — never a second copy of the rules |
 
 ## Entry points
@@ -64,7 +64,7 @@ judge — 18 areas, verdict + evidence each)* · `DEFINITION_OF_DONE.md` ·
 `RELEASE_READINESS.md` · `BUSINESS_READINESS.md` · `MANUAL_TEST_CHECKLIST.md`
 
 ## Review passes — `workflows/agents/README.md`
-Eleven narrow reviewers with explicit boundaries and machine-readable verdicts.
+Eleven narrow reviewers and one builder, with explicit boundaries and machine-readable verdicts.
 
 ## Registers — `docs/registers/`
 `ROOT_CAUSE_REGISTER.md` · `CANONICAL_PATTERNS.md` · `DESIGN_RULES.md` ·
@@ -106,6 +106,8 @@ round N−1's file.
 | `hooks/pre-commit-guard.sh` | Close-out obligations, per-guard escape tokens |
 | `hooks/guard-reachability.test.sh` | **Executes** the guard, proving each one can fire |
 | `upgrade.test.sh` | **Executes** lineage + upgrade against scratch apps — the behaviour rung for the three-way rule |
+| `fanout-check.mjs` | Validates a parallel-build plan before any agent is spawned: no file written twice, no task reading another's write, every task declaring a contract and an acceptance |
+| `fanout-check.test.sh` | **Executes** the validator — each block observed firing, each pass observed passing |
 | `hooks/tsc-baseline.sh` | Regenerates the type-error ratchet baseline |
 | `audits/check-dead-weight.mjs` | Scripts nothing references any more (review candidates) |
 

@@ -12,6 +12,44 @@
 
 ---
 
+## 1.20.0 — 06-Sep-2026 — MINOR
+
+**Validated parallel build — the only lever that shortens generation.** Aimed deliberately:
+wall-clock in an agent run is dominated by token *generation*, not reading. Writing several
+hundred lines is the slowest single act in a run; file reading is fast prefill and v1.13 already
+trimmed it. Concurrent lanes are therefore the only remaining change that attacks the actual
+bottleneck.
+
+### Added
+- **`scripts/fanout-check.mjs`** (+ `npm run fanout:check`) — validates a parallel-build plan
+  **before any agent is spawned**, which is the cheapest possible moment. It BLOCKS on:
+  a file written by two tasks (the lost-write failure — both agents report success and one's
+  work is gone) · a task reading a file another task is rewriting (the race read) · a task with
+  no declared `contract` or `acceptance` · a duplicate id · an empty or unparseable plan. It
+  WARNS, without blocking, below three tasks, where per-agent context costs more than it saves.
+- **`scripts/fanout-check.test.sh`** — 11 executed cases, wired into `npm run guard:test`.
+  Every block was observed firing and every pass observed passing before commit.
+- **`implementation-builder` agent** (`.claude/agents/` + the `.codex/` twin, descriptions
+  generated identical): builds ONE task inside its declared file lane, implements against
+  declared contracts, and may never write outside `files`, change a declared signature, or run
+  the gate. Verdicts: `DONE` · `BLOCKED` · `CONTRACT-DEFECT`.
+- **Contract-first** is the rule that makes it work: shared signatures are written by the
+  planner *before* any lane starts. Interface drift found at integration costs every lane that
+  built on it; a contract defect found before spawning costs one message.
+- `feature.md` A5 and `docs/01` Stage 5 carry the rule; integration and the gate run **once,
+  centrally**, and a lane that gates alone is testing a half-built tree.
+
+### The limit, stated plainly
+**Fan out the build only.** Design and planning are sequential by nature — each stage constrains
+the next — and a **reviewer cannot run concurrently with the code it reviews**: a reviewer
+reading a half-written file produces findings about code that no longer exists, which is rework
+wearing the costume of speed. Build in parallel; review after. Never at `micro` scale.
+
+### App action required
+**None.** New scripts and a new agent; `guard:test` gains a suite.
+
+---
+
 ## 1.19.0 — 06-Sep-2026 — MINOR
 
 **The micro lane — proportional process for the change you make every day.** Owner report:
