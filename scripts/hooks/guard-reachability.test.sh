@@ -94,6 +94,64 @@ d=$(scratch); ( cd "$d"; echo "export const z=1" > src/c.ts; mkdir -p tests docs
   git add -A >/dev/null )
 expect "a real doc satisfies it"               0 "$d" "feat: z"
 
+echo "G8 micro-scope guard - the lane's claim is checked against the diff"
+# Every OTHER guard is released by its own token, so a result here can only come from G8.
+MICRO_TOKENS="CASES-NA: isolating G8
+LEDGER-NA: isolating G8
+DOCS-NA: isolating G8"
+
+d=$(scratch); ( cd "$d"; echo "export const a=1" > src/a.ts; echo "export const b=1" > src/b.ts
+  echo "export const c=1" > src/c.ts; git add -A >/dev/null )
+expect "blocks a 3-file micro claim"           2 "$d" "fix: label
+
+SCALE: micro
+$MICRO_TOKENS"
+
+d=$(scratch); ( cd "$d"; echo "export const a=1" > src/a.ts; echo "export const b=1" > src/b.ts
+  mkdir -p tests; echo "test('a',()=>{})" > tests/a.spec.ts; echo notes > docs.md
+  git add -A >/dev/null )
+expect "2 source files + test + doc passes"    0 "$d" "fix: label
+
+SCALE: micro
+FAILFIRST-NA: isolating G8
+$MICRO_TOKENS"
+
+d=$(scratch); ( cd "$d"; mkdir -p supabase/migrations; echo "export const a=1" > src/a.ts
+  echo "create table x();" > supabase/migrations/001_x.sql; git add -A >/dev/null )
+expect "blocks a schema change"                2 "$d" "fix: column
+
+SCALE: micro
+$MICRO_TOKENS"
+
+d=$(scratch); ( cd "$d"; mkdir -p src/components; echo "export const C=()=>null" > src/components/New.tsx
+  git add -A >/dev/null )
+expect "blocks a NEW component"                2 "$d" "feat: card
+
+SCALE: micro
+$MICRO_TOKENS"
+
+d=$(scratch); ( cd "$d"; echo "export const a=1" > src/a.ts; echo '{"name":"x"}' > package.json
+  git add -A >/dev/null )
+expect "blocks a dependency change"            2 "$d" "chore: dep
+
+SCALE: micro
+$MICRO_TOKENS"
+
+d=$(scratch); ( cd "$d"; echo "export const a=1" > src/a.ts; echo "export const b=1" > src/b.ts
+  echo "export const c=1" > src/c.ts; git add -A >/dev/null )
+expect "escape token releases it"              0 "$d" "refactor: rename
+
+SCALE: micro
+MICRO-NA: mechanical rename across three call sites
+$MICRO_TOKENS"
+
+# A run that does NOT claim micro must be untouched by G8 - the guard is opt-in by claim.
+d=$(scratch); ( cd "$d"; echo "export const a=1" > src/a.ts; echo "export const b=1" > src/b.ts
+  echo "export const c=1" > src/c.ts; git add -A >/dev/null )
+expect "silent when micro is not claimed"      0 "$d" "feat: three files
+
+$MICRO_TOKENS"
+
 echo
 echo "$PASS passed, $FAIL failed."
 [ "$FAIL" -eq 0 ] || exit 1

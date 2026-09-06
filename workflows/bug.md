@@ -28,6 +28,19 @@ code that was working perfectly.
 
 ---
 
+## C0b — Scale
+
+A one-line fix still gets its root cause (C1) and its failing test (C2) — those are the whole
+point of this track and no scale skips them. What a **micro** fix skips is the ceremony around
+them: no plan document, no design pass, no QA verdict table.
+
+**MICRO applies when:** ≤2 source files · no schema change · no new component · the root cause
+is local (not a pattern with sibling call sites — FP-6 means fixing every site, which is not
+micro) · **not a repeat of a fix that already failed once**. Declare `SCALE: micro` in the
+commit; guard **G8** checks the claim against the diff.
+
+---
+
 ## C1 — Root cause
 
 ### Classify before fixing

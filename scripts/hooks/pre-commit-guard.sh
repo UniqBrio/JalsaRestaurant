@@ -191,6 +191,59 @@ guard_case_loss() {
   return 2
 }
 
+added_files() {
+  if [ -n "${PRE_PUSH_RANGE:-}" ]; then git diff --name-only --diff-filter=A "$PRE_PUSH_RANGE" 2>/dev/null
+  else git diff --cached --name-only --diff-filter=A; fi
+}
+
+# --- G8: a MICRO claim must match the diff ------------------------------------------------
+# The micro lane skips the design pass, the QA verdict table and the run document, on the
+# strength of one promise: the change really is small. So the CLAIM is verified against the
+# DIFF rather than trusted. A lane that can be claimed for anything is not a lane, it is a
+# global bypass with a friendlier name - and the whole reason micro is safe is that the things
+# it skips do not apply at this size. The moment they apply, the run promotes to scoped.
+guard_micro_scope() {
+  has_token 'SCALE: micro' || return 0
+  has_token 'MICRO-NA:' && { echo "[G8] escaped via MICRO-NA" >&2; return 0; }
+
+  # Tests, docs, the ledger and baselines are close-out ARTIFACTS of the change, not the
+  # change itself. Counting them would push every honest micro run over its own limit.
+  local src n
+  src="$(echo "$CHANGED" | grep -vE '(\.spec\.[jt]sx?$|\.test\.[jt]sx?$|^tests/|/tests/|\.md$|\.baselines/)' || true)"
+  n="$(printf '%s\n' "$src" | grep -c '[^[:space:]]' || true)"
+
+  if [ "$n" -gt 2 ]; then
+    { echo "BLOCKED [G8] 'SCALE: micro' claimed, but $n source file(s) changed (limit 2):"
+      printf '%s\n' "$src" | grep '[^[:space:]]' | sed 's/^/    /'
+      echo "  Promote the run to 'SCALE: scoped' and discharge its obligations."
+      echo "  Shrinking the process to fit the label is how a lane becomes a bypass."
+      echo "  Genuine exception: 'MICRO-NA: <reason>' - e.g. a purely mechanical rename."; } >&2
+    return 2
+  fi
+
+  if echo "$CHANGED" | grep -qE '(^|/)migrations/|\.sql$'; then
+    { echo "BLOCKED [G8] 'SCALE: micro' claimed with a schema change."
+      echo "  A migration carries parity, constraint-awareness and rollback obligations that"
+      echo "  the micro lane does not run. Promote to 'SCALE: scoped'."; } >&2
+    return 2
+  fi
+
+  if added_files | grep -qE '(^|/)components/'; then
+    { echo "BLOCKED [G8] 'SCALE: micro' claimed while ADDING a component."
+      echo "  A new component owes the reuse check, every state, both themes and a keyboard"
+      echo "  model. Promote to 'SCALE: scoped'."; } >&2
+    return 2
+  fi
+
+  if echo "$CHANGED" | grep -qE '(^|/)package\.json$'; then
+    { echo "BLOCKED [G8] 'SCALE: micro' claimed with a dependency change."
+      echo "  Verifying a dependency exists, is the intended package and is pinned is a"
+      echo "  scoped-run obligation. Promote to 'SCALE: scoped'."; } >&2
+    return 2
+  fi
+  return 0
+}
+
 # --- G7: the type backlog may only SHRINK -------------------------------------------------
 guard_type_ratchet() {
   has_token 'TYPES-NA:' && { echo "[G7] escaped via TYPES-NA" >&2; return 0; }
@@ -233,6 +286,7 @@ guard_type_ratchet() {
 }
 
 main() {
+  guard_micro_scope || return $?
   guard_test_cases  || return $?
   guard_case_loss   || return $?
   guard_type_ratchet|| return $?

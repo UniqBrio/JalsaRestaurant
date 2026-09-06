@@ -51,19 +51,19 @@ before it can say anything. Ten sequential cold starts per feature was the large
 time sink after the process budgets — and most of them were reviewing a scoped change the
 main agent had already analysed inline. Spawn by scale, never by habit:
 
-| Pass | Scoped run (≤5 files, additive schema) | Full-scale / hotspot run |
-|---|---|---|
-| blast-radius-explorer | **Inline** — the main agent does B2/A4's impact table itself | Spawn |
-| implementation-planner | **Inline** — the plan is a section of `RUN_<feature>.md` | Spawn |
-| parity-gate-checker | Only if the **schema** changed | Spawn if data is touched |
-| code-reviewer | **Spawn — always.** It has no memory of building the change, so for a scoped run it IS the fresh context | Spawn |
-| copy-gate-reviewer | Only if a **visible string** was added or altered | Same rule |
-| permission-reviewer | Only if **roles, policies or tenant data** were touched | Same rule |
-| fresh-context-reviewer | Not spawned — the spawned code-reviewer already satisfies it | Spawn, as a second pass after code-reviewer reports clean |
-| test-gate-runner | **Inline** — the main agent runs `npm run gate` and reads the verdict | Spawn when the exit codes need independent interpretation |
-| close-out-auditor | **Inline** — the DoD table is the close-out | Spawn |
-| preview-smoke-verifier | **Spawn — always**, after merge: the only stage that opens the running app | Same |
-| post-release-monitor | Production only, unchanged | Same |
+| Pass | Micro run (≤2 files, no schema) | Scoped run (≤5 files, additive schema) | Full-scale / hotspot run |
+|---|---|---|---|
+| blast-radius-explorer | **Inline**, and small | **Inline** — the main agent does B2/A4's impact table itself | Spawn |
+| implementation-planner | **Not run** — there is no plan to write | **Inline** — the plan is a section of `RUN_<feature>.md` | Spawn |
+| parity-gate-checker | **Not run** — a schema change disqualifies micro | Only if the **schema** changed | Spawn if data is touched |
+| code-reviewer | **Only when a shared/exported symbol is touched** — that is where two files become twenty | **Spawn — always.** It has no memory of building the change, so for a scoped run it IS the fresh context | Spawn |
+| copy-gate-reviewer | Only if a **visible string** changed | Only if a **visible string** was added or altered | Same rule |
+| permission-reviewer | **Not run** — a permission change disqualifies micro | Only if **roles, policies or tenant data** were touched | Same rule |
+| fresh-context-reviewer | Not spawned | Not spawned — the spawned code-reviewer already satisfies it | Spawn, as a second pass after code-reviewer reports clean |
+| test-gate-runner | **Inline** — `npm run gate`, read the verdict | **Inline** — the main agent runs `npm run gate` and reads the verdict | Spawn when the exit codes need independent interpretation |
+| close-out-auditor | **Inline** | **Inline** — the DoD table is the close-out | Spawn |
+| preview-smoke-verifier | **After merge when the change is user-visible**; a non-visual micro change states N/A with its reason | **Spawn — always**, after merge: the only stage that opens the running app | Same |
+| post-release-monitor | Production only, unchanged | Production only, unchanged | Same |
 
 **Whatever applies, spawn it in ONE message, in parallel** — never one reviewer after another.
 Their boundaries are disjoint by design, so nothing is lost by running them together, and the

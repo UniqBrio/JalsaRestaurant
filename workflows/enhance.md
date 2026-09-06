@@ -27,6 +27,36 @@ attached to the thing you are about to move.
 
 ---
 
+## B0 — Scale: is this a micro correction?
+
+Most corrections are small, and running a full design pass over a label change is why a
+two-minute fix took twenty. Declare the scale before anything else.
+
+**MICRO — all of these must hold:**
+
+- ≤2 source files · no schema change · no new screen, route or component · no new dependency
+- no permission change · no user-visible string except one the request states verbatim
+- not a hotspot file (2,000+ lines, or 3+ root-cause entries)
+- **not CORRECTION ROUND ≥ 2** — a fix that did not hold gets the full B1 analysis, always
+
+**A micro run is:** read the actual file (B1's first paragraph) → make the change → B6's diff
+review → both themes and a keyboard pass if anything rendered changed → the test gate. It
+**skips** B2's full impact table, B3, B4's plan and design pass, and the QA verdict table.
+It **keeps** every mechanical gate, the freeze rule, canonical patterns, and the hard stops.
+
+**Spawn `code-reviewer` even at micro when the change touches a shared or exported symbol** —
+that is the moment a two-file change acquires a twenty-file blast radius, and it is the one
+thing the inline reviewer (who just wrote the code) is worst at seeing.
+
+**Promotion is immediate and stated.** The moment a disqualifier appears — a third file, a
+schema change, an unapproved string — say so and continue as a scoped correction with its
+plan and design pass. Guard **G8** checks the `SCALE: micro` claim against the diff at commit
+time, so an over-reaching micro run is blocked rather than merged.
+
+Anything that is not micro runs B1–B6 in full.
+
+---
+
 ## B1 — Read what actually exists
 
 Load the context slice for the named feature and **read the current files**. Not your memory of

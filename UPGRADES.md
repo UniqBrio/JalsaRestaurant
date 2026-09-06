@@ -12,6 +12,48 @@
 
 ---
 
+## 1.19.0 — 06-Sep-2026 — MINOR
+
+**The micro lane — proportional process for the change you make every day.** Owner report:
+even a small correction takes too long. Root cause: the lightest path was `scoped`, which
+still runs a design pass, a QA verdict table, a plan document, an assumptions ledger and a
+spawned reviewer. For "change this label" that is absurd — and it is why a two-minute fix took
+twenty.
+
+The fix is **differentiation by risk, not thinning by default.** The earlier lighter workflow
+was fast because it applied one thin process to everything — fast on small changes, and the
+source of the design gaps this framework was built to close. Three lanes keep both properties.
+
+### Added
+- **`micro` scale** (`docs/01` §Run modes, `enhance.md` **B0**, `bug.md` **C0b**,
+  `feature.md` Step 0). Entry test, all required: **≤2 source files · no schema change · no
+  new screen, route or component · no new dependency · no permission change · no invented
+  user-visible string · not a hotspot file · not CORRECTION ROUND ≥ 2.**
+  It **skips** the impact table, the clarification round, the plan, the design pass and the QA
+  verdict table. It **keeps** every mechanical gate, the diff-traces-to-request rule, the copy
+  freeze, canonical patterns, both-theme and keyboard verification, and all hard stops.
+- **Guard G8** (`scripts/hooks/pre-commit-guard.sh`) — the rung. A commit declaring
+  `SCALE: micro` is checked **against its own diff**: more than two source files, a migration,
+  a newly added component, or a dependency change → BLOCKED, with one instruction: *promote to
+  scoped*. Silent when micro is not claimed; `MICRO-NA:` excuses only this guard.
+  Guard suite grows 10 → **17 executed cases**, seven of them G8: each block observed firing,
+  each pass observed passing.
+- **Mid-run promotion is stated, never silent.** A disqualifier discovered during the run
+  promotes it to scoped and discharges the skipped obligations out loud.
+- **Round ≥ 2 is refused the lane** — a fix that did not hold gets the full "what did the last
+  attempt miss" analysis. Making the second attempt cheaper is how a two-round loop becomes a
+  five-round one.
+- Review matrix gains a micro column: no planner, no parity, no permission pass; `code-reviewer`
+  spawned **only when a shared or exported symbol is touched** — the moment two files acquire a
+  twenty-file blast radius, and the thing an inline reviewer who just wrote the code sees worst.
+- `REQUEST_CHANGE.md` gains a `SCALE` field. Cases FW-MICRO-001..004.
+
+### App action required
+**None** — but note `scripts/hooks/pre-commit-guard.sh` changed. Workspace-mode apps get it
+through the link; standalone apps pick it up on the next `framework:upgrade`.
+
+---
+
 ## 1.18.0 — 06-Sep-2026 — MINOR
 
 **CP-24: analytics and dashboards become a reusable module.** Owner directive: every business

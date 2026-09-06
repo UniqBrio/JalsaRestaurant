@@ -21,6 +21,7 @@ Run **Track B** ([workflows/enhance.md](../../workflows/enhance.md)) with this r
 - PERMISSIONS: `<does who-can-see-or-do change? yes / no / unknown>`
 - USAGE: `<how often the touched flow is used and by whom — feeds placement, disclosure and the subtraction pass; or unknown>`
 - RUN MODE: `<auto (default: plan is logged, not awaited) | confirm (plan waits for approval)>`
+- SCALE: `<micro | scoped | full — leave blank and the track decides at B0; micro is refused for CORRECTION ROUND >= 2>`
 
 ## STANDING INSTRUCTIONS (do not edit)
 - Track B is SURGICAL: read the actual current files first (B1), run the impact analysis with

@@ -33,11 +33,14 @@ not reviewed them yet; a correction there updates the request file before anythi
    both rather than silently choosing one.
 7. **Declare the run mode and the scale** ([docs/01 §Run modes](../docs/01-SDLC.md)) — one
    line each. Mode: `auto` (default — gates 1–4 are checkpoints with an ASSUMPTIONS ledger)
-   or `confirm` (each gate waits). Scale: `scoped` (≤5 files, no schema change beyond
-   additive columns, no new navigation area, no new shared component) or `full`. A scoped
-   run produces ONE combined `RUN_<feature>.md` in place of the four gate artifacts and
-   skips A2 unless build-vs-buy is a real question — the obligations are identical, the
-   packaging shrinks.
+   or `confirm` (each gate waits). Scale: `micro`, `scoped` or `full`
+   ([docs/01 §Run modes](../docs/01-SDLC.md) has the entry tests). A **scoped** run produces
+   ONE combined `RUN_<feature>.md` in place of the four gate artifacts and skips A2 unless
+   build-vs-buy is a real question. A **micro** run is rarely a Track A shape at all — a new
+   feature that fits in two files with no new screen is usually an enhancement; classify it
+   again before continuing. The obligations are identical at every scale; the packaging
+   shrinks. **Write the scale into the commit message (`SCALE: micro`) — guard G8 checks the
+   claim against the diff.**
 8. **Speed discipline — the three budgets.**
    - **Reading budget.** A run READS: this runbook, the project's `CLAUDE.md`, and the
      registers relevant to the touched modules — once each. Everything else

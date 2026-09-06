@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.19.0 — the micro lane
+
+A third scale below scoped, for the corrections you make every day: ≤2 files, no schema, no
+new screen or component, not correction round ≥ 2. It skips the design pass, the plan document
+and the QA verdict table; it keeps every mechanical gate, the freeze rule and the hard stops.
+New guard **G8** checks a `SCALE: micro` claim against the actual diff and blocks an
+over-reaching one with a single instruction — promote to scoped. Guard suite 10 → 17 cases.
+See `UPGRADES.md`.
+
 ## 1.18.0 — CP-24: analytics and dashboards as a reusable module
 
 A dashboard is now configuration, not code: business-agnostic components (MetricCard,
