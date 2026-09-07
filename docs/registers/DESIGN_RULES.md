@@ -19,4 +19,5 @@
 
 | ID | Rule | Rung | Origin |
 |---|---|---|---|
-| *(no rows yet — the register is armed, and the first promoted design lesson lands here)* | | | |
+| DR-2 | **A session ends when the user says so.** A signed-in session survives reload, navigation and backgrounding; it ends on explicit sign out, or on a security event the user is told about. This holds for JWT and username/password alike — a token that expires silently mid-task is indistinguishable, to the user, from the application losing their work. Sign out **confirms first** and sits under the overflow menu, isolated from daily actions. | Prose + the `COMPONENT_LIBRARY` Session rows; the confirm half is `starter/src/components/ConfirmDialog.tsx` | Owner directive, 06-Sep-2026 |
+| DR-1 | **Sentence case for every visible string**, table cells included: capitalise the first letter and **leave the rest exactly as written** — lowercasing the tail turns "WhatsApp", "PDF" and every customer name into a typo. `rung: starter/tests/unit/text-format.unit.spec.ts` covers the utility; the rule over arbitrary strings is a **review** item on the copy pass — honest debt, because a scanner cannot tell a label from a code string. | `starter/src/lib/text-format.ts` + copy-gate review | Owner directive, 06-Sep-2026 |

@@ -12,6 +12,55 @@
 
 ---
 
+## 1.21.0 — 06-Sep-2026 — MINOR
+
+**Reuse before you build — made a step, not an aspiration.** Owner finding: nothing in
+`framework-update.md` ever asked whether a correction should become (or already was) a reusable
+component. So the same capability could be rebuilt per application, and a shortfall in a shared
+component could be worked around locally — leaving the gap in place for every other app.
+
+### Added
+- **Route B step 0 — the reuse check, first, always.** Read `COMPONENT_LIBRARY.md` and
+  `CANONICAL_PATTERNS.md` for every concern the correction touches. If it exists, the
+  correction is "wire it up", not "write it again".
+- **Route B step 4 — the capability decision, recorded every run**, one of four:
+  **REUSE** (it exists — delete the local re-implementation) · **REFINE** (it exists but falls
+  short — improve the *shared* one so every app gains it; a local workaround forks this app and
+  abandons the others) · **CONTRIBUTE** (a baseline concern that does not exist yet — generalise,
+  place, flip GAP→READY in this run) · **PARK / APP-ONLY**. *"App-only" is a valid answer;
+  silence is not.* `starter/**` and the library register are now in the governed-files table.
+- **Four components**, each closing a standing GAP and each reusing rather than duplicating:
+  `ConfirmDialog` (composes CP-14; destructive variant separated and **named** — never "OK";
+  reversible actions still use undo, not confirmation) · `MoreMenu` (overflow menu; sign out
+  isolated at the end and routed through confirmation) · `HelpSupport` (email · call · WhatsApp
+  as real links, every channel worded, absent details render no dead channel) ·
+  `text-format.ts` (sentence case that **never lowercases the tail** — the naive version turns
+  "WhatsApp" into "Whatsapp").
+- **`DESIGN_RULES.md` gets its first rows**: **DR-1** sentence case (rung: the unit spec; the
+  rule over arbitrary strings is honestly declared review-only) and **DR-2** session ends when
+  the user says so — survives reload and backgrounding, ends on explicit sign out, for JWT and
+  username/password alike.
+
+### Fixed
+- **The `/framework-update` command shim had drifted**: it said "triple close-out" and listed
+  three legs, omitting **VERSION** — the one leg that makes a change reachable by an app's
+  upgrade command. Now quadruple, matching the workflow.
+
+### Already existed — reused, not rebuilt
+Search / filter / sort (**CP-23**), non-dismissible dialogs and the unsaved-changes guard
+(**CP-14**), dialog-instead-of-navigation (docs/04 §5 + docs/24 §4), custom UI selection
+(`ModuleCustomizer`), role-based access (`ModuleAccessPanel`). The requested list named these;
+none was re-implemented.
+
+### Still open, registered honestly as GAP rows
+Session persistence (policy stated as DR-2) and PWA install. Both are baseline concerns with no
+code yet; the first application to build either contributes it back.
+
+### App action required
+**None.** New seed files and process steps.
+
+---
+
 ## 1.20.0 — 06-Sep-2026 — MINOR
 
 **Validated parallel build — the only lever that shortens generation.** Aimed deliberately:

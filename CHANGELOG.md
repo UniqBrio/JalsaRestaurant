@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.0 - reuse before you build, and the components that proves it
+
+framework-update Route B gains step 0 (read the component library first) and a four-way
+capability decision recorded every run: REUSE what exists, REFINE the shared implementation
+rather than working around it locally, CONTRIBUTE a baseline concern in the same run, or say
+app-only. Four components close standing gaps: ConfirmDialog, MoreMenu (isolated sign out),
+HelpSupport (email/call/WhatsApp) and sentence-case text formatting (DR-1). DESIGN_RULES gets
+its first two rows. Fixed: the command shim said "triple close-out" and omitted the VERSION
+leg. See `UPGRADES.md`.
+
 ## 1.20.0 — validated parallel build
 
 Generation is the slowest part of a run and the only part parallel agents genuinely shorten. A

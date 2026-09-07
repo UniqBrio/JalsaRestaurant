@@ -24,6 +24,10 @@ Regardless of business requirements, every application ships these; the product-
 | Analytics & dashboards | Every business needs to know what is happening and what to do: configurable metric tiles · comparisons and targets · insight/exception cards · ranking and trend visuals · drill-down ladders · role-scoped visibility (CP-24) |
 | Lists & tables | Every list/table view: search across key fields · contextual multi-select filters · date presets (Today · This week · Last week · This month · Custom) where dated · asc/desc sort on relevant columns · matching/total count (CP-23) |
 | States | Empty · loading · error · offline · permission-denied, as shared treatments |
+| Support | A way for a stuck user to reach a human: email · phone · call and WhatsApp actions, with an expectation set |
+| Confirmation | One confirm dialog for destructive and session-ending actions; reversible actions use undo instead |
+| Session | Session persists until the user signs out explicitly; sign-out confirms first and lives under the overflow menu |
+| Install | PWA installability where the application is a web app: manifest, icons, offline shell |
 | Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
 | Data plumbing | Single API client · error taxonomy · idempotent writes · transactions |
 | Safety | Outbound-send deny-by-default · env trust boundary · tenant scoping |
@@ -69,6 +73,12 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Analytics | Analytics table (composes CP-23 controls; cards below 48rem) | `starter/src/components/analytics/AnalyticsTable.tsx` | READY |
 | Analytics | Domain configs: restaurant · gym · academy · badminton | `starter/src/lib/analytics/examples.ts` | READY |
 | Analytics | Donut / funnel / heatmap / calendar-heatmap / stacked / area / timeline | — | **GAP** — deliberately unbuilt; first app with a real need contributes back (docs/25 §4) |
+| Confirmation | Confirm dialog — composes CP-14; destructive variant separated and named, never "OK" | `starter/src/components/ConfirmDialog.tsx` | READY |
+| Navigation | Overflow menu with an isolated, confirm-routed sign out | `starter/src/components/MoreMenu.tsx` | READY |
+| Support | Help and support — email · call · WhatsApp deep link, worded channels, honest empty state | `starter/src/components/HelpSupport.tsx` | READY |
+| Copy | Sentence case for labels, headings and table cells (DR-1) — capitalises the first letter and never lowercases the rest | `starter/src/lib/text-format.ts` | READY |
+| Session | JWT and username/password session persistence — survives reload and backgrounding; ends only on explicit sign out (DR-2) | — | **GAP** — first app to build it contributes back |
+| Install | PWA manifest, icons, service-worker shell, install prompt | — | **GAP** — an option in the customizer, never a silent default |
 | UI | Bulk-action bar | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
 | Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |

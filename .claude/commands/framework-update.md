@@ -25,14 +25,23 @@ the details this file omits are the ones that get skipped.
    scoped request, and never work from memory of a file — read it.
 5. State your assumptions before acting. Where the request admits two readings, present both.
 
-## The triple close-out
-Every run of this delivers all three, or states which it skipped **and why, in that run**:
+## The quadruple close-out
+Every run of this delivers all four, or states which it skipped **and why, in that run**:
 
 1. **PROCESS** — the governed files learn the lesson.
 2. **FLOW** — the actual issue is fixed in the codebase.
 3. **CASES** — test cases are added.
+4. **VERSION** — `VERSION` is bumped and `UPGRADES.md` gains the entry an upgrading app reads.
 
-Each has been skipped in isolation, and each skip was invisible at the time.
+Each has been skipped in isolation, and each skip was invisible at the time. The fourth exists
+because a framework change without a version bump is invisible to every app's `upgrade`
+command — improved and undeliverable at the same time.
+
+## Reuse before you build
+Route B step 0: read `docs/registers/COMPONENT_LIBRARY.md` first. If the capability exists,
+**reuse** it; if it exists but falls short, **refine the shared implementation** rather than
+working around it locally; if it is a baseline concern that does not exist yet, **contribute**
+it in this run. Recording that decision is part of the close-out.
 
 ## Close out
 

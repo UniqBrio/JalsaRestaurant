@@ -36,6 +36,7 @@ enough to be followed.
 | `AGENTS.md` / `CLAUDE.md` | The project's binding rules |
 | `VERSION` + `UPGRADES.md` | The framework's version identity and per-version app instructions |
 | `docs/registers/CANDIDATES.md` | The promotion parking lot (fed by `workflows/promote.md`) |
+| `docs/registers/COMPONENT_LIBRARY.md` + `starter/**` | The reusable implementations and the registry that indexes them. A correction that produces — or works around — a component every app needs belongs **here**, or every app that follows rebuilds it |
 | `fixtures/**` | The conformance apps — a framework change is proven against them |
 | `templates/docs/FRAMEWORK_ADOPTION.md` | The per-app adoption log template |
 | **This file** | Yes — see *self-modification* below |
@@ -70,6 +71,13 @@ enough to be followed.
 
 ## Route B — a process correction
 
+0. **Look before you build — the reuse check, first, always.** Read
+   `docs/registers/COMPONENT_LIBRARY.md` and `docs/registers/CANONICAL_PATTERNS.md` for every
+   concern this correction touches. If the capability already exists, **use it**; the
+   correction becomes "wire it up", not "write it again". Building a second implementation of
+   a registered concern is a defect, not a preference — it is the same rule that governs
+   canonical patterns, applied to code.
+
 1. **Identify EVERY file the correction touches, not just the one you were pointed at.** A
    testing change spreads to the test-gate workflow *and* the checklists. A gate change spreads
    to the track runbooks *and* the worked example.
@@ -83,7 +91,21 @@ enough to be followed.
    > entire existence, so every process change legitimately reached for the escape token and
    > shipped uncovered. **A requirement that names one route silently exempts the others.**
 
-4. Register any genuinely new file in the governed-files table above **and** in
+4. **Decide where this capability lives — every run, out loud.** One of four answers, and the
+   change log records which:
+
+   | Answer | When | What to do |
+   |---|---|---|
+   | **REUSE** | The capability already exists in the component library or as a canonical pattern | Use it. Delete any local re-implementation this correction was about to add. Nothing new is registered. |
+   | **REFINE** | It exists, but this correction revealed it is missing something — a state, an option, an accessibility gap | **Improve the shared implementation**, so every application gains the fix, and note the improvement in its registry row. *Never* work around a shared component locally: a local workaround leaves the gap in place for every other app and forks this one. |
+   | **CONTRIBUTE** | It does not exist and it implements a **baseline** concern (library §1 — the things every application needs) | Generalise it (no domain words — the lexicon grep from `workflows/promote.md` Filter 2), place it in the stack's implementation location, flip its GAP row to READY, **in this run**. Baseline concerns were declared common in advance, so they skip the rule of three. |
+   | **PARK / APP-ONLY** | Reusable-looking but not baseline → park at n=1 via `workflows/promote.md`. Specific to one domain → say so. | Record the reason and move on. |
+
+   Skipping this decision is how the same component is built in every application: the build
+   time is paid N times and produces N versions that drift. **"App-only" is a valid answer;
+   silence is not.**
+
+5. Register any genuinely new file in the governed-files table above **and** in
    `FRAMEWORK_MANIFEST.md`. An unregistered file is one nobody maintains.
 
 ---
@@ -134,6 +156,7 @@ remaining rules more likely to be followed.
 1. **PROCESS** — the governed files learn the lesson.
 2. **FLOW** — the actual issue is fixed in the codebase.
 3. **CASES** — test cases are added.
+   *(Route B also records its capability decision: reuse · refine · contribute · park/app-only.)*
 4. **VERSION** — `VERSION` is bumped (PATCH / MINOR / MAJOR per
    `docs/22-FRAMEWORK-EVOLUTION.md`) and `UPGRADES.md` gains the entry an upgrading app will
    read: what changed, and what the app must do — even when the answer is "nothing".
