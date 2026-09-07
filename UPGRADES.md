@@ -12,6 +12,59 @@
 
 ---
 
+## 1.22.0 — 06-Sep-2026 — MINOR
+
+**Seventeen defects reached a user through a green run. Three process failures, closed.**
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **RC-007**.
+
+### The three failures
+1. **Rules with no rung.** "A save is proved against the data, never the toast" is a
+   Definition-of-Done item *and* a documented spec habit — and both false-success defects
+   walked past it, because nothing executed it.
+2. **Rules that did not exist.** Nothing said an edit surface must arrive populated, that an
+   unchanged save must round-trip untouched fields, that selection is keyed by database id,
+   or that placeholder data must not reach shipped source.
+3. **Capabilities re-implemented instead of reused.** The library's dialog already uses the
+   `overlay` token (verified correctly translucent in both themes), CP-11 already forbids raw
+   engine strings, CP-8 already covers fixed-chrome clearance. The black backdrop, the raw
+   database error and the keypad overlap were each a re-encounter of a solved problem.
+   **Rebuilding a registered component re-inherits every bug it had already fixed.**
+
+### Added
+- **`scripts/audits/check-fixture-leak.mjs`** + `npm run audit:fixtures` (now in `audit:all`) —
+  ratcheted detection of fixture-path imports, placeholder-named literals (`MOCK_*`,
+  `sampleRows`) and hardcoded datasets in shipped source. Verified: clean across the
+  framework's own 43 source files with **no false positives** (a legitimate `STATUSES`
+  constant is not flagged), and observed **firing on all three leak shapes**.
+- **CP-25 — editing an existing record.** An edit surface loads before it renders: populated
+  fields, selected multi-selects, edit mode addressed by **database id** — never the create
+  form with a different title, never keyed by a label two records can share. **An unchanged
+  save is a no-op**: every field the form did not load still round-trips, because a field
+  returned empty destroys the stored value silently. Rung: three new journeys in
+  `starter/tests/functional/reference.functional.spec.ts`.
+- **CP-15 amended in place** (superseded text kept): a date arriving by import, paste or API
+  bypasses the picker, so it is **unambiguous or rejected** — `01/09/2026` is two different
+  days, and accepting it silently picks one.
+- **`workflows/bug.md` C2b** — the five classes a green suite does not see (claimed success ·
+  placeholder data · edit parity · non-unique key · resolved actor), each with the assertion
+  that catches it.
+
+### Stated as honest debt, not papered over
+The **false-success** class keeps a rule, a DoD item and a reference assertion but **no
+automated rung**: deciding "asserts a toast but never asserts the write" requires knowing
+which assertion is the effect, which a scanner cannot. The rule budget forbids minting a
+fourth restatement of a rule that already exists, so this is recorded as debt in RC-007 rather
+than disguised as coverage.
+
+### App action required
+**None mechanically** — the new audit arrives baselined at your current state
+(`node <framework>/scripts/audits/check-fixture-leak.mjs --write-baseline`). The six
+application-domain defects (sign-out routing, existence checks before the PIN screen, actor
+propagation) have their classes named in `bug.md` C2b; their fixes belong in the application's
+own `/bug` runs.
+
+---
+
 ## 1.21.0 — 06-Sep-2026 — MINOR
 
 **Reuse before you build — made a step, not an aspiration.** Owner finding: nothing in

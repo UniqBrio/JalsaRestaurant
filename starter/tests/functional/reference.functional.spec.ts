@@ -99,4 +99,49 @@ test.describe('reference journey', () => {
     // "intercepts pointer events" - and that failure IS the assertion.
     await last.click();
   });
+
+  /* ---------------------------------------------------------------------------------------
+   * EDIT PARITY (CP-25). Three assertions that a create-flow test structurally cannot make,
+   * and that together are the difference between an edit screen and a create screen wearing
+   * an edit label.
+   * ------------------------------------------------------------------------------------- */
+
+  test('EDIT opens POPULATED - not the create form with a different title', async ({ page }) => {
+    const existing = record({ id: 'r-77', name: 'Existing item', status: 'archived' });
+    await boot(page, [existing]);
+
+    await page.getByTestId('item-edit-r-77').click();
+
+    // Every field arrives carrying the stored value. An empty edit form is the single most
+    // common shape of this defect, and it passes every "the form renders" assertion.
+    await expect(page.getByTestId('item-name')).toHaveValue('Existing item');
+    // Multi-value controls arrive SELECTED. A checkbox group that renders but shows nothing
+    // ticked reads to the user as "I had nothing set", and their next save proves it.
+    await expect(page.getByTestId('item-status-archived')).toBeChecked();
+    // The surface is in edit mode, addressed by the record's DATABASE id.
+    await expect(page.getByTestId('item-form-mode')).toHaveText('edit');
+  });
+
+  test('saving an UNCHANGED edit is a no-op - it never clears what it did not load', async ({ page }) => {
+    const existing = record({ id: 'r-77', name: 'Existing item', schedule: ['mon', 'thu'] });
+    const { written } = await boot(page, [existing]);
+
+    await page.getByTestId('item-edit-r-77').click();
+    await page.getByTestId('item-save').click();
+
+    // The dangerous case: a field the form never loaded is sent back as empty and the stored
+    // value is destroyed. Silent, irreversible, and invisible to a test that only checks the
+    // fields it typed into. Assert the whole payload, not the field you were thinking about.
+    expect(written, 'an unchanged save must still round-trip every field').toHaveLength(1);
+    expect(written[0]).toMatchObject({ name: 'Existing item', schedule: ['mon', 'thu'] });
+  });
+
+  test('two records with the SAME NAME stay distinguishable', async ({ page }) => {
+    // Selection keyed by a display label breaks the moment two rows share one. The key is the
+    // database id, always - the same rule the test-id convention encodes.
+    await boot(page, [record({ id: 'r-1', name: 'Asha Rao' }), record({ id: 'r-2', name: 'Asha Rao' })]);
+
+    await page.getByTestId('item-edit-r-2').click();
+    await expect(page.getByTestId('item-form-id')).toHaveText('r-2');
+  });
 });

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.22.0 - seventeen escaped defects, three process failures closed
+
+Root cause of a release that shipped 17 defects through a green run (RC-007): rules that
+existed but had no rung; rules that did not exist at all; and capabilities re-implemented
+instead of reused, re-inheriting bugs the library had already fixed. Added: the
+`check-fixture-leak` ratchet (placeholder data in shipped source), **CP-25** edit parity with
+three new reference journeys as its rung, CP-15 amended for imported/pasted dates, and
+`bug.md` C2b - the five classes a green suite cannot see. See `UPGRADES.md`.
+
 ## 1.21.0 - reuse before you build, and the components that proves it
 
 framework-update Route B gains step 0 (read the component library first) and a four-way

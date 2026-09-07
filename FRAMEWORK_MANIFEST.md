@@ -102,6 +102,7 @@ round N−1's file.
 | `audits/check-hardcoded-colors.mjs` | Nothing bypassed the token system |
 | `audits/check-testid-coverage.mjs` | Interactive elements are addressable |
 | `audits/check-rule-coverage.mjs` | Every rule names its enforcement point |
+| `audits/check-fixture-leak.mjs` | Placeholder data wired into a screen a user can reach (ratcheted) |
 | `audits/check-column-control.mjs` | A table wider than three columns lets the user choose its columns (CP-21) |
 | `hooks/pre-commit-guard.sh` | Close-out obligations, per-guard escape tokens |
 | `hooks/guard-reachability.test.sh` | **Executes** the guard, proving each one can fire |

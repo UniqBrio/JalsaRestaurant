@@ -1,0 +1,5 @@
+# FIXTURE LEAK BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# Each entry is placeholder data in shipped source. Review once: a constant table (states, statuses, a currency ladder) is configuration and may stay; anything standing in for real data must be wired to the real source.
+# Regenerate: node scripts/audits/check-fixture-leak.mjs --write-baseline
+# Generated: 2026-09-07 - 0 entries

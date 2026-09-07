@@ -109,6 +109,22 @@ like a valid "no results" is how a failed read becomes a destructive write.
 
 ---
 
+## C2b — The five classes that escape a green suite
+
+Before calling the fix done, check the defect against the classes a passing test run does not
+see. Each is here because it shipped (RC-007), and each needs an assertion a happy-path test
+structurally cannot make:
+
+| Class | What it looks like | The assertion that catches it |
+|---|---|---|
+| **Claimed success** | A toast says saved/sent; the row was never written, the mail never left | Assert the **effect** — the recorded write, the queued message — never the message about it |
+| **Placeholder data** | A screen reads a literal array; figures never move, Edit finds nothing | `npm run audit:fixtures`, plus reading the screen's data source |
+| **Edit parity** (CP-25) | Edit opens blank, opens the create form, or an unchanged save wipes a field it never loaded | Open an existing record and assert populated + unchanged-save round-trips **every** field |
+| **Non-unique key** | Two records share a display name and selection picks the wrong one | Seed two rows with the same label; act on the second by **database id** |
+| **Resolved actor** (CP-2) | An audit row says System or Anonymous | Assert the audited row names the acting user, for every writer |
+
+---
+
 ## C3 — Edge cases around the fix
 
 Scoped to the path you changed: time zones and day boundaries · offline and slow networks ·
