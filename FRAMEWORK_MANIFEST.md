@@ -112,6 +112,9 @@ round N−1's file.
 | `gate-timing.test.sh` | **Executes** the gate runner and proves the report states its own cost — total, slowest step, per-step duration, and `-` for a step that never ran. The rung under FW-SPEED-003 (gate stage) |
 | `run-log.mjs` | Appends a row to the run log: what was asked, its type, and a **measured** duration. Reads the clock at `start` and at `end`; refuses to invent a start it never took |
 | `run-log.test.sh` | **Executes** the logger — including that `end` without `start` is BLOCKED rather than a guessed duration |
+| `starter/src/lib/audit.ts` | CP-27: the audit model — actor resolution that never invents "System", secret redaction, set-diffing so a reorder is not a change, and the three RBAC event builders. No updater, no deleter |
+| `starter/src/components/AuditLogTable.tsx` | CP-27: the audit log table. Read-only by construction; composes CP-23 and CP-21 rather than rebuilding search, filters, sorting or column control |
+| `starter/tests/unit/audit.unit.spec.ts` | The rung under CP-27 — 19 assertions executed against the compiled lib |
 | `par.mjs` | Runs independent checks **concurrently** and reports each one's cost. Backs `audit:all` and `guard:test`; deliberately NOT the gate, whose order is a prerequisite chain. Aggregates every failure instead of stopping at the first |
 | `review-plan.mjs` | Decides **which review passes a change needs, from the diff** — the executable form of the review matrix, and the authority for selection |
 | `review-plan.test.sh` | **Executes** the selector against built diffs in scratch repositories, including that the same diff twice yields a byte-identical plan |

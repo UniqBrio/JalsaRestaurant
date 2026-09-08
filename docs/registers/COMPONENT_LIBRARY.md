@@ -26,6 +26,7 @@ Regardless of business requirements, every application ships these; the product-
 | States | Empty · loading · error · offline · permission-denied, as shared treatments |
 | Support | A way for a stuck user to reach a human: email · phone · call and WhatsApp actions, with an expectation set |
 | Confirmation | One confirm dialog for destructive and session-ending actions; reversible actions use undo instead |
+| Audit trail | Who changed what, from what, to what, when — wherever roles or access can be changed |
 | Session | Session persists until the user signs out explicitly; sign-out confirms first and lives under the overflow menu |
 | Install | PWA installability where the application is a web app: manifest, icons, offline shell |
 | Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
@@ -74,6 +75,8 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Analytics | Domain configs: restaurant · gym · academy · badminton | `starter/src/lib/analytics/examples.ts` | READY |
 | Analytics | Donut / funnel / heatmap / calendar-heatmap / stacked / area / timeline | — | **GAP** — deliberately unbuilt; first app with a real need contributes back (docs/25 §4) |
 | Confirmation | Confirm dialog — composes CP-14; destructive variant separated and named, never "OK" | `starter/src/components/ConfirmDialog.tsx` | READY |
+| Audit trail | Audit model, redaction, set-diffing and the RBAC event builders (CP-27) | `starter/src/lib/audit.ts` | READY |
+| Audit trail | Audit log table — read-only by construction; **composes CP-23** (search · module filter · date presets · sort) and **CP-21** (seven columns), never a second implementation of either | `starter/src/components/AuditLogTable.tsx` | READY |
 | Navigation | Overflow menu with an isolated, confirm-routed sign out | `starter/src/components/MoreMenu.tsx` | READY |
 | Support | Help and support — email · call · WhatsApp deep link, worded channels, honest empty state | `starter/src/components/HelpSupport.tsx` | READY |
 | Copy | Sentence case for labels, headings and table cells (DR-1) — capitalises the first letter and never lowercases the rest | `starter/src/lib/text-format.ts` | READY |

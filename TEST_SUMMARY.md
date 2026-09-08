@@ -13,6 +13,44 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: starter/tests/unit/audit.unit.spec.ts - 19 assertions executed against the
+esbuild-compiled actual lib (19/19 pass). Two defects were INJECTED into
+starter/src/lib/audit.ts and both were observed failing before revert:
+
+  1. renderActor() returning 'System' for an unresolved actor - the RC-007 defect verbatim.
+     Observed: FAIL "an UNRESOLVED actor never becomes System - it renders visibly wrong"
+  2. sameValue() comparing arrays POSITIONALLY instead of as sets.
+     Observed: FAIL "reordering a role list is NOT a change"
+
+  Injected run: 17 passed, 2 failed. After revert: 19 passed, 0 failed.
+  Harness: esbuild-compiled ESM + a minimal test shim, because this repository carries no
+  node_modules; the same route v1.17.0/v1.18.0 took for their pure libs.
+
+---
+
+## Gate run - 2026-09-08 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
+Time: 6.6s total - slowest G10 Backward compatibility (fixtures) (5.8s).
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (130ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (129ms)
+- **G3 Theme assets present per theme** - PASS (128ms)
+- **G4 No hard-coded colours** - PASS (143ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (159ms)
+- **G10 Backward compatibility (fixtures)** - PASS (5.8s)
+- **G11 Wide tables are configurable** - PASS (148ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
 ## Gate run - 2026-09-08 - VERDICT: BLOCKED
 
 Steps: 7 pass, 0 fail, 4 blocked.
