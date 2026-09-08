@@ -16,6 +16,27 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 ## Gate run - 2026-09-08 - VERDICT: BLOCKED
 
 Steps: 7 pass, 0 fail, 4 blocked.
+Time: 6.3s total - slowest G10 Backward compatibility (fixtures) (5.6s).
+
+- **G1 Theme artifacts in sync** - PASS (112ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (111ms)
+- **G3 Theme assets present per theme** - PASS (108ms)
+- **G4 No hard-coded colours** - PASS (116ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (111ms)
+- **G10 Backward compatibility (fixtures)** - PASS (5.6s)
+- **G11 Wide tables are configurable** - PASS (117ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-08 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
 Time: 6.2s total - slowest G10 Backward compatibility (fixtures) (5.5s).
 
 - **G1 Theme artifacts in sync** - PASS (109ms)

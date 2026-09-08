@@ -66,6 +66,7 @@ should start by reading this table rather than by guessing which part felt slow.
 
 | ID | Action | Type | Scale | Started | Ended | Total | Stages | Gate | Verdict | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
+| R-005 | Remove the request pre-sorter: it cannot classify reliably when one chat carries more than one request | FRAMEWORK | scoped | 2026-09-08 12:46 | 2026-09-08 12:48 | 2m | ground 9s · build 42s · verify 59s · gate 13s | 6.3s | BLOCKED | v1.27.0; pre-sorter withdrawn; gate BLOCKED on G5-G8 pre-existing |
 | R-004 | Validation testing time is high and unmeasured (each correction tested individually); and Supabase soft-deletes where the frontend expects a hard delete | FRAMEWORK | scoped | 2026-09-08 12:22 | 2026-09-08 12:29 | 7m | ground 44s · plan 52s · build 3m · verify 2m · gate 7s | 6.2s | BLOCKED | v1.26.0; CP-26 delete contract, per-commit verification, request pre-sorter; gate BLOCKED on G5-G8 pre-existing |
 | R-003 | Reduce execution time: instrument the four unmeasured stages, and make the review matrix executable | FRAMEWORK | scoped | 2026-09-08 10:57 | 2026-09-08 11:21 | 25m | ground 13m · plan 0s · build 7m · verify 3m · gate 14s | 7.0s | BLOCKED | v1.25.0; four speed levers; gate BLOCKED on G5-G8, pre-existing no local tsc |
 | R-002 | Write a simple audit log file: action name, request type, start, end, total time taken | FRAMEWORK | scoped | 2026-09-08 10:15 | 2026-09-08 10:42 | 27m | - | 6.1s | BLOCKED | back-filled start; v1.24.0; this register; same pre-existing G5-G8 block |

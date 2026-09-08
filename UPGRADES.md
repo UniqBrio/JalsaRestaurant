@@ -12,6 +12,24 @@
 
 ---
 
+## 1.27.0 — 08-Sep-2026 — MINOR
+
+**the request pre-sorter is withdrawn**
+
+Owner decision, one release after it shipped. It classified a SINGLE sentence, and a real chat carries several requests at once - so its input was ambiguous exactly where the stakes are highest, and a confident wrong route costs an entire track. Set against that, it never demonstrated a measured saving: the case for it rested on one run's ground stage which also contained a long design conversation. Removing an unproven mechanism that can be confidently wrong is the correct trade, and the framework's own rule-budget guidance says to propose compaction, not only growth.
+
+### Fixed
+- **Removed `scripts/classify.mjs` and `scripts/classify.test.sh`**, the `classify` npm script, and the `classify` suite from `guard:test` (ten suites back to nine). The manifest and the overview no longer list them. **Classification is a reading task again**, done at `workflows/request.md` R1, which never stopped being the authority on what the classes mean.
+- **`workflows/request.md` records the withdrawal rather than quietly reverting.** A step that appears and disappears with no trace invites the same idea to be re-proposed and re-built; the note says what was tried and why it was removed.
+
+### Stated as honest debt, not papered over
+- **Cases FW-CLASS-001..002 are RETIRED, not deleted**, and their IDs are not reused - the feature is gone, so the cases are marked rather than left describing a script that no longer exists.
+- **The routing question is open again, and honestly so.** Nothing measured was lost here. If it is revisited, the lesson is recorded: a router must take the SET of requests in a conversation, not one sentence, and it must still be allowed to answer UNSURE.
+
+### App action required
+None. If you scripted `npm run classify`, it is gone; use /request. Nothing else changed shape.
+
+---
 ## 1.26.0 — 08-Sep-2026 — MINOR
 
 **delete is a declared contract; verification is per commit; requests are pre-sorted**

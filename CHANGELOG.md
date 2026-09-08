@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.27.0 — the request pre-sorter is withdrawn
+
+Owner decision, one release after it shipped. It classified a SINGLE sentence, and a real chat carries several requests at once - so its input was ambiguous exactly where the stakes are highest, and a confident wrong route costs an entire track. Set against that, it never demonstrated a measured saving: the case for it rested on one run's ground stage which also contained a long design conversation. Removing an unproven mechanism that can be confidently wrong is the correct trade, and the framework's own rule-budget guidance says to propose compaction, not only growth.
+
+audit:all clean (10/10); guard:test 9/9 suites (31.7s parallel vs 2m09s serial); audit:compat clean, no fixture green to red. Live-reference sweep for classify.mjs / classify.test.sh / classify= across the tree: 0 outside git's own index and the append-only history in CHANGELOG.md and UPGRADES.md. Gate BLOCKED on G5-G8: pre-existing, no local tsc.
 ## 1.26.0 — delete is a declared contract; verification is per commit; requests are pre-sorted
 
 Three things in one release, deliberately: the release itself demonstrates the middle one. Corrections that land in one commit share one verification pass, so batching them is not a shortcut - it is the correct unit.

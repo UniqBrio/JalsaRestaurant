@@ -47,21 +47,10 @@ The `--type` is the classification below, so this line and the table share one v
 is evidence of what was asked, and a tidied restatement quietly loses the mismatch between ask
 and delivery that makes the row worth keeping. Scale can be declared later at `end`.
 
-**Pre-sort it first — one command, no reading.**
-
-```bash
-node scripts/classify.mjs "<the request, in the requester's words>"
-```
-
-It answers with a class and a route, or with **UNSURE** and exit 3. Exit 3 is a real answer,
-not a failure: `improve X` may be broken or may merely be improvable, and those are different
-tracks. The table below then decides that one by reading, as it always has.
-
-**The table remains the authority on what the classes MEAN.** The script only decides the
-obvious ones, so the expensive reader never processes nine rows for a request whose class was
-never in doubt. NEW vs NEW-APP it settles by **looking for a source tree** — that distinction
-is a fact about the repository, not about the sentence, and no amount of re-reading the words
-can answer it.
+> **A mechanical pre-sorter was tried here and withdrawn in v1.27.0.** It classified a single
+> sentence, and a real chat carries several requests at once — so its input was ambiguous
+> exactly when the stakes were highest, and a confident wrong route costs an entire track. It
+> never demonstrated a measured saving. **Classification stays a reading task**, done here.
 
 Read the rough description and pick exactly one:
 

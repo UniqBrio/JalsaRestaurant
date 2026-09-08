@@ -17,7 +17,7 @@
     "audit:fixtures": "node scripts/audits/check-fixture-leak.mjs",
     "audit:all": "node scripts/par.mjs \"theme-sync=node scripts/theme-build.mjs --check\" \"contrast=node scripts/check-contrast.mjs\" \"theme-assets=node scripts/check-theme-assets.mjs\" \"colors=node scripts/audits/check-hardcoded-colors.mjs\" \"testids=node scripts/audits/check-testid-coverage.mjs\" \"rules=node scripts/audits/check-rule-coverage.mjs\" \"columns=node scripts/audits/check-column-control.mjs\" \"fixtures=node scripts/audits/check-fixture-leak.mjs\" \"deadweight=node scripts/audits/check-dead-weight.mjs\" \"compat=node scripts/audits/check-backward-compat.mjs\"",
     "gate": "node scripts/gate-runner.mjs",
-    "guard:test": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\" \"classify=bash scripts/classify.test.sh\"",
+    "guard:test": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\"",
     "fanout:check": "node scripts/fanout-check.mjs",
     "guard:install": "node -e \"require('fs').copyFileSync('scripts/hooks/pre-commit-guard.sh','.git/hooks/pre-commit');require('fs').chmodSync('.git/hooks/pre-commit',0o755);console.log('installed .git/hooks/pre-commit \u2014 note: .claude/settings.json already wires the same guards for Claude Code sessions')\"",
     "new:app": "node scripts/new-app.mjs",
@@ -29,10 +29,9 @@
     "upgrade:test": "bash scripts/upgrade.test.sh",
     "runlog": "node scripts/run-log.mjs",
     "audit:all:serial": "node scripts/par.mjs \"theme-sync=node scripts/theme-build.mjs --check\" \"contrast=node scripts/check-contrast.mjs\" \"theme-assets=node scripts/check-theme-assets.mjs\" \"colors=node scripts/audits/check-hardcoded-colors.mjs\" \"testids=node scripts/audits/check-testid-coverage.mjs\" \"rules=node scripts/audits/check-rule-coverage.mjs\" \"columns=node scripts/audits/check-column-control.mjs\" \"fixtures=node scripts/audits/check-fixture-leak.mjs\" \"deadweight=node scripts/audits/check-dead-weight.mjs\" \"compat=node scripts/audits/check-backward-compat.mjs\" --serial",
-    "guard:test:serial": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\" \"classify=bash scripts/classify.test.sh\" --serial",
+    "guard:test:serial": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\" --serial",
     "review:plan": "node scripts/review-plan.mjs",
-    "closeout": "node scripts/close-out.mjs",
-    "classify": "node scripts/classify.mjs"
+    "closeout": "node scripts/close-out.mjs"
   },
   "engines": {
     "node": ">=18"
