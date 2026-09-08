@@ -117,6 +117,8 @@ round N−1's file.
 | `review-plan.test.sh` | **Executes** the selector against built diffs in scratch repositories, including that the same diff twice yields a byte-identical plan |
 | `close-out.mjs` | Renders the release story **once** into the four places it must appear (upgrade notes, changelog, commit message, summary). Owns scaffolding and duplication; never the prose |
 | `close-out.test.sh` | **Executes** the generator — one record reaches every rendering, and `--apply` can never overwrite a prior entry |
+| `classify.mjs` | Sorts a request into its track **before** any agent reads it, and answers **UNSURE** rather than guessing. NEW vs NEW-APP is decided by looking for a source tree, not by reading the sentence |
+| `classify.test.sh` | **Executes** the pre-sorter — including that "improve X" is refused rather than quietly routed |
 | `hooks/tsc-baseline.sh` | Regenerates the type-error ratchet baseline |
 | `audits/check-dead-weight.mjs` | Scripts nothing references any more (review candidates) |
 

@@ -158,6 +158,43 @@ const firstSignal = (text) => {
 };
 
 /**
+ * A fingerprint of the TREE UNDER TEST - what the gate actually verifies.
+ *
+ * WHY THIS IS WORTH KNOWING
+ *   The gate verifies a tree, not a change. Running it once per correction while several
+ *   corrections land in ONE commit re-verifies the same tree N times, and only the last run
+ *   describes what ships - the earlier ones described trees that no longer exist. Observed on
+ *   this repository: three `guard:test` runs and four gate runs inside a single 25-minute run.
+ *
+ *   This is a NOTICE, never a block and never a cache. A gate that skipped work because it
+ *   believed nothing had changed would be trusting a fingerprint over the code, and the first
+ *   time the fingerprint was wrong the failure would be a green run over a broken tree. So it
+ *   runs every step every time, and merely says when a run was avoidable.
+ */
+function treeFingerprint() {
+  try {
+    const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
+    const dirty = spawnSync('git', ['status', '--porcelain=v1'], { cwd: ROOT, encoding: 'utf8' });
+    if (head.status !== 0 || dirty.status !== 0) return null;
+    // The dirty listing includes every modified path; hashing their CONTENT would be more
+    // precise and much slower, and the mtime-free porcelain output already changes whenever a
+    // file is added, removed or edited between two runs.
+    // EXCLUDE THE GATE'S OWN OUTPUT. Every run rewrites TEST_SUMMARY.md and .gate-logs/, so a
+    // fingerprint that counted them differed from the previous run BY DEFINITION and could
+    // never report a redundant run - the detector reading its own output as evidence, which is
+    // the one thing a detector in this repository may never do. Observed failing exactly that
+    // way before this exclusion existed.
+    const SELF = /(^|\/)(TEST_SUMMARY\.md|\.gate-logs\/)/;
+    const stat = (dirty.stdout || '').split(/\r?\n/).filter(Boolean).filter((l) => !SELF.test(l.slice(3).trim())).map((line) => {
+      const file = line.slice(3).trim();
+      try { const st = fs.statSync(path.resolve(ROOT, file)); return `${line}:${st.size}:${st.mtimeMs}`; }
+      catch { return line; }
+    }).sort().join('\n');
+    return `${(head.stdout || '').trim()}\n${stat}`;
+  } catch { return null; }
+}
+
+/**
  * Human duration. Seconds below a minute, m+s above: "870ms" reads as noise at a glance, and
  * the point of this number is that a person compares it to the last run without arithmetic.
  * undefined means the step never ran, and prints as "-".
@@ -245,9 +282,15 @@ function run(step) {
   else results.push({ ...step, status: 'FAIL', detail: distil(output) || `exit ${r.status}`, ms });
 }
 
+const FINGERPRINT_FILE = path.join(LOGDIR, 'last-tree.txt');
+const fingerprint = treeFingerprint();
+const priorFingerprint = fs.existsSync(FINGERPRINT_FILE) ? fs.readFileSync(FINGERPRINT_FILE, 'utf8') : null;
+const redundant = Boolean(fingerprint && priorFingerprint && fingerprint === priorFingerprint);
+
 const runStartedAt = Date.now();
 for (const s of STEPS) run(s);
 const totalMs = Date.now() - runStartedAt;
+if (fingerprint) fs.writeFileSync(FINGERPRINT_FILE, fingerprint, 'utf8');
 
 /* ---- report ---- */
 const fails = results.filter((r) => r.status === 'FAIL');
@@ -263,6 +306,11 @@ const block = [
   '',
   `Steps: ${results.filter((r) => r.status === 'PASS').length} pass, ${fails.length} fail, ${blocked.length} blocked.`,
   `Time: ${fmtMs(totalMs)} total${slowest ? ` - slowest ${slowest.id} ${slowest.name} (${fmtMs(slowest.ms)})` : ''}.`,
+  ...(redundant ? ['',
+    '> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this'
+    + ' verdict was already known. The gate verifies a TREE, not a change: corrections landing in'
+    + ' one commit share one verification, and only the last run describes what ships. Corrections'
+    + ' in SEPARATE commits each need their own, so every commit is independently bisectable.'] : []),
   '',
   ...results.map((r) => {
     const head = `- **${r.id} ${r.name}** - ${r.status} (${fmtMs(r.ms)})`;

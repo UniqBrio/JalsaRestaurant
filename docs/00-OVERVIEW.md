@@ -136,7 +136,7 @@ caught it, also [workflows/framework-update.md](../workflows/framework-update.md
 total and the slowest step, and `gate-timing.test.sh` proves it does) · the run log
 (`run-log.mjs`, which reads the clock so no duration is ever recalled) · the concurrent check
 runner (`par.mjs`) · the executable review matrix (`review-plan.mjs`) · the close-out renderer
-(`close-out.mjs`) · the theme build and its checks ·
+(`close-out.mjs`) · the request pre-sorter (`classify.mjs`) · the theme build and its checks ·
 the audits (`check-hardcoded-colors` · `check-testid-coverage` · `check-rule-coverage` ·
 `check-column-control` · `check-fixture-leak` · `check-dead-weight` · `check-backward-compat`) · the commit guards
 under `hooks/` · and the evolution tooling (`lineage.mjs` · `upgrade.mjs` · `conformance.mjs`),

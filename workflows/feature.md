@@ -216,6 +216,17 @@ Any screen that renders a list or table carries CP-23 through `ListControls` /
 month · Custom) · **sortable columns**. A list designed without these is incomplete, not
 minimal — the subtraction pass removes clutter, and these are how the user removes *theirs*.
 
+### A3.3b-delete — what does DELETE mean for this entity? (CP-26)
+
+One of two answers, in writing, **before any delete control is drawn**: **ARCHIVE** (the row
+survives, reads filter it out, the unique index is partial so the name frees up, the control
+says *Archive*, a restore path exists) or **REMOVE** (the row is gone, dependants handled by a
+chosen `on delete` rule, the confirmation says it is irreversible).
+
+Unanswered, the two layers each pick one and they are each self-consistent — which is why the
+symptoms surface far from the cause, as a row that comes back on refresh or a name the user is
+told is taken by a record they cannot see.
+
 ### A3.3c Dashboards and analytics
 A screen that reports numbers uses CP-24 (`DashboardShell` + `MetricCard` + the analytics
 config), never a bespoke dashboard. The design states, per dashboard: the **question each

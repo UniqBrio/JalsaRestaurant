@@ -12,6 +12,30 @@
 
 ---
 
+## 1.26.0 — 08-Sep-2026 — MINOR
+
+**delete is a declared contract; verification is per commit; requests are pre-sorted**
+
+Three things in one release, deliberately: the release itself demonstrates the middle one. Corrections that land in one commit share one verification pass, so batching them is not a shortcut - it is the correct unit.
+
+### Added
+- **CP-26 - deleting a record.** The reported defect was 'Supabase soft-deletes where the frontend expects a hard delete'. The backend was behaving exactly as the reference schema intends: status active|archived, a PARTIAL unique index, and no delete policy granted at all. **The defect is that the two layers disagree about what delete means, and each is self-consistent** - which is why a row returning on refresh, a re-add hitting a unique constraint and a stale id 404-ing present as three unrelated bugs. Every entity now declares ONE model in writing - ARCHIVE or REMOVE - and the assertion is a **round trip**, never the response to the delete call, which only proves the request was accepted.
+- **A3.3b-delete in `feature.md`** - the design pass asks the question before any delete control is drawn. Unasked, each layer picks an answer independently, and both are defensible.
+- **The gate names an avoidable run.** It verifies a TREE, not a change, so re-running it after each correction in one tree re-verifies the same tree N times - only the last run describes what ships. When the tree is byte-identical to the previous run the report says so. A NOTICE, never a block and never a cache: a gate that skipped work because it believed nothing had changed would be trusting a fingerprint over the code.
+- **`classify.mjs` - the request pre-sorter**, the first piece of the routing question. One command sorts the obvious requests into their track before any agent reads the nine-row table, and **answers UNSURE rather than guessing**. NEW vs NEW-APP it settles by looking for a source tree, because that is a fact about the repository and no amount of re-reading the sentence can answer it. `workflows/request.md` R1 remains the authority on what the classes mean.
+- Cases FW-DEL-001..002, FW-VERIFY-001, FW-CLASS-001..002. `classify.test.sh` (18 executed cases) joins `guard:test`, now ten suites.
+
+### Fixed
+- **The redundancy notice could never have fired, and its own test caught that.** The fingerprint counted TEST_SUMMARY.md and .gate-logs/ - which every gate run rewrites - so it differed from the previous run BY DEFINITION. The detector was reading its own output as evidence, the one thing a detector in this repository may never do. Observed failing exactly that way before the exclusion existed.
+
+### Stated as honest debt, not papered over
+- **`classify.mjs` decides the clear cases only, and that is the design.** 'improve X' and requests that read as both broken and preferred are refused with exit 3 and the one question to ask. A router that answers everything answers some of them wrongly, and a confident wrong route costs an entire track against the seconds this saves.
+- **The remaining routing decisions are still made by reading.** This release converts the first one. The measured case for doing more rests on a single run's ground stage (13 of 25 minutes) which also contained a long design conversation - an upper bound, not a clean reading. Two or three more runs before converting the next one.
+
+### App action required
+None mechanically. If your application grants a delete policy or offers a Delete control, declare its model against CP-26 - and check the control's wording, because a button labelled Delete that archives is a lie the user acts on.
+
+---
 ## 1.25.0 — 08-Sep-2026 — MINOR
 
 **four levers on execution time, aimed by measurement**

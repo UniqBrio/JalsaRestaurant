@@ -136,6 +136,75 @@ test.describe('reference journey', () => {
     expect(written[0]).toMatchObject({ name: 'Existing item', schedule: ['mon', 'thu'] });
   });
 
+  /* ---------------------------------------------------------------------------------------
+   * DELETE SEMANTICS (CP-26). The failure these exist for is NOT "the backend soft-deletes".
+   * It is that the two layers disagree about what "delete" means, and each is self-consistent:
+   * the backend archives, the list keeps showing the row, and every symptom that follows -
+   * a row returning on refresh, a re-add hitting a unique constraint, a stale id 404-ing -
+   * looks like a different bug in a different place.
+   *
+   * So the assertion is a ROUND TRIP, never the response to the delete call: perform the
+   * action, then re-read through the SAME path the list uses, and require the outcome to
+   * match the declared model. A delete that returns 200 proves the request was accepted,
+   * which is not the thing anyone was worried about.
+   * ------------------------------------------------------------------------------------- */
+
+  test('ARCHIVE model: the row is gone from the default list, and stays gone on re-read', async ({ page }) => {
+    // The reference schema archives: status active|archived, no delete policy granted, and a
+    // unique index that is PARTIAL (where status = 'active'). Archiving is the whole model.
+    const rows = [record({ id: 'r-9', name: 'Doomed item' })];
+    let archived = false;
+
+    await page.addInitScript((sess) => localStorage.setItem('session', JSON.stringify(sess)), SESSION);
+    await page.route('**/api/**', (route: Route) => {
+      const req = route.request();
+      if (req.method() === 'GET') {
+        // The read filters the archive out. A backend that archives while the read does not
+        // filter is the defect: the write succeeded and the row is still there.
+        return route.fulfill({ json: { data: archived ? [] : rows } });
+      }
+      archived = true;
+      return route.fulfill({ json: { data: { id: 'r-9', status: 'archived' } } });
+    });
+    await page.goto('/');
+
+    await page.getByTestId('item-delete-r-9').click();
+    await page.getByTestId('confirm-accept').click();
+
+    await expect(page.getByTestId('item-row-r-9')).toHaveCount(0);
+    // The one that catches it. A row removed from the DOM optimistically and never re-read
+    // passes the assertion above and comes back the moment anyone refreshes.
+    await page.reload();
+    await expect(page.getByTestId('item-row-r-9')).toHaveCount(0);
+  });
+
+  test('ARCHIVE model: archiving FREES the unique key, so the name can be used again', async ({ page }) => {
+    // The partial index exists precisely so an archived row does not squat on the name
+    // forever. If the app archives but the index is not partial, the user is told "that name
+    // is taken" by a record they can no longer see - unactionable, and it reads as data loss.
+    const { written } = await boot(page, []);
+    await page.getByTestId('list-add').click();
+    await page.getByTestId('item-name').fill('Doomed item');
+    await page.getByTestId('item-save').click();
+
+    expect(written, 'the name of an archived record must be reusable').toHaveLength(1);
+    expect(written[0]).toMatchObject({ name: 'Doomed item' });
+  });
+
+  test('the word on the control matches the model - never "Delete" for an archive', async ({ page }) => {
+    // A control labelled Delete that archives is a lie the user acts on: they believe the
+    // record is gone, and the audit trail says otherwise. CP-11 governs the wording; this is
+    // the same rule applied to the verb on the button.
+    await boot(page, [record({ id: 'r-9', name: 'Doomed item' })]);
+    await page.getByTestId('item-delete-r-9').click();
+
+    // Destructive-vs-reversible is a NAMED action, never "OK" (ConfirmDialog, v1.21.0).
+    const accept = page.getByTestId('confirm-accept');
+    await expect(accept).toBeVisible();
+    await expect(accept).not.toHaveText(/^OK$/i);
+    await expect(accept).toHaveText(/archive/i);
+  });
+
   test('two records with the SAME NAME stay distinguishable', async ({ page }) => {
     // Selection keyed by a display label breaks the moment two rows share one. The key is the
     // database id, always - the same rule the test-id convention encodes.
