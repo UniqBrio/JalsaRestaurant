@@ -53,6 +53,40 @@ it, and it has to be computed rather than reported.
 
 ---
 
+## 3b. Proportional to risk, never thinner by default
+
+The gate's **steps** never scale. What scales is how much of the case space a run is asked to
+**enumerate** — and until v1.23.0 that did not scale either, so a two-file label fix walked the
+same constraint space, configuration space and four dimensions as a schema migration.
+Verification became the longest stage in a run by default rather than by risk.
+
+The lane in the runbook is the fix, and it rests on one distinction worth stating plainly:
+
+- **Enumerating a class the change cannot reach** is paperwork. A diff that touches no table
+  has no unique constraints to walk; saying so in one line is the same verification as walking
+  an empty list, at a fraction of the cost.
+- **Verifying a class the change can reach** is the gate. That never gets a discount, at any
+  scale, for any reason.
+
+Three things are therefore marked **never scales** — fail-first evidence, the registry delta,
+and `npm run gate` itself. The first two are the run's only evidence that its tests can fail
+and that its claims match the file; the third costs seconds. Cutting any of them to save time
+trades the whole point of the run for nothing measurable.
+
+**A skipped row is discharged out loud**, in `TEST_SUMMARY.md`, with its reason — exactly as a
+`--skip` on the runner records BLOCKED and can never produce green. An unmentioned dimension is
+still a defect of the run, because silence is how cases sit unexecuted behind a green gate.
+
+### Measure before you economise
+The whole mechanical stack was measured at **~87 seconds** on 08-Sep-2026 (`audit:all` 17.7s ·
+`guard:test` 60.2s · `npm run gate` 8.6s) against a verification stage reported at over an
+hour. Every second available to save by weakening a check was already **under three percent**
+of the problem. The gate now prints its own per-step cost and names its slowest step, so the
+next such question is answered from the ledger rather than from impressions — see RC-008 for
+what three versions of an unmeasured timing *rule* produced.
+
+---
+
 ## 4. Assertions worth making everywhere
 
 ### Assert the data, not the toast

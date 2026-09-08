@@ -12,6 +12,71 @@
 
 ---
 
+## 1.23.0 — 08-Sep-2026 — MINOR
+
+**Verification was the longest stage in every run, and nothing measured it.** Owner report:
+corrections finish quickly, verification "often exceeds one hour". Full analysis:
+`docs/registers/ROOT_CAUSE_REGISTER.md` **RC-008**.
+
+### What the measurement actually showed
+`audit:all` **17.7s** · `guard:test` **60.2s** · `npm run gate` **8.6s** — about **87 seconds**
+for the entire mechanical stack, roughly **2.4%** of the reported hour. The scripts were never
+the bottleneck. The other ~58 minutes were agent-side and completely unattributed, because
+`grep -rniE "elapsed|duration|hrtime|performance\.now|Date\.now\(\)" scripts/` returned
+**three matches, all CSS `animation-duration`**.
+
+### The two failures
+1. **A rule with no rung — this framework's own first idea, failing on itself.** v1.13.0
+   shipped "run reports carry stage timings", case **FW-SPEED-003**, whose anti-pattern reads
+   *"a slow run with no timing data, diagnosed by feeling."* Nothing executed it; the only
+   party asked to honour it was the narrator. Three versions later the first real report of
+   slowness arrived in exactly that shape.
+2. **Proportionality was applied to half the run.** v1.19.0 gave the **build** side three lanes,
+   v1.20.0 parallelised generation, and the review matrix scaled *who reviews*. Nothing scaled
+   *what verification executes*: `test-gate.md` had nine T1 sub-steps, each marked
+   **(blocking)**, and no scale column — so a two-file label fix enumerated the same constraint
+   and configuration space as a schema migration.
+
+### Added
+- **The gate measures itself.** `scripts/gate-runner.mjs` records per-step wall-clock and
+  prints `Time: <total> total - slowest <id> <name> (<duration>)` plus a duration on every step
+  line, into the append-only `TEST_SUMMARY.md` — so the trend accrues with no upkeep. A step
+  that **never spawned prints `-`, never `0ms`**: zero is a measurement, and a step that did not
+  run has none; printing zero would make the cheapest possible run look like the fastest one.
+- **`scripts/gate-timing.test.sh`** — 8 executed cases, wired into `npm run guard:test`. Four
+  were **observed failing** against the pre-timing runner; the other four are regression guards
+  on the verdict contract and correctly pass in both trees (a gate that got faster and lost its
+  three-valued verdict would be a worse gate wearing a stopwatch).
+- **The verification lane** (`workflows/test-gate.md`) — which T-steps run at micro · scoped ·
+  full-scale, keyed to the **same `SCALE:` declaration guard G8 already verifies against the
+  diff**. No new token, no new guard, no addition to the rule budget. What shrinks is the
+  *enumeration of classes the change cannot reach*; **T1.5 fail-first, T1.6 the registry delta
+  and T2 the mechanical gate are marked "never scales"**, and a skipped row is discharged in
+  `TEST_SUMMARY.md` with its reason — never silent.
+- Cases **FW-SPEED-006..009**; **FW-SPEED-003 updated in place** to name its rung and to state
+  plainly that the four non-gate stages remain narrator-reported.
+
+### Stated as honest debt, not papered over
+**Only the gate stage is mechanically measured.** Ground · plan · build · verify are still
+narrator-reported, because nothing in this framework observes wall-clock across an agent's
+stages — there is no hook to attach. FW-SPEED-003's rung is scoped to the gate stage and says
+so. Equally, **G8 verifies a `micro` claim against the diff, but a `scoped` claim on a
+full-scale change has no mechanical rung** and is review-only. Both are recorded in RC-008
+rather than disguised as coverage.
+
+### Why the rule-coverage audit reported a clean gate over this
+`check-rule-coverage.mjs` reads `CANONICAL_PATTERNS.md`, `ROOT_CAUSE_REGISTER.md` and
+`DESIGN_RULES.md` — IDs `CP|RC|DR|FP`. `FW-*` process cases are outside its population, so
+"backlog is zero" was true of what it reads and silent about this rule. The audit did not
+overclaim; its scope simply never included that register. Left as-is this release: widening it
+is a change to a ratchet's population and deserves its own run, not a footnote in this one.
+
+### App action required
+**None.** The gate prints more; it decides exactly as before, and no check was removed. The
+verification lane is available on the `SCALE:` field your runs already declare.
+
+---
+
 ## 1.22.0 — 06-Sep-2026 — MINOR
 
 **Seventeen defects reached a user through a green run. Three process failures, closed.**

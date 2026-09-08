@@ -150,7 +150,10 @@ run **writes** one verdict per checklist area or screen with one evidence line �
 are prompts, not paperwork — and **never hand-verifies what a mechanical audit already
 checks**: the audit's result is the evidence. Scoped artifacts carry line budgets
 (`RUN_<feature>.md` ≤ ~150 lines). The run report's **stage timings** make the next slow run
-attributable from data. The checks are unchanged; what shrank is reading the library and
+attributable from data — and since v1.23.0 the gate stage is *measured* rather than recalled:
+the runner prints per-step durations, the total and the slowest step into the append-only
+`TEST_SUMMARY.md`. **Verification itself is proportional to scale** (`workflows/test-gate.md`
+— the verification lane), on the same declaration the build lane already uses. The checks are unchanged; what shrank is reading the library and
 writing essays about what a script already proved.
 
 Not every track runs every gate. A one-line bug fix runs stages 0, 5, 6, 7 — and it still

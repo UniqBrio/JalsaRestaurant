@@ -7,6 +7,56 @@
 > documented and triaged, not silently patched.
 
 **CHANGE UNDER TEST:** `<one line — what changed, and which files/modules>`
+**SCALE:** `micro | scoped | full-scale` — the same declaration the run already made, not a
+second judgement. Guard G8 verifies a `micro` claim against the diff.
+
+---
+
+## The verification lane (added 08-Sep-2026)
+
+The build half of a run has been proportional since v1.19 and parallel since v1.20. This half
+was not: every T1 sub-step below is marked **(blocking)**, and until now that meant a two-file
+label fix enumerated the same constraint space, configuration space and four dimensions as a
+schema migration. **Verification became the longest stage in the run by default, not by risk.**
+
+What shrinks is the **enumeration of classes the change cannot reach**. What never shrinks is
+the verification of a class it *can* reach. Those are different economies, and collapsing them
+is how a lane becomes a bypass.
+
+| Step | micro (≤2 files, no schema) | scoped (≤5 files, additive schema) | full-scale / hotspot |
+|---|---|---|---|
+| **T1.1** Blast radius | One line: the touched module + any importer of a changed export | Inline list | Full list, spawned explorer |
+| **T1.2** Four dimensions | Only dimensions the diff can **reach**; the rest are one line each: *"not reachable — &lt;why&gt;"* | All four, one line each | All four, per module |
+| **T1.3** Constraint idempotency | **N/A by entry test** — a schema change disqualifies micro | Tables this change **writes**, (a)–(d) | Every table in the blast radius |
+| **T1.4** Configuration space | Only if the changed lines **read** configuration | Non-default configurations for touched behaviour | Full sweep incl. the undo round-trip |
+| **T1.5** Fail-first evidence | **Never scales.** Every new behaviour test, every lane | same | same |
+| **T1.6** Registry delta | **Never scales.** Stated and verified against the file | same | same |
+| **T1.7** Limitations filter | Only when a planned case matches a recorded limitation | same | same + expiry probes |
+| **T2** The gate | **Never scales** — `npm run gate`, all steps. It costs seconds; see below | same | same |
+| **T3** Regression | Smoke + the touched module's suite | Smoke + blast-radius suites | Full sweep on any T3 trigger |
+| **T6** Execution ledger | Touched module only | Touched + blast radius | Every module |
+
+**A skipped row is stated, never silent.** Each one above that does not apply is discharged in
+`TEST_SUMMARY.md` with its reason — the same discipline as a `--skip` on the runner, which
+records BLOCKED and can never produce green. *"Not applicable"* is a verdict; an unmentioned
+dimension is still a defect of the run (T1.2).
+
+**A disqualifier found mid-run promotes the lane, out loud.** Discovering a second table, a
+configuration read or a shared export the diff did not appear to touch means the run was scoped
+all along: say so, and discharge the rows the lighter lane skipped. Making the second attempt
+cheaper is how a two-round loop becomes a five-round one.
+
+### Do not economise on the mechanical gate — it is not where the time goes
+
+Measured on this repository, 08-Sep-2026: `audit:all` **17.7s** · `guard:test` **60.2s** ·
+`npm run gate` **8.6s** — about **87 seconds** for the entire mechanical stack. A verification
+stage that takes an hour is not spending it here, and skipping a gate to save nine seconds
+trades the only evidence in the run for nothing.
+
+**The gate now reports where its own time went**, per step plus the total and the slowest step,
+prepended to `TEST_SUMMARY.md`. That file is append-only, so the trend accrues with no upkeep.
+When a stage is slow, read the number — do not estimate it. That is the rung under
+FW-SPEED-003, whose anti-pattern is *"a slow run with no timing data, diagnosed by feeling."*
 
 ---
 

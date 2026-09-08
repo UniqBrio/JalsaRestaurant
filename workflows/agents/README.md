@@ -66,6 +66,12 @@ main agent had already analysed inline. Spawn by scale, never by habit:
 | preview-smoke-verifier | **After merge when the change is user-visible**; a non-visual micro change states N/A with its reason | **Spawn — always**, after merge: the only stage that opens the running app | Same |
 | post-release-monitor | Production only, unchanged | Production only, unchanged | Same |
 
+**This matrix scales *who reviews*. It does not scale *what verification executes*** — that is
+the verification lane in [`workflows/test-gate.md`](../test-gate.md), added 08-Sep-2026 on the
+same `SCALE:` declaration. Both were needed: for three versions the reviewer count was
+proportional while T1's nine blocking sub-steps were not, which is how a two-file fix still
+enumerated a schema migration's case space (RC-008).
+
 **Whatever applies, spawn it in ONE message, in parallel** — never one reviewer after another.
 Their boundaries are disjoint by design, so nothing is lost by running them together, and the
 wall-clock cost of three reviewers becomes the cost of the slowest one.

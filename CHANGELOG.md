@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.23.0 — verification learns to measure itself
+
+Owner report: corrections are quick, verification exceeds an hour. Measurement, not intuition:
+the whole mechanical stack is ~87s (`audit:all` 17.7 · `guard:test` 60.2 · `gate` 8.6), about
+2.4% of it. Root cause (RC-008): the stage-timing rule shipped in v1.13.0 had no rung, so three
+versions produced no number and the first slow stage was diagnosed by feeling — the exact
+anti-pattern its own case names. And proportionality had only ever been applied to the build
+half: T1's nine blocking sub-steps ran identically for a two-file fix and a schema migration.
+Fix: the gate now times every step and names the slowest in the append-only ledger
+(`gate-timing.test.sh`, 8 cases, 4 observed failing first); `test-gate.md` gains a verification
+lane on the existing `SCALE:` declaration, with fail-first, the registry delta and the gate
+itself marked never-scales. No check was removed. See `UPGRADES.md`.
+
 ## 1.22.0 - seventeen escaped defects, three process failures closed
 
 Root cause of a release that shipped 17 defects through a green run (RC-007): rules that

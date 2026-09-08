@@ -20,6 +20,19 @@
  *   Cheapest and broadest first, and each step runs only if its prerequisite passed. There is
  *   no value in running a browser suite against code that does not compile.
  *
+ * EVERY STEP IS TIMED, AND THE REPORT SAYS SO
+ *   "Run reports carry stage timings" shipped in v1.13.0 as a rule addressed to the narrator,
+ *   and a duration written from memory is a guess with formatting - the same objection that
+ *   made the VERDICT a script instead of a checklist. So the runner measures. The report names
+ *   the total and the slowest step, and TEST_SUMMARY.md is append-only, so the trend accrues
+ *   without anyone maintaining it. A stage nobody can measure is a stage nobody can shorten:
+ *   this is the rung under FW-SPEED-003, whose anti-pattern is "a slow run with no timing
+ *   data, diagnosed by feeling".
+ *
+ *   A step that never spawned has no duration - it is reported as "-", never as 0ms. Zero is a
+ *   measurement; a step that did not run has none, and printing 0 would make the cheapest
+ *   possible run look like the fastest one.
+ *
  * USAGE
  *   node scripts/gate-runner.mjs [--only <ids>] [--skip <ids>] [--summary <file>] [--cwd <dir>]
  *   Every --skip records the step as BLOCKED with the stated reason. No flag can produce green.
@@ -144,6 +157,19 @@ const firstSignal = (text) => {
   return 'tool not runnable';
 };
 
+/**
+ * Human duration. Seconds below a minute, m+s above: "870ms" reads as noise at a glance, and
+ * the point of this number is that a person compares it to the last run without arithmetic.
+ * undefined means the step never ran, and prints as "-".
+ */
+function fmtMs(ms) {
+  if (ms === undefined || ms === null) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const m = Math.floor(ms / 60_000);
+  return `${m}m ${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')}s`;
+}
+
 /** Keep the SIGNAL and drop installer noise. A naive tail buries the actual error. */
 function distil(text) {
   const SIGNAL = [/error/i, /failed/i, /BLOCKED/, /✕/, /✗/, /expected/i, /Cannot find/i, /not found/i];
@@ -186,50 +212,60 @@ function run(step) {
   const shell = process.platform === 'win32';
   const q = (v) => (shell && /\s/.test(v) && !v.startsWith('"') ? `"${v}"` : v);
   let r;
+  const startedAt = Date.now();
   try {
     r = spawnSync(q(bin), args.map(q), { cwd: ROOT, encoding: 'utf8', shell, timeout: 15 * 60_000 });
   } catch (e) {
     markBlocked(step, `could not launch "${bin}": ${e.message}`);
     return;
   }
+  // Measured around the spawn itself, so it is the step's cost and not the report's.
+  const ms = Date.now() - startedAt;
   if (r.error?.code === 'ENOENT') {
     markBlocked(step, `tool not found: ${bin}. Install it or state why this class is unverified.`);
     return;
   }
   if (r.error?.code === 'ETIMEDOUT') {
-    results.push({ ...step, status: 'FAIL', detail: 'timed out after 15 minutes' });
+    results.push({ ...step, status: 'FAIL', detail: 'timed out after 15 minutes', ms });
     return;
   }
 
   const output = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
   fs.writeFileSync(path.join(LOGDIR, `${step.id}.log`), output, 'utf8');
 
-  if (r.status === 0) { passed.add(step.id); results.push({ ...step, status: 'PASS', detail: '' }); }
-  else if (r.status === 3) results.push({ ...step, status: 'BLOCKED', detail: distil(output) || 'step reported BLOCKED' });
+  if (r.status === 0) { passed.add(step.id); results.push({ ...step, status: 'PASS', detail: '', ms }); }
+  else if (r.status === 3) results.push({ ...step, status: 'BLOCKED', detail: distil(output) || 'step reported BLOCKED', ms });
   else if (unavailable(output)) {
     // The step could not RUN. That is BLOCKED, not FAIL - and the distinction is not pedantry:
     // a FAIL says "your code is broken" when the truth is "this machine cannot check it". A
     // gate that cries wolf about the environment is a gate people learn to ignore, and then it
     // is worth less than no gate at all.
-    results.push({ ...step, status: 'BLOCKED', detail: `tooling unavailable - ${firstSignal(output)}` });
+    results.push({ ...step, status: 'BLOCKED', detail: `tooling unavailable - ${firstSignal(output)}`, ms });
   }
-  else results.push({ ...step, status: 'FAIL', detail: distil(output) || `exit ${r.status}` });
+  else results.push({ ...step, status: 'FAIL', detail: distil(output) || `exit ${r.status}`, ms });
 }
 
+const runStartedAt = Date.now();
 for (const s of STEPS) run(s);
+const totalMs = Date.now() - runStartedAt;
 
 /* ---- report ---- */
 const fails = results.filter((r) => r.status === 'FAIL');
 const blocked = results.filter((r) => r.status === 'BLOCKED');
 const verdict = fails.length ? 'FAIL' : blocked.length ? 'BLOCKED' : 'PASS';
+// Naming the slowest step is the whole point: a total tells you the run was slow, and the
+// next question is always "which part". Steps that never spawned have no ms and cannot win.
+const timed = results.filter((r) => typeof r.ms === 'number');
+const slowest = timed.length ? timed.reduce((a, b) => (b.ms > a.ms ? b : a)) : null;
 
 const block = [
   `## Gate run - ${new Date().toISOString().slice(0, 10)} - VERDICT: ${verdict}`,
   '',
   `Steps: ${results.filter((r) => r.status === 'PASS').length} pass, ${fails.length} fail, ${blocked.length} blocked.`,
+  `Time: ${fmtMs(totalMs)} total${slowest ? ` - slowest ${slowest.id} ${slowest.name} (${fmtMs(slowest.ms)})` : ''}.`,
   '',
   ...results.map((r) => {
-    const head = `- **${r.id} ${r.name}** - ${r.status}`;
+    const head = `- **${r.id} ${r.name}** - ${r.status} (${fmtMs(r.ms)})`;
     if (r.status === 'PASS') return head;
     if (r.status === 'BLOCKED') return `${head} - ${String(r.detail).split('\n')[0].slice(0, 200)}`;
     return `${head}\n\n\`\`\`\n${r.detail}\n\`\`\`\n`;

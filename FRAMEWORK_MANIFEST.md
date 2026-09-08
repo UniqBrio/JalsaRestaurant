@@ -109,6 +109,7 @@ round N−1's file.
 | `upgrade.test.sh` | **Executes** lineage + upgrade against scratch apps — the behaviour rung for the three-way rule |
 | `fanout-check.mjs` | Validates a parallel-build plan before any agent is spawned: no file written twice, no task reading another's write, every task declaring a contract and an acceptance |
 | `fanout-check.test.sh` | **Executes** the validator — each block observed firing, each pass observed passing |
+| `gate-timing.test.sh` | **Executes** the gate runner and proves the report states its own cost — total, slowest step, per-step duration, and `-` for a step that never ran. The rung under FW-SPEED-003 (gate stage) |
 | `hooks/tsc-baseline.sh` | Regenerates the type-error ratchet baseline |
 | `audits/check-dead-weight.mjs` | Scripts nothing references any more (review candidates) |
 

@@ -59,6 +59,70 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-008 — The stage-timing rule was prose-only, so the slow stage was diagnosed by feeling
+
+**Date:** 08-Sep-2026  ·  **Severity:** S3 (no defect shipped; the process could not see its own cost)  ·  **Modules:** process — the verification stage, the gate runner
+
+**Symptom** — the owner reported that corrections complete quickly but verification "often
+exceeds one hour", with no figure for which part of it. Measured on this repository the same
+day: `audit:all` 17.7s · `guard:test` 60.2s · `npm run gate` 8.6s — **~87 seconds**, about 2.4%
+of the reported stage. The remaining ~58 minutes were agent-side and entirely unattributed.
+
+**Root cause** — two failures, and the first is this framework's own first idea failing on
+itself:
+
+1. **A rule with no rung.** v1.13.0 shipped "run reports carry stage timings (ground · plan ·
+   build · verify · gate), minutes each" — case **FW-SPEED-003**, whose anti-pattern is
+   verbatim *"a slow run with no timing data, diagnosed by feeling."* `CHANGELOG.md` and
+   `UPGRADES.md` both promise it. Nothing executed it: the only party asked to honour the rule
+   was the narrator, and a duration recalled at the end of a run is what `gate-runner.mjs`'s
+   own header calls *"a verdict typed from memory — a guess with formatting."* Three versions
+   later the rule had produced not one measured number, so the first real report of slowness
+   arrived exactly as the anti-pattern describes. `grep -rniE "elapsed|duration|hrtime|
+   performance\.now|Date\.now\(\)" scripts/` returned **3 matches, all CSS
+   `animation-duration`** — zero instrumentation in the whole tree.
+   *Why the rule-coverage audit did not catch it:* `check-rule-coverage.mjs` reads
+   `CANONICAL_PATTERNS.md`, `ROOT_CAUSE_REGISTER.md` and `DESIGN_RULES.md` — IDs `CP|RC|DR|FP`.
+   `FW-*` process cases are outside its population, so "backlog is zero — CLEAN GATE" was true
+   of what it reads and silent about this. The audit did not lie; its scope simply never
+   included the register this rule lives in.
+
+2. **Proportionality was applied to half the run.** v1.19.0 gave the **build** side three lanes
+   and v1.20.0 parallelised generation; the review matrix scaled *who reviews*. Nothing ever
+   scaled *what verification executes*. `test-gate.md` opened "Runs after ANY code change" with
+   nine T1 sub-steps each marked **(blocking)** and no scale column, so a two-file label fix
+   enumerated the same constraint space, configuration space and four dimensions as a schema
+   migration. T3 alone was risk-proportional. Verification was therefore the longest stage in
+   every run **by default rather than by risk** — and being unmeasured, it stayed that way
+   through three consecutive speed releases that all aimed at the build half.
+
+**Fix** — the gate runner **measures**: per-step duration, the total, and the slowest step
+named, prepended to the append-only `TEST_SUMMARY.md` so the trend accrues with no upkeep. A
+step that never spawned prints `-`, never `0ms` — zero is a measurement, and a step that did
+not run has none. `workflows/test-gate.md` gains **the verification lane**: which T-steps run
+at micro · scoped · full-scale, keyed to the `SCALE:` declaration guard **G8** already verifies
+against the diff, so the lane costs no new token and no new guard. What shrinks is the
+enumeration of classes the change cannot reach; T1.5 fail-first, T1.6 the registry delta and
+T2 the mechanical gate are marked **never scales**.
+
+**Files** — `scripts/gate-runner.mjs` · `scripts/gate-timing.test.sh` (new) · `package.json`
+(`guard:test`) · `workflows/test-gate.md` · `workflows/feature.md` · `docs/01-SDLC.md`
+
+**Verification step** — `bash scripts/gate-timing.test.sh` → 8/8. Run `npm run gate` and read
+the `Time:` line: total plus the slowest step. Four of the eight assertions were **observed
+failing** against the pre-timing runner; the other four are regression guards on the verdict
+contract and correctly pass in both trees.
+
+**Recurrence risk** — **Medium, and named honestly.** Only the *gate* stage is now measured.
+Ground · plan · build · verify remain narrator-reported, because no process in this framework
+observes wall-clock across an agent's stages — there is nothing to hook. That is recorded debt,
+not coverage: FW-SPEED-003's rung covers the gate stage only, and the case says so. The second
+risk is the lane being claimed for a change that outgrew it; G8 checks the `micro` claim
+against the diff, and mid-run promotion is stated out loud, but a *scoped* claim on a
+full-scale change has no mechanical rung and is review-only.
+
+---
+
 ## RC-007 — Seventeen defects reached a user through a passing SDLC run
 
 **Date:** 06-Sep-2026  ·  **Severity:** S1 (two of the seventeen destroy data silently)  ·  **Modules:** process — the design, build and test stages

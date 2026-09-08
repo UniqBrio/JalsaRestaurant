@@ -412,6 +412,9 @@ request file · the ASSUMPTIONS ledger — every decision taken at a checkpoint,
 recommendation and why · the gate artifacts (or the one combined `RUN_<feature>.md`) · the QA
 verdict table · the gate result · **stage timings** — one line per stage (ground · plan ·
 build · verify · gate), minutes each, so a slow run names the stage that ate the time and the
-next process fix starts from data instead of a feeling. The review the gates deferred happens here, with everything
+next process fix starts from data instead of a feeling. **The gate stage is copied from the
+runner's own `Time:` line, never estimated** — `npm run gate` measures every step and names the
+slowest; the other four stages remain narrator-reported, which is honest debt recorded in
+RC-008 rather than an enforcement claim. The review the gates deferred happens here, with everything
 on one screen — and anything the requester corrects becomes the next `/request`, round 2,
 with the ledger showing exactly which assumption missed.

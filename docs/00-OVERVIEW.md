@@ -132,7 +132,8 @@ caught it, also [workflows/framework-update.md](../workflows/framework-update.md
 ---
 
 ### The executable parts
-`scripts/` — the gate (`gate-runner.mjs`, eleven steps) · the theme build and its checks ·
+`scripts/` — the gate (`gate-runner.mjs`, eleven steps, each **timed**: the report names the
+total and the slowest step, and `gate-timing.test.sh` proves it does) · the theme build and its checks ·
 the audits (`check-hardcoded-colors` · `check-testid-coverage` · `check-rule-coverage` ·
 `check-column-control` · `check-fixture-leak` · `check-dead-weight` · `check-backward-compat`) · the commit guards
 under `hooks/` · and the evolution tooling (`lineage.mjs` · `upgrade.mjs` · `conformance.mjs`),
