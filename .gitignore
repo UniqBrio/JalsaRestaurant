@@ -10,6 +10,10 @@ playwright-report/
 .probe/
 .DS_Store
 
+.run-log.json
+
 # NOT ignored, on purpose - these are the framework working:
 # .baselines/       ratchet baselines are COMMITTED. That is what makes them ratchets.
 # TEST_SUMMARY.md   the append-only gate log the commit guard greps.
+# docs/registers/RUN_LOG.md   the append-only run log. Only .run-log.json (the marker for a
+#                   run currently OPEN) is transient - the rows themselves are the record.

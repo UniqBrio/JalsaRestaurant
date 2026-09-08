@@ -66,6 +66,12 @@
       [BUSINESS_READINESS.md](./BUSINESS_READINESS.md).
       *A change is done when every affected surface tells the same story, not when the code merges.*
 
+## The run log
+- [ ] **The run is closed out**: `node scripts/run-log.mjs end --verdict <PASS|FAIL|BLOCKED>`
+      — the duration is computed from the clock, and the gate's own cost is lifted from
+      `TEST_SUMMARY.md`. A run left open records nothing; `run-log.mjs status` says what is open.
+      *An unclosed run is not a fast run — it is an unmeasured one.*
+
 ## The learning check
 - [ ] **Would a correctly functioning process have caught this?**
       No → say so in one line. Yes → run the framework-update workflow.

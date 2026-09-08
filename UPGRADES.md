@@ -12,6 +12,58 @@
 
 ---
 
+## 1.24.0 — 08-Sep-2026 — MINOR
+
+**The run log — what was asked, which kind of request, and what it actually cost.** Owner
+request, immediately after v1.23.0 taught the gate to measure itself: keep an audit log of runs.
+
+### Added
+- **`docs/registers/RUN_LOG.md`** — one row per run, newest first, append-only:
+  **ID · Action · Type · Scale · Started · Ended · Total · Gate · Verdict · Notes.**
+- **`scripts/run-log.mjs`** (`npm run runlog`) — `start`, `end`, `status`. **The rows are
+  written by the script, not by hand**, and that is the whole design: a start time entered when
+  the run is already over is a recalled time, and a duration built from two recalled times is
+  an estimate presented as a record. This framework has already paid for that once — RC-008,
+  where a stage-timing *rule* produced no measured number for three versions because the only
+  party asked to honour it was a narrator. Writing the same log as a markdown template would
+  have repeated it exactly.
+- **`end` without `start` exits 3 (BLOCKED) and writes nothing.** It does not invent a start
+  time. A log whose durations are sometimes measured and sometimes guessed is worse than no
+  log, because nothing on the row says which kind each one is. Back-filling is supported but
+  **explicit** — `--started <ISO>` — and the row's Notes cell says `back-filled start`.
+- **`Gate` sits next to `Total` on purpose.** The gate's own cost is lifted from the newest
+  `Time:` line in `TEST_SUMMARY.md` — the number v1.23.0 made available — so every row answers
+  the first question a long run raises: *was it the machine or the agent?* The whole mechanical
+  stack measures ~87s, so a fifty-minute gap between those columns is not the tooling.
+- **Wired at both ends, or it would be another unenforced rule**: `/request` **R1** opens the
+  log *before* classifying, and `DEFINITION_OF_DONE.md` closes it. `run-log.mjs status` reports
+  what is still open — an unclosed run is not a fast run, it is an unmeasured one.
+- **`scripts/run-log.test.sh`** — 23 executed cases in `npm run guard:test`. Fail-first by
+  **defect injection** twice: `end` was made to invent a start time (both honesty assertions
+  observed failing), and the row anchoring was reverted to its original form (the regression
+  case below observed failing). Both injections were reverted.
+
+### A defect the first real use found, and the case that now holds it
+Seeding the register's first two rows filed them into **the wrong table**. The file explains its
+columns before it lists anything, so the first markdown table in it is the glossary — and
+`appendRow` anchored on "the first separator". The rows rendered as documentation, and **the
+write still reported success**. It now anchors on the data table's own header
+(`| ID | Action | Type | …`) and refuses a file that has none, rather than guessing. A register
+that silently files entries where nobody reads them is worse than one that refuses.
+
+### The type vocabulary is the one `/request` R1 already uses
+`NEW-APP` · `NEW` · `CHANGE` · `BUG` · `REFACTOR` · `TRIAGE` · `BRAINSTORM` · `FRAMEWORK` —
+covering the owner's four names (new app · new feature · functionality correction · bug
+correction) plus the tracks that produce no request file but still consume time. A second set
+of names for one concern means two different answers to "how many bug runs did we do".
+
+### App action required
+**None.** New register and script; nothing existing changed behaviour. Apps that want the log
+run `node <framework>/scripts/run-log.mjs start …` at the top of a run and `end` at the
+close-out; the register is created from the template on first use.
+
+---
+
 ## 1.23.0 — 08-Sep-2026 — MINOR
 
 **Verification was the longest stage in every run, and nothing measured it.** Owner report:

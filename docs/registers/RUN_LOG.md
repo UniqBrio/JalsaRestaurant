@@ -1,0 +1,59 @@
+# Run log
+
+> **What was asked, which kind of request it was, and what it cost.** One row per run,
+> **newest first**, append-only — never renumber, never backfill silently, never hard-delete.
+>
+> **Rows are written by `scripts/run-log.mjs`, not by hand.** The two timestamps are read from
+> the machine clock at the moment each event happens. A start time typed in at the *end* of a
+> run is a recalled time, and a duration derived from two recalled times is an estimate wearing
+> the costume of a record — which is precisely what [RC-008](./ROOT_CAUSE_REGISTER.md) cost
+> this framework: "run reports carry stage timings" was a rule for three versions and produced
+> **not one measured number**, because the only party asked to honour it was a narrator.
+
+```bash
+node scripts/run-log.mjs start --type CHANGE --action "sign-out lands on the wrong screen" --scale micro
+#   … the run happens …
+node scripts/run-log.mjs end --verdict PASS
+node scripts/run-log.mjs status     # what is open, and how long it has been open
+```
+
+## The columns
+
+| Column | What it holds |
+|---|---|
+| **ID** | `R-001`, ascending, never reused |
+| **Action** | What the requester asked, **in their words** — not a summary of what was built |
+| **Type** | The classification from [`workflows/request.md`](../../workflows/request.md) R1 |
+| **Scale** | `micro` · `scoped` · `full-scale` · `n/a` — the lane the run declared |
+| **Started · Ended** | Local time, read from the machine clock at each event |
+| **Total** | Computed, never typed |
+| **Gate** | The gate's own measured cost, lifted from the newest `Time:` line in `TEST_SUMMARY.md` |
+| **Verdict** | `PASS` · `FAIL` · `BLOCKED` — the three the gate has; there is no fourth |
+| **Notes** | `back-filled start` when a row's start was supplied rather than measured, plus anything worth a phrase |
+
+**Type** uses the same vocabulary as `/request` R1, deliberately — a second set of names for
+one concern means two different answers to "how many bug runs did we do".
+
+| Type | In plain words |
+|---|---|
+| `NEW-APP` | a whole new application |
+| `NEW` | a new feature, in an app that already exists |
+| `CHANGE` | a functionality correction — it works, it should behave or look different |
+| `BUG` | a defect — erroring, wrong output, wrong data |
+| `REFACTOR` | same behaviour, better structure |
+| `TRIAGE` · `BRAINSTORM` · `FRAMEWORK` | a list to order · thinking it through · the process itself was repaired |
+
+## Why `Total` and `Gate` sit next to each other
+
+They answer the only question a slow run really raises: **was it the machine or the agent?**
+Measured on this repository 08-Sep-2026, the entire mechanical stack — `audit:all` 17.7s,
+`guard:test` 60.2s, `npm run gate` 8.6s — is about **87 seconds**. So a two-minute gap between
+those two columns is the tooling, and a fifty-minute gap is not. Any proposal to speed up a run
+should start by reading this table rather than by guessing which part felt slow.
+
+---
+
+| ID | Action | Type | Scale | Started | Ended | Total | Gate | Verdict | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| R-002 | Write a simple audit log file: action name, request type, start, end, total time taken | FRAMEWORK | scoped | 2026-09-08 10:15 | 2026-09-08 10:42 | 27m | 6.1s | BLOCKED | back-filled start; v1.24.0; this register; same pre-existing G5-G8 block |
+| R-001 | Correction time is short, but verification takes significantly longer - often exceeding one hour | FRAMEWORK | scoped | 2026-09-08 09:37 | 2026-09-08 10:42 | 1h 05m | 6.1s | BLOCKED | back-filled start; v1.23.0; RC-008; gate BLOCKED on G5-G8, no local tsc |

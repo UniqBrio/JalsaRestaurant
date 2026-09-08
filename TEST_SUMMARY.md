@@ -16,6 +16,69 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 ## Gate run - 2026-09-08 - VERDICT: BLOCKED
 
 Steps: 7 pass, 0 fail, 4 blocked.
+Time: 6.2s total - slowest G10 Backward compatibility (fixtures) (5.5s).
+
+- **G1 Theme artifacts in sync** - PASS (110ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (110ms)
+- **G3 Theme assets present per theme** - PASS (107ms)
+- **G4 No hard-coded colours** - PASS (122ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (115ms)
+- **G10 Backward compatibility (fixtures)** - PASS (5.5s)
+- **G11 Wide tables are configurable** - PASS (114ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-08 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
+Time: 6.1s total - slowest G10 Backward compatibility (fixtures) (5.4s).
+
+- **G1 Theme artifacts in sync** - PASS (110ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (109ms)
+- **G3 Theme assets present per theme** - PASS (108ms)
+- **G4 No hard-coded colours** - PASS (119ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (110ms)
+- **G10 Backward compatibility (fixtures)** - PASS (5.4s)
+- **G11 Wide tables are configurable** - PASS (118ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-08 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
+Time: 6.2s total - slowest G10 Backward compatibility (fixtures) (5.5s).
+
+- **G1 Theme artifacts in sync** - PASS (115ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (115ms)
+- **G3 Theme assets present per theme** - PASS (108ms)
+- **G4 No hard-coded colours** - PASS (118ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (112ms)
+- **G10 Backward compatibility (fixtures)** - PASS (5.5s)
+- **G11 Wide tables are configurable** - PASS (113ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-08 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
 Time: 6.1s total - slowest G10 Backward compatibility (fixtures) (5.4s).
 
 - **G1 Theme artifacts in sync** - PASS (110ms)

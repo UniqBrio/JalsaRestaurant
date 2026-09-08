@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.24.0 — the run log
+
+An audit log of runs: what was asked (in the requester's words), which kind of request it was,
+when it started, when it ended, how long it took — plus the gate's own measured cost beside the
+total, so every row says whether a long run was the machine or the agent. Written by
+`scripts/run-log.mjs`, never by hand: a start time recorded once a run is over is a recalled
+time, and v1.23.0's RC-008 is what that costs. `end` without `start` is BLOCKED rather than a
+guessed duration; back-fills are explicit and marked on the row. Opened at `/request` R1,
+closed at the Definition of Done. 23 executed cases, fail-first by defect injection. Seeding
+the first rows immediately found a defect — they filed into the glossary table above the data
+table, and the write reported success anyway — now fixed by anchoring on the data header and
+held by its own regression case.
+
 ## 1.23.0 — verification learns to measure itself
 
 Owner report: corrections are quick, verification exceeds an hour. Measurement, not intuition:

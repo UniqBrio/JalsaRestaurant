@@ -17,7 +17,7 @@
     "audit:fixtures": "node scripts/audits/check-fixture-leak.mjs",
     "audit:all": "npm run theme:check && npm run theme:contrast && npm run theme:assets && npm run audit:colors && npm run audit:testids && npm run audit:rules && npm run audit:columns && npm run audit:fixtures && npm run audit:deadweight && npm run audit:compat",
     "gate": "node scripts/gate-runner.mjs",
-    "guard:test": "bash scripts/hooks/guard-reachability.test.sh && bash .claude/hooks/adapter.test.sh && bash .codex/hooks/adapter.test.sh && bash scripts/fanout-check.test.sh && bash scripts/upgrade.test.sh && bash scripts/gate-timing.test.sh",
+    "guard:test": "bash scripts/hooks/guard-reachability.test.sh && bash .claude/hooks/adapter.test.sh && bash .codex/hooks/adapter.test.sh && bash scripts/fanout-check.test.sh && bash scripts/upgrade.test.sh && bash scripts/gate-timing.test.sh && bash scripts/run-log.test.sh",
     "fanout:check": "node scripts/fanout-check.mjs",
     "guard:install": "node -e \"require('fs').copyFileSync('scripts/hooks/pre-commit-guard.sh','.git/hooks/pre-commit');require('fs').chmodSync('.git/hooks/pre-commit',0o755);console.log('installed .git/hooks/pre-commit — note: .claude/settings.json already wires the same guards for Claude Code sessions')\"",
     "new:app": "node scripts/new-app.mjs",
@@ -26,7 +26,8 @@
     "upgrade": "node scripts/upgrade.mjs",
     "conformance": "node scripts/conformance.mjs",
     "audit:compat": "node scripts/audits/check-backward-compat.mjs",
-    "upgrade:test": "bash scripts/upgrade.test.sh"
+    "upgrade:test": "bash scripts/upgrade.test.sh",
+    "runlog": "node scripts/run-log.mjs"
   },
   "engines": {
     "node": ">=18"

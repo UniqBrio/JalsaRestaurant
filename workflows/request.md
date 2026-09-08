@@ -33,6 +33,20 @@ The most expensive word this file can contain is a plausible value the requester
 
 ## R1 — Classify
 
+**Open the run log first — before the classification, not after it.** The start time has to be
+taken at the start; a start time recorded once the run is over is a recalled time, and a
+duration built from two recalled times is an estimate presented as a record (RC-008).
+
+```bash
+node scripts/run-log.mjs start --type <NEW-APP|NEW|CHANGE|BUG|REFACTOR|TRIAGE|BRAINSTORM|FRAMEWORK> \
+  --action "<what the requester asked, in THEIR words>" [--scale micro|scoped|full-scale]
+```
+
+The `--type` is the classification below, so this line and the table share one vocabulary. The
+`--action` is the requester's own wording, not a summary of what you decided to build: the log
+is evidence of what was asked, and a tidied restatement quietly loses the mismatch between ask
+and delivery that makes the row worth keeping. Scale can be declared later at `end`.
+
 Read the rough description and pick exactly one:
 
 | The description says… | Classification | Then |
