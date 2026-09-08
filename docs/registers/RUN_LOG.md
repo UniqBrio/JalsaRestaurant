@@ -12,10 +12,20 @@
 
 ```bash
 node scripts/run-log.mjs start --type CHANGE --action "sign-out lands on the wrong screen" --scale micro
-#   … the run happens …
+node scripts/run-log.mjs stage ground     # then: plan · build · verify · gate
+#   … the run happens, marking each stage as it begins …
 node scripts/run-log.mjs end --verdict PASS
-node scripts/run-log.mjs status     # what is open, and how long it has been open
+node scripts/run-log.mjs status           # what is open, which stage, how long
 ```
+
+**Mark a stage at its start, not its end.** Each stage runs until the next mark, so no
+wall-clock falls between two stages unattributed. A total tells you a run was slow; the stage
+breakdown is the only thing that tells you *what to fix*.
+
+> **Column added 08-Sep-2026 (v1.25.0): `Stages`.** Rows R-001 and R-002 predate it and carry
+> `-`. Their content is unchanged — the cell is added, nothing is rewritten — and `-` is the
+> honest value, because those runs were never staged. Backfilling a plausible split would put
+> invented numbers beside measured ones with nothing to tell them apart.
 
 ## The columns
 
@@ -27,6 +37,7 @@ node scripts/run-log.mjs status     # what is open, and how long it has been ope
 | **Scale** | `micro` · `scoped` · `full-scale` · `n/a` — the lane the run declared |
 | **Started · Ended** | Local time, read from the machine clock at each event |
 | **Total** | Computed, never typed |
+| **Stages** | `ground · plan · build · verify · gate`, each with its own measured duration. Only stages actually marked appear — **an unmarked stage is absent, never `0`**, because zero would claim the stage ran instantly rather than that nobody measured it |
 | **Gate** | The gate's own measured cost, lifted from the newest `Time:` line in `TEST_SUMMARY.md` |
 | **Verdict** | `PASS` · `FAIL` · `BLOCKED` — the three the gate has; there is no fourth |
 | **Notes** | `back-filled start` when a row's start was supplied rather than measured, plus anything worth a phrase |
@@ -53,7 +64,8 @@ should start by reading this table rather than by guessing which part felt slow.
 
 ---
 
-| ID | Action | Type | Scale | Started | Ended | Total | Gate | Verdict | Notes |
-|---|---|---|---|---|---|---|---|---|---|
-| R-002 | Write a simple audit log file: action name, request type, start, end, total time taken | FRAMEWORK | scoped | 2026-09-08 10:15 | 2026-09-08 10:42 | 27m | 6.1s | BLOCKED | back-filled start; v1.24.0; this register; same pre-existing G5-G8 block |
-| R-001 | Correction time is short, but verification takes significantly longer - often exceeding one hour | FRAMEWORK | scoped | 2026-09-08 09:37 | 2026-09-08 10:42 | 1h 05m | 6.1s | BLOCKED | back-filled start; v1.23.0; RC-008; gate BLOCKED on G5-G8, no local tsc |
+| ID | Action | Type | Scale | Started | Ended | Total | Stages | Gate | Verdict | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| R-003 | Reduce execution time: instrument the four unmeasured stages, and make the review matrix executable | FRAMEWORK | scoped | 2026-09-08 10:57 | 2026-09-08 11:21 | 25m | ground 13m · plan 0s · build 7m · verify 3m · gate 14s | 7.0s | BLOCKED | v1.25.0; four speed levers; gate BLOCKED on G5-G8, pre-existing no local tsc |
+| R-002 | Write a simple audit log file: action name, request type, start, end, total time taken | FRAMEWORK | scoped | 2026-09-08 10:15 | 2026-09-08 10:42 | 27m | - | 6.1s | BLOCKED | back-filled start; v1.24.0; this register; same pre-existing G5-G8 block |
+| R-001 | Correction time is short, but verification takes significantly longer - often exceeding one hour | FRAMEWORK | scoped | 2026-09-08 09:37 | 2026-09-08 10:42 | 1h 05m | - | 6.1s | BLOCKED | back-filled start; v1.23.0; RC-008; gate BLOCKED on G5-G8, no local tsc |

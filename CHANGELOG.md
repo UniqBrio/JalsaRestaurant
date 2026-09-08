@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.25.0 — four levers on execution time, aimed by measurement
+
+Owner report: runs take too long, and the proposal was to replace English decision-making with code. Measured first, on this repository: the whole mechanical stack was ~87s against runs of 27 to 65 minutes, and instruction-interpretation was the SMALLEST term, not the largest. So the four changes here are aimed where the time actually is - generation, sequential checking, and repeated judgement - and the routing question is deliberately still open.
+
+Added: Stage breakdown in the run log. run-log.mjs stage <ground|plan|build|verify|gate> marks each boundary from the clock, and the row carries ground 4m · plan 2m · build 14m beside the total. Closes the last part of FW-SPEED-003 that was still prose: a total says a run was slow, only the breakdown says what to fix. An unmarked stage is absent, never 0. · par.mjs - independent checks run concurrently. audit:all 17.7s to 5.7s; guard:test 60.2s to 29.4s; the mechanical stack 87s to ~41s, now nine suites rather than six. It also aggregates every failure instead of stopping at the first, so one run tells you everything that is wrong. It deliberately does NOT parallelise the gate, whose order is a prerequisite chain: there is no value in running a browser suite against code that does not compile. · review-plan.mjs - the review matrix, executed. Reads the diff and names the passes: scale derived and justified, reviewers selected with reasons, the same diff twice giving a byte-identical plan. The matrix in workflows/agents/README.md now points here for SELECTION and keeps the job of saying why each pass exists. · close-out.mjs - write the release story once. One record renders the upgrade section, the changelog paragraph and the commit message. Generation is the dominant cost of a run, and telling the same story four times by hand was the largest single block of writing in a close-out - three quarters of it transcription. The record carries the real sentences; the script owns only scaffolding and repetition. · Cases FW-STAGE-001..002, FW-PAR-001, FW-PLAN-001..002, FW-CO-001..002. Two new executed suites (review-plan.test.sh 20 cases, close-out.test.sh 23) in guard:test.
+
+audit:all clean (10/10, 5.7s); guard:test 9/9 suites (38.1s parallel vs 2m45s serial); audit:compat clean, no fixture green to red. Gate BLOCKED on G5-G8: pre-existing, no local tsc in this repository.
 ## 1.24.0 — the run log
 
 An audit log of runs: what was asked (in the requester's words), which kind of request it was,

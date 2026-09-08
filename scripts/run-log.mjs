@@ -22,8 +22,16 @@
  *   framework can state mechanically, and it answers the first question a long run raises:
  *   was it the machine or the agent? (It was the agent: the whole mechanical stack is ~87s.)
  *
+ * THE STAGE BREAKDOWN - why a total alone is not actionable
+ *   A run that took an hour tells you to do something; it does not tell you WHAT. The five
+ *   stage names come from FW-SPEED-003 (ground / plan / build / verify / gate) and were prose
+ *   for three versions. `stage <name>` closes the previous stage and opens the next, both from
+ *   the clock, so the row carries "ground 4m - plan 2m - build 14m - verify 5m" beside the
+ *   total. Only the stages actually marked appear: an unmarked stage is absent, never zero.
+ *
  * USAGE
  *   node scripts/run-log.mjs start --type <TYPE> --action "<what was asked>" [--scale <s>] [--id <id>]
+ *   node scripts/run-log.mjs stage <ground|plan|build|verify|gate>
  *   node scripts/run-log.mjs end   [--verdict PASS|FAIL|BLOCKED] [--scale <s>] [--note "<text>"]
  *   node scripts/run-log.mjs status
  *   node scripts/run-log.mjs end --started <ISO>   # explicit back-fill, marked on the row
@@ -62,6 +70,10 @@ const TYPES = {
   FRAMEWORK: 'the process itself failed and was repaired',
 };
 const SCALES = ['micro', 'scoped', 'full-scale', 'n/a'];
+/* The five stage names FW-SPEED-003 has named since v1.13.0. Closed, and in run order: an
+ * ad-hoc sixth name would make two runs incomparable, which is the one thing this column is
+ * for. `gate` is here for completeness - its cost also arrives measured, from the runner. */
+const STAGES = ['ground', 'plan', 'build', 'verify', 'gate'];
 const VERDICTS = ['PASS', 'FAIL', 'BLOCKED'];
 
 const die = (code, msg) => { console.error(msg); process.exit(code); };
@@ -105,9 +117,57 @@ function start() {
   }
 
   const now = new Date();
-  const rec = { id: arg('--id', ''), type, action, scale, startedAt: iso(now) };
+  const rec = { id: arg('--id', ''), type, action, scale, startedAt: iso(now), stages: [] };
   fs.writeFileSync(ACTIVE, JSON.stringify(rec, null, 2) + '\n', 'utf8');
   console.log(`run-log: started ${type} at ${stamp(now)} - ${action}`);
+}
+
+/* ---------------------------------------------------------------- stage ---- */
+
+/**
+ * Mark the boundary between one stage and the next. Called at the START of each stage, so the
+ * previous one ends where this begins and no wall-clock falls between two stages unattributed.
+ * The final stage is closed by `end`.
+ */
+function stage() {
+  const name = String(argv[1] || '').toLowerCase();
+  if (!STAGES.includes(name)) {
+    die(2, `run-log: stage must be one of ${STAGES.join(' | ')} - got "${argv[1] ?? ''}".\n`
+      + '  The vocabulary is closed on purpose: an ad-hoc sixth name makes two runs\n'
+      + '  incomparable, and comparing runs is the only thing this column is for.');
+  }
+  if (!fs.existsSync(ACTIVE)) {
+    die(3, 'BLOCKED [run-log] stage marked with no open run.\n'
+      + '  A stage boundary is only meaningful inside a run: start one first.\n'
+      + '  node scripts/run-log.mjs start --type <T> --action "<...>"');
+  }
+  const rec = JSON.parse(fs.readFileSync(ACTIVE, 'utf8'));
+  rec.stages = rec.stages || [];
+  const last = rec.stages[rec.stages.length - 1];
+  if (last && last.name === name) {
+    // Re-marking the stage you are already in would silently split it into two rows that sum
+    // to the same thing - noise, not information. Say so rather than recording it.
+    console.log(`run-log: already in "${name}" since ${stamp(new Date(last.at))} - not re-marked.`);
+    return;
+  }
+  const now = new Date();
+  rec.stages.push({ name, at: iso(now) });
+  fs.writeFileSync(ACTIVE, JSON.stringify(rec, null, 2) + '\n', 'utf8');
+  const prior = last ? ` (${name === last.name ? '' : last.name} took ${human(now - new Date(last.at))})` : '';
+  console.log(`run-log: stage "${name}" at ${stamp(now)}${prior}`);
+}
+
+/**
+ * "ground 4m - plan 2m - build 14m" from the marks. Each stage runs until the next mark, and
+ * the last until the run ends. An unmarked stage does not appear at all: absent is not zero,
+ * and a zero would claim the stage ran instantly rather than that nobody measured it.
+ */
+function renderStages(marks, endedAt) {
+  if (!marks || !marks.length) return '-';
+  return marks.map((m, i) => {
+    const until = i + 1 < marks.length ? new Date(marks[i + 1].at) : endedAt;
+    return `${m.name} ${human(until - new Date(m.at))}`;
+  }).join(' · ');
 }
 
 /* ------------------------------------------------------------------ end ---- */
@@ -163,6 +223,7 @@ function end() {
     cell(stamp(startedAt)),
     cell(stamp(endedAt)),
     cell(total),
+    cell(renderStages(rec.stages, endedAt)),
     cell(gateTime()),
     cell(verdict),
     cell(marks || '-'),
@@ -223,14 +284,22 @@ function status() {
   const rec = JSON.parse(fs.readFileSync(ACTIVE, 'utf8'));
   const elapsed = human(Date.now() - new Date(rec.startedAt).getTime());
   console.log(`run-log: ${rec.type} open ${elapsed} - "${rec.action}" (started ${stamp(new Date(rec.startedAt))})`);
+  const marks = rec.stages || [];
+  if (marks.length) {
+    console.log(`  stages so far: ${renderStages(marks, new Date())}`);
+  } else {
+    console.log('  no stages marked - the total will have no breakdown. node scripts/run-log.mjs stage ground');
+  }
 }
 
 switch (cmd) {
   case 'start': start(); break;
+  case 'stage': stage(); break;
   case 'end': end(); break;
   case 'status': status(); break;
   default:
     console.error('usage: run-log.mjs start --type <TYPE> --action "<...>" [--scale <s>]');
+    console.error(`       run-log.mjs stage <${STAGES.join('|')}>`);
     console.error('       run-log.mjs end [--verdict PASS|FAIL|BLOCKED] [--note "<...>"]');
     console.error('       run-log.mjs status');
     console.error('\nTYPE: ' + Object.keys(TYPES).join(' | '));

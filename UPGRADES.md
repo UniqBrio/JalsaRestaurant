@@ -12,6 +12,33 @@
 
 ---
 
+## 1.25.0 — 08-Sep-2026 — MINOR
+
+**four levers on execution time, aimed by measurement**
+
+Owner report: runs take too long, and the proposal was to replace English decision-making with code. Measured first, on this repository: the whole mechanical stack was ~87s against runs of 27 to 65 minutes, and instruction-interpretation was the SMALLEST term, not the largest. So the four changes here are aimed where the time actually is - generation, sequential checking, and repeated judgement - and the routing question is deliberately still open.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **RC-008**.
+
+### Added
+- **Stage breakdown in the run log.** `run-log.mjs stage <ground|plan|build|verify|gate>` marks each boundary from the clock, and the row carries `ground 4m · plan 2m · build 14m` beside the total. Closes the last part of FW-SPEED-003 that was still prose: a total says a run was slow, only the breakdown says what to fix. An unmarked stage is absent, never `0`.
+- **`par.mjs` - independent checks run concurrently.** `audit:all` 17.7s to **5.7s**; `guard:test` 60.2s to **29.4s**; the mechanical stack **87s to ~41s**, now nine suites rather than six. It also aggregates every failure instead of stopping at the first, so one run tells you everything that is wrong. It deliberately does NOT parallelise the gate, whose order is a prerequisite chain: there is no value in running a browser suite against code that does not compile.
+- **`review-plan.mjs` - the review matrix, executed.** Reads the diff and names the passes: scale derived and justified, reviewers selected with reasons, the same diff twice giving a byte-identical plan. The matrix in `workflows/agents/README.md` now points here for SELECTION and keeps the job of saying why each pass exists.
+- **`close-out.mjs` - write the release story once.** One record renders the upgrade section, the changelog paragraph and the commit message. Generation is the dominant cost of a run, and telling the same story four times by hand was the largest single block of writing in a close-out - three quarters of it transcription. The record carries the real sentences; the script owns only scaffolding and repetition.
+- Cases FW-STAGE-001..002, FW-PAR-001, FW-PLAN-001..002, FW-CO-001..002. Two new executed suites (`review-plan.test.sh` 20 cases, `close-out.test.sh` 23) in `guard:test`.
+
+### Fixed
+- **The visible-string detector, twice, before it shipped.** It first looked only for QUOTED strings and so read a component full of user-facing sentences as having none - most React copy is JSX text, which carries no quotes. Broadened to JSX text, it then matched `=> <div`, the arrow function returning JSX that almost every component is written with, which would have selected the copy pass on nearly every change. A pass that fires on everything is noise, and a noisy pass stops being read. Both were caught by their own negative cases.
+
+### Stated as honest debt, not papered over
+- **Only the gate stage arrives measured.** Ground, plan, build and verify are marked by hand, because nothing observes wall-clock across an agent's stages - there is no hook to attach. Honest, but a mark that is forgotten leaves a gap rather than an error.
+- **`review-plan.mjs` cannot see history or schema intent.** Hotspot status is declared, never inferred; a migration is detected but never judged safe. Both are stated in its output rather than guessed at.
+- **Deterministic ROUTING - the owner's original proposal - is not implemented here.** It is the smallest measured term of the four, and the brainstorm on it is still open.
+
+### App action required
+None. Two npm scripts changed shape (`audit:all`, `guard:test`) and now run concurrently; `--serial` variants are kept as the escape hatch for isolating a failure. Everything else is new and optional.
+
+---
 ## 1.24.0 — 08-Sep-2026 — MINOR
 
 **The run log — what was asked, which kind of request, and what it actually cost.** Owner

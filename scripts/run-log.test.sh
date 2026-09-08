@@ -23,7 +23,7 @@ LOG="$TMP/RUN_LOG.md"
 ACTIVE="$TMP/active.json"
 fresh_log() {
   rm -f "$ACTIVE"
-  printf '# Run log\n\n| ID | Action | Type | Scale | Started | Ended | Total | Gate | Verdict | Notes |\n|---|---|---|---|---|---|---|---|---|---|\n' > "$LOG"
+  printf '# Run log\n\n| ID | Action | Type | Scale | Started | Ended | Total | Stages | Gate | Verdict | Notes |\n|---|---|---|---|---|---|---|---|---|---|---|\n' > "$LOG"
 }
 rl() { node "$LOGGER" "$@" --log "$LOG" --active "$ACTIVE" --summary "$TMP/TEST_SUMMARY.md"; }
 
@@ -98,8 +98,8 @@ rl start --type CHANGE --action "rename A | B to C" >/dev/null 2>&1
 rl end --verdict PASS >/dev/null 2>&1
 delims="$(grep '^| R-001 |' "$LOG" | sed 's/\\|//g' | tr -cd '|' | wc -c)"
 cells=$(( delims - 1 ))
-if [ "$cells" -eq 10 ]; then echo "  PASS  a pipe in the action does not shift the columns (10 cells)"; PASS=$((PASS+1))
-else echo "  FAIL  pipe in action produced $cells cells, expected 10"; FAIL=$((FAIL+1)); fi
+if [ "$cells" -eq 11 ]; then echo "  PASS  a pipe in the action does not shift the columns (11 cells)"; PASS=$((PASS+1))
+else echo "  FAIL  pipe in action produced $cells cells, expected 11"; FAIL=$((FAIL+1)); fi
 grep_ok "the pipe survives in the cell, escaped" 'rename A \\\| B to C'
 
 # 9. THE REGRESSION FROM FIRST REAL USE. The register explains itself before it lists
@@ -110,8 +110,8 @@ grep_ok "the pipe survives in the cell, escaped" 'rename A \\\| B to C'
 rm -f "$ACTIVE"
 { printf '# Run log\n\n## The columns\n\n| Column | What it holds |\n|---|---|\n'
   printf '| **ID** | ascending, never reused |\n| **Action** | what was asked |\n\n---\n\n'
-  printf '| ID | Action | Type | Scale | Started | Ended | Total | Gate | Verdict | Notes |\n'
-  printf '|---|---|---|---|---|---|---|---|---|---|\n'; } > "$LOG"
+  printf '| ID | Action | Type | Scale | Started | Ended | Total | Stages | Gate | Verdict | Notes |\n'
+  printf '|---|---|---|---|---|---|---|---|---|---|---|\n'; } > "$LOG"
 rl start --type BUG --action "row must land in the data table" >/dev/null 2>&1
 rl end --verdict PASS >/dev/null 2>&1
 ok $? 0 "a log with a glossary table above the data table still accepts a row"
@@ -141,6 +141,51 @@ printf '# Run log\n\nNo table here at all.\n' > "$LOG"
 rl start --type BUG --action "nowhere to put this" >/dev/null 2>&1
 rl end --verdict PASS >/dev/null 2>&1
 ok $? 2 "a log with no data table is refused, not guessed at"
+
+# 11. Stages: the breakdown is what makes a total actionable. A run that took an hour tells
+#     you to do something; only the breakdown tells you WHAT.
+fresh_log
+rl start --type NEW --action "staged run" >/dev/null 2>&1
+rl stage ground >/dev/null 2>&1
+ok $? 0 "a stage can be marked inside an open run"
+rl stage plan >/dev/null 2>&1
+rl stage build >/dev/null 2>&1
+rl end --verdict PASS >/dev/null 2>&1
+grep_ok "every marked stage appears in the row, in order" '\| ground [0-9]+[ms] · plan [0-9]+[ms] · build [0-9]+[ms] \|'
+grep_no "an UNMARKED stage does not appear at all" 'verify '
+
+# 12. A stage mark outside a run has nothing to attach to. Recording it would attribute time
+#     to a run that does not exist.
+fresh_log
+rl stage ground >/dev/null 2>&1
+ok $? 3 "a stage marked with no open run is BLOCKED"
+
+# 13. The stage vocabulary is closed, like the type vocabulary and for the same reason: an
+#     ad-hoc sixth name makes two runs incomparable, and comparing runs is the point.
+fresh_log
+rl start --type NEW --action "staged run" >/dev/null 2>&1
+rl stage thinking >/dev/null 2>&1
+ok $? 2 "an unregistered stage name is refused"
+
+# 14. Re-marking the stage you are already in would split it into two rows summing to the same
+#     thing - noise, not information.
+fresh_log
+rl start --type NEW --action "staged run" >/dev/null 2>&1
+rl stage build >/dev/null 2>&1
+rl stage build >/dev/null 2>&1
+ok $? 0 "re-marking the current stage is accepted but not recorded twice"
+rl end --verdict PASS >/dev/null 2>&1
+occurrences="$(grep -o 'build ' "$LOG" | wc -l)"
+if [ "$occurrences" -eq 1 ]; then echo "  PASS  the duplicate mark did not split the stage"; PASS=$((PASS+1))
+else echo "  FAIL  stage 'build' appears $occurrences times in the row"; FAIL=$((FAIL+1)); fi
+
+# 15. A run with no stages marked at all still logs - it just has no breakdown. The feature is
+#     additive; a run that skipped it must not lose its row.
+fresh_log
+rl start --type BUG --action "unstaged run" >/dev/null 2>&1
+rl end --verdict PASS >/dev/null 2>&1
+ok $? 0 "an unstaged run still writes its row"
+grep_ok "its Stages cell is a dash, not a fabricated split" '\| unstaged run \|.*\| - \|'
 
 echo "  ---- $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

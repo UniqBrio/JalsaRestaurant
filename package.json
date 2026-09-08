@@ -15,11 +15,11 @@
     "audit:rules": "node scripts/audits/check-rule-coverage.mjs",
     "audit:columns": "node scripts/audits/check-column-control.mjs",
     "audit:fixtures": "node scripts/audits/check-fixture-leak.mjs",
-    "audit:all": "npm run theme:check && npm run theme:contrast && npm run theme:assets && npm run audit:colors && npm run audit:testids && npm run audit:rules && npm run audit:columns && npm run audit:fixtures && npm run audit:deadweight && npm run audit:compat",
+    "audit:all": "node scripts/par.mjs \"theme-sync=node scripts/theme-build.mjs --check\" \"contrast=node scripts/check-contrast.mjs\" \"theme-assets=node scripts/check-theme-assets.mjs\" \"colors=node scripts/audits/check-hardcoded-colors.mjs\" \"testids=node scripts/audits/check-testid-coverage.mjs\" \"rules=node scripts/audits/check-rule-coverage.mjs\" \"columns=node scripts/audits/check-column-control.mjs\" \"fixtures=node scripts/audits/check-fixture-leak.mjs\" \"deadweight=node scripts/audits/check-dead-weight.mjs\" \"compat=node scripts/audits/check-backward-compat.mjs\"",
     "gate": "node scripts/gate-runner.mjs",
-    "guard:test": "bash scripts/hooks/guard-reachability.test.sh && bash .claude/hooks/adapter.test.sh && bash .codex/hooks/adapter.test.sh && bash scripts/fanout-check.test.sh && bash scripts/upgrade.test.sh && bash scripts/gate-timing.test.sh && bash scripts/run-log.test.sh",
+    "guard:test": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\"",
     "fanout:check": "node scripts/fanout-check.mjs",
-    "guard:install": "node -e \"require('fs').copyFileSync('scripts/hooks/pre-commit-guard.sh','.git/hooks/pre-commit');require('fs').chmodSync('.git/hooks/pre-commit',0o755);console.log('installed .git/hooks/pre-commit — note: .claude/settings.json already wires the same guards for Claude Code sessions')\"",
+    "guard:install": "node -e \"require('fs').copyFileSync('scripts/hooks/pre-commit-guard.sh','.git/hooks/pre-commit');require('fs').chmodSync('.git/hooks/pre-commit',0o755);console.log('installed .git/hooks/pre-commit \u2014 note: .claude/settings.json already wires the same guards for Claude Code sessions')\"",
     "new:app": "node scripts/new-app.mjs",
     "audit:deadweight": "node scripts/audits/check-dead-weight.mjs",
     "lineage": "node scripts/lineage.mjs",
@@ -27,7 +27,11 @@
     "conformance": "node scripts/conformance.mjs",
     "audit:compat": "node scripts/audits/check-backward-compat.mjs",
     "upgrade:test": "bash scripts/upgrade.test.sh",
-    "runlog": "node scripts/run-log.mjs"
+    "runlog": "node scripts/run-log.mjs",
+    "audit:all:serial": "node scripts/par.mjs \"theme-sync=node scripts/theme-build.mjs --check\" \"contrast=node scripts/check-contrast.mjs\" \"theme-assets=node scripts/check-theme-assets.mjs\" \"colors=node scripts/audits/check-hardcoded-colors.mjs\" \"testids=node scripts/audits/check-testid-coverage.mjs\" \"rules=node scripts/audits/check-rule-coverage.mjs\" \"columns=node scripts/audits/check-column-control.mjs\" \"fixtures=node scripts/audits/check-fixture-leak.mjs\" \"deadweight=node scripts/audits/check-dead-weight.mjs\" \"compat=node scripts/audits/check-backward-compat.mjs\" --serial",
+    "guard:test:serial": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\" --serial",
+    "review:plan": "node scripts/review-plan.mjs",
+    "closeout": "node scripts/close-out.mjs"
   },
   "engines": {
     "node": ">=18"

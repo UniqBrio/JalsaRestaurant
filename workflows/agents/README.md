@@ -66,6 +66,14 @@ main agent had already analysed inline. Spawn by scale, never by habit:
 | preview-smoke-verifier | **After merge when the change is user-visible**; a non-visual micro change states N/A with its reason | **Spawn — always**, after merge: the only stage that opens the running app | Same |
 | post-release-monitor | Production only, unchanged | Production only, unchanged | Same |
 
+> **`scripts/review-plan.mjs` is the authority for SELECTION; this table is the explanation.**
+> Run `node scripts/review-plan.mjs` and it reads the diff and names the passes. The table
+> below keeps the job no script can do — saying *why* each pass exists and what it must never
+> do — but it is no longer the thing that decides. Applied by eye, the same change selected
+> different reviewers on different runs, and the failure was invisible: **a missing pass looks
+> exactly like a pass that found nothing.** Two sources of truth for one rule always drift, and
+> the drifted one is always the one someone finds first.
+
 **This matrix scales *who reviews*. It does not scale *what verification executes*** — that is
 the verification lane in [`workflows/test-gate.md`](../test-gate.md), added 08-Sep-2026 on the
 same `SCALE:` declaration. Both were needed: for three versions the reviewer count was

@@ -161,6 +161,12 @@ remaining rules more likely to be followed.
    `docs/22-FRAMEWORK-EVOLUTION.md`) and `UPGRADES.md` gains the entry an upgrading app will
    read: what changed, and what the app must do — even when the answer is "nothing".
 
+   **Write that story ONCE.** `scripts/close-out.mjs <record.json> --apply` renders it into the
+   upgrade notes, the changelog and the commit message from a single record. Told four times by
+   hand, the four accounts drift — and generation, not reading and not the gates, is the
+   dominant cost of a run. The record carries the real sentences; the script owns only the
+   scaffolding and the repetition.
+
 A run delivering fewer states which it skipped and why, **in that run**, never "later". Each has
 been skipped in isolation, and each skip was invisible at the time. The fourth exists because a
 framework change without a version bump is invisible to every app's `upgrade` command — improved
