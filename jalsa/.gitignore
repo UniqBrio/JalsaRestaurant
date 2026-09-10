@@ -1,0 +1,22 @@
+node_modules/
+.next/
+# The degraded instance's build output (playwright.config.ts / next.config.ts NEXT_DIST_DIR).
+.next-degraded/
+# tsc's incremental cache. Machine-specific paths; a merge conflict here means nothing.
+tsconfig.tsbuildinfo
+dist/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+.gate-logs/
+.DS_Store
+
+# Personal overrides only. Committed settings are what enforce anything.
+.claude/settings.local.json
+
+# NOT ignored, on purpose - these are the framework working:
+#   .claude/settings.json   wires the hook; a local-only copy enforces nothing on anyone else
+#   .baselines/             ratchet baselines are COMMITTED. That is what makes them ratchets.
+#   TEST_SUMMARY.md         the append-only gate log the commit guard greps.

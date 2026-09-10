@@ -1,0 +1,383 @@
+{
+  "frameworkVersion": "1.29.0",
+  "seededAt": "2026-09-10",
+  "mode": "workspace",
+  "files": {
+    ".env.example": {
+      "hash": "f6e6127b50be9a0e",
+      "status": "expected-divergent"
+    },
+    "api/README.md": {
+      "hash": "a6f7a94ffcec3b54",
+      "status": "pristine"
+    },
+    "design/tokens.json": {
+      "hash": "87554b8033d4e5b3",
+      "status": "expected-divergent"
+    },
+    "docs/modules/README.md": {
+      "hash": "40f048b1a3e47b5b",
+      "status": "expected-divergent"
+    },
+    "package.json": {
+      "hash": "78a59cc1db22193a",
+      "status": "expected-divergent"
+    },
+    "playwright.config.ts": {
+      "hash": "fa1350ea4f86dc24",
+      "status": "pristine"
+    },
+    "public/brand/empty-dark.svg": {
+      "hash": "dde76bd572bc6a10",
+      "status": "expected-divergent"
+    },
+    "public/brand/empty-light.svg": {
+      "hash": "b71f143f8612d718",
+      "status": "expected-divergent"
+    },
+    "public/brand/favicon-dark.svg": {
+      "hash": "0fe7bfd85482733a",
+      "status": "expected-divergent"
+    },
+    "public/brand/favicon-light.svg": {
+      "hash": "c8499c159159982e",
+      "status": "expected-divergent"
+    },
+    "public/brand/logo-dark.svg": {
+      "hash": "c7f764b92abc8903",
+      "status": "expected-divergent"
+    },
+    "public/brand/logo-light.svg": {
+      "hash": "3323d7217b22cd41",
+      "status": "expected-divergent"
+    },
+    "public/brand/mark-dark.svg": {
+      "hash": "0fe7bfd85482733a",
+      "status": "expected-divergent"
+    },
+    "public/brand/mark-light.svg": {
+      "hash": "c8499c159159982e",
+      "status": "expected-divergent"
+    },
+    "public/brand/og-card.png": {
+      "hash": "c25f7d71e5e7a5a5",
+      "status": "expected-divergent"
+    },
+    "src/app/README.md": {
+      "hash": "e68268c9a76ec064",
+      "status": "pristine"
+    },
+    "src/components/AuditLogTable.tsx": {
+      "hash": "fae99fe92cf2f61a",
+      "status": "pristine"
+    },
+    "src/components/BulkBar.tsx": {
+      "hash": "a2cec04baa1b8dfc",
+      "status": "pristine"
+    },
+    "src/components/ColumnControl.tsx": {
+      "hash": "1b77d3e12672be8c",
+      "status": "pristine"
+    },
+    "src/components/ConfirmDialog.tsx": {
+      "hash": "1a0a8ccd727d6bf3",
+      "status": "pristine"
+    },
+    "src/components/Dialog.tsx": {
+      "hash": "bbe80d7a1548582f",
+      "status": "pristine"
+    },
+    "src/components/HelpSupport.tsx": {
+      "hash": "3b658985c3b61a36",
+      "status": "pristine"
+    },
+    "src/components/ListControls.tsx": {
+      "hash": "7f5fc7b602b81510",
+      "status": "pristine"
+    },
+    "src/components/LoadingScreen.tsx": {
+      "hash": "4b6a0d73d2dd3308",
+      "status": "pristine"
+    },
+    "src/components/ModuleAccessPanel.tsx": {
+      "hash": "72bf543cea2123e3",
+      "status": "pristine"
+    },
+    "src/components/ModuleCustomizer.tsx": {
+      "hash": "d186ba800c2336fc",
+      "status": "pristine"
+    },
+    "src/components/MoreMenu.tsx": {
+      "hash": "0cd924f92a1a477e",
+      "status": "pristine"
+    },
+    "src/components/NoAccess.tsx": {
+      "hash": "a36db0e51b226462",
+      "status": "pristine"
+    },
+    "src/components/PricingPanel.tsx": {
+      "hash": "d28cac531bbfc218",
+      "status": "pristine"
+    },
+    "src/components/SelectionColumn.tsx": {
+      "hash": "dd83650d36cf16d4",
+      "status": "pristine"
+    },
+    "src/components/TabRow.tsx": {
+      "hash": "3893f2d29c56e91b",
+      "status": "pristine"
+    },
+    "src/components/ToastHost.tsx": {
+      "hash": "0d730e42a82a53f7",
+      "status": "pristine"
+    },
+    "src/components/analytics/AnalyticsTable.tsx": {
+      "hash": "f0ceb02615c3a23e",
+      "status": "pristine"
+    },
+    "src/components/analytics/BarChart.tsx": {
+      "hash": "62018f86e5186e20",
+      "status": "pristine"
+    },
+    "src/components/analytics/DashboardShell.tsx": {
+      "hash": "00b2231676abf6b4",
+      "status": "pristine"
+    },
+    "src/components/analytics/InsightCard.tsx": {
+      "hash": "d02ab53a9c3c3798",
+      "status": "pristine"
+    },
+    "src/components/analytics/MetricCard.tsx": {
+      "hash": "de37e1c43b6fee31",
+      "status": "pristine"
+    },
+    "src/components/analytics/ProgressMeter.tsx": {
+      "hash": "059ec35fa3c8c9e4",
+      "status": "pristine"
+    },
+    "src/components/analytics/Sparkline.tsx": {
+      "hash": "3932633e34464385",
+      "status": "pristine"
+    },
+    "src/components/analytics/analytics.css": {
+      "hash": "1459cfe812ca687b",
+      "status": "pristine"
+    },
+    "src/components/components.css": {
+      "hash": "e250ca7aa9312e40",
+      "status": "pristine"
+    },
+    "src/hooks/useAsync.ts": {
+      "hash": "c722c76a74e47b5d",
+      "status": "pristine"
+    },
+    "src/hooks/useAuthReady.ts": {
+      "hash": "83695202393a08e6",
+      "status": "pristine"
+    },
+    "src/hooks/useColumnPrefs.ts": {
+      "hash": "cdd7852d8242b28a",
+      "status": "pristine"
+    },
+    "src/hooks/useListControls.ts": {
+      "hash": "aec79c553eeee09d",
+      "status": "pristine"
+    },
+    "src/lib/analytics/dashboard.ts": {
+      "hash": "431ef223da867e62",
+      "status": "pristine"
+    },
+    "src/lib/analytics/examples.ts": {
+      "hash": "afb7710cffcc545b",
+      "status": "pristine"
+    },
+    "src/lib/analytics/format.ts": {
+      "hash": "0fa6c5cc047defff",
+      "status": "pristine"
+    },
+    "src/lib/analytics/metrics.ts": {
+      "hash": "6f8274eb64fa13af",
+      "status": "pristine"
+    },
+    "src/lib/api-client.ts": {
+      "hash": "31a9a7c2b610acc1",
+      "status": "pristine"
+    },
+    "src/lib/api-handler.ts": {
+      "hash": "36fd7f8c646042da",
+      "status": "pristine"
+    },
+    "src/lib/audit.ts": {
+      "hash": "ad4f3dde7125e374",
+      "status": "pristine"
+    },
+    "src/lib/config.ts": {
+      "hash": "d8d4e5d3388a7775",
+      "status": "pristine"
+    },
+    "src/lib/dates.ts": {
+      "hash": "3e23f96753297600",
+      "status": "pristine"
+    },
+    "src/lib/errors.taxonomy.ts": {
+      "hash": "bf9783ce82c0ffc9",
+      "status": "pristine"
+    },
+    "src/lib/errors.ts": {
+      "hash": "8e46794e64838b9f",
+      "status": "pristine"
+    },
+    "src/lib/list-controls.ts": {
+      "hash": "1ae315d2dd19b00b",
+      "status": "pristine"
+    },
+    "src/lib/loading.ts": {
+      "hash": "31e888f69df79628",
+      "status": "pristine"
+    },
+    "src/lib/logger.ts": {
+      "hash": "807bbbb1ba361052",
+      "status": "pristine"
+    },
+    "src/lib/module-access.ts": {
+      "hash": "b3c393945e34716b",
+      "status": "pristine"
+    },
+    "src/lib/module-customizer.ts": {
+      "hash": "d7daffbfff2212ff",
+      "status": "pristine"
+    },
+    "src/lib/pricing.ts": {
+      "hash": "00039cd163c30131",
+      "status": "pristine"
+    },
+    "src/lib/selection.ts": {
+      "hash": "97da4e6553c83d19",
+      "status": "pristine"
+    },
+    "src/lib/session.ts": {
+      "hash": "732dda1e4cfb5d3b",
+      "status": "pristine"
+    },
+    "src/lib/text-format.ts": {
+      "hash": "14db644b6c669ce2",
+      "status": "pristine"
+    },
+    "src/lib/undo.ts": {
+      "hash": "a69ee814ba28895a",
+      "status": "pristine"
+    },
+    "src/lib/upsert.ts": {
+      "hash": "4ed9574f9612fd69",
+      "status": "pristine"
+    },
+    "src/theme/ThemeProvider.tsx": {
+      "hash": "b8824815f372059c",
+      "status": "pristine"
+    },
+    "src/theme/ThemeToggle.tsx": {
+      "hash": "45b49190d44e6ec7",
+      "status": "pristine"
+    },
+    "src/theme/ThemedImage.tsx": {
+      "hash": "5ebdb2fab2c67e18",
+      "status": "pristine"
+    },
+    "src/theme/theme-toggle.css": {
+      "hash": "9092322bbcb4b456",
+      "status": "pristine"
+    },
+    "src/theme/tokens.generated.css": {
+      "hash": "5f7f9d3d6efeb18b",
+      "status": "pristine"
+    },
+    "src/theme/tokens.generated.ts": {
+      "hash": "edbc6524f1867ef4",
+      "status": "pristine"
+    },
+    "supabase/functions/_shared/http.ts": {
+      "hash": "5819e626ec464604",
+      "status": "pristine"
+    },
+    "supabase/functions/_shared/provider.ts": {
+      "hash": "5e567c26dd65bc6f",
+      "status": "pristine"
+    },
+    "supabase/functions/_shared/tx.ts": {
+      "hash": "3688a97778f81de9",
+      "status": "pristine"
+    },
+    "supabase/migrations/00000000000000_reference_migration.sql": {
+      "hash": "f08209484b3b3983",
+      "status": "pristine"
+    },
+    "tests/cases/README.md": {
+      "hash": "3bcddfca8cceb489",
+      "status": "expected-divergent"
+    },
+    "tests/functional/keyboard.functional.spec.ts": {
+      "hash": "60c8efa072d00192",
+      "status": "pristine"
+    },
+    "tests/functional/reference.functional.spec.ts": {
+      "hash": "f2455dcc7b29beda",
+      "status": "pristine"
+    },
+    "tests/render/contrast.render.spec.ts": {
+      "hash": "278541f222d10488",
+      "status": "pristine"
+    },
+    "tests/unit/analytics.unit.spec.ts": {
+      "hash": "bfb4a9a1f03aeb51",
+      "status": "pristine"
+    },
+    "tests/unit/audit.unit.spec.ts": {
+      "hash": "d4040d80b8bc0684",
+      "status": "pristine"
+    },
+    "tests/unit/column-prefs.unit.spec.ts": {
+      "hash": "b4706a73a2281ec0",
+      "status": "pristine"
+    },
+    "tests/unit/errors.taxonomy.unit.spec.ts": {
+      "hash": "9308ecd955d72dcd",
+      "status": "pristine"
+    },
+    "tests/unit/list-controls.unit.spec.ts": {
+      "hash": "21c9a0b4573ec739",
+      "status": "pristine"
+    },
+    "tests/unit/loading.unit.spec.ts": {
+      "hash": "9bf677fe1da0c3ea",
+      "status": "pristine"
+    },
+    "tests/unit/module-access.unit.spec.ts": {
+      "hash": "d15113052635a1c3",
+      "status": "pristine"
+    },
+    "tests/unit/module-customizer.unit.spec.ts": {
+      "hash": "0ad230399537f99a",
+      "status": "pristine"
+    },
+    "tests/unit/pricing.unit.spec.ts": {
+      "hash": "0698f707b21fd8b2",
+      "status": "pristine"
+    },
+    "tests/unit/selection.unit.spec.ts": {
+      "hash": "9aa2d26c1724030b",
+      "status": "pristine"
+    },
+    "tests/unit/text-format.unit.spec.ts": {
+      "hash": "d2843e016c55c8ea",
+      "status": "pristine"
+    },
+    "tests/unit/undo.unit.spec.ts": {
+      "hash": "4c41560c682f1acf",
+      "status": "pristine"
+    },
+    "tsconfig.json": {
+      "hash": "a5dcee9045499a01",
+      "status": "pristine"
+    }
+  }
+}

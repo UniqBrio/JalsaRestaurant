@@ -1,0 +1,5 @@
+src/theme/tokens.generated.css
+src/theme/tokens.generated.ts
+public/sw.js
+.next
+node_modules

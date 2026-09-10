@@ -1,0 +1,34 @@
+# Canonical Patterns — Jalsa
+
+> **One blessed idiom per concern.** Read the reference and mirror it. A second way of doing an
+> already-solved thing is a defect, not a preference — it doubles the places a rule must be
+> changed and guarantees one of them gets missed.
+>
+> Newest first. Append or supersede; never renumber, never delete.
+
+| ID | Concern | The one way | Reference |
+|---|---|---|---|
+| JP-12 | A screen whose data did not load | Wrap the server-side read in `attempt()`. Three outcomes, always in this order: not configured → `NotConfiguredState`, unreachable → `UnreachableState`, loaded → the screen. Never a bare `await` in a server component: the throw becomes Next.js's error page, which tells a guest nothing and offers them nothing. | `src/lib/supabase/server.ts` (`attempt`) · all three of `src/app/{t/[table],staff,owner}/page.tsx` · rung: `tests/functional/degraded.functional.spec.ts` |
+| JP-11 | A side effect after a state change | Compute the next value, call `setState` with it, then act on the value. **Never call a side effect inside a `setState` updater** — React 19 invokes updaters twice under StrictMode, so the effect happens twice and nothing on screen shows it. | `src/features/staff/PinSignIn.tsx` (`press`) · `src/features/staff/ChoosePin.tsx` · rung: `tests/functional/signin.functional.spec.ts` ("submits exactly once") |
+| JP-10 | Reacting to props during render | Adjust state during render against a stored "last seen" value. No `useEffect` that calls `setState` — React 19's `react-hooks/set-state-in-effect` refuses it, and it renders twice for no reason. | `src/features/guest/GuestApp.tsx` · `src/features/owner/sections/LiveOrders.tsx` |
+| JP-9 | Reading a value the browser owns | `useSyncExternalStore`, with an explicit in-memory fallback for the case where storage throws (private windows, blocked site data). | `src/theme/ThemeProvider.tsx` |
+| JP-8 | Keeping a screen live | One idiom: `useLiveData` — 6s, stops when the tab is hidden, one request in flight, and **never blanks the screen on a failed poll**. No Realtime subscriptions: they would require a browser-reachable RLS policy, and the whole security posture rests on there being none. | `src/hooks/useLiveData.ts` |
+| JP-7 | Anything a guest's phone asks for | An opaque token in a cookie, resolved server-side. The phone holds no bill id, no table id and no total — only a key. Closing the browser therefore loses nothing, and editing the cookie buys nothing. | `src/lib/sessions.ts` · `src/lib/db/guest.ts` |
+| JP-6 | Anything a member of staff does | An HMAC-signed cookie naming them, checked against `Grants` on the server by `demand()`. The UI hides what it cannot honour; the server refuses it. Both read the same function. | `src/lib/sessions.ts` · `src/lib/db/mutations.ts` |
+| JP-5 | Money | Integer rupees, everywhere. Percentage discount first, then flat, clamped to the subtotal. `payable` includes the tip; `restaurantIncome` excludes it. **There is deliberately no field called "total"** — the ambiguity is the bug. | `src/lib/money.ts` · rung: `tests/unit/money.unit.spec.ts` |
+| JP-4 | Which table a bill is on | `bill_table` rows with `released_at`, never a `bill.table_id`. A bill belongs to one **or more** tables; an ordinary table is a group of one, so joining tables is not a special case. A partial unique index stops a second bill opening on an occupied table, and a trigger releases every table on closure. | `supabase/migrations/20260910070000_jalsa_core_schema.sql` |
+| JP-3 | Closing a bill | Only a named member of staff, with a payment mode, recorded at a time — enforced by `bill_closure_is_attributed` in the database, not in application code. A guest can only ever *request* payment. | same migration · `src/lib/db/mutations.ts` (`requestPayment`, `closeBill`) |
+| JP-2 | A number people read aloud | `next_number(restaurant, kind)` — `UPDATE … RETURNING` under a row lock. Bills, KOTs and table groups all use it. Never `max(n)+1`, which hands two captains the same KOT number on a busy night. | same migration |
+| JP-1 | Colour | `design/tokens.json`, the only file in this repository containing one. Generated theme files are never hand-edited; application code references semantic tokens. | `design/tokens.json` · enforced by `npm run theme:check` and `audit:colors` |
+
+---
+
+## Two patterns this application deliberately does **not** have
+
+**No GraphQL layer, and no second backend language.** The permission matrix has exactly one
+enforcement point, in TypeScript, next to the code it guards. A resolver layer would be a second
+place for "may this person see this bill?" to be answered, and the two would eventually disagree.
+
+**No browser-side data client.** A guest's phone is an untrusted device sitting on a table in a
+public room. If it could query PostgREST directly, "which bills may this phone see" would be a
+question answered in SQL, separately from the same question answered in the UI.

@@ -1,0 +1,221 @@
+import { NextResponse } from 'next/server';
+import { body, fail, handler, ok } from '@/lib/route';
+import { actorFor, currentStaff } from '@/lib/db/auth';
+import {
+  cancelItem,
+  changeQty,
+  closeBill,
+  completeRequest,
+  joinTableToBill,
+  replyToSuggestion,
+  reprintKot,
+  setItemAvailability,
+} from '@/lib/db/mutations';
+import {
+  addCategory,
+  deleteExpense,
+  issuePin,
+  removeStaff,
+  setOnDuty,
+  setPermissions,
+  settleTips,
+  upsertExpense,
+  upsertMenuItem,
+  upsertStaff,
+  upsertTable,
+  writeIdentity,
+  writeSetting,
+} from '@/lib/db/owner-mutations';
+
+type Action =
+  | {
+      action: 'close-bill';
+      billId: string;
+      mode: string;
+      reference?: string;
+      discountPct?: number;
+      discountAmount?: number;
+    }
+  | { action: 'change-qty'; kotItemId: string; qty: number }
+  | { action: 'cancel-item'; kotItemId: string; reason: string }
+  | { action: 'reprint'; kotId: string }
+  | { action: 'complete-request'; requestId: string }
+  | { action: 'join-table'; billId: string; tableId: string }
+  | { action: 'reply-suggestion'; suggestionId: string; reply: string }
+  | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
+  | {
+      action: 'upsert-item';
+      id?: string;
+      name: string;
+      price: number;
+      categoryId: string;
+      foodType: 'veg' | 'non_veg' | 'egg';
+      description?: string;
+    }
+  | { action: 'add-category'; name: string }
+  | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
+  | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
+  | { action: 'issue-pin'; staffId: string }
+  | { action: 'set-permissions'; staffId: string; granted: string[] }
+  | { action: 'remove-staff'; staffId: string; reason: string }
+  | { action: 'set-on-duty'; staffId: string; onDuty: boolean }
+  | { action: 'write-setting'; key: string; value: Record<string, unknown> }
+  | { action: 'write-identity'; patch: Record<string, unknown> }
+  | {
+      action: 'upsert-expense';
+      id?: string;
+      spentOn: string;
+      category: string;
+      note: string;
+      amount: number;
+      reason?: string;
+    }
+  | { action: 'delete-expense'; id: string; reason: string }
+  | { action: 'settle-tips'; staffId: string };
+
+/**
+ * Everything the owner DOES.
+ *
+ * One identity check, one permission model, one audit obligation — the same reason the staff
+ * surface has one. The permission for each verb lives in the mutation it calls, never here, so
+ * this file cannot accidentally become a second, more generous, copy of the matrix.
+ */
+export const POST = handler(async (req: Request): Promise<NextResponse> => {
+  const staff = await currentStaff();
+  if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
+  const actor = actorFor(staff);
+  const input = await body<Action>(req);
+
+  switch (input.action) {
+    case 'close-bill':
+      return ok(
+        await closeBill({
+          billId: input.billId,
+          mode: input.mode,
+          ...(input.reference ? { reference: input.reference } : {}),
+          ...(input.discountPct ? { discountPct: input.discountPct } : {}),
+          ...(input.discountAmount ? { discountAmount: input.discountAmount } : {}),
+          actor,
+        })
+      );
+
+    case 'change-qty':
+      await changeQty({ kotItemId: input.kotItemId, qty: input.qty, actor });
+      return ok({ done: true });
+
+    case 'cancel-item':
+      return ok(await cancelItem({ kotItemId: input.kotItemId, reason: input.reason, actor }));
+
+    case 'reprint':
+      await reprintKot({ kotId: input.kotId, actor });
+      return ok({ done: true });
+
+    case 'complete-request':
+      await completeRequest({ requestId: input.requestId, actor });
+      return ok({ done: true });
+
+    case 'join-table':
+      await joinTableToBill({ billId: input.billId, tableId: input.tableId, actor });
+      return ok({ done: true });
+
+    case 'reply-suggestion':
+      await replyToSuggestion({ suggestionId: input.suggestionId, reply: input.reply, actor });
+      return ok({ done: true });
+
+    case 'set-availability':
+      await setItemAvailability({
+        itemId: input.itemId,
+        available: input.available,
+        ...(input.reason ? { reason: input.reason } : {}),
+        actor,
+      });
+      return ok({ done: true });
+
+    case 'upsert-item':
+      return ok(
+        await upsertMenuItem({
+          ...(input.id ? { id: input.id } : {}),
+          name: input.name,
+          price: input.price,
+          categoryId: input.categoryId,
+          foodType: input.foodType,
+          ...(input.description !== undefined ? { description: input.description } : {}),
+          actor,
+        })
+      );
+
+    case 'add-category':
+      await addCategory({ name: input.name, actor });
+      return ok({ done: true });
+
+    case 'upsert-table':
+      await upsertTable({
+        ...(input.id ? { id: input.id } : {}),
+        name: input.name,
+        zone: input.zone,
+        seats: input.seats,
+        active: input.active,
+        actor,
+      });
+      return ok({ done: true });
+
+    case 'upsert-staff':
+      return ok(
+        await upsertStaff({
+          ...(input.id ? { id: input.id } : {}),
+          name: input.name,
+          role: input.role,
+          ...(input.mobile !== undefined ? { mobile: input.mobile } : {}),
+          actor,
+        })
+      );
+
+    case 'issue-pin':
+      // The ONLY response in the application that carries a credential. It is returned once,
+      // never stored anywhere readable, and never logged — the audit entry records that a PIN
+      // was issued, not what it was.
+      return ok(await issuePin({ staffId: input.staffId, actor }));
+
+    case 'set-permissions':
+      await setPermissions({ staffId: input.staffId, granted: input.granted, actor });
+      return ok({ done: true });
+
+    case 'remove-staff':
+      await removeStaff({ staffId: input.staffId, reason: input.reason, actor });
+      return ok({ done: true });
+
+    case 'set-on-duty':
+      await setOnDuty({ staffId: input.staffId, onDuty: input.onDuty, actor });
+      return ok({ done: true });
+
+    case 'write-setting':
+      await writeSetting({ key: input.key, value: input.value, actor });
+      return ok({ done: true });
+
+    case 'write-identity':
+      await writeIdentity({ patch: input.patch, actor });
+      return ok({ done: true });
+
+    case 'upsert-expense':
+      await upsertExpense({
+        ...(input.id ? { id: input.id } : {}),
+        spentOn: input.spentOn,
+        category: input.category,
+        note: input.note,
+        amount: input.amount,
+        ...(input.reason ? { reason: input.reason } : {}),
+        actor,
+      });
+      return ok({ done: true });
+
+    case 'delete-expense':
+      await deleteExpense({ id: input.id, reason: input.reason, actor });
+      return ok({ done: true });
+
+    case 'settle-tips':
+      return ok(await settleTips({ staffId: input.staffId, actor }));
+
+    default:
+      return fail(400, { code: 'validation', message: 'That is not something this console can do.' });
+  }
+});

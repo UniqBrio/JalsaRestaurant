@@ -1,0 +1,241 @@
+'use client';
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/cn';
+import { useLiveData } from '@/hooks/useLiveData';
+import { useToast } from '@/components/ui/toast';
+import { OfflineBanner, PartialNotice } from '@/components/ui/states';
+import type { StaffPayload } from '@/lib/db/staff-view';
+import { FloorScreen, TableScreen, AddItemsScreen } from './StaffTables';
+import { ReadyScreen, KotsScreen, RequestsScreen, MeScreen } from './StaffLists';
+
+/**
+ * StaffApp — the captain's and the waiter's phone.
+ *
+ * FIVE SECTIONS, AND THE FIVE ARE DIFFERENT PER ROLE ON PURPOSE
+ *   A captain runs TABLES: every round, adding items, fixing quantities, clearing requests,
+ *   closing bills. A waiter runs FOOD: what is ready, where it goes, and marking it served. The
+ *   design gives them different tab bars because they are doing different jobs, not because one
+ *   is a reduced version of the other — and the waiter's bar leads with the thing they are
+ *   actually waiting for.
+ *
+ * THE BOTTOM BAR IS FIXED AND THE CONTENT CLEARS IT BY ONE TOKEN
+ *   `--layout-bottom-chrome-clearance`. Hand-picked padding is how a Done button ends up under
+ *   the tab bar on the one handset nobody tested on.
+ */
+
+export type StaffTab = 'floor' | 'table' | 'menu' | 'ready' | 'kots' | 'requests' | 'me';
+
+export interface StaffScreenProps {
+  data: StaffPayload;
+  go: (tab: StaffTab, arg?: string) => void;
+  selectedBillId: string | null;
+  send: <R>(path: string, payload: unknown) => Promise<R>;
+  busy: boolean;
+  runBusy: (fn: () => Promise<void>) => void;
+}
+
+export function StaffApp({ initial }: { initial: StaffPayload }) {
+  const router = useRouter();
+  const toast = useToast();
+  const { data, staleReason, send } = useLiveData<StaffPayload>('/api/staff/state', initial);
+
+  const [tab, setTab] = React.useState<StaffTab>(initial.isWaiter ? 'ready' : 'floor');
+  const [selectedBillId, setSelectedBillId] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const runBusy = React.useCallback(
+    (fn: () => Promise<void>) => {
+      if (busy) return;
+      setBusy(true);
+      void fn()
+        .catch((err: unknown) => {
+          toast.show(err instanceof Error ? err.message : 'That did not go through.', { tone: 'error' });
+        })
+        .finally(() => setBusy(false));
+    },
+    [busy, toast]
+  );
+
+  const go = React.useCallback((next: StaffTab, arg?: string) => {
+    if (arg !== undefined) setSelectedBillId(arg);
+    setTab(next);
+  }, []);
+
+  const shared: StaffScreenProps = { data, go, selectedBillId, send, busy, runBusy };
+
+  const unclearedRequests = data.requests.length;
+  const readyCount = data.ready.filter((r) => r.kot.status === 'ready').length;
+
+  const tabs: Array<{ key: StaffTab; label: string; icon: string; badge: number }> = data.isWaiter
+    ? [
+        { key: 'ready', label: 'To serve', icon: '▲', badge: readyCount },
+        { key: 'floor', label: 'Tables', icon: '▦', badge: 0 },
+        { key: 'requests', label: 'Requests', icon: '!', badge: unclearedRequests },
+        { key: 'me', label: 'Me', icon: '●', badge: 0 },
+      ]
+    : [
+        { key: 'floor', label: 'Tables', icon: '▦', badge: 0 },
+        { key: 'ready', label: 'Ready', icon: '▲', badge: readyCount },
+        { key: 'kots', label: 'KOTs', icon: '≡', badge: 0 },
+        { key: 'requests', label: 'Requests', icon: '!', badge: unclearedRequests },
+        { key: 'me', label: 'Me', icon: '●', badge: 0 },
+      ];
+
+  const signOut = () =>
+    runBusy(async () => {
+      await fetch('/api/staff/session', { method: 'DELETE' });
+      router.refresh();
+    });
+
+  return (
+    <div className="mx-auto flex min-h-dvh w-full max-w-[38rem] flex-col" data-testid="staff-app" data-tab={tab}>
+      <OfflineBanner />
+
+      <header className="sticky top-0 z-30 flex items-center gap-3 bg-[var(--primary)] px-4 py-3 text-[var(--on-primary)]">
+        {tab === 'table' || tab === 'menu' ? (
+          <button
+            data-testid="staff-back"
+            type="button"
+            onClick={() => go(tab === 'menu' ? 'table' : 'floor')}
+            aria-label="Back"
+
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[20px] leading-none hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
+          >
+            ‹
+          </button>
+        ) : (
+          <span
+            aria-hidden
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--on-primary)]/15 text-[13px] font-bold"
+          >
+            {data.me.initials || data.me.name.charAt(0)}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="m-0 truncate text-[15px] font-semibold">{titleFor(tab, data, selectedBillId)}</p>
+          <p className="m-0 truncate text-[11.5px] opacity-85">{subtitleFor(tab, data, selectedBillId)}</p>
+        </div>
+      </header>
+
+      <main className="flex-1 px-4 pb-[var(--layout-bottom-chrome-clearance)] pt-3">
+        {staleReason ? (
+          <PartialNotice testId="staff-stale">
+            {staleReason} The floor below is the last thing we heard — anything you tap will still be sent.
+          </PartialNotice>
+        ) : null}
+
+        {data.dayNote && tab === 'floor' ? (
+          <div
+            className="mb-3 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12.5px] leading-relaxed text-[var(--on-warning-surface)]"
+            data-testid="staff-day-note"
+          >
+            <strong className="block text-[10.5px] font-bold uppercase tracking-[0.11em]">Note for the floor</strong>
+            {data.dayNote}
+          </div>
+        ) : null}
+
+        {tab === 'floor' ? <FloorScreen {...shared} /> : null}
+        {tab === 'table' ? <TableScreen {...shared} /> : null}
+        {tab === 'menu' ? <AddItemsScreen {...shared} /> : null}
+        {tab === 'ready' ? <ReadyScreen {...shared} /> : null}
+        {tab === 'kots' ? <KotsScreen {...shared} /> : null}
+        {tab === 'requests' ? <RequestsScreen {...shared} /> : null}
+        {tab === 'me' ? <MeScreen {...shared} onSignOut={signOut} /> : null}
+      </main>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[38rem] border-t border-[var(--border)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom)]"
+        aria-label="Sections"
+        data-testid="staff-tabs"
+      >
+        {tabs.map((t) => {
+          const active = tab === t.key || (t.key === 'floor' && (tab === 'table' || tab === 'menu'));
+          return (
+            <button
+              data-testid={`staff-tab-${t.key}`}
+              key={t.key}
+              type="button"
+              onClick={() => go(t.key)}
+              aria-current={active ? 'page' : undefined}
+
+              className={cn(
+                'relative flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors',
+                'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--border-focus)]',
+                active ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold',
+                  active ? 'bg-[var(--primary)] text-[var(--on-primary)]' : 'bg-[var(--surface-sunken)]'
+                )}
+              >
+                {t.icon}
+              </span>
+              {t.label}
+              {t.badge > 0 ? (
+                <span
+                  className="absolute right-[22%] top-1.5 min-w-4 rounded-full bg-[var(--error)] px-1 text-[9px] font-bold leading-4 text-[var(--on-error)]"
+                  aria-label={`${t.badge} waiting`}
+                >
+                  {t.badge}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+function selected(data: StaffPayload, billId: string | null) {
+  return data.bills.find((b) => b.id === billId) ?? null;
+}
+
+function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null): string {
+  const bill = selected(data, billId);
+  switch (tab) {
+    case 'floor':
+      return 'My tables';
+    case 'table':
+      return bill
+        ? `${bill.groupCode ? `Group ${bill.groupCode}` : `Table ${bill.tables.join(', ')}`} · ${bill.code}`
+        : 'Table';
+    case 'menu':
+      return bill ? `Add items · ${bill.tables.join(', ')}` : 'Add items';
+    case 'ready':
+      return data.isWaiter ? 'Ready to run' : 'Ready to collect';
+    case 'kots':
+      return 'Kitchen tickets';
+    case 'requests':
+      return 'Table requests';
+    case 'me':
+      return data.me.name;
+  }
+}
+
+function subtitleFor(tab: StaffTab, data: StaffPayload, billId: string | null): string {
+  const bill = selected(data, billId);
+  switch (tab) {
+    case 'floor':
+      return `${data.myTables.length || data.tables.filter((t) => t.billId).length} live · ${data.me.name}`;
+    case 'table':
+      return bill ? `${bill.guests} guests · opened ${bill.openedAt}` : '';
+    case 'menu':
+      return 'A new round on the same bill';
+    case 'ready':
+      return data.ready.length === 1 ? '1 round waiting' : `${data.ready.length} rounds waiting`;
+    case 'kots':
+      return `${data.bills.reduce((a, b) => a + b.kots.length, 0)} tonight · newest first`;
+    case 'requests':
+      return data.requests.length
+        ? `${data.requests.length} waiting · oldest ${Math.max(...data.requests.map((r) => r.ageMinutes))} min`
+        : 'Nothing waiting';
+    case 'me':
+      return `${data.me.role} · signed in`;
+  }
+}

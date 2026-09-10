@@ -3,6 +3,43 @@
 _Newest run first. **Append-only: never overwrite a prior run.**_
 _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps for them._
 
+---
+
+## Application run - jalsa - 2026-09-10 - VERDICT: PASS
+
+Gate 11/11, 0 blocked. 252 assertions across three tiers, 8/8 audits clean.
+
+**The full record for this run lives in `jalsa/TEST_SUMMARY.md`**, which is the append-only gate
+log for that application. This block exists because guard G3 reads only the root file, and an
+application in a subdirectory is a layout the guard does not yet understand - recorded as
+CAND-002 rather than escaped with a token.
+
+FAIL-FIRST: jalsa/tests/functional/signin.functional.spec.ts - "submits exactly once" failed on
+its first run against shipped code: `expected 1, received 2`. PinSignIn called submit() inside a
+setPin updater and React 19 invokes updaters twice under StrictMode, so every correct PIN made two
+sign-in attempts. Fixed.
+
+FAIL-FIRST: jalsa/tests/functional/keyboard-signin.functional.spec.ts - the same defect, found
+independently by the keyboard route: `expected 1, received 2`.
+
+FAIL-FIRST: jalsa/tests/functional/degraded.functional.spec.ts - every assertion failed before the
+fix. `/t/A5` returned **500**: supabase-js's `TypeError: fetch failed` escaped a server component
+and Next.js rendered its own error page in a guest's hand. Fixed with `attempt()` and
+`UnreachableState`.
+
+FAIL-FIRST: jalsa/tests/render/jalsa-surfaces.render.spec.ts - two dark-theme targets failed at
+2.40:1, reporting colours in neither palette, because the theme was applied after navigation and
+`transition-colors` was still running. The measurement was wrong, not the screen.
+
+FAIL-FIRST: jalsa/tests/unit/{money,status,permissions,guest-phase}.unit.spec.ts - four mutations
+observed failing; two of them are recorded with their own corrections, where the FIRST attempt did
+not reproduce and was therefore not evidence.
+
+NOT OBSERVED FAILING and FAILFIRST-NA entries for every remaining spec in that tree - including
+the fifteen inherited from the scaffold, which this change did not write - are enumerated in
+`jalsa/TEST_SUMMARY.md`.
+
+
 > The run below is real — produced while this framework was being verified. It is BLOCKED rather
 > than PASS because the build environment had no package registry, so the type, lint and test
 > steps could not be obtained. That is the correct verdict: those classes were **not verified**,
