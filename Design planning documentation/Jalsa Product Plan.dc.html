@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/styles.css">
+<script src="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&text=%E2%82%B9">
+<style>
+doc-page:not(:defined){visibility:hidden}
+body{margin:0;font-family:'Noto Sans',var(--font-body);color:var(--color-text)}
+doc-page,.pl,.pl p,.pl li,.pl div,.pl table.table td,.pl table.table th{font-family:'Noto Sans',var(--font-body)}
+a{color:var(--color-accent-700)}
+a:hover{color:var(--color-accent-800)}
+.pl h2{font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:23px;line-height:1.2;margin:38px 0 10px}
+.pl h3{font-family:var(--font-body);font-weight:700;font-size:15.5px;letter-spacing:.01em;margin:24px 0 8px}
+.pl p,.pl li{font-size:14.5px;line-height:1.62}
+.pl ul{margin:8px 0 0;padding-left:19px}
+.pl li{margin:0 0 5px}
+.pl table.table td,.pl table.table th{font-size:13.2px;line-height:1.45;vertical-align:top}
+.pl .kv{display:grid;grid-template-columns:132px 1fr;gap:5px 16px;font-size:13.5px}
+.pl .note{background:var(--color-accent-100);border-radius:var(--radius-md);padding:15px 18px;break-inside:avoid;orphans:3;widows:3}
+.pl .band{background:var(--color-accent-2-100);border-radius:var(--radius-md);padding:15px 18px;break-inside:avoid}
+.pl .flow{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:12px 0 0}
+.pl .step{background:var(--color-surface);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:600}
+.pl .arw{color:var(--color-neutral-500);font-size:12px}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+<doc-page margin="0.7in">
+<div class="pl">
+<div style="display:flex;align-items:center;gap:18px;margin:0 0 4px">
+<img src="assets/jalsa-logo.png" alt="Jalsa Restaurant" style="width:66px;height:66px;border-radius:var(--radius-md);object-fit:contain;background:#fff;box-shadow:var(--shadow-sm)">
+<div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700)">Jalsa Restaurant · Hosur</div>
+<h1 style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:34px;line-height:1.1;margin:4px 0 0">Product &amp; Design Plan</h1>
+</div>
+</div>
+<p style="font-size:15px;line-height:1.6;margin:18px 0 0;max-width:44em">A working plan for the QR-first dine-in ordering platform, drawn from the two approved documents: the Application Requirements &amp; Functional Scope and the Recommended Product Scope &amp; MVP Priorities. It defines what we design, in what order, and which decisions are still open. Nothing here adds scope beyond those documents.</p>
+
+<div class="note" style="margin-top:22px">
+<div class="kv">
+<div style="font-weight:700">Product</div><div>QR-first dine-in ordering platform — web/PWA, not a full POS suite</div>
+<div style="font-weight:700">Surfaces</div><div>Customer (mobile) · Captain/Waiter (mobile-tablet) · Owner/Admin (desktop) · Kitchen (KOT print / KDS fallback)</div>
+<div style="font-weight:700">MVP mantra</div><div>Scan → Order → Kitchen → Add More → Request Payment → Tip → Pay → Invoice → Review → Reconcile</div>
+<div style="font-weight:700">Visual system</div><div>Organic — cream ground, terracotta accent, sage second accent, Caprasimo over Figtree, pill controls, 16px radii</div>
+</div>
+</div>
+
+<h2>1. Assumptions I am working from</h2>
+<ul>
+<li>The requirements document is the baseline for design, development and UAT. Anything not in it is a change request, not a design decision.</li>
+<li>The customer never marks an order paid. They submit a <strong>Payment Request</strong>; staff record closure and payment mode.</li>
+<li>One table holds one bill; each order round produces its own KOT reference. Table and bill context survive every round.</li>
+<li>Tips are not restaurant income. They are a separate ledger attributed to a captain or waiter.</li>
+<li>Printer (TVS RP 3160 Gold), payment provider, and WhatsApp delivery are unvalidated dependencies. The design must work as a flow before any of the three is confirmed, and degrade gracefully if one is not available at launch.</li>
+<li>Currency is ₹. Language is English for the MVP design; Tamil is designed for but not populated (content ownership unresolved).</li>
+</ul>
+
+<h2>2. The three journeys we are designing</h2>
+<h3>Customer — mobile, scanned from the tabletop QR</h3>
+<div class="flow">
+<span class="step">Scan</span><span class="arw">→</span><span class="step">Table context</span><span class="arw">→</span><span class="step">Menu</span><span class="arw">→</span><span class="step">Cart &amp; review</span><span class="arw">→</span><span class="step">Order placed (KOT ref)</span><span class="arw">→</span><span class="step">Order again</span><span class="arw">→</span><span class="step">Payment request</span><span class="arw">→</span><span class="step">Upsell</span><span class="arw">→</span><span class="step">Tip</span><span class="arw">→</span><span class="step">Pay</span><span class="arw">→</span><span class="step">Invoice</span><span class="arw">→</span><span class="step">Review</span>
+</div>
+<h3>Captain — assigned tables, operational control</h3>
+<div class="flow">
+<span class="step">Table floor</span><span class="arw">→</span><span class="step">Table / bill detail</span><span class="arw">→</span><span class="step">Add or modify items</span><span class="arw">→</span><span class="step">Order status</span><span class="arw">→</span><span class="step">KOT list &amp; reprint</span><span class="arw">→</span><span class="step">Assist closure</span>
+</div>
+<h3>Owner — configuration, money, visibility</h3>
+<div class="flow">
+<span class="step">Dashboard</span><span class="arw">→</span><span class="step">Live orders</span><span class="arw">→</span><span class="step">Payment closure</span><span class="arw">→</span><span class="step">Discounts</span><span class="arw">→</span><span class="step">Tips &amp; settlement</span><span class="arw">→</span><span class="step">Expenses</span><span class="arw">→</span><span class="step">Reports</span><span class="arw">→</span><span class="step">Setup</span>
+</div>
+
+<h2>3. Core model the screens must express</h2>
+<p>Every operational screen shows the same five identifiers, in the same place, in the same order: <strong>captain name, table number, bill number, waiter name, KOT number</strong>. This is the spine of the interface.</p>
+<table class="table" style="width:100%;margin-top:12px">
+<thead><tr><th>Object</th><th>Lives for</th><th>Carries</th></tr></thead>
+<tbody>
+<tr><td><strong>Table</strong></td><td>Permanent, mapped to one QR</td><td>Number, section, status, assigned captain/waiter</td></tr>
+<tr><td><strong>Bill</strong></td><td>One seating, until closure</td><td>Bill number, table, all rounds, discount, tax, tip, payment mode and status</td></tr>
+<tr><td><strong>KOT / round</strong></td><td>One customer or captain request</td><td>KOT number, items, quantities, food type, status, timestamp, staff, print state</td></tr>
+<tr><td><strong>Tip</strong></td><td>Separate ledger entry</td><td>Amount, bill, attributed staff, settlement state</td></tr>
+</tbody>
+</table>
+<p style="margin-top:12px">Worked example from the requirements: idli on KOT-001, biryani on KOT-002, pizza on KOT-003 — three kitchen tickets, one table, one bill, one customer session.</p>
+
+<h3>One bill across several tables — groups</h3>
+<p>A party of twenty sits at four tables and expects a single bill. The requirements assume one table to one bill, so this needs an explicit object rather than a workaround. The rule that changes is narrow: <strong>a bill belongs to one or more tables instead of exactly one.</strong> Everything else in the model stays as written.</p>
+<table class="table" style="width:100%;margin-top:12px">
+<thead><tr><th style="width:150px">Decision</th><th>How it works</th></tr></thead>
+<tbody>
+<tr><td><strong>The group object</strong></td><td>A group has its own number (G-07), a host table, a member-table list, one owning captain and exactly one bill. A single-table bill is simply a group of one — which is why nothing existing breaks.</td></tr>
+<tr><td><strong>Scanning</strong></td><td>Every member table keeps its own QR. Scanning any of them lands in the same bill, with the screen naming both: "Table A7 · part of a group of 4 tables".</td></tr>
+<tr><td><strong>Ordering</strong></td><td>Each table orders independently on its own phone. Every round is still its own KOT.</td></tr>
+<tr><td><strong>KOT</strong></td><td>The ticket gains one line: the table that ordered it. KOT-131 · from Table A7 · Bill B-1043 · Group G-07. The kitchen and the runner know exactly where the food goes; the accounting knows there is one bill.</td></tr>
+<tr><td><strong>Captain and tips</strong></td><td>One captain owns the group so the tip has a single owner. Other captains can still add items; the KOT records who did.</td></tr>
+<tr><td><strong>Payment</strong></td><td>One payment request, one payable amount, from any member table. The closure screen can show a per-table breakdown so the host can see who ate what, without splitting the bill.</td></tr>
+<tr><td><strong>Closure</strong></td><td>Closing the group bill frees all member tables at once.</td></tr>
+</tbody>
+</table>
+<p style="margin-top:12px">Four cases have to be designed, not discovered: joining a table that already has an open bill (its lines merge in, and the merge is logged); removing a table mid-service (its lines move to a fresh bill); a latecomer scanning a table nobody has added yet; and two tables requesting payment at the same time on one bill — the second sees that closure is already in progress.</p>
+<p style="margin-top:12px">On the owner floor the group reads as one entity: member tables share a badge and a tint, and the bill appears once in the orders list rather than four times.</p>
+
+<h2>4. The entrance queue — keeping it in order</h2>
+<p>One QR outside serves every guest, so the QR itself cannot hold a position. It is a plain link. <strong>The queue entry is created when the guest taps Join, not when they scan</strong>, and the server stamps that moment. Position is that timestamp, ordered to the millisecond, so two people scanning together still get two distinct places and nobody can jump by scanning faster.</p>
+<table class="table" style="width:100%;margin-top:12px">
+<thead><tr><th style="width:150px">Question</th><th>How it is answered</th></tr></thead>
+<tbody>
+<tr><td><strong>What holds their place?</strong></td><td>A token issued on tap — W-18 — plus a signed link stored on that phone. Reopening the link returns the same entry, with no account, no login and no name required.</td></tr>
+<tr><td><strong>How does staff identify the right party?</strong></td><td>The token carries a spoken pair alongside it, "W-18 · Amber Lotus", because a colour and a word are easier to call across a crowded doorway than four digits. The guest's screen shows the same pair at full size, so matching is visual rather than a conversation.</td></tr>
+<tr><td><strong>What stops the wrong party being seated?</strong></td><td>Each entry also has a four-digit confirm code. Staff sees it when seating; the guest shows it on their phone. It proves the token belongs to the people standing there, and it is the only thing typed in the whole flow.</td></tr>
+<tr><td><strong>Guests without a smartphone</strong></td><td>Staff adds a walk-in from the waitlist in two taps. It receives a token, a pair and a code exactly like a scanned entry, and it takes its place by the same timestamp rule — so a paper queue and a phone queue are one list.</td></tr>
+<tr><td><strong>Duplicate entries</strong></td><td>One live entry per device. If a family scans three phones, staff sees three tokens with the same party size within seconds of each other and can merge them; the merge keeps the earliest timestamp so nobody is punished for it.</td></tr>
+<tr><td><strong>Not watching the screen</strong></td><td>A phone number is optional. Given one, the ready message also goes to WhatsApp. Without one, staff calls the pair aloud and the screen alert stands on its own.</td></tr>
+<tr><td><strong>Missed the call</strong></td><td>A table is held for five minutes. If the party does not appear, the entry returns to the front of the queue rather than the back, and only a second miss makes it a no-show. Both are logged with the wait length.</td></tr>
+</tbody>
+</table>
+<p style="margin-top:12px">What the guest never has to do: give a name, give a number, keep a paper chit, or ask the counter where they stand.</p>
+
+<h2>5. Screen inventory</h2>
+<p>Thirty-three screens across four surfaces. P0 screens are required for the MVP flow to complete end to end; P1 screens are required for launch but can be designed in the second round.</p>
+
+<h3>Customer PWA — mobile, 390×844</h3>
+<table class="table" style="width:100%">
+<thead><tr><th style="width:32px">#</th><th>Screen</th><th>Must show</th><th style="width:44px">P</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>QR landing / table context</td><td>Jalsa branding, table number confirmed, Start Ordering</td><td>P0</td></tr>
+<tr><td>2</td><td>Menu browse</td><td>Category chips, food cards: image, name, veg/non-veg/egg mark, price, quantity stepper</td><td>P0</td></tr>
+<tr><td>3</td><td>Item detail sheet</td><td>Larger image, description, food type, price, quantity, add to cart</td><td>P0</td></tr>
+<tr><td>4</td><td>Persistent cart</td><td>Running total, item count, always reachable without leaving the menu</td><td>P0</td></tr>
+<tr><td>5</td><td>Order review</td><td>Line items and quantities before submission, so mistakes are caught early</td><td>P0</td></tr>
+<tr><td>6</td><td>Order placed</td><td>KOT/order reference, plain-language status, no kitchen complexity</td><td>P0</td></tr>
+<tr><td>7</td><td>Session summary</td><td>All rounds so far on this bill, status per round, Order more</td><td>P0</td></tr>
+<tr><td>8</td><td>Payment request — closure</td><td>Logo, ready-for-payment confirmation, final payable amount</td><td>P0</td></tr>
+<tr><td>9</td><td>Dessert &amp; beverage upsell</td><td>Controlled strip after payment request, not a popup; adds a new KOT</td><td>P1</td></tr>
+<tr><td>10</td><td>Tip selection</td><td>+₹10 / +₹20 / +₹30, shown as added to payable but tracked apart</td><td>P0</td></tr>
+<tr><td>11</td><td>Payment action &amp; status</td><td>Digital payment action; pending, failed, abandoned and duplicate states</td><td>P0</td></tr>
+<tr><td>12</td><td>Invoice / receipt</td><td>Full bill fields, WhatsApp send with number capture and consent</td><td>P1</td></tr>
+<tr><td>13</td><td>Google review prompt</td><td>Review CTA, optional photo-upload nudge, click tracked</td><td>P1</td></tr>
+</tbody>
+</table>
+
+<h3>Captain / Waiter — mobile and tablet</h3>
+<table class="table" style="width:100%">
+<thead><tr><th style="width:32px">#</th><th>Screen</th><th>Must show</th><th style="width:44px">P</th></tr></thead>
+<tbody>
+<tr><td>14</td><td>Staff sign-in</td><td>Role-scoped access, session handling</td><td>P0</td></tr>
+<tr><td>15</td><td>Table floor</td><td>Assigned tables with status: free, ordering, preparing, served, payment requested</td><td>P0</td></tr>
+<tr><td>16</td><td>Table / bill detail</td><td>The five identifiers, every KOT round, running total</td><td>P0</td></tr>
+<tr><td>17</td><td>Add items for a table</td><td>Same menu, captain attribution on the resulting KOT</td><td>P0</td></tr>
+<tr><td>18</td><td>Modify quantity</td><td>Permitted by order state; before-and-after clarity</td><td>P0</td></tr>
+<tr><td>19</td><td>Cancel item or order</td><td>Reason capture, state-gated, escalation to owner after preparation starts</td><td>P0</td></tr>
+<tr><td>20</td><td>KOT list &amp; reprint</td><td>Print state per ticket; reprints marked as reprints</td><td>P0</td></tr>
+<tr><td>21</td><td>Closure assist</td><td>Payment-requested queue, hand-off to owner-side recording</td><td>P0</td></tr>
+</tbody>
+</table>
+
+<h3>Owner / Admin — desktop, data-dense</h3>
+<table class="table" style="width:100%">
+<thead><tr><th style="width:32px">#</th><th>Screen</th><th>Must show</th><th style="width:44px">P</th></tr></thead>
+<tbody>
+<tr><td>22</td><td>Dashboard</td><td>Today's sales and order count, payment mix, tips, discounts, active tables</td><td>P1</td></tr>
+<tr><td>23</td><td>Live orders board</td><td>Active, pending, completed, cancelled; KOT volume</td><td>P0</td></tr>
+<tr><td>24</td><td>Payment recording &amp; closure</td><td>Mark paid, cash or digital, reference captured, who closed it</td><td>P0</td></tr>
+<tr><td>25</td><td>Menu &amp; categories</td><td>Rice, Starter, Biryani, Bread, Chinese, Indian Curry, Combo, Salads, Desserts, Beverages, plus configured</td><td>P0</td></tr>
+<tr><td>26</td><td>Item editor</td><td>Name, category, food type, image, price, availability toggle</td><td>P0</td></tr>
+<tr><td>27</td><td>Tables &amp; QR</td><td>Table list, sections, QR generation for the existing A7/A5 tabletop format</td><td>P0</td></tr>
+<tr><td>28</td><td>Staff &amp; permissions</td><td>Owner, Chef, Captain, Waiter and configured roles; per-action permissions; table association</td><td>P0</td></tr>
+<tr><td>29</td><td>Discounts</td><td>Percentage or fixed amount, permission-gated, type/amount/user/timestamp logged</td><td>P0</td></tr>
+<tr><td>30</td><td>Tips ledger</td><td>Total and staff-wise tips, settlement recording, excluded from income</td><td>P0</td></tr>
+<tr><td>31</td><td>Expenses</td><td>Manual entry: date, category, amount, note, entered-by</td><td>P0</td></tr>
+<tr><td>32</td><td>Reports</td><td>Sales by range, top and low sellers, payment mix, staff, cancellations, discounts, tips, expenses, review clicks</td><td>P1</td></tr>
+<tr><td>33</td><td>Settings &amp; audit</td><td>Tax configuration, invoice format, printer routing rules, WhatsApp provider, review URL, audit log</td><td>P1</td></tr>
+</tbody>
+</table>
+
+<h3>Kitchen</h3>
+<p>Two artefacts rather than an application: the <strong>KOT print layout</strong> (KOT number, table, bill, captain/waiter, timestamp, item, quantity, food type, veg and non-veg separated where required) and a <strong>KDS fallback screen</strong> to be designed only if the printer proof-of-concept fails.</p>
+
+<h2>5. Design principles for this build</h2>
+<ul>
+<li><strong>Customer screens stay light, owner screens go dense.</strong> The customer sees a menu and a total; the owner sees a table.</li>
+<li><strong>One decision per screen on the customer path.</strong> Every tap that is not ordering, paying or tipping is a tap to remove.</li>
+<li><strong>Status in plain words</strong> — Pending, Accepted, Preparing, Ready, Served, Closed — never internal codes.</li>
+<li><strong>Food type is a visual primitive.</strong> Veg, non-veg and eggitarian marks read at a glance on cards, in cart lines, on KOTs and on the bill.</li>
+<li><strong>Money is never ambiguous.</strong> Subtotal, discount, tax and tip are separate lines wherever a total appears — the tip visibly inside the payable amount, visibly outside restaurant income.</li>
+<li><strong>Every destructive or financial action shows its author.</strong> Cancellations, discounts, closures and reprints name the user in the interface, not only in the log.</li>
+<li><strong>Organic applied restaurant-side:</strong> cream ground, terracotta for primary actions and totals, sage for confirmed and served states, washed photography for food imagery, pill controls at 44px minimum, rounded cards with air around them.</li>
+</ul>
+
+<h2>6. Design delivery sequence</h2>
+<table class="table" style="width:100%">
+<thead><tr><th style="width:66px">Round</th><th>Scope</th><th>Output</th></tr></thead>
+<tbody>
+<tr><td><strong>D1</strong></td><td>Customer journey, screens 1–13</td><td>Interactive mobile prototype: scan through order, repeat round, payment request, upsell, tip, pay, invoice, review</td></tr>
+<tr><td><strong>D2</strong></td><td>Captain surface, screens 14–21, plus the KOT print layout</td><td>Table floor, bill detail with the five identifiers, modify and cancel flows, KOT list</td></tr>
+<tr><td><strong>D3</strong></td><td>Owner surface, screens 22–33</td><td>Dashboard, live orders, payment closure, menu, staff, tips, expenses, reports, settings</td></tr>
+<tr><td><strong>D4</strong></td><td>States, errors and empty screens across all three</td><td>Failed payment, sold-out item, printer offline, no orders yet, permission denied, offline indicator</td></tr>
+<tr><td><strong>D5</strong></td><td>Handoff</td><td>Component inventory, spacing and type spec, redlines, acceptance criteria mapped to screens</td></tr>
+</tbody>
+</table>
+<p style="margin-top:12px">I would start with D1 and show two or three directions for the menu and closure screens before committing the rest of the journey to a single visual treatment.</p>
+
+<h2>7. States and edge cases to design, not discover</h2>
+<ul>
+<li>Payment failed, pending, abandoned, or paid twice.</li>
+<li>Item marked sold out while it sits in a customer's cart.</li>
+<li>Cancellation requested after preparation has started.</li>
+<li>Printer unreachable — the order must still exist server-side, with a visible print-failed state and a reprint path.</li>
+<li>Customer requests payment, then orders again from the upsell strip.</li>
+<li>Two people at one table ordering from the same bill on separate phones.</li>
+<li>Captain reassigned mid-bill; tip attribution when staff changes.</li>
+<li>QR scanned for an already-closed bill, or a table with no open bill.</li>
+<li>WhatsApp number refused or invalid.</li>
+</ul>
+
+<h2>8. Dependencies that shape the design</h2>
+<div class="band">
+<p style="margin:0">These are not design choices; they change what the screens can promise. The design assumes each may be unavailable at launch and provides a fallback.</p>
+</div>
+<table class="table" style="width:100%;margin-top:14px">
+<thead><tr><th>Dependency</th><th>Design consequence</th></tr></thead>
+<tbody>
+<tr><td>TVS RP 3160 Gold printing</td><td>If browser-to-printer routing fails, the KDS fallback becomes a launch screen instead of a Phase 2 item</td></tr>
+<tr><td>Payment provider not yet chosen</td><td>Payment-request UX is designed independent of vendor; the pay action is a single swappable step with its own status screens</td></tr>
+<tr><td>WhatsApp invoice delivery</td><td>Invoice screen designed with a download/on-screen path first, WhatsApp send as an additive action</td></tr>
+<tr><td>Google review measurement</td><td>Report shows link clicks and redirects only; the interface never claims a submitted-review count</td></tr>
+<tr><td>GST configuration</td><td>Tax is a configurable line on the bill, not a hard-coded rate; the 5% figure in the reference is treated as unconfirmed</td></tr>
+</tbody>
+</table>
+
+<h2>9. Out of scope for this design round</h2>
+<p>Per the scope guardrails: inventory and recipes, customer CRM, feedback module, native captain app, multi-terminal sync, offline-first operation, advanced analytics, kiosk, waiter-calling devices, takeaway tokens, reservations, digital menu boards, purchase and vendor management, loyalty, campaigns, multi-outlet management and aggregator integrations. These are roadmap items. Designing them now would imply commitment.</p>
+
+<h2>10. Decisions I need before D1</h2>
+<table class="table" style="width:100%">
+<thead><tr><th style="width:150px">Decision</th><th>Why it blocks design</th></tr></thead>
+<tbody>
+<tr><td>Table count and numbering</td><td>Determines the captain floor layout and whether sections are needed</td></tr>
+<tr><td>Menu sample</td><td>Real item names, prices and 6–8 food photographs make the menu screens truthful rather than placeholder</td></tr>
+<tr><td>Who may discount, cancel, close</td><td>Determines which actions appear on captain screens versus owner-only screens</td></tr>
+<tr><td>Payment closure evidence</td><td>Whether the closure screen captures a reference number, a screenshot, or only a mode</td></tr>
+<tr><td>WhatsApp trigger</td><td>Automatic after payment, or staff-initiated — changes the invoice screen's primary action</td></tr>
+<tr><td>Review prompt wording</td><td>The photo-upload nudge needs approved copy before it can be laid out</td></tr>
+<tr><td>Tamil at launch</td><td>Affects type sizing, card and button widths across every screen</td></tr>
+</tbody>
+</table>
+
+<div class="note" style="margin-top:30px">
+<h3 style="margin:0 0 6px">Next step</h3>
+<p style="margin:0">Confirm the screen inventory and the D1 scope, answer what you can from section 10, and send the menu sample. I will then design the customer journey and show two or three directions for the menu and closure screens.</p>
+</div>
+</div>
+</doc-page>
+</x-dc>
+</body>
+</html>

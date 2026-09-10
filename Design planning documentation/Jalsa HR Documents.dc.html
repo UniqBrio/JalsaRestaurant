@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+doc-page:not(:defined){visibility:hidden}
+body{margin:0;background:#F4F0EE;font-family:'Noto Sans',Poppins,system-ui,sans-serif;color:#241F1E}
+a{color:#7A1C24}
+a:hover{color:#5E141B}
+.hd h1,.hd h2,.hd h3{font-family:Poppins,'Noto Sans',system-ui,sans-serif}
+.hd p,.hd td,.hd th,.hd li{font-size:11.2pt;line-height:1.55}
+.hd table{width:100%;border-collapse:collapse;margin:10px 0 16px}
+.hd th,.hd td{border:0.6pt solid #C9BFBB;padding:7px 10px;text-align:left;vertical-align:top}
+.hd th{background:#FBF1F0;font-weight:600;font-size:10.6pt}
+.hd .num{text-align:right;font-variant-numeric:tabular-nums}
+.hd h2{font-size:15.5pt;letter-spacing:.02em;margin:0 0 4px}
+.hd h3{font-size:12pt;margin:20px 0 6px}
+.hd .sig{margin-top:6px;font-size:11pt;line-height:2.1}
+.ph{background:#FFF1DC;color:#8A5A10;font-weight:600;padding:0 3px;border-radius:3px}
+.ctl{max-width:1180px;margin:0 auto;padding:22px 22px 6px}
+.fi{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:#57504D}
+.fi input,.fi select,.fi textarea{appearance:none;font-family:inherit;font-size:12.5px;color:#241F1E;background:#fff;border:1.5px solid rgba(36,31,30,.12);border-radius:999px;padding:8px 13px;width:100%;box-sizing:border-box}
+.fi textarea{border-radius:14px;resize:vertical;min-height:52px}
+.fi input:focus,.fi select:focus,.fi textarea:focus{outline:2px solid #7A1C24;outline-offset:1px;border-color:transparent}
+.req::after{content:" *";color:#C5221F}
+.seg{appearance:none;border:1.5px solid rgba(36,31,30,.12);background:#fff;border-radius:999px;padding:9px 16px;font-family:inherit;font-size:12.5px;font-weight:600;color:#57504D;cursor:pointer}
+.seg[data-on="1"]{background:#7A1C24;border-color:#7A1C24;color:#fff}
+.gh{appearance:none;border:0;background:none;font-family:inherit;font-size:12px;font-weight:600;color:#7A1C24;cursor:pointer;padding:6px 2px}
+.card{background:#fff;border-radius:20px;padding:18px 20px;box-shadow:0 1px 2px rgba(36,31,30,.06),0 8px 22px rgba(36,31,30,.05)}
+.sec{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9A918D;margin:0 0 11px}
+@media print{.ctl{display:none}}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+
+<div class="ctl">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:16px">
+<div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7A1C24">Jalsa Restaurant · Staff paperwork</div>
+<h1 style="font-family:Poppins,system-ui,sans-serif;font-size:26px;font-weight:600;margin:5px 0 0">{{ docTitle }}</h1>
+<div style="font-size:12.5px;color:#7C736F;margin-top:5px">{{ readyLine }}</div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<sc-for list="{{ docTabs }}" as="d" hint-placeholder-count="3">
+<button class="seg" data-on="{{ d.on }}" onClick="{{ d.click }}">{{ d.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">
+<div class="card">
+<p class="sec">Whose document is this</p>
+<div class="fi" style="margin-bottom:13px">Staff member
+<select onChange="{{ pickStaff }}" value="{{ staffId }}">
+<sc-for list="{{ staffOpts }}" as="o" hint-placeholder-count="6">
+<option value="{{ o.value }}">{{ o.label }}</option>
+</sc-for>
+</select>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+<label class="fi"><span class="req">Full name</span><input value="{{ f.name }}" onChange="{{ set.name }}"></label>
+<label class="fi">Employee ID<input value="{{ f.empId }}" onChange="{{ set.empId }}"></label>
+<label class="fi"><span class="req">Designation</span><input value="{{ f.designation }}" onChange="{{ set.designation }}"></label>
+<label class="fi"><span class="req">Department</span><input value="{{ f.department }}" onChange="{{ set.department }}"></label>
+<label class="fi"><span class="req">Date of joining</span><input type="date" value="{{ f.doj }}" onChange="{{ set.doj }}"></label>
+<label class="fi">Last working day<input type="date" value="{{ f.lwd }}" onChange="{{ set.lwd }}"></label>
+<div class="fi"><span class="req">Gender</span>
+<select onChange="{{ set.gender }}" value="{{ f.gender }}">
+<option value="Male">Male</option>
+<option value="Female">Female</option>
+<option value="Prefer not to say">Prefer not to say</option>
+</select>
+</div>
+<div class="fi"><span class="req">Employment type</span>
+<select onChange="{{ set.empType }}" value="{{ f.empType }}">
+<option value="Full-time">Full-time</option>
+<option value="Part-time">Part-time</option>
+<option value="Contract">Contract</option>
+<option value="Trainee">Trainee</option>
+</select>
+</div>
+<label class="fi"><span class="req">Monthly salary ₹</span><input value="{{ f.salary }}" onChange="{{ set.salary }}"></label>
+<label class="fi">Reporting to<input value="{{ f.reportsTo }}" onChange="{{ set.reportsTo }}"></label>
+<label class="fi">Working hours / shift<input value="{{ f.shift }}" onChange="{{ set.shift }}"></label>
+<label class="fi">Mobile<input value="{{ f.phone }}" onChange="{{ set.phone }}"></label>
+<label class="fi">Email<input value="{{ f.email }}" onChange="{{ set.email }}"></label>
+<label class="fi">Home address<input value="{{ f.address }}" onChange="{{ set.address }}"></label>
+</div>
+</div>
+
+<sc-if value="{{ isOffer }}" hint-placeholder-val="{{ true }}">
+<div class="card">
+<p class="sec">Offer terms</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+<label class="fi"><span class="req">Letter date</span><input type="date" value="{{ f.letterDate }}" onChange="{{ set.letterDate }}"></label>
+<label class="fi"><span class="req">Probation period</span><input value="{{ f.probation }}" onChange="{{ set.probation }}"></label>
+<label class="fi"><span class="req">Notice period</span><input value="{{ f.notice }}" onChange="{{ set.notice }}"></label>
+<label class="fi">Work location<input value="{{ f.workLocation }}" onChange="{{ set.workLocation }}"></label>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:12px">Salary in words is written for you from the figure above. Anything left blank prints as a highlighted placeholder so nothing is signed by accident.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isExp }}" hint-placeholder-val="{{ false }}">
+<div class="card">
+<p class="sec">Experience certificate</p>
+<div style="display:grid;grid-template-columns:1fr;gap:11px">
+<label class="fi"><span class="req">Certificate date</span><input type="date" value="{{ f.letterDate }}" onChange="{{ set.letterDate }}"></label>
+<label class="fi"><span class="req">What they were responsible for</span><textarea value="{{ f.duties }}" onChange="{{ set.duties }}"></textarea></label>
+<label class="fi"><span class="req">Qualities to name</span><input value="{{ f.qualities }}" onChange="{{ set.qualities }}"></label>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:12px">Pronouns follow the gender field — {{ pronounNote }}</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSlip }}" hint-placeholder-val="{{ false }}">
+<div class="card">
+<p class="sec">Payslip — month and attendance</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+<label class="fi"><span class="req">Salary month</span><input type="month" value="{{ f.slipMonth }}" onChange="{{ set.slipMonth }}"></label>
+<label class="fi"><span class="req">Payment date</span><input type="date" value="{{ f.payDate }}" onChange="{{ set.payDate }}"></label>
+<label class="fi"><span class="req">Payable days</span><input value="{{ f.payableDays }}" onChange="{{ set.payableDays }}"></label>
+<label class="fi"><span class="req">Paid days</span><input value="{{ f.paidDays }}" onChange="{{ set.paidDays }}"></label>
+<label class="fi">Loss of pay days<input value="{{ f.lopDays }}" onChange="{{ set.lopDays }}"></label>
+<div class="fi"><span class="req">Payment mode</span>
+<select onChange="{{ set.payMode }}" value="{{ f.payMode }}">
+<option value="Bank transfer">Bank transfer</option>
+<option value="Cash">Cash</option>
+<option value="UPI">UPI</option>
+</select>
+</div>
+<label class="fi">PAN<input value="{{ f.pan }}" onChange="{{ set.pan }}"></label>
+<label class="fi">UAN<input value="{{ f.uan }}" onChange="{{ set.uan }}"></label>
+<label class="fi">Bank account — last 4<input value="{{ f.bank4 }}" onChange="{{ set.bank4 }}"></label>
+<label class="fi">Prepared by<input value="{{ f.preparedBy }}" onChange="{{ set.preparedBy }}"></label>
+</div>
+</div>
+<div class="card">
+<p class="sec">Earnings and deductions</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+<sc-for list="{{ earnFields }}" as="e" hint-placeholder-count="7">
+<label class="fi">{{ e.label }}<input value="{{ e.value }}" onChange="{{ e.set }}"></label>
+</sc-for>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:#7A1C24;padding:11px 2px 14px;border-bottom:1px solid rgba(36,31,30,.08)">
+<span>Gross earnings</span><span>{{ grossLabel }}</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:14px">
+<sc-for list="{{ dedFields }}" as="d" hint-placeholder-count="6">
+<label class="fi">{{ d.label }}<input value="{{ d.value }}" onChange="{{ d.set }}"></label>
+</sc-for>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:#57504D;padding:11px 2px 0">
+<span>Total deductions</span><span>{{ dedLabel }}</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:14.5px;font-weight:700;margin-top:13px;padding:13px 15px;border-radius:14px;background:#FBF1F0;color:#7A1C24">
+<span>Net payable</span><span>{{ netLabel }}</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:10px">Blank rows are left out of the printed slip rather than printed as zero. Amount in words is written from the net figure.</div>
+</div>
+</sc-if>
+
+<div class="card">
+<p class="sec">Restaurant block — from Settings</p>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:13px">
+<img src="assets/jalsa-logo.png" alt="Jalsa Restaurant" style="width:52px;height:52px;border-radius:13px;object-fit:contain;background:#fff;border:1.5px solid rgba(36,31,30,.1)">
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">The logo, address, phone, email and signatory come from Settings › Restaurant details in the owner app. Editing them there changes every document at once.</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+<label class="fi"><span class="req">Restaurant name</span><input value="{{ f.rName }}" onChange="{{ set.rName }}"></label>
+<label class="fi"><span class="req">Phone</span><input value="{{ f.rPhone }}" onChange="{{ set.rPhone }}"></label>
+<label class="fi"><span class="req">Email</span><input value="{{ f.rEmail }}" onChange="{{ set.rEmail }}"></label>
+<label class="fi">Location line<input value="{{ f.rLocation }}" onChange="{{ set.rLocation }}"></label>
+<label class="fi" style="grid-column:1/-1"><span class="req">Address</span><input value="{{ f.rAddress }}" onChange="{{ set.rAddress }}"></label>
+<label class="fi"><span class="req">Signatory name</span><input value="{{ f.authName }}" onChange="{{ set.authName }}"></label>
+<label class="fi"><span class="req">Signatory designation</span><input value="{{ f.authRole }}" onChange="{{ set.authRole }}"></label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+<button class="seg" onClick="{{ printDoc }}">Print or save as PDF</button>
+<button class="gh" onClick="{{ resetDoc }}">Reset to placeholders</button>
+</div>
+</div>
+</div>
+</div>
+
+<doc-page margin="0.75in">
+<div class="hd">
+
+<div style="display:flex;align-items:flex-start;gap:18px;padding-bottom:14px;border-bottom:1.6pt solid #7A1C24">
+<img src="assets/jalsa-logo.png" alt="" style="width:74px;height:74px;object-fit:contain;flex:none">
+<div style="flex:1;min-width:0">
+<div style="font-family:Poppins,system-ui,sans-serif;font-size:21pt;font-weight:700;letter-spacing:.01em;color:#7A1C24;line-height:1.1">{{ rNameOut }}</div>
+<div style="font-size:9.6pt;line-height:1.6;margin-top:5px;color:#4A4340">
+<div>{{ rAddressOut }}</div>
+<div>{{ rContactOut }}</div>
+</div>
+</div>
+</div>
+
+<sc-if value="{{ isOffer }}" hint-placeholder-val="{{ true }}">
+<div style="margin-top:20px">
+<h2>OFFER LETTER</h2>
+<p style="margin:0 0 18px"><strong>Date:</strong> {{ letterDateOut }}</p>
+
+<p style="margin:0"><strong>To,</strong><br><strong>{{ nameOut }}</strong><br>{{ addressOut }}<br>{{ emailOut }}<br>{{ phoneOut }}</p>
+
+<h3>Subject: Offer of Employment</h3>
+<p>Dear <strong>{{ firstNameOut }}</strong>,</p>
+<p>We are pleased to offer you employment with <strong>{{ rNameOut }}</strong> for the position of <strong>{{ designationOut }}</strong>.</p>
+<p>Your employment will commence on <strong>{{ dojOut }}</strong>, subject to the terms and conditions outlined below.</p>
+
+<h3>Employment Details</h3>
+<table>
+<thead><tr><th style="width:38%">Particular</th><th>Details</th></tr></thead>
+<tbody>
+<sc-for list="{{ offerRows }}" as="r" hint-placeholder-count="10">
+<tr><td>{{ r.k }}</td><td>{{ r.v }}</td></tr>
+</sc-for>
+</tbody>
+</table>
+
+<h3>Compensation</h3>
+<p>You will receive a gross monthly salary of <strong>{{ salaryOut }}</strong> ({{ salaryWordsOut }} only), subject to applicable statutory deductions and other deductions, where applicable.</p>
+<p>The detailed salary structure will be provided separately or reflected in your monthly payslip.</p>
+
+<h3>Duties and Responsibilities</h3>
+<p>You will be responsible for performing the duties associated with your position and any other reasonable responsibilities assigned by the management from time to time.</p>
+<p>You are expected to maintain professional conduct, punctuality, hygiene, discipline, and appropriate standards of customer service at all times.</p>
+
+<h3>Working Conditions</h3>
+<p>Your employment will be governed by the policies, rules, procedures, and operational requirements of {{ rNameOut }} as applicable from time to time.</p>
+<p>You are expected to maintain confidentiality regarding restaurant operations, customer information, business information, recipes, pricing, financial information, and other confidential matters.</p>
+
+<h3>Leave and Attendance</h3>
+<p>Your leave entitlement, weekly off, attendance requirements, and other employment benefits will be governed by the restaurant's applicable policies and statutory requirements.</p>
+
+<h3>Termination</h3>
+<p>Either party may terminate the employment by providing <strong>{{ noticeOut }}</strong> notice or salary in lieu of notice, subject to applicable law and the terms of employment.</p>
+<p>The restaurant reserves the right to take appropriate disciplinary action in cases of misconduct, policy violations, or other breaches of employment conditions.</p>
+
+<h3>Acceptance</h3>
+<p>We are pleased to welcome you to <strong>{{ rNameOut }}</strong> and look forward to your contribution to our team.</p>
+<p>Please sign and return a copy of this letter as confirmation of your acceptance of the above terms.</p>
+
+<p style="margin-top:22px">Sincerely,</p>
+<p style="margin:0"><strong>For {{ rNameOut }}</strong></p>
+<div class="sig"><strong>{{ authNameOut }}</strong><br>{{ authRoleOut }}<br>{{ rNameOut }}<br>Email: {{ rEmailOut }}<br>Phone: {{ rPhoneOut }}</div>
+
+<div style="margin-top:26px;padding-top:16px;border-top:0.8pt solid #C9BFBB">
+<h3 style="margin-top:0">Employee Acceptance</h3>
+<p>I, <strong>{{ nameOut }}</strong>, hereby accept the offer of employment and agree to the terms and conditions stated above.</p>
+<div class="sig">
+<strong>Employee Signature:</strong> ______________________<br>
+<strong>Employee Name:</strong> {{ nameOut }}<br>
+<strong>Date:</strong> ______________________
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isExp }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:20px">
+<h2>EXPERIENCE CERTIFICATE</h2>
+<p style="margin:0 0 18px"><strong>Date:</strong> {{ letterDateOut }}</p>
+
+<p style="font-weight:600;margin:0 0 16px">To Whom It May Concern</p>
+
+<p>This is to certify that <strong>{{ nameOut }}</strong> was employed with <strong>{{ rNameOut }}</strong> as <strong>{{ designationOut }}</strong> in the <strong>{{ departmentOut }}</strong> department from <strong>{{ dojOut }}</strong> to <strong>{{ lwdOut }}</strong>.</p>
+
+<p>During the period of employment, {{ pSub }} was responsible for <strong>{{ dutiesOut }}</strong>.</p>
+
+<p>Throughout {{ pPos }} tenure with us, {{ firstNameOut }} demonstrated <strong>{{ qualitiesOut }}</strong> and carried out the assigned responsibilities to the satisfaction of the management.</p>
+
+<p>We appreciate {{ pPos }} contribution to {{ rNameOut }} and wish {{ pObj }} every success in {{ pPos }} future career and professional endeavors.</p>
+
+<p>This certificate is issued upon the employee's request for official and employment-related purposes.</p>
+
+<p style="margin-top:22px">Sincerely,</p>
+<p style="margin:0"><strong>For {{ rNameOut }}</strong></p>
+<div class="sig"><strong>{{ authNameOut }}</strong><br>{{ authRoleOut }}<br>{{ rNameOut }}<br>Email: {{ rEmailOut }}<br>Phone: {{ rPhoneOut }}</div>
+<div class="sig" style="margin-top:20px">
+<strong>Signature:</strong> ______________________<br>
+<strong>Company Seal:</strong> ___________________
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSlip }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:20px">
+<h2>SALARY SLIP</h2>
+<p style="margin:0 0 18px"><strong>Salary Month:</strong> {{ slipMonthOut }}</p>
+
+<h3 style="margin-top:0">Employee Details</h3>
+<table>
+<thead><tr><th style="width:38%">Particular</th><th>Details</th></tr></thead>
+<tbody>
+<sc-for list="{{ slipRows }}" as="r" hint-placeholder-count="12">
+<tr><td>{{ r.k }}</td><td>{{ r.v }}</td></tr>
+</sc-for>
+</tbody>
+</table>
+
+<h3>Earnings</h3>
+<table>
+<thead><tr><th style="width:62%">Earnings</th><th class="num">Amount (₹)</th></tr></thead>
+<tbody>
+<sc-for list="{{ earnRows }}" as="r" hint-placeholder-count="5">
+<tr><td>{{ r.k }}</td><td class="num">{{ r.v }}</td></tr>
+</sc-for>
+<tr><td style="font-weight:700">Gross Earnings</td><td class="num" style="font-weight:700">{{ grossOut }}</td></tr>
+</tbody>
+</table>
+
+<h3>Deductions</h3>
+<table>
+<thead><tr><th style="width:62%">Deduction</th><th class="num">Amount (₹)</th></tr></thead>
+<tbody>
+<sc-for list="{{ dedRows }}" as="r" hint-placeholder-count="4">
+<tr><td>{{ r.k }}</td><td class="num">{{ r.v }}</td></tr>
+</sc-for>
+<tr><td style="font-weight:700">Total Deductions</td><td class="num" style="font-weight:700">{{ dedOut }}</td></tr>
+</tbody>
+</table>
+
+<div style="margin-top:18px;padding:14px 16px;border:1.2pt solid #7A1C24;border-radius:10px">
+<div style="font-family:Poppins,system-ui,sans-serif;font-size:13.5pt;font-weight:700;color:#7A1C24">NET SALARY PAYABLE: {{ netOut }}</div>
+<p style="margin:8px 0 0"><strong>Amount in Words:</strong> {{ netWordsOut }} ONLY</p>
+<p style="margin:5px 0 0"><strong>Salary Payment Date:</strong> {{ payDateOut }}</p>
+</div>
+
+<div class="sig" style="margin-top:22px">
+<strong>Prepared By:</strong> {{ preparedByOut }}<br>
+<strong>Authorized By:</strong> {{ authNameOut }}<br>
+<strong>Signature:</strong> ______________________<br>
+<strong>Company Seal:</strong> ___________________
+</div>
+<p style="font-size:9.4pt;font-style:italic;color:#6B6360;margin-top:16px">This is a computer-generated salary slip and does not require a physical signature unless otherwise specified.</p>
+</div>
+</sc-if>
+
+</div>
+</doc-page>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180}}">
+const STAFF = {
+  firoz:   {name:"Firoz Ahmed", empId:"JAL-014", designation:"Captain", department:"Service", doj:"2024-06-03", lwd:"", gender:"Male", empType:"Full-time", salary:"22000", reportsTo:"Javeed", shift:"11:00 AM – 3:30 PM, 6:30 PM – 11:00 PM", phone:"+91 98765 43210", email:"firoz.ahmed@example.com", address:"12/4 Bagalur Road, Hosur 635109", pan:"ABCPF1234K", uan:"", bank4:"7741"},
+  imran:   {name:"Imran Sheikh", empId:"JAL-008", designation:"Senior Captain", department:"Service", doj:"2022-11-14", lwd:"", gender:"Male", empType:"Full-time", salary:"28000", reportsTo:"Javeed", shift:"11:00 AM – 3:30 PM, 6:30 PM – 11:00 PM", phone:"+91 90035 11204", email:"imran.sheikh@example.com", address:"7 Rayakottai Road, Hosur 635109", pan:"ABQPI9087L", uan:"101223344556", bank4:"2210"},
+  rehana:  {name:"Rehana Begum", empId:"JAL-021", designation:"Cashier", department:"Accounts", doj:"2025-01-20", lwd:"", gender:"Female", empType:"Full-time", salary:"24000", reportsTo:"Javeed", shift:"11:00 AM – 11:00 PM", phone:"+91 98410 77265", email:"rehana.begum@example.com", address:"39 Mookandapalli, Hosur 635126", pan:"ADFPR4412M", uan:"101998877665", bank4:"5093"},
+  karthik: {name:"Karthik Raja", empId:"JAL-011", designation:"Captain", department:"Service", doj:"2023-08-01", lwd:"2026-08-31", gender:"Male", empType:"Full-time", salary:"21000", reportsTo:"Imran Sheikh", shift:"6:30 PM – 11:00 PM", phone:"+91 99529 40817", email:"karthik.raja@example.com", address:"4 Sipcot Phase 1, Hosur 635126", pan:"AEKPK7781N", uan:"", bank4:"8834"},
+  mani:    {name:"Mani Kandan", empId:"JAL-017", designation:"Waiter", department:"Service", doj:"2024-12-09", lwd:"", gender:"Male", empType:"Part-time", salary:"16000", reportsTo:"Imran Sheikh", shift:"6:30 PM – 11:00 PM", phone:"+91 97865 21140", email:"", address:"22 Denkanikottai Road, Hosur 635109", pan:"", uan:"", bank4:"1176"},
+  suhana:  {name:"Suhana Parveen", empId:"JAL-023", designation:"Kitchen Assistant", department:"Kitchen", doj:"2025-07-15", lwd:"", gender:"Female", empType:"Contract", salary:"15000", reportsTo:"Chef Nizam", shift:"9:00 AM – 6:00 PM", phone:"+91 91234 55098", email:"", address:"58 Zuzuvadi, Hosur 635126", pan:"", uan:"", bank4:"6620"}
+};
+
+const RESTAURANT = {
+  rName:"Jalsa Restaurant",
+  rAddress:"142 Bagalur Main Road, Hosur, Krishnagiri District, Tamil Nadu 635109",
+  rEmail:"hello@jalsahosur.in",
+  rPhone:"+91 90000 12345",
+  rLocation:"Hosur, Tamil Nadu",
+  authName:"Javeed",
+  authRole:"Proprietor"
+};
+
+const EARNINGS = [["basic","Basic Salary"],["hra","HRA"],["conveyance","Conveyance / Transport Allowance"],["meal","Food / Meal Allowance"],["other","Other Allowances"],["overtime","Overtime"],["incentive","Incentives"]];
+const DEDUCTIONS = [["pf","Provident Fund (PF)"],["esi","ESI"],["ptax","Professional Tax"],["tds","TDS"],["advance","Advance / Loan"],["otherDed","Other Deductions"]];
+
+const ONES = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+const TENS = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+
+class Component extends DCLogic {
+  state = {
+    doc: "offer",
+    staffId: "firoz",
+    f: {...STAFF.firoz, ...RESTAURANT,
+      letterDate: "2026-09-09", probation: "3 months", notice: "30 days", workLocation: "Jalsa Restaurant, Hosur",
+      duties: "table service, order taking, billing support and guest handling",
+      qualities: "professionalism, punctuality, teamwork and consistent customer service",
+      slipMonth: "2026-08", payDate: "2026-09-05", payableDays: "31", paidDays: "31", lopDays: "0",
+      payMode: "Bank transfer", preparedBy: "Rehana Begum, Cashier",
+      basic: "13200", hra: "5280", conveyance: "1600", meal: "1200", other: "720", overtime: "", incentive: "",
+      pf: "1584", esi: "165", ptax: "", tds: "", advance: "", otherDed: ""}
+  };
+
+  upd(k, v){ this.setState(s => ({f: {...s.f, [k]: v}})); }
+
+  words(n){
+    n = Math.round(Number(n) || 0);
+    if (!n) return "Zero";
+    const two = x => x < 20 ? ONES[x] : (TENS[Math.floor(x / 10)] + (x % 10 ? " " + ONES[x % 10] : ""));
+    const three = x => (x >= 100 ? ONES[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " + two(x % 100) : "") : two(x));
+    const parts = [];
+    const cr = Math.floor(n / 10000000); n %= 10000000;
+    const la = Math.floor(n / 100000);   n %= 100000;
+    const th = Math.floor(n / 1000);     n %= 1000;
+    if (cr) parts.push(two(cr) + " Crore");
+    if (la) parts.push(two(la) + " Lakh");
+    if (th) parts.push(two(th) + " Thousand");
+    if (n)  parts.push(three(n));
+    return parts.join(" ");
+  }
+
+  rupee(v){
+    const n = Number(String(v).replace(/[^0-9.]/g, ""));
+    return isFinite(n) && String(v).trim() !== "" ? "\u20B9" + n.toLocaleString("en-IN") : null;
+  }
+
+  longDate(iso){
+    if (!iso) return null;
+    const [y, m, d] = String(iso).split("-");
+    if (!y || !m || !d) return null;
+    const MON = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    return parseInt(d, 10) + " " + MON[parseInt(m, 10) - 1] + " " + y;
+  }
+
+  monthName(v){
+    if (!v) return null;
+    const [y, m] = String(v).split("-");
+    if (!y || !m) return null;
+    const MON = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    return MON[parseInt(m, 10) - 1] + " " + y;
+  }
+
+  ph(value, label){
+    const v = value === null || value === undefined ? "" : String(value).trim();
+    if (v) return v;
+    return React.createElement("span", {className: "ph"}, "[" + label + "]");
+  }
+
+  sum(keys){
+    return keys.reduce((a, k) => a + (Number(String(this.state.f[k] || "").replace(/[^0-9.]/g, "")) || 0), 0);
+  }
+
+  renderVals(){
+    const s = this.state, f = s.f;
+    const R = "\u20B9";
+    const gross = this.sum(EARNINGS.map(([k]) => k));
+    const ded = this.sum(DEDUCTIONS.map(([k]) => k));
+    const net = gross - ded;
+
+    const G = (f.gender || "").toLowerCase();
+    const pron = G === "male" ? ["he","his","him"] : G === "female" ? ["she","her","her"] : ["they","their","them"];
+
+    const set = {};
+    Object.keys(f).forEach(k => { set[k] = e => this.upd(k, e.target.value); });
+
+    const missing = [];
+    const need = [["name","Full name"],["designation","Designation"],["department","Department"],["doj","Date of joining"],["salary","Monthly salary"],["rAddress","Restaurant address"],["authName","Signatory"]];
+    if (s.doc === "exp") need.push(["lwd","Last working day"], ["duties","Responsibilities"]);
+    if (s.doc === "slip") need.push(["slipMonth","Salary month"], ["payDate","Payment date"]);
+    if (s.doc === "offer") need.push(["probation","Probation period"], ["notice","Notice period"]);
+    need.forEach(([k, label]) => { if (!String(f[k] || "").trim()) missing.push(label); });
+
+    const docTitle = s.doc === "offer" ? "Offer letter" : s.doc === "exp" ? "Experience certificate" : "Monthly payslip";
+
+    const earnRows = EARNINGS.filter(([k]) => String(f[k] || "").trim())
+      .map(([k, label]) => ({k: label, v: (Number(String(f[k]).replace(/[^0-9.]/g, "")) || 0).toLocaleString("en-IN")}));
+    const dedRows = DEDUCTIONS.filter(([k]) => String(f[k] || "").trim())
+      .map(([k, label]) => ({k: label, v: (Number(String(f[k]).replace(/[^0-9.]/g, "")) || 0).toLocaleString("en-IN")}));
+
+    return {
+      docTitle,
+      readyLine: missing.length
+        ? missing.length + (missing.length === 1 ? " field" : " fields") + " still to fill — " + missing.slice(0, 3).join(", ") + (missing.length > 3 ? " and more" : "")
+        : "Every required field is filled — ready to print for " + (f.name || "this employee"),
+      docTabs: [["offer","Offer letter"],["exp","Experience certificate"],["slip","Payslip"]].map(([k, label]) => ({
+        label, on: s.doc === k ? "1" : "0", click: () => this.setState({doc: k})
+      })),
+      isOffer: s.doc === "offer", isExp: s.doc === "exp", isSlip: s.doc === "slip",
+
+      staffId: s.staffId,
+      staffOpts: Object.keys(STAFF).map(k => ({value: k, label: STAFF[k].name + " · " + STAFF[k].designation})),
+      pickStaff: e => {
+        const k = e.target.value;
+        this.setState(st => ({staffId: k, f: {...st.f, ...STAFF[k]}}));
+      },
+      f, set,
+
+      pronounNote: pron[0] + " / " + pron[1] + " / " + pron[2] + " will be used throughout.",
+      pSub: pron[0], pPos: pron[1], pObj: pron[2],
+
+      earnFields: EARNINGS.map(([k, label]) => ({label, value: f[k], set: set[k]})),
+      dedFields: DEDUCTIONS.map(([k, label]) => ({label, value: f[k], set: set[k]})),
+      grossLabel: R + gross.toLocaleString("en-IN"),
+      dedLabel: "− " + R + ded.toLocaleString("en-IN"),
+      netLabel: R + net.toLocaleString("en-IN"),
+
+      printDoc: () => window.print(),
+      resetDoc: () => this.setState({f: {...s.f, ...STAFF[s.staffId]}}),
+
+      // --- printed document values
+      rNameOut: this.ph(f.rName, "RESTAURANT NAME"),
+      rAddressOut: this.ph(f.rAddress, "RESTAURANT ADDRESS"),
+      rContactOut: (String(f.rEmail || "").trim() ? f.rEmail : "[RESTAURANT EMAIL]") + "  ·  " + (String(f.rPhone || "").trim() ? f.rPhone : "[RESTAURANT PHONE]"),
+      rEmailOut: this.ph(f.rEmail, "RESTAURANT EMAIL ID"),
+      rPhoneOut: this.ph(f.rPhone, "RESTAURANT PHONE NUMBER"),
+      authNameOut: this.ph(f.authName, "AUTHORIZED PERSON NAME"),
+      authRoleOut: this.ph(f.authRole, "DESIGNATION"),
+
+      nameOut: this.ph(f.name, "EMPLOYEE FULL NAME"),
+      firstNameOut: this.ph(String(f.name || "").split(" ")[0], "EMPLOYEE NAME"),
+      addressOut: this.ph(f.address, "EMPLOYEE ADDRESS"),
+      emailOut: this.ph(f.email, "EMPLOYEE EMAIL"),
+      phoneOut: this.ph(f.phone, "EMPLOYEE PHONE NUMBER"),
+      designationOut: this.ph(f.designation, "JOB TITLE / DESIGNATION"),
+      departmentOut: this.ph(f.department, "DEPARTMENT"),
+      dojOut: this.ph(this.longDate(f.doj), "DATE OF JOINING"),
+      lwdOut: this.ph(this.longDate(f.lwd), "LAST WORKING DATE"),
+      letterDateOut: this.ph(this.longDate(f.letterDate), "DATE"),
+      salaryOut: this.ph(this.rupee(f.salary), "MONTHLY SALARY"),
+      salaryWordsOut: this.ph(String(f.salary || "").trim() ? "Rupees " + this.words(f.salary) : "", "SALARY IN WORDS"),
+      noticeOut: this.ph(f.notice, "NOTICE PERIOD"),
+      dutiesOut: this.ph(f.duties, "BRIEF DESCRIPTION OF RESPONSIBILITIES"),
+      qualitiesOut: this.ph(f.qualities, "PROFESSIONALISM / PUNCTUALITY / TEAMWORK"),
+
+      offerRows: [
+        {k:"Employee Name", v: this.ph(f.name, "EMPLOYEE FULL NAME")},
+        {k:"Designation", v: this.ph(f.designation, "JOB TITLE")},
+        {k:"Department", v: this.ph(f.department, "DEPARTMENT")},
+        {k:"Date of Joining", v: this.ph(this.longDate(f.doj), "DATE OF JOINING")},
+        {k:"Employment Type", v: this.ph(f.empType, "FULL-TIME / PART-TIME / CONTRACT")},
+        {k:"Work Location", v: this.ph(f.workLocation, "LOCATION")},
+        {k:"Reporting To", v: this.ph(f.reportsTo, "MANAGER / SUPERVISOR NAME")},
+        {k:"Working Hours", v: this.ph(f.shift, "WORKING HOURS / SHIFT")},
+        {k:"Monthly Salary", v: this.ph(this.rupee(f.salary), "MONTHLY SALARY")},
+        {k:"Probation Period", v: this.ph(f.probation, "PROBATION PERIOD")}
+      ],
+
+      slipMonthOut: this.ph(this.monthName(f.slipMonth), "MONTH & YEAR"),
+      payDateOut: this.ph(this.longDate(f.payDate), "PAYMENT DATE"),
+      preparedByOut: this.ph(f.preparedBy, "NAME / DESIGNATION"),
+      slipRows: [
+        {k:"Employee Name", v: this.ph(f.name, "EMPLOYEE FULL NAME")},
+        {k:"Employee ID", v: this.ph(f.empId, "EMPLOYEE ID")},
+        {k:"Designation", v: this.ph(f.designation, "JOB TITLE")},
+        {k:"Department", v: this.ph(f.department, "DEPARTMENT")},
+        {k:"Date of Joining", v: this.ph(this.longDate(f.doj), "DATE OF JOINING")},
+        {k:"Employment Type", v: this.ph(f.empType, "EMPLOYMENT TYPE")},
+        {k:"PAN", v: this.ph(f.pan, "PAN NUMBER")},
+        {k:"UAN", v: String(f.uan || "").trim() ? f.uan : "N/A"},
+        {k:"Bank Account", v: String(f.bank4 || "").trim() ? "XXXX XXXX " + f.bank4 : "N/A"},
+        {k:"Payment Mode", v: this.ph(f.payMode, "BANK TRANSFER / CASH / OTHER")},
+        {k:"Payable Days", v: this.ph(f.payableDays, "PAYABLE DAYS")},
+        {k:"Paid Days", v: this.ph(f.paidDays, "PAID DAYS")},
+        {k:"LOP Days", v: String(f.lopDays || "").trim() ? f.lopDays : "0"}
+      ],
+      earnRows, dedRows,
+      grossOut: gross.toLocaleString("en-IN"),
+      dedOut: ded.toLocaleString("en-IN"),
+      netOut: R + net.toLocaleString("en-IN"),
+      netWordsOut: this.ph(net ? "Rupees " + this.words(net) : "", "NET SALARY IN WORDS")
+    };
+  }
+}
+</script>
+</body>
+</html>

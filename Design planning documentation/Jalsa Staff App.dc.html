@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/styles.css">
+<script src="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&text=%E2%82%B9">
+<style>
+body{margin:0;background:#EFE7E3;font-family:'Noto Sans',Poppins,system-ui,sans-serif;color:#241F1E;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#7A1C24;text-decoration:none}
+a:hover{color:#5E1319}
+button{font-family:inherit}
+button:focus-visible{outline:2px solid #7A1C24;outline-offset:2px}
+.cbtn{appearance:none;border:0;border-radius:999px;padding:14px 22px;font-size:14px;font-weight:600;cursor:pointer;background:#7A1C24;color:#fff;width:100%;min-height:46px}
+.cbtn:hover{background:#5E1319}
+.cbtn2{appearance:none;border:1.5px solid rgba(122,28,36,.3);border-radius:999px;padding:12px 18px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#7A1C24;min-height:44px}
+.cbtn2:hover{background:#FAF0EF}
+.cghost{appearance:none;border:0;background:none;border-radius:999px;padding:11px 13px;font-size:12.5px;font-weight:600;color:#7C736F;cursor:pointer;min-height:44px}
+.cghost:hover{background:#F1ECEA;color:#241F1E}
+.cchip{appearance:none;border:1.5px solid rgba(36,31,30,.11);background:#fff;border-radius:999px;padding:10px 16px;font-size:12.5px;font-weight:600;color:#57504D;cursor:pointer;min-height:44px}
+.cchip:hover{border-color:#7A1C24;color:#7A1C24}
+.cchip[data-on="1"]{background:#7A1C24;border-color:#7A1C24;color:#fff}
+.ccard{background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(36,31,30,.05),0 8px 22px rgba(36,31,30,.05);padding:16px}
+.ctile{appearance:none;border:0;cursor:pointer;text-align:left;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:5px;min-height:96px;font-family:inherit}
+.ctile:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(36,31,30,.12)}
+.cstep{appearance:none;width:44px;height:44px;border-radius:999px;border:1.5px solid rgba(36,31,30,.13);background:#fff;font-size:18px;font-weight:600;color:#241F1E;cursor:pointer;line-height:1}
+.cstep:hover{border-color:#7A1C24;color:#7A1C24}
+.cnav{appearance:none;border:0;background:none;cursor:pointer;flex:1;padding:9px 0 11px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:600;color:#9A918D;font-family:inherit;position:relative;min-height:58px}
+.cnav[data-on="1"]{color:#7A1C24}
+.cnavi{width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#F1ECEA}
+.cnav[data-on="1"] .cnavi{background:#7A1C24;color:#fff}
+.knav{color:rgba(255,255,255,.55)}
+.knav[data-on="1"]{color:#FFD9A0}
+.knav .cnavi{background:rgba(255,255,255,.13);color:#fff}
+.knav[data-on="1"] .cnavi{background:#FFD9A0;color:#241F1E}
+.csec{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#9A918D;margin:0 0 10px}
+.csheet{position:absolute;inset:0;background:rgba(36,31,30,.46);display:flex;align-items:flex-end;z-index:20}
+.cpanel{background:#fff;border-radius:26px 26px 0 0;padding:22px 18px 20px;width:100%;max-height:88%;overflow:auto}
+.ckey{appearance:none;border:0;background:#F6F1EF;border-radius:18px;font-size:22px;font-weight:600;color:#241F1E;cursor:pointer;height:56px;font-family:inherit}
+.ckey:hover{background:#EDE5E2}
+.rolebtn{appearance:none;border:1.5px solid rgba(36,31,30,.12);background:#fff;border-radius:999px;padding:11px 20px;font-size:13px;font-weight:600;color:#57504D;cursor:pointer;min-height:44px}
+.rolebtn:hover{border-color:#7A1C24;color:#7A1C24}
+.rolebtn[data-on="1"]{background:#241F1E;border-color:#241F1E;color:#fff}
+@keyframes cblink{0%,100%{background:#FDECEC;box-shadow:0 0 0 0 rgba(197,34,31,0)}50%{background:#FFD9D6;box-shadow:0 0 0 6px rgba(197,34,31,.12)}}
+@keyframes cdot{0%,100%{opacity:1}50%{opacity:.25}}
+.creq{animation:cblink 1.15s ease-in-out infinite}
+.creqdot{animation:cdot 1.15s ease-in-out infinite}
+.mkv,.mkn,.mke{width:13px;height:13px;border-radius:3px;border:1.5px solid #1E8E3E;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mkv::after,.mkn::after,.mke::after{content:"";width:6px;height:6px;border-radius:999px;background:#1E8E3E}
+.mkn{border-color:#A81D19}
+.mkn::after{background:#A81D19}
+.mke{border-color:#C98A05}
+.mke::after{background:#C98A05}
+.mkvw,.mknw,.mkew{width:16px;height:16px;border-radius:4px;border:2px solid #7BD68F;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mkvw::after,.mknw::after,.mkew::after{content:"";width:7px;height:7px;border-radius:999px;background:#7BD68F}
+.mknw{border-color:#FF9A93}
+.mknw::after{background:#FF9A93}
+.mkew{border-color:#FFD9A0}
+.mkew::after{background:#FFD9A0}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:26px 16px 44px;gap:16px">
+
+<div style="width:100%;max-width:440px">
+<div style="font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#7A1C24">Jalsa · Staff app</div>
+<div style="font-size:20px;font-weight:600;margin-top:5px">{{ shellTitle }}</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:5px;line-height:1.5">{{ shellSub }}</div>
+<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+<sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+<button class="rolebtn" data-on="{{ r.on }}" onClick="{{ r.click }}">{{ r.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="width:100%;max-width:440px;background:#241F1E;border-radius:44px;padding:9px;box-shadow:0 24px 60px rgba(36,31,30,.28)">
+<div style="position:relative;border-radius:36px;overflow:hidden;height:892px;display:flex;flex-direction:column;background:{{ shellBg }}">
+
+<div style="padding:9px 20px 0;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;background:{{ barBg }};color:{{ barFg }}">
+<span>8:32</span><span style="flex:1"></span><span>{{ signalLine }}</span>
+</div>
+
+<sc-if value="{{ isSignin }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;background:#7A1C24;color:#fff;display:flex;flex-direction:column;padding:30px 22px 20px">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:58px;height:58px;border-radius:18px;object-fit:contain;background:#fff;padding:3px">
+<div style="font-size:21px;font-weight:600;margin-top:16px">{{ signinTitle }}</div>
+<div style="font-size:12.5px;color:rgba(255,255,255,.78);margin-top:6px;line-height:1.5">Four-digit PIN. Everything you do tonight is recorded against your name.</div>
+<div style="display:flex;gap:10px;margin:22px 0 6px">
+<sc-for list="{{ pinDots }}" as="d" hint-placeholder-count="4">
+<span style="flex:1;height:50px;border-radius:16px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600">{{ d.ch }}</span>
+</sc-for>
+</div>
+<div style="font-size:12px;color:rgba(255,255,255,.72);min-height:20px">{{ pinHint }}</div>
+<div style="margin-top:auto;background:#fff;border-radius:26px;padding:14px">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+<sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+<button class="ckey" onClick="{{ k.click }}">{{ k.label }}</button>
+</sc-for>
+</div>
+<button class="cbtn" style="margin-top:11px" onClick="{{ doSignin }}">Sign in</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;display:flex;flex-direction:column;min-height:0">
+
+<div style="padding:11px 16px 15px;display:flex;align-items:center;gap:11px;background:{{ headBg }};color:{{ headFg }}">
+<sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ back }}" style="appearance:none;border:0;background:rgba(255,255,255,.16);color:inherit;width:36px;height:36px;border-radius:999px;font-size:17px;cursor:pointer;font-family:inherit;flex:none">‹</button>
+</sc-if>
+<div style="flex:1;min-width:0">
+<div style="font-size:16px;font-weight:600;line-height:1.2">{{ title }}</div>
+<div style="font-size:11.5px;opacity:.76;margin-top:2px">{{ subtitle }}</div>
+</div>
+<div style="width:34px;height:34px;border-radius:999px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none">{{ initial }}</div>
+</div>
+
+<div style="flex:1;overflow:auto;padding:15px 15px 22px;display:flex;flex-direction:column;gap:12px">
+
+<sc-if value="{{ isFloor }}" hint-placeholder-val="{{ true }}">
+<div>
+<div style="background:#F0FAE1;color:#3D472B;border-radius:16px;padding:13px 15px;font-size:12px;line-height:1.5">
+<div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.72">Note from Javeed · 8:02 PM</div>
+<div style="margin-top:5px">{{ dayNote }}</div>
+</div>
+<sc-if value="{{ showCleanBanner }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ goClean }}" style="appearance:none;border:0;cursor:pointer;text-align:left;width:100%;border-radius:16px;padding:13px 15px;margin-top:11px;display:flex;align-items:center;gap:11px;font-family:inherit;background:#EAF1FB">
+<span class="creqdot" style="width:9px;height:9px;border-radius:999px;background:#1B4E8F;flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:700;color:#1B4E8F">{{ cleanBanner }}</span>
+<span style="display:block;font-size:11.5px;color:#2F5C93;margin-top:2px">{{ cleanBannerSub }}</span>
+</span>
+<span style="font-size:17px;color:#1B4E8F">›</span>
+</button>
+</sc-if>
+<sc-if value="{{ showNotesBanner }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ goNotes }}" style="appearance:none;border:0;cursor:pointer;text-align:left;width:100%;border-radius:16px;padding:13px 15px;margin-top:11px;display:flex;align-items:center;gap:11px;font-family:inherit;background:#E4F3E8">
+<span class="creqdot" style="width:9px;height:9px;border-radius:999px;background:#1E8E3E;flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:700;color:#14602A">{{ notesBanner }}</span>
+<span style="display:block;font-size:11.5px;color:#2E6B3E;margin-top:2px">{{ notesBannerSub }}</span>
+</span>
+<span style="font-size:17px;color:#166A2E">›</span>
+</button>
+</sc-if>
+<sc-if value="{{ hasReq }}" hint-placeholder-val="{{ true }}">
+<button class="creq" onClick="{{ goReq }}" style="appearance:none;border:0;cursor:pointer;text-align:left;width:100%;border-radius:16px;padding:13px 15px;margin-top:11px;display:flex;align-items:center;gap:11px;font-family:inherit">
+<span class="creqdot" style="width:9px;height:9px;border-radius:999px;background:#C5221F;flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:700;color:#A81D19">{{ reqBanner }}</span>
+<span style="display:block;font-size:11.5px;color:#7A2C29;margin-top:2px">{{ reqBannerSub }}</span>
+</span>
+<span style="font-size:17px;color:#A81D19">›</span>
+</button>
+</sc-if>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px">
+<sc-for list="{{ tiles }}" as="t" hint-placeholder-count="6">
+<button class="ctile" style="background:{{ t.bg }};color:{{ t.fg }}" onClick="{{ t.click }}">
+<span style="display:flex;align-items:center;gap:6px">
+<span style="font-size:18px;font-weight:700">{{ t.label }}</span>
+<span style="font-size:12px">{{ t.flagIcon }}</span>
+</span>
+<span style="font-size:11.5px;font-weight:700;opacity:.9">{{ t.state }}</span>
+<span style="font-size:11px;opacity:.74;line-height:1.4">{{ t.line }}</span>
+<span style="margin-top:auto;font-size:12.5px;font-weight:700">{{ t.total }}</span>
+</button>
+</sc-for>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:13px">{{ floorNote }}</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTable }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div class="ccard">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(36,31,30,.08);border-radius:14px;overflow:hidden">
+<sc-for list="{{ ids }}" as="i" hint-placeholder-count="6">
+<div style="background:#fff;padding:10px 12px">
+<div style="font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9A918D">{{ i.label }}</div>
+<div style="font-size:13px;font-weight:600;margin-top:3px">{{ i.value }}</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ bIsGroup }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:11px;padding:11px 13px;border-radius:14px;background:#F0FAE1;color:#3D472B;font-size:11.5px;font-weight:600;line-height:1.45">{{ bGroupLine }}</div>
+</sc-if>
+<sc-if value="{{ bHasOccasion }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:9px;padding:11px 13px;border-radius:14px;background:#FBF1F0;color:#7A1C24;font-size:11.5px;font-weight:600;line-height:1.45">{{ bOccasionLine }}</div>
+</sc-if>
+</div>
+
+<div class="ccard">
+<p class="csec">Rounds sent to the kitchen</p>
+<div style="display:flex;flex-direction:column;gap:11px">
+<sc-for list="{{ bKots }}" as="k" hint-placeholder-count="3">
+<div style="border:1.5px solid rgba(36,31,30,.09);border-radius:16px;padding:12px 13px">
+<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+<span style="font-size:13px;font-weight:700">{{ k.no }}</span>
+<span style="font-size:10px;font-weight:600;padding:3px 9px;border-radius:999px;background:{{ k.pillBg }};color:{{ k.pillFg }}">{{ k.status }}</span>
+<span style="flex:1"></span>
+<span style="font-size:11px;color:#7C736F">{{ k.time }}</span>
+</div>
+<div style="font-size:11px;color:#7C736F;margin-top:4px">{{ k.meta }}</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+<sc-for list="{{ k.items }}" as="it" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:9px">
+<span class="{{ it.mark }}"></span>
+<span style="flex:1;min-width:0;font-size:12.5px">{{ it.name }}</span>
+<span style="font-size:12.5px;font-weight:700;width:24px;text-align:right">{{ it.qty }}</span>
+<sc-if value="{{ canEditItems }}" hint-placeholder-val="{{ true }}">
+<button class="cghost" style="padding:9px 10px" onClick="{{ it.qtyEdit }}">Qty</button>
+<button class="cghost" style="padding:9px 10px;color:#C5221F" onClick="{{ it.cancel }}">Cancel</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">
+<sc-if value="{{ canReprint }}" hint-placeholder-val="{{ true }}">
+<button class="cbtn2" style="padding:10px 15px;font-size:12px" onClick="{{ k.reprint }}">Reprint</button>
+</sc-if>
+<sc-if value="{{ k.canServe }}" hint-placeholder-val="{{ false }}">
+<button class="cbtn2" style="padding:10px 15px;font-size:12px" onClick="{{ k.serve }}">Mark served</button>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div class="ccard">
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ bTotals }}" as="t" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;font-size:{{ t.size }};font-weight:{{ t.weight }};color:{{ t.color }}">
+<span>{{ t.label }}</span><span>{{ t.value }}</span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ moneyHidden }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:11px;font-size:11.5px;color:#7C736F;line-height:1.5">{{ moneyNote }}</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ canAddItems }}" hint-placeholder-val="{{ true }}">
+<button class="cbtn" onClick="{{ goMenu }}">Add items for this table</button>
+</sc-if>
+<div style="display:flex;gap:9px">
+<sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}">
+<button class="cbtn2" style="flex:1" onClick="{{ openClose }}">{{ closeLabel }}</button>
+</sc-if>
+<sc-if value="{{ canGroup }}" hint-placeholder-val="{{ true }}">
+<button class="cbtn2" style="flex:1" onClick="{{ openGroup }}">Tables on this bill</button>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMenu }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="6">
+<button class="cchip" data-on="{{ c.on }}" onClick="{{ c.click }}">{{ c.label }}</button>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:9px;margin-top:13px">
+<sc-for list="{{ menuRows }}" as="m" hint-placeholder-count="8">
+<div class="ccard" style="padding:13px;display:flex;align-items:center;gap:11px;opacity:{{ m.op }}">
+<div style="width:46px;height:46px;border-radius:13px;background:#F1ECEA;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:600;color:#B0A6A2;flex:none">IMG</div>
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:7px">
+<span class="{{ m.mark }}"></span>
+<span style="font-size:13px;font-weight:600">{{ m.name }}</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:3px">{{ m.sub }}</div>
+</div>
+<sc-if value="{{ m.orderable }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:7px;flex:none">
+<sc-if value="{{ m.inCart }}" hint-placeholder-val="{{ false }}">
+<button class="cstep" onClick="{{ m.dec }}">−</button>
+<span style="font-size:14px;font-weight:700;min-width:16px;text-align:center">{{ m.qty }}</span>
+</sc-if>
+<button class="cstep" onClick="{{ m.inc }}">+</button>
+</div>
+</sc-if>
+<sc-if value="{{ m.closed }}" hint-placeholder-val="{{ false }}">
+<button class="cghost" style="color:#A81D19;flex:none" onClick="{{ m.reopen }}">Put back</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:13px">Anything the kitchen has run out of, switch off here and it leaves every customer's phone at once.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isKots }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ allKots }}" as="k" hint-placeholder-count="6">
+<div class="ccard" style="padding:14px">
+<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+<span style="font-size:13.5px;font-weight:700">{{ k.no }}</span>
+<span style="font-size:10px;font-weight:600;padding:3px 9px;border-radius:999px;background:{{ k.pillBg }};color:{{ k.pillFg }}">{{ k.status }}</span>
+<span style="flex:1"></span>
+<span style="font-size:11px;color:#7C736F">{{ k.time }}</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:5px;line-height:1.45">{{ k.meta }}</div>
+<div style="font-size:12px;margin-top:7px;line-height:1.5">{{ k.summary }}</div>
+<div style="display:flex;gap:8px;margin-top:11px">
+<button class="cbtn2" style="padding:10px 15px;font-size:12px" onClick="{{ k.reprint }}">Reprint</button>
+<button class="cghost" onClick="{{ k.open }}">Open table</button>
+</div>
+</div>
+</sc-for>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">A reprint is stamped REPRINT and recorded against your name, so the kitchen knows it is not a second order.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isServe }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:11px">
+<sc-if value="{{ showNotesBanner }}" hint-placeholder-val="{{ true }}">
+<div style="border-radius:16px;padding:13px 15px;background:#E4F3E8;display:flex;align-items:center;gap:11px">
+<span class="creqdot" style="width:9px;height:9px;border-radius:999px;background:#1E8E3E;flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:700;color:#14602A">{{ notesBanner }}</span>
+<span style="display:block;font-size:11.5px;color:#2E6B3E;margin-top:2px">{{ notesBannerSub }}</span>
+</span>
+</div>
+</sc-if>
+<sc-for list="{{ readyRows }}" as="r" hint-placeholder-count="4">
+<div class="ccard" style="padding:15px;background:{{ r.bg }}">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<span style="font-size:20px;font-weight:700">{{ r.table }}</span>
+<span style="font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:{{ r.pillBg }};color:{{ r.pillFg }}">{{ r.stage }}</span>
+<span style="flex:1"></span>
+<span style="font-size:12.5px;font-weight:700;color:{{ r.ageColor }}">{{ r.age }}</span>
+</div>
+<div style="font-size:11.5px;color:#57504D;margin-top:5px">{{ r.meta }}</div>
+<div style="display:flex;flex-direction:column;gap:7px;margin-top:11px">
+<sc-for list="{{ r.items }}" as="it" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:9px">
+<span class="{{ it.mark }}"></span>
+<span style="flex:1;min-width:0;font-size:13.5px;font-weight:500">{{ it.name }}</span>
+<span style="font-size:13.5px;font-weight:700">{{ it.qty }}</span>
+</div>
+</sc-for>
+</div>
+<button class="cbtn" style="margin-top:13px" onClick="{{ r.action }}">{{ r.actionLabel }}</button>
+</div>
+</sc-for>
+<sc-if value="{{ noReady }}" hint-placeholder-val="{{ false }}">
+<div class="ccard" style="text-align:center;padding:30px 18px">
+<div style="font-size:15px;font-weight:600">Nothing to run</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:6px;line-height:1.5">When the kitchen marks a round ready it appears here, oldest first.</div>
+</div>
+</sc-if>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">Picked up means it left the counter. Served means it is on the table — that is what unlocks the guest's heart button.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isClean }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ cleanRows }}" as="c" hint-placeholder-count="2">
+<div style="border-radius:18px;padding:15px;background:{{ c.bg }};border:1.5px solid {{ c.edge }}">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<span style="font-size:19px;font-weight:700">{{ c.table }}</span>
+<span style="flex:1"></span>
+<span style="font-size:12px;font-weight:700;color:#57504D">{{ c.age }}</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:5px">{{ c.meta }}</div>
+<div style="font-size:12.5px;font-weight:600;margin-top:8px">{{ c.note }}</div>
+<button class="cbtn" style="margin-top:13px" onClick="{{ c.done }}">Cleared and reset</button>
+</div>
+</sc-for>
+<sc-if value="{{ noClean }}" hint-placeholder-val="{{ false }}">
+<div class="ccard" style="text-align:center;padding:30px 18px">
+<div style="font-size:15px;font-weight:600">Everything is reset</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:6px;line-height:1.5">The moment a bill is closed the table lands here, so the next party is not kept waiting at a dirty table.</div>
+</div>
+</sc-if>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">Marking it cleared frees the table on the floor and on the waitlist, so the host stand can seat the next party.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAlerts }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ noteRows }}" as="n" hint-placeholder-count="2">
+<div style="border-radius:18px;padding:14px 15px;background:{{ n.bg }};border:1.5px solid {{ n.edge }}">
+<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+<span style="font-size:15px;font-weight:700">{{ n.kot }}</span>
+<span style="font-size:13px;font-weight:600;color:#7A1C24">{{ n.table }}</span>
+<span style="flex:1"></span>
+<span style="font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:{{ n.badgeBg }};color:{{ n.badgeFg }}">{{ n.badge }}</span>
+</div>
+<div style="font-size:12.5px;font-weight:600;margin-top:6px">{{ n.line }}</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:3px">{{ n.meta }} · {{ n.age }}</div>
+<button class="cbtn2" style="width:100%;margin-top:12px" onClick="{{ n.go }}">Open the table</button>
+</div>
+</sc-for>
+<sc-if value="{{ noNotes }}" hint-placeholder-val="{{ false }}">
+<div class="ccard" style="text-align:center;padding:30px 18px">
+<div style="font-size:15px;font-weight:600">Nothing at the pass</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:6px;line-height:1.5">The moment Rafiq marks a round ready it appears here and on Mani's phone at the same time.</div>
+</div>
+</sc-if>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">The kitchen, the waiter and you see the same list. It clears itself when the food reaches the table.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReq }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ reqRows }}" as="r" hint-placeholder-count="3">
+<div class="{{ r.cls }}" style="border-radius:18px;padding:14px;background:{{ r.bg }};color:{{ r.fg }}">
+<div style="display:flex;align-items:center;gap:10px">
+<span class="{{ r.dotCls }}" style="width:9px;height:9px;border-radius:999px;flex:none;background:{{ r.dotBg }}"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:14px;font-weight:700">{{ r.type }}</span>
+<span style="display:block;font-size:11.5px;margin-top:2px;opacity:.85">{{ r.meta }}</span>
+</span>
+<span style="font-size:12px;font-weight:700">{{ r.age }}</span>
+</div>
+<div style="font-size:11.5px;margin-top:8px;font-weight:600;opacity:.9">{{ r.askedLine }}</div>
+<div style="display:flex;gap:8px;margin-top:12px">
+<button class="cbtn" style="flex:1;padding:12px 0;font-size:13px" onClick="{{ r.done }}">Done</button>
+<button class="cbtn2" onClick="{{ r.open }}">Table</button>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ noReq }}" hint-placeholder-val="{{ false }}">
+<div class="ccard" style="text-align:center;padding:30px 18px">
+<div style="font-size:15px;font-weight:600">Nothing waiting</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:6px;line-height:1.5">Requests from your tables land here and ring. Anything not cleared in five minutes also shows on Javeed's dashboard.</div>
+</div>
+</sc-if>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">Marking done clears it from the owner's dashboard too, with your name against it.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isQueue }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div class="ccard" style="padding:14px;display:flex;align-items:center;gap:12px">
+<div style="flex:1;min-width:0">
+<div style="font-size:13px;font-weight:600">{{ queueLine }}</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:3px">{{ queueFreeLine }}</div>
+</div>
+<button class="cbtn2" onClick="{{ addWalkin }}">Walk-in</button>
+</div>
+<sc-for list="{{ queueRows }}" as="w" hint-placeholder-count="4">
+<div class="ccard" style="padding:14px">
+<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+<span style="font-size:11px;font-weight:700;color:#9A918D">{{ w.pos }}</span>
+<span style="font-size:14px;font-weight:700">{{ w.token }}</span>
+<span style="font-size:12.5px;font-weight:600;color:#7A1C24">{{ w.pair }}</span>
+<span style="flex:1"></span>
+<span style="font-size:12.5px;font-weight:700;color:{{ w.waitColor }}">{{ w.waited }}</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:5px">{{ w.meta }}</div>
+<div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+<span style="font-size:14px;font-weight:700;letter-spacing:.1em;color:#7A1C24">{{ w.code }}</span>
+<span style="flex:1"></span>
+<button class="cghost" onClick="{{ w.call }}">Call</button>
+<button class="cbtn" style="width:auto;padding:12px 20px;font-size:12.5px" onClick="{{ w.seat }}">Seat</button>
+</div>
+</div>
+</sc-for>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">Ask for the four digits before you walk them in — it proves the token belongs to the party in front of you.</div>
+</div>
+</sc-if>
+
+
+<sc-if value="{{ isMore }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div class="ccard" style="display:flex;align-items:center;gap:13px">
+<div style="width:52px;height:52px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;flex:none">{{ initial }}</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:16px;font-weight:600">{{ meName }}</div>
+<div style="font-size:12px;color:#7C736F;margin-top:3px">{{ meLine }}</div>
+</div>
+</div>
+<div class="ccard">
+<p class="csec">What you may do tonight</p>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ myPerms }}" as="p" hint-placeholder-count="7">
+<div style="display:flex;align-items:center;gap:10px">
+<span style="width:18px;font-size:13px;font-weight:700;color:{{ p.color }}">{{ p.mark }}</span>
+<span style="flex:1;font-size:12.5px;color:{{ p.textColor }}">{{ p.label }}</span>
+</div>
+</sc-for>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:12px">Javeed sets these. Anything greyed out asks for his approval instead of failing silently.</div>
+</div>
+<div class="ccard">
+<p class="csec">Tonight</p>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ myStats }}" as="s2" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;font-size:12.5px">
+<span style="color:#57504D">{{ s2.label }}</span><span style="font-weight:700">{{ s2.value }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<button class="cbtn2" style="width:100%" onClick="{{ signOut }}">Sign out</button>
+</div>
+</sc-if>
+
+</div>
+
+<div style="display:flex;padding:0 6px 4px;background:{{ navBg }};border-top:1px solid {{ navEdge }}">
+<sc-for list="{{ navItems }}" as="item" hint-placeholder-count="5">
+<button class="{{ item.cls }}" data-on="{{ item.on }}" onClick="{{ item.click }}">
+<span class="cnavi">{{ item.icon }}</span>
+<span>{{ item.label }}</span>
+<sc-if value="{{ item.badge }}" hint-placeholder-val="{{ false }}">
+<span class="creqdot" style="position:absolute;top:6px;right:50%;margin-right:-20px;min-width:17px;height:17px;border-radius:999px;background:#C5221F;color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px">{{ item.badgeCount }}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+
+<sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:14px;right:14px;bottom:76px;background:#241F1E;color:#fff;border-radius:20px;padding:13px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 28px rgba(36,31,30,.3)">
+<div style="flex:1;min-width:0">
+<div style="font-size:13px;font-weight:600">{{ cartLine }}</div>
+<div style="font-size:11px;color:rgba(255,255,255,.72);margin-top:2px">{{ cartSub }}</div>
+</div>
+<button class="cbtn" style="width:auto;padding:12px 20px;font-size:13px" onClick="{{ sendKot }}">Send</button>
+</div>
+</sc-if>
+
+</div>
+</sc-if>
+
+<sc-if value="{{ showQty }}" hint-placeholder-val="{{ false }}">
+<div class="csheet">
+<div class="cpanel">
+<div style="font-size:17px;font-weight:600">Change quantity</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:4px;line-height:1.5">{{ qtyMeta }}</div>
+<div style="display:flex;align-items:center;justify-content:center;gap:20px;margin:22px 0">
+<button class="cstep" style="width:54px;height:54px;font-size:22px" onClick="{{ qtyDown }}">−</button>
+<div style="text-align:center;min-width:76px">
+<div style="font-size:34px;font-weight:700;line-height:1">{{ qtyValue }}</div>
+<div style="font-size:11px;color:#7C736F;margin-top:3px">{{ qtyWas }}</div>
+</div>
+<button class="cstep" style="width:54px;height:54px;font-size:22px" onClick="{{ qtyUp }}">+</button>
+</div>
+<div style="padding:12px 14px;border-radius:16px;background:#FBF8F7;font-size:11.5px;color:#57504D;line-height:1.5">{{ qtyNote }}</div>
+<div style="display:flex;gap:9px;margin-top:16px">
+<button class="cbtn" style="flex:1" onClick="{{ qtySave }}">Save and reprint</button>
+<button class="cbtn2" onClick="{{ dismiss }}">Cancel</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showCancel }}" hint-placeholder-val="{{ false }}">
+<div class="csheet">
+<div class="cpanel">
+<div style="font-size:17px;font-weight:600">Cancel this item</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:4px;line-height:1.5">{{ cancelMeta }}</div>
+<div style="margin:16px 0;padding:13px 15px;border-radius:16px;background:{{ cancelGateBg }};color:{{ cancelGateFg }};font-size:12px;font-weight:600;line-height:1.5">{{ cancelGate }}</div>
+<p class="csec">Why</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<sc-for list="{{ reasons }}" as="r" hint-placeholder-count="5">
+<button class="cchip" data-on="{{ r.on }}" onClick="{{ r.click }}">{{ r.label }}</button>
+</sc-for>
+</div>
+<div style="display:flex;gap:9px;margin-top:18px">
+<button class="cbtn" style="flex:1" onClick="{{ confirmCancel }}">{{ cancelAction }}</button>
+<button class="cbtn2" onClick="{{ dismiss }}">Keep it</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showClose }}" hint-placeholder-val="{{ false }}">
+<div class="csheet">
+<div class="cpanel">
+<div style="font-size:17px;font-weight:600">Close this bill</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:4px;line-height:1.5">{{ closeMeta }}</div>
+<div style="margin:16px 0;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ closeLines }}" as="l" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;font-size:{{ l.size }};font-weight:{{ l.weight }};color:{{ l.color }}">
+<span>{{ l.label }}</span><span>{{ l.value }}</span>
+</div>
+</sc-for>
+</div>
+<p class="csec">Paid by</p>
+<div style="display:flex;gap:8px">
+<sc-for list="{{ modes }}" as="m" hint-placeholder-count="3">
+<button class="cchip" style="flex:1;text-align:center" data-on="{{ m.on }}" onClick="{{ m.click }}">{{ m.label }}</button>
+</sc-for>
+</div>
+<div style="margin-top:14px;padding:12px 14px;border-radius:16px;background:#FBF8F7;font-size:11.5px;color:#57504D;line-height:1.5">{{ closeNote }}</div>
+<div style="display:flex;gap:9px;margin-top:16px">
+<button class="cbtn" style="flex:1" onClick="{{ confirmClose }}">{{ closeAction }}</button>
+<button class="cbtn2" onClick="{{ dismiss }}">Back</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showGroup }}" hint-placeholder-val="{{ false }}">
+<div class="csheet">
+<div class="cpanel">
+<div style="font-size:17px;font-weight:600">{{ groupTitle }}</div>
+<div style="font-size:12.5px;color:#7C736F;margin-top:4px;line-height:1.5">{{ groupMeta }}</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin:16px 0">
+<sc-for list="{{ groupMembers }}" as="m" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:16px;background:#F0FAE1;color:#3D472B">
+<span style="font-size:14px;font-weight:700;width:42px">{{ m.name }}</span>
+<span style="flex:1;font-size:11.5px;opacity:.82">{{ m.role }}</span>
+</div>
+</sc-for>
+</div>
+<p class="csec">Add a free table</p>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<sc-for list="{{ groupFree }}" as="t" hint-placeholder-count="5">
+<button class="cchip" onClick="{{ t.add }}">{{ t.name }}</button>
+</sc-for>
+</div>
+<div style="margin-top:14px;padding:12px 14px;border-radius:16px;background:#FBF8F7;font-size:11.5px;color:#57504D;line-height:1.5">Each table keeps its own QR and orders on its own phone. Every round is still a separate KOT tagged with the table it came from, and one payment closes them all.</div>
+<button class="cbtn" style="margin-top:16px" onClick="{{ dismiss }}">Done</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:16px;right:16px;bottom:88px;background:#241F1E;color:#fff;border-radius:16px;padding:13px 16px;font-size:12.5px;font-weight:500;box-shadow:0 12px 28px rgba(36,31,30,.34);z-index:30">{{ toastMsg }}</div>
+</sc-if>
+
+</div>
+</div>
+
+<div style="width:100%;max-width:440px;font-size:11.5px;color:#7C736F;line-height:1.55">{{ footNote }}</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:1080}}">
+const TYPE = {v:{mark:"mkv", w:"mkvw", label:"Veg"}, nv:{mark:"mkn", w:"mknw", label:"Non-veg"}, e:{mark:"mke", w:"mkew", label:"Egg"}};
+const MENU = [
+  ["Chicken Biryani",180,"Biryani","nv"], ["Mutton Biryani",240,"Biryani","nv"], ["Veg Biryani",140,"Biryani","v"],
+  ["Full Biryani",320,"Biryani","nv"], ["Chicken 65",140,"Starter","nv"], ["Chicken Tikka — 5 pc",190,"Starter","nv"],
+  ["Mutton Shuka",260,"Starter","nv"], ["Veg Pepper Salt",150,"Starter","v"], ["Chilli Paneer",220,"Chinese","v"],
+  ["Gobi Manchurian",160,"Chinese","v"], ["Paneer Butter Masala",191,"Indian Curry","v"], ["Mutton Chettinadu",280,"Indian Curry","nv"],
+  ["Dal Fry",120,"Indian Curry","v"], ["Egg Burji",90,"Indian Curry","e"], ["Butter Naan",45,"Bread","v"],
+  ["Tandoori Roti",30,"Bread","v"], ["Veg Pulav",120,"Rice","v"], ["Onion Cucumber Raita",45,"Salads","v"],
+  ["Gulab Jamun",30,"Desserts","v"], ["Royal Falooda",120,"Desserts","v"], ["Lime Tea",12,"Beverages","v"]
+];
+const PRICE = MENU.reduce((a, m) => { a[m[0]] = m[1]; return a; }, {});
+const FTYPE = MENU.reduce((a, m) => { a[m[0]] = m[3]; return a; }, {});
+const STAGE = {
+  new: {label:"New", bg:"#FFF1DC", fg:"#8A5A10"},
+  preparing: {label:"Cooking", bg:"#FFF1DC", fg:"#8A5A10"},
+  ready: {label:"Ready", bg:"#E4F3E8", fg:"#166A2E"},
+  picked: {label:"Picked up", bg:"#EAF1FB", fg:"#1B4E8F"},
+  served: {label:"Served", bg:"#F1ECEA", fg:"#57504D"}
+};
+const PEOPLE = {
+  captain: {name:"Imran", role:"Captain", initial:"I", tables:["A3","A5","A10","N5"]},
+  waiter: {name:"Mani", role:"Waiter", initial:"M", tables:["A3","A5","A10","N5"]}
+};
+const PERMS = {
+  captain: [["Add items to any of my tables",1],["Change a quantity before cooking starts",1],["Cancel before the kitchen starts",1],["Cancel after cooking has begun",0],["Reprint a kitchen ticket",1],["Record payment and close a bill",1],["Apply a discount",0]],
+  waiter: [["See my tables and their rounds",1],["Mark a round picked up and served",1],["Clear a table request",1],["Add items to a table",0],["Reprint a kitchen ticket",0],["Record payment",0],["Apply a discount",0]],
+  chef: [["See every kitchen ticket",1],["Move a ticket to cooking and ready",1],["Reprint a ticket at my station",1],["Mark a dish out of stock",1],["See bill amounts",0],["Change a customer's order",0],["Record payment",0]]
+};
+
+class Component extends DCLogic {
+  state = {
+    role: "captain", signedIn: true, pin: "",
+    tab: "floor", selTable: "A5", cart: {}, cat: "All",
+    t0: Date.now(), tick: 0,
+    modal: null, arg: null, qty: 0, reason: "Guest changed their mind", mode: "UPI",
+    outOfStock: {"Mutton Shuka": true},
+    toast: "",
+    notes: [
+      {id:"N-2", kot:"KOT-121", table:"A4", at:"8:29 PM", min:3, text:"Ready to collect from Kitchen 2", by:"Rafiq", seen:false},
+      {id:"N-1", kot:"KOT-123", table:"A5", at:"8:27 PM", min:5, text:"Ready to collect from Kitchen 1", by:"Anand", seen:true}
+    ],
+    noteSeq: 3,
+    cleaning: [],
+    bills: [
+      {table:"A3", zone:"AC", bill:"B-1043", captain:"Imran", waiter:"Mani", guests:20, opened:"7:58 PM",
+       group:{id:"G-07", host:"A3", tables:["A3","A4","A7"]},
+       kots:[
+         {no:"KOT-114", from:"A3", time:"8:01 PM", stage:"served", items:[["Chicken Tikka — 5 pc",1],["Veg Pepper Salt",1]]},
+         {no:"KOT-121", from:"A4", time:"8:20 PM", stage:"ready", items:[["Mutton Chettinadu",2],["Full Biryani",3]]},
+         {no:"KOT-129", from:"A7", time:"8:27 PM", stage:"preparing", items:[["Paneer Butter Masala",2],["Dal Fry",2],["Veg Pulav",3]]}
+       ]},
+      {table:"A5", zone:"AC", bill:"B-1044", captain:"Imran", waiter:"Mani", guests:4, opened:"8:04 PM",
+       occasion:"Birthday — Fathima, 26th", 
+       kots:[
+         {no:"KOT-108", from:"A5", time:"8:06 PM", stage:"served", items:[["Chicken Biryani",2],["Butter Naan",4]]},
+         {no:"KOT-123", from:"A5", time:"8:24 PM", stage:"ready", items:[["Dal Fry",1],["Egg Burji",1]]}
+       ]},
+      {table:"A10", zone:"AC", bill:"B-1049", captain:"Imran", waiter:"Mani", guests:2, opened:"8:18 PM",
+       kots:[{no:"KOT-126", from:"A10", time:"8:22 PM", stage:"preparing", items:[["Chilli Paneer",1],["Veg Biryani",1]]}]},
+      {table:"N5", zone:"Non-AC", bill:"B-1051", captain:"Imran", waiter:"Mani", guests:5, opened:"8:26 PM",
+       kots:[{no:"KOT-131", from:"N5", time:"8:29 PM", stage:"new", items:[["Mutton Biryani",3],["Gobi Manchurian",1],["Tandoori Roti",4]]}]}
+    ],
+    reqs: [
+      {id:"R-31", table:"A5", type:"Need water", min:1, asked:""},
+      {id:"R-30", table:"N5", type:"Call captain", min:4, asked:"They asked for Imran by name"},
+      {id:"R-29", table:"A4", type:"Extra plates / cutlery", min:7, asked:""},
+      {id:"R-27", table:"A1", type:"Parcel the rest", min:4, asked:"Biryani and 2 naan to be packed"}
+    ],
+    queue: [
+      {id:"W-18", size:2, at:"8:26 PM", min:6, pair:"Amber Lotus", code:"4821", src:"scanned"},
+      {id:"W-17", size:5, at:"8:21 PM", min:11, pair:"Sage Peacock", code:"3160", src:"scanned"},
+      {id:"W-16", size:4, at:"8:18 PM", min:14, pair:"Clay Jasmine", code:"7402", src:"scanned"},
+      {id:"W-15", size:8, at:"8:09 PM", min:23, pair:"Rust Mango", code:"5938", src:"walk-in"}
+    ]
+  };
+
+  componentDidMount() { this.timer = setInterval(() => this.setState(st => ({tick: st.tick + 1})), 30000); }
+  componentWillUnmount() { clearInterval(this.timer); if (this.tt) clearTimeout(this.tt); }
+  set(o) { this.setState(o); }
+  flash(m) { this.setState({toast: m}); if (this.tt) clearTimeout(this.tt); this.tt = setTimeout(() => this.setState({toast: ""}), 2600); }
+  mins() { return Math.min(4, Math.floor((Date.now() - this.state.t0) / 60000)); }
+  rupee(n) { return "₹" + Math.round(n).toLocaleString("en-IN"); }
+  billOf(t) { return this.state.bills.find(b => b.table === t || (b.group && b.group.tables.indexOf(t) >= 0)); }
+  billTotal(b) { return b.kots.reduce((a, k) => a + k.items.reduce((x, [n, q]) => x + PRICE[n] * q, 0), 0); }
+  advanceKot(table, no, stage, note, from) {
+    const s = this.state;
+    const patch = {bills: s.bills.map(b => b.table !== table ? b : {
+      ...b, kots: b.kots.map(k => k.no !== no ? k : {...k, stage})
+    })};
+    if (stage === "ready") {
+      patch.notes = [{
+        id: "N-" + s.noteSeq, kot: no, table: from || table, at: "8:32 PM", min: 0,
+        text: "Ready to collect from " + (s.role === "chef" ? "Kitchen 2" : "the kitchen"),
+        by: s.role === "chef" ? "Rafiq" : "Kitchen", seen: false
+      }, ...s.notes];
+      patch.noteSeq = s.noteSeq + 1;
+    }
+    if (stage === "picked") {
+      patch.notes = s.notes.map(n => n.kot === no ? {...n, seen: true} : n);
+    }
+    if (stage === "served") {
+      patch.notes = s.notes.filter(n => n.kot !== no);
+    }
+    this.setState(patch);
+    this.flash(note);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const me = PEOPLE[s.role];
+    const isChef = false;
+    const isWaiter = s.role === "waiter";
+    const R = n => this.rupee(n);
+
+    const roles = [["captain","Captain — Imran"],["waiter","Waiter — Mani"]].map(([k, label]) => ({
+      label, on: s.role === k ? "1" : "0",
+      click: () => this.setState({role: k, tab: "floor", signedIn: true, modal: null, cart: {}})
+    }));
+
+    // ---- sign-in ----
+    const keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"].map(label => ({
+      label,
+      click: () => {
+        if (!label) return;
+        if (label === "⌫") this.set({pin: s.pin.slice(0, -1)});
+        else if (s.pin.length < 4) this.set({pin: s.pin + label});
+      }
+    }));
+    const pinDots = [0, 1, 2, 3].map(i => ({ch: s.pin[i] ? "•" : ""}));
+
+    // ---- requests ----
+    const myReqs = s.reqs.filter(r => isChef ? false : true);
+    const reqRows = myReqs.map(r => {
+      const age = r.min + this.mins();
+      const urgent = age >= 5;
+      return {
+        type: r.type,
+        meta: "Table " + r.table + " · " + (urgent ? "on Javeed's dashboard too" : "waiting"),
+        age: age + " min",
+        askedLine: r.asked || "No note",
+        cls: urgent ? "creq" : "",
+        dotCls: urgent ? "creqdot" : "",
+        bg: urgent ? "#FDECEC" : "#fff",
+        fg: urgent ? "#7A2C29" : "#241F1E",
+        dotBg: urgent ? "#C5221F" : "#C98A05",
+        done: () => {
+          this.setState({reqs: s.reqs.filter(x => x.id !== r.id)});
+          this.flash(r.type + " at " + r.table + " marked done · " + me.name);
+        },
+        open: () => this.setState({tab:"table", selTable: r.table})
+      };
+    });
+    const oldest = myReqs.reduce((a, r) => Math.max(a, r.min + this.mins()), 0);
+
+    // ---- floor tiles ----
+    const tiles = me.tables.map(t => {
+      const b = this.billOf(t);
+      const stages = b ? b.kots.map(k => k.stage) : [];
+      const stage = stages.indexOf("ready") >= 0 ? "ready" : stages.indexOf("preparing") >= 0 ? "preparing" : stages.indexOf("new") >= 0 ? "new" : "served";
+      const st = STAGE[stage];
+      const req = s.reqs.find(r => r.table === t || (b && b.group && b.group.tables.indexOf(r.table) >= 0));
+      const readyCount = b ? b.kots.filter(k => k.stage === "ready" || k.stage === "picked").length : 0;
+      const clean = s.cleaning.find(c => c.table === t);
+      return {
+        label: t,
+        flagIcon: clean ? "◇" : req ? "🔔" : b && b.occasion ? "🎂" : b && b.group ? "◆" : "",
+        state: clean ? "Needs clearing" : b ? st.label : "Free",
+        line: clean ? "Guests left " + clean.at + " · " + clean.bill
+          : b ? (b.group ? b.group.id + " · " + b.guests + " guests" : b.guests + " guests · " + b.kots.length + (b.kots.length > 1 ? " rounds" : " round"))
+          : "Ready for the next party",
+        total: clean ? "Clear it" : b ? (isWaiter ? (readyCount ? readyCount + " to run" : "nothing to run") : R(this.billTotal(b))) : "—",
+        bg: clean ? "#EAF1FB" : stage === "ready" && b ? "#E4F3E8" : (stage === "new" || stage === "preparing") && b ? "#FFF6E8" : "#fff",
+        fg: clean ? "#1B4E8F" : stage === "ready" && b ? "#14602A" : (stage === "new" || stage === "preparing") && b ? "#6B4A12" : "#241F1E",
+        click: () => clean ? this.setState({tab: "clean"}) : b ? this.setState({tab: "table", selTable: t}) : this.flash("Table " + t + " is free — seat a party from the waitlist")
+      };
+    });
+
+    // ---- selected bill ----
+    const b = this.billOf(s.selTable) || s.bills[1];
+    const sub = this.billTotal(b);
+    const tax = Math.round(sub * 0.05);
+    const ids = [
+      {label:"Captain", value: b.captain},
+      {label:"Table", value: b.group ? b.group.tables.join(" · ") : b.table},
+      {label:"Bill", value: b.bill},
+      {label:"Waiter", value: b.waiter},
+      {label:"Rounds", value: b.kots.length + " KOT" + (b.kots.length > 1 ? "s" : "")},
+      {label:"Opened", value: b.opened}
+    ];
+    const bKots = b.kots.map(k => {
+      const st = STAGE[k.stage];
+      return {
+        no: k.no, time: k.time, status: st.label, pillBg: st.bg, pillFg: st.fg,
+        meta: (b.group ? "from Table " + k.from + " · " : "") + "printed to kitchen",
+        canServe: k.stage === "ready" || k.stage === "picked",
+        serve: () => this.advanceKot(b.table, k.no, "served", k.no + " served at " + b.table + " · " + me.name, k.from),
+        reprint: () => this.flash(k.no + " reprinted — stamped REPRINT · " + me.name),
+        items: k.items.map(([n, q]) => ({
+          name: n, qty: "×" + q, mark: TYPE[FTYPE[n]].mark,
+          qtyEdit: () => this.setState({modal:"qty", arg:{table: b.table, kot: k.no, name: n, was: q, stage: k.stage}, qty: q}),
+          cancel: () => this.setState({modal:"cancel", arg:{table: b.table, kot: k.no, name: n, stage: k.stage}})
+        }))
+      };
+    });
+    const bTotals = isWaiter
+      ? [{label:"Rounds sent", value: b.kots.length + "", size:"12.5px", weight:"500", color:"#57504D"},
+         {label:"Guests", value: b.guests + "", size:"12.5px", weight:"500", color:"#57504D"}]
+      : [{label:"Subtotal", value: R(sub), size:"12.5px", weight:"500", color:"#57504D"},
+         {label:"GST 5%", value: R(tax), size:"12.5px", weight:"500", color:"#57504D"},
+         {label:"Payable", value: R(sub + tax), size:"15px", weight:"700", color:"#241F1E"}];
+
+    // ---- menu ----
+    const cats = ["All", ...Array.from(new Set(MENU.map(m => m[2])))].map(c => ({
+      label: c, on: s.cat === c ? "1" : "0",
+      bgDark: s.cat === c ? "#FFD9A0" : "rgba(255,255,255,.08)",
+      fgDark: s.cat === c ? "#241F1E" : "rgba(255,255,255,.8)",
+      click: () => this.set({cat: c})
+    }));
+    const menuRows = MENU.filter(m => s.cat === "All" || m[2] === s.cat).map(m => {
+      const out = !!s.outOfStock[m[0]];
+      const q = s.cart[m[0]] || 0;
+      return {
+        name: m[0], mark: TYPE[m[3]].mark, markW: TYPE[m[3]].w,
+        sub: out ? "Out of stock — off the customer menu" : m[2] + " · " + R(m[1]),
+        chefSub: TYPE[m[3]].label + " · " + m[2],
+        op: out ? "0.5" : "1",
+        orderable: !out, closed: out,
+        inCart: q > 0, qty: q + "",
+        inc: () => this.setState({cart: {...s.cart, [m[0]]: q + 1}}),
+        dec: () => { const c = {...s.cart}; if (q <= 1) delete c[m[0]]; else c[m[0]] = q - 1; this.setState({cart: c}); },
+        reopen: () => { const o = {...s.outOfStock}; delete o[m[0]]; this.setState({outOfStock: o}); this.flash(m[0] + " back on the menu"); },
+        stockLabel: out ? "Put back" : "Out of stock",
+        stockBg: out ? "#7BD68F" : "rgba(255,255,255,.12)",
+        stockFg: out ? "#123D1E" : "#fff",
+        toggleStock: () => {
+          const o = {...s.outOfStock};
+          if (out) delete o[m[0]]; else o[m[0]] = true;
+          this.setState({outOfStock: o});
+          this.flash(m[0] + (out ? " back on the menu" : " off every customer's phone"));
+        }
+      };
+    });
+    const cartCount = Object.keys(s.cart).reduce((a, k) => a + s.cart[k], 0);
+    const cartValue = Object.keys(s.cart).reduce((a, k) => a + PRICE[k] * s.cart[k], 0);
+
+    // ---- all KOTs ----
+    const allKots = [];
+    s.bills.forEach(bl => bl.kots.forEach(k => allKots.push({bl, k})));
+    allKots.sort((x, y) => y.k.no.localeCompare(x.k.no));
+    const kotRows = allKots.map(({bl, k}) => {
+      const st = STAGE[k.stage];
+      return {
+        no: k.no, time: k.time, status: st.label, pillBg: st.bg, pillFg: st.fg,
+        meta: "Table " + k.from + " · " + bl.bill + " · " + bl.captain + (bl.group ? " · " + bl.group.id : ""),
+        summary: k.items.map(([n, q]) => n + " ×" + q).join(" · "),
+        reprint: () => this.flash(k.no + " reprinted — stamped REPRINT · " + me.name),
+        open: () => this.setState({tab:"table", selTable: bl.table})
+      };
+    });
+
+    // ---- waiter run list ----
+    const readyList = [];
+    s.bills.forEach(bl => bl.kots.forEach(k => {
+      if (k.stage === "ready" || k.stage === "picked") readyList.push({bl, k});
+    }));
+    const readyRows = readyList.map(({bl, k}) => {
+      const st = STAGE[k.stage];
+      const age = 3 + this.mins();
+      return {
+        table: "Table " + k.from,
+        stage: st.label, pillBg: st.bg, pillFg: st.fg,
+        bg: k.stage === "ready" ? "#F3FBF5" : "#fff",
+        age: age + " min",
+        ageColor: age > 6 ? "#A81D19" : "#57504D",
+        meta: k.no + " · " + bl.bill + " · " + bl.captain + (bl.group ? " · " + bl.group.id : ""),
+        items: k.items.map(([n, q]) => ({name: n, qty: "×" + q, mark: TYPE[FTYPE[n]].mark})),
+        actionLabel: k.stage === "ready" ? "Picked up from the counter" : "On the table — served",
+        action: () => this.advanceKot(bl.table, k.no, k.stage === "ready" ? "picked" : "served",
+          k.no + (k.stage === "ready" ? " picked up · Imran notified" : " served at " + k.from) + " · " + me.name, k.from)
+      };
+    });
+
+    // ---- queue ----
+    const queueRows = s.queue.map((w, i) => {
+      const waited = w.min + this.mins();
+      return {
+        pos: "#" + (i + 1), token: w.id, pair: w.pair, code: w.code,
+        waited: waited + " min",
+        waitColor: waited > 20 ? "#A81D19" : "#57504D",
+        meta: w.size + " guests · joined " + w.at + " · " + (w.src === "walk-in" ? "walk-in" : "scanned at the door"),
+        call: () => this.flash("Calling " + w.id + " · " + w.pair + " · ask for " + w.code),
+        seat: () => { this.setState({queue: s.queue.filter(x => x.id !== w.id)}); this.flash(w.id + " seated · " + w.size + " guests"); }
+      };
+    });
+
+    // ---- nav ----
+    const navFor = {
+      captain: [["floor","Tables","▦"],["alerts","Ready","▲"],["kots","KOTs","≡"],["requests","Requests","!"],["more","Me","●"]],
+      waiter: [["serve","To serve","▲"],["clean","Clear","◇"],["floor","Tables","▦"],["requests","Requests","!"],["more","Me","●"]]
+    }[s.role];
+    const navItems = navFor.map(([k, label, icon]) => ({
+      label, icon, cls: isChef ? "cnav knav" : "cnav",
+      on: (s.tab === k || (k === "floor" && s.tab === "table") || (k === "floor" && s.tab === "menu")) ? "1" : "0",
+      badge: (k === "requests" && myReqs.length > 0)
+        || ((k === "alerts" || k === "serve") && s.notes.filter(n => !n.seen).length > 0)
+        || (k === "clean" && s.cleaning.length > 0),
+      badgeCount: k === "clean" ? s.cleaning.length + ""
+        : (k === "alerts" || k === "serve") ? s.notes.filter(n => !n.seen).length + ""
+        : myReqs.length + "",
+      click: () => this.setState({tab: k, cart: {}})
+    }));
+
+    const titles = {
+      floor: ["My tables", me.tables.length + " assigned · " + me.name],
+      table: [(b.group ? "Group " + b.group.id : "Table " + b.table) + " · " + b.bill, b.zone + " · " + b.guests + " guests · opened " + b.opened],
+      menu: ["Add items · Table " + s.selTable, cartCount ? cartCount + " in this round" : "Nothing added yet"],
+      kots: ["Kitchen tickets", kotRows.length + " tonight · newest first"],
+      requests: ["Table requests", myReqs.length ? myReqs.length + " waiting · oldest " + oldest + " min" : "Nothing waiting"],
+      queue: ["Waitlist", s.queue.length + " parties · " + s.queue.reduce((a, w) => a + w.size, 0) + " people"],
+      serve: ["Ready to run", readyRows.length + " round" + (readyRows.length === 1 ? "" : "s") + " waiting"],
+      alerts: ["Ready to collect", s.notes.filter(n => !n.seen).length + " waiting at the pass"],
+      clean: ["Clear these tables", s.cleaning.length ? s.cleaning.length + " waiting · guests have left" : "Everything is reset"],
+      more: [me.name, me.role + " · signed in 6:04 PM"]
+    };
+    const [title, subtitle] = titles[s.tab] || titles.floor;
+
+    const qtyArg = s.arg || {};
+    const cancelAfterCooking = qtyArg.stage === "preparing" || qtyArg.stage === "ready" || qtyArg.stage === "served";
+    const canCancelLate = s.role === "captain" && false;
+
+    return {
+      shellTitle: me.name + "'s phone — Friday 8:32 PM",
+      shellSub: {
+        captain: "The captain runs tables: sees every round, adds items, fixes quantities, clears requests and closes bills.",
+        waiter: "The waiter runs food: what is ready, where it goes, and marking it served. No prices, no bill actions.",
+        chef: "The kitchen screen — the fallback if the printer cannot be made to work. Big type, one action per ticket, dark for a hot room."
+      }[s.role],
+      footNote: {
+        captain: "Requests older than five minutes blink here and on Javeed's dashboard until someone clears them.",
+        waiter: "Marking a round served is what unlocks the guest's loved-it heart, so it has to be a real tap, not an assumption.",
+        chef: "This screen only exists if the TVS printer proof-of-concept fails. It shows the same ticket the printer would have produced."
+      }[s.role],
+      roles,
+      shellBg: isChef ? "#1A1614" : "#F6F1EF",
+      barBg: isChef ? "#0F0D0C" : "#7A1C24", barFg: "#fff",
+      headBg: isChef ? "#0F0D0C" : "#7A1C24", headFg: "#fff",
+      navBg: isChef ? "#0F0D0C" : "#fff",
+      navEdge: isChef ? "rgba(255,255,255,.08)" : "rgba(36,31,30,.08)",
+      signalLine: isChef ? "Kitchen 2 · KOT-NV-01" : "Jalsa wifi",
+      initial: me.initial, meName: me.name,
+      meLine: me.role + " · signed in 6:04 PM" + (me.tables.length ? " · " + me.tables.join(", ") : " · Kitchen 2"),
+
+      noteRows: s.notes.map(n => {
+        const age = n.min + this.mins();
+        return {
+          kot: n.kot, table: "Table " + n.table,
+          line: n.text,
+          meta: "Marked ready by " + n.by + " at " + n.at,
+          age: age === 0 ? "just now" : age + " min ago",
+          fresh: !n.seen,
+          bg: n.seen ? "#fff" : "#F3FBF5",
+          edge: n.seen ? "rgba(36,31,30,.09)" : "#7BD68F",
+          badge: n.seen ? "Collected" : "Waiting at the pass",
+          badgeBg: n.seen ? "#F1ECEA" : "#E4F3E8",
+          badgeFg: n.seen ? "#57504D" : "#166A2E",
+          go: () => this.setState({tab: isWaiter ? "serve" : "table", selTable: n.table})
+        };
+      }),
+      unseenNotes: s.notes.filter(n => !n.seen).length,
+      hasNotes: s.notes.length > 0,
+      noNotes: s.notes.length === 0,
+      notesBanner: s.notes.filter(n => !n.seen).length
+        + (s.notes.filter(n => !n.seen).length === 1 ? " round is ready to collect" : " rounds are ready to collect"),
+      notesBannerSub: s.notes.filter(n => !n.seen).map(n => n.kot + " · Table " + n.table).join("  ·  "),
+      showNotesBanner: s.notes.filter(n => !n.seen).length > 0,
+      goNotes: () => this.set({tab: isWaiter ? "serve" : "alerts"}),
+      cleanRows: s.cleaning.map(c => {
+        const age = c.min + this.mins();
+        return {
+          table: "Table " + c.table,
+          meta: "Closed " + c.at + " · " + c.bill + " · " + c.guests + " guests",
+          age: age === 0 ? "just now" : age + " min ago",
+          urgent: age >= 4,
+          bg: age >= 4 ? "#FFF6E8" : "#fff",
+          edge: age >= 4 ? "#FFD9A0" : "rgba(36,31,30,.09)",
+          note: age >= 4 ? "Someone is waiting for this table" : "Clear and reset for the next party",
+          done: () => {
+            this.setState({cleaning: s.cleaning.filter(x => x.table !== c.table)});
+            this.flash("Table " + c.table + " ready for the next party · " + me.name);
+          }
+        };
+      }),
+      hasClean: s.cleaning.length > 0,
+      noClean: s.cleaning.length === 0,
+      cleanBanner: s.cleaning.length + (s.cleaning.length === 1 ? " table to clear" : " tables to clear"),
+      cleanBannerSub: s.cleaning.map(c => "Table " + c.table).join(", ") + " · guests have left",
+      showCleanBanner: s.cleaning.length > 0,
+      goClean: () => this.set({tab:"clean"}),
+      navItems,
+      isSignin: !s.signedIn, isApp: s.signedIn,
+      signinTitle: "Staff sign in",
+      keys, pinDots,
+      pinHint: s.pin.length === 4 ? "Ready" : "Ask Javeed if you have forgotten it",
+      doSignin: () => { this.setState({signedIn: true, pin: ""}); this.flash("Signed in as " + me.name); },
+      signOut: () => this.setState({signedIn: false, pin: "", tab: "floor"}),
+
+      title, subtitle,
+      canBack: s.tab === "table" || s.tab === "menu",
+      back: () => this.setState({tab: s.tab === "menu" ? "table" : "floor", cart: {}}),
+
+      isFloor: s.tab === "floor", isTable: s.tab === "table", isMenu: s.tab === "menu",
+      isKots: s.tab === "kots", isReq: s.tab === "requests", isQueue: s.tab === "queue",
+      isServe: s.tab === "serve",
+      isAlerts: s.tab === "alerts",
+      isClean: s.tab === "clean",
+      isMore: s.tab === "more",
+
+      dayNote: "Festival weekend — quote 20 minutes at the door and push the combos. Mutton is limited to 15 plates tonight.",
+      hasReq: myReqs.length > 0, noReq: myReqs.length === 0,
+      reqBanner: myReqs.length + (myReqs.length === 1 ? " table is waiting" : " tables are waiting"),
+      reqBannerSub: "Oldest " + oldest + " min · " + myReqs.map(r => r.table).join(", "),
+      goReq: () => this.set({tab:"requests"}),
+      tiles,
+      floorNote: isWaiter
+        ? "Amber means food is coming, green means a round is ready to run. Tap a table to see its rounds."
+        : "Amber means the kitchen has work, green means a round is ready. A bell is an unanswered request, ◆ a grouped bill, 🎂 an occasion.",
+
+      ids, bKots, bTotals,
+      bIsGroup: !!b.group,
+      bGroupLine: b.group ? "One bill across " + b.group.tables.length + " tables — " + b.group.tables.join(", ") + " · host " + b.group.host : "",
+      bHasOccasion: !!b.occasion,
+      bOccasionLine: b.occasion ? "🎂 " + b.occasion + " — bring the dessert with a candle at the end" : "",
+      canEditItems: s.role === "captain",
+      canReprint: s.role === "captain",
+      canAddItems: s.role === "captain",
+      canClose: s.role === "captain",
+      canGroup: s.role === "captain",
+      closeLabel: b.group ? "Close group bill" : "Close bill",
+      moneyHidden: isWaiter,
+      moneyNote: "Bill amounts are hidden for waiters. Imran or Javeed closes the bill.",
+      goMenu: () => this.setState({tab:"menu", cart:{}}),
+
+      cats, menuRows,
+      hasCart: cartCount > 0 && s.tab === "menu",
+      cartLine: cartCount + (cartCount === 1 ? " item" : " items") + " · " + R(cartValue),
+      cartSub: "Goes to the kitchen as a new KOT for Table " + s.selTable,
+      sendKot: () => {
+        const items = Object.keys(s.cart).map(n => [n, s.cart[n]]);
+        const no = "KOT-1" + (32 + s.bills.reduce((a, bl) => a + bl.kots.length, 0));
+        this.setState({
+          bills: s.bills.map(bl => bl.table !== b.table ? bl : {...bl, kots: [...bl.kots, {no, from: s.selTable, time:"8:32 PM", stage:"new", items}]}),
+          cart: {}, tab: "table"
+        });
+        this.flash(no + " sent to the kitchen · " + items.length + " lines");
+      },
+
+      allKots: kotRows,
+      reqRows, readyRows, noReady: readyRows.length === 0,
+
+      queueRows,
+      queueLine: s.queue.length + " waiting · " + s.queue.reduce((a, w) => a + w.size, 0) + " people",
+      queueFreeLine: "Quoting 20 minutes · 3 tables free",
+      addWalkin: () => this.flash("Walk-in added — token and code issued"),
+
+      myPerms: PERMS[s.role].map(([label, ok]) => ({
+        label, mark: ok ? "✓" : "✕",
+        color: ok ? "#166A2E" : "#B0A6A2",
+        textColor: ok ? "#241F1E" : "#9A918D"
+      })),
+      myStats: {
+        captain: [["Tables tonight","4"],["Rounds sent","7"],["Bills closed","3"],["Tips attributed", R(180)]],
+        waiter: [["Rounds run","14"],["Tables served","6"],["Requests cleared","5"],["Tips attributed", R(120)]],
+        chef: [["Tickets cleared","23"],["Average to ready","14 min"],["Slowest ticket","26 min"],["Items marked out","1"]]
+      }[s.role].map(([label, value]) => ({label, value})),
+
+      // qty sheet
+      showQty: s.modal === "qty",
+      qtyMeta: qtyArg.name ? qtyArg.name + " · " + qtyArg.kot + " · Table " + qtyArg.table : "",
+      qtyValue: s.qty + "",
+      qtyWas: "was " + (qtyArg.was || 0),
+      qtyUp: () => this.set({qty: s.qty + 1}),
+      qtyDown: () => this.set({qty: Math.max(0, s.qty - 1)}),
+      qtyNote: cancelAfterCooking
+        ? "The kitchen has started this round. Changing it reprints the ticket with the change marked, and Javeed sees it in the audit log."
+        : "The kitchen has not started. The ticket reprints cleanly with your name on the change.",
+      qtySave: () => {
+        this.setState({
+          bills: s.bills.map(bl => bl.table !== qtyArg.table ? bl : {
+            ...bl, kots: bl.kots.map(k => k.no !== qtyArg.kot ? k : {
+              ...k, items: k.items.map(([n, q]) => n === qtyArg.name ? [n, s.qty] : [n, q]).filter(([, q]) => q > 0)
+            })
+          }),
+          modal: null
+        });
+        this.flash(qtyArg.name + " → " + s.qty + " · " + qtyArg.kot + " reprinted");
+      },
+
+      // cancel sheet
+      showCancel: s.modal === "cancel",
+      cancelMeta: qtyArg.name ? qtyArg.name + " · " + qtyArg.kot + " · Table " + qtyArg.table : "",
+      cancelGate: cancelAfterCooking
+        ? "Cooking has started. You do not have permission to cancel now — this sends a request to Javeed and he decides."
+        : "The kitchen has not started this dish. You can cancel it yourself.",
+      cancelGateBg: cancelAfterCooking ? "#FFF1DC" : "#F0FAE1",
+      cancelGateFg: cancelAfterCooking ? "#6B4A12" : "#3D472B",
+      cancelAction: cancelAfterCooking ? "Ask Javeed to cancel" : "Cancel the item",
+      reasons: ["Guest changed their mind","Ordered by mistake","Taking too long","Wrong item","Out of stock"].map(label => ({
+        label, on: s.reason === label ? "1" : "0", click: () => this.set({reason: label})
+      })),
+      confirmCancel: () => {
+        if (cancelAfterCooking) {
+          this.setState({modal: null});
+          this.flash("Sent to Javeed — " + s.reason.toLowerCase());
+          return;
+        }
+        this.setState({
+          bills: s.bills.map(bl => bl.table !== qtyArg.table ? bl : {
+            ...bl, kots: bl.kots.map(k => k.no !== qtyArg.kot ? k : {...k, items: k.items.filter(([n]) => n !== qtyArg.name)}).filter(k => k.items.length)
+          }),
+          modal: null
+        });
+        this.flash(qtyArg.name + " cancelled — " + s.reason.toLowerCase() + " · " + me.name);
+      },
+
+      // close sheet
+      showClose: s.modal === "close",
+      closeMeta: (b.group ? "Group " + b.group.id + " · " + b.group.tables.length + " tables" : "Table " + b.table) + " · " + b.bill,
+      closeLines: [
+        {label:"Subtotal", value: R(sub), size:"12.5px", weight:"500", color:"#57504D"},
+        {label:"GST 5%", value: R(tax), size:"12.5px", weight:"500", color:"#57504D"},
+        {label:"Payable", value: R(sub + tax), size:"16px", weight:"700", color:"#241F1E"}
+      ],
+      modes: ["Cash","UPI","Card"].map(label => ({label, on: s.mode === label ? "1" : "0", click: () => this.set({mode: label})})),
+      closeNote: "Recorded against your name at 8:32 PM. Javeed sees it on his dashboard immediately, and the bill prints at BILL-01.",
+      closeAction: "Record " + s.mode.toLowerCase() + " payment",
+      openClose: () => this.set({modal:"close"}),
+      confirmClose: () => {
+        const freed = b.group ? b.group.tables : [b.table];
+        this.setState({
+          bills: s.bills.filter(x => x.bill !== b.bill),
+          cleaning: freed.map(t => ({table: t, at: "8:32 PM", min: 0, bill: b.bill, guests: b.guests})).concat(s.cleaning),
+          notes: s.notes.filter(n => freed.indexOf(n.table) < 0),
+          modal: null, tab: "floor"
+        });
+        this.flash(b.bill + " closed · " + R(sub + tax) + " " + s.mode.toLowerCase() + " · " + (freed.length > 1 ? freed.length + " tables" : "Table " + b.table) + " to be cleared");
+      },
+
+      // group sheet
+      showGroup: s.modal === "group",
+      openGroup: () => this.set({modal:"group"}),
+      groupTitle: b.group ? "Group " + b.group.id : "One bill across several tables",
+      groupMeta: b.group
+        ? b.guests + " guests · " + b.group.tables.length + " tables · host " + b.group.host
+        : "Table " + b.table + " · add another table and this becomes one bill for both",
+      groupMembers: (b.group ? b.group.tables : [b.table]).map(t => ({
+        name: t, role: b.group && t === b.group.host ? "host table" : b.group ? "member" : "this table"
+      })),
+      groupFree: ["A4","A7","A8","N2","N6"].filter(t => !this.billOf(t)).map(t => ({
+        name: t,
+        add: () => {
+          const g = b.group || {id:"G-08", host: b.table, tables:[b.table]};
+          this.setState({bills: s.bills.map(x => x.bill !== b.bill ? x : {...x, group: {...g, tables: g.tables.concat([t])}})});
+          this.flash("Table " + t + " joined " + g.id);
+        }
+      })),
+
+      dismiss: () => this.set({modal: null}),
+      toast: !!s.toast, toastMsg: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

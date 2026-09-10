@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/styles.css">
+<style>
+doc-page:not(:defined){visibility:hidden}
+body{margin:0;font-family:var(--font-body);color:var(--color-text)}
+a{color:var(--color-accent-700)}
+a:hover{color:var(--color-accent-800)}
+.rd h2{font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:19px;line-height:1.15;margin:0}
+.rd h3{font-family:var(--font-body);font-weight:700;font-size:13.2px;margin:0;line-height:1.3}
+.rd p{font-size:13.2px;line-height:1.55;margin:0}
+.rd .sect{margin-top:30px;break-after:avoid}
+.rd .sectnum{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--color-accent-700)}
+.rd .lede{font-size:12.4px;color:#6E6560;line-height:1.5;margin:5px 0 12px;max-width:44em}
+.rd .pr{break-inside:avoid;padding:11px 0 10px;border-top:1px solid rgba(32,30,29,.11)}
+.rd .prh{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
+.rd .num{font-family:var(--font-body);font-size:11px;font-weight:700;color:var(--color-accent-700);min-width:24px;flex:none}
+.rd .body{padding-left:32px}
+.rd .body p{font-size:12.4px;line-height:1.5}
+.rd .why{color:#4A4340;margin-top:3px}
+.rd .meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:11.4px;line-height:1.45}
+.rd .tag{font-weight:700;color:#8A817C;letter-spacing:.04em}
+.rd .pat{background:var(--color-surface);border-radius:10px;padding:7px 11px;margin-top:6px;font-size:11.8px;line-height:1.5}
+.rd .note{background:var(--color-accent-100);border-radius:var(--radius-md);padding:14px 17px;break-inside:avoid}
+.rd .band{background:var(--color-accent-2-100);border-radius:var(--radius-md);padding:14px 17px;break-inside:avoid}
+.rd .ck{columns:2;column-gap:26px;margin-top:10px}
+.rd .ci{display:flex;gap:7px;align-items:flex-start;font-size:11.8px;line-height:1.4;padding:3.5px 0;border-bottom:1px dotted rgba(32,30,29,.15);break-inside:avoid}
+.rd .box{flex:none;width:9px;height:9px;border:1.3px solid #A29A95;border-radius:2px;margin-top:3px}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+<doc-page margin="0.68in">
+<div class="rd">
+
+<div style="font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--color-accent-700)">Design standard · version 1</div>
+<h1 style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:30px;line-height:1.08;margin:6px 0 0">Reusable Design Standards</h1>
+<p style="font-size:13.8px;line-height:1.6;margin:14px 0 0;max-width:43em">Forty-four principles, generalised from the review notes on one real product so they apply to any application. Every one of them exists because a shipped screen was missing it and someone had to ask. Read the four questions on the last page before starting a build, and run the checklist before calling one finished.</p>
+
+<div class="note" style="margin-top:18px">
+<p style="font-size:12.4px;line-height:1.55"><strong>How each entry is written.</strong> A one-line rule, why it earns its place, where it applies, and the component or interaction that implements it. Nothing here is specific to one product; anything that was has been left out.</p>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION ONE</div>
+<h2>Navigation and orientation</h2>
+<p class="lede">A user who cannot tell where they are, or cannot get somewhere without scrolling, is paying for your information architecture with their time.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">1.1</span><h3>Pinned primary navigation</h3></div>
+<div class="body">
+<p>The main section bar stays fixed while content scrolls beneath it.</p>
+<p class="why">Section switching is the most frequent action in a multi-section app. Making it cost a scroll-to-top taxes every move a user makes.</p>
+<div class="meta"><span><span class="tag">USE IN</span> admin consoles, dashboards, settings areas, anything with more than three top-level sections</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Sticky header; horizontally scrollable when items overflow, with a right-edge fade so the cut is legible. Mark the active item by weight and an underline, never colour alone.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">1.2</span><h3>Sub-navigation gets the same treatment</h3></div>
+<div class="body">
+<p>Secondary tabs pin below the primary bar and stay visible while their panel scrolls.</p>
+<p class="why">Long settings and report areas are exactly where users hop between siblings most. Pinning the parent and not the child solves half the problem.</p>
+<div class="meta"><span><span class="tag">USE IN</span> settings, reports, profile areas, anything with six or more sub-sections</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One visual step down from the primary bar — smaller type, thinner underline, identical interaction. Stack both into one sticky block so they can never overlap.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">1.3</span><h3>Split a long page into sub-tabs, not a long scroll</h3></div>
+<div class="body">
+<p>When a screen accumulates more than about six independent cards, promote them to named sub-tabs.</p>
+<p class="why">A nine-card settings page has no landmarks; users scroll hunting a heading they half remember. Names in a row are scannable, linkable and countable.</p>
+<div class="meta"><span><span class="tag">USE IN</span> settings, admin configuration, reports, account areas</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One panel per concern, defaulting to the most-used. Label each with the thing, not the verb.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">1.4</span><h3>Summary numbers link to their explanation</h3></div>
+<div class="body">
+<p>Every figure, badge and count is clickable and lands on the screen that itemises it.</p>
+<p class="why">A number with no route to its detail invites a support question. The link is one line of code and removes the question entirely.</p>
+<div class="meta"><span><span class="tag">USE IN</span> dashboards, KPI cards, notification counts, status chips, list headers</span></div>
+<div class="pat"><span class="tag">PATTERN</span> KPI card as a button. Navigating also pre-applies the filter that produced the number, so the detail view reconciles.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">1.5</span><h3>One close affordance per dialog</h3></div>
+<div class="body">
+<p>A dialog has an X at the top right and nothing else meaning the same thing.</p>
+<p class="why">Two closes make users pause to work out whether they differ. They never do.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every modal, drawer, sheet and popover</span></div>
+<div class="pat"><span class="tag">PATTERN</span> X top right for dismissal; the footer carries only Save and Cancel. Multi-step dialogs keep Back in the body, never a second Close.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">1.6</span><h3>No dead ends</h3></div>
+<div class="body">
+<p>Every terminal screen — closed, expired, denied, unavailable — offers a route onward.</p>
+<p class="why">A dead end turns a small obstacle into an abandoned session. Users will not hunt for an alternative you did not name.</p>
+<div class="meta"><span><span class="tag">USE IN</span> out-of-hours states, expired links, permission failures, completed flows</span></div>
+<div class="pat"><span class="tag">PATTERN</span> State the situation, give the fact needed next (when it reopens, who to contact), then one or two actions that still work.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION TWO</div>
+<h2>Configuration instead of hard-coding</h2>
+<p class="lede">Every string, rate and rule baked into a screen becomes a support ticket the day the business changes. The test is one question: would a customer have to ask you to change this?</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.1</span><h3>No hard-coded user-facing copy</h3></div>
+<div class="body">
+<p>Every string an end user reads — headings, buttons, empty states, tag lines, footers — is editable by an administrator.</p>
+<p class="why">Copy changes constantly and never warrants a release. Hard-coded text is the most common reason customers return asking for a trivial fix.</p>
+<div class="meta"><span><span class="tag">USE IN</span> any customer-facing surface, white-labelled products, multi-tenant systems</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A "words your users see" panel: grouped, labelled by where each string appears, with the default as placeholder text so a cleared field falls back rather than blanking the screen.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.2</span><h3>Brand identity is configuration, used everywhere</h3></div>
+<div class="body">
+<p>Logo, legal name, address, contact details and signatory live in one block, and every screen and document reads from it.</p>
+<p class="why">The same details otherwise get retyped into each letterhead, invoice and header, then drift apart. One source means one edit.</p>
+<div class="meta"><span><span class="tag">USE IN</span> anything that prints, emails or exports; anything white-labelled</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Identity settings with an image upload and preview. Documents bind to it rather than embedding copies.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.3</span><h3>Rates, rules and thresholds are settings</h3></div>
+<div class="body">
+<p>Tax rates, fees, notice periods, time limits and retention windows are configurable, never constants.</p>
+<p class="why">These change by regulation or policy, not by release cycle, and the change is usually urgent.</p>
+<div class="meta"><span><span class="tag">USE IN</span> anything financial, contractual, legal or time-bound</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Common values as quick-pick chips plus a free field, and a worked example under the field showing the effect of the current value.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.4</span><h3>Optional features are switchable per surface</h3></div>
+<div class="body">
+<p>Anything a user can request or trigger can be switched off by the administrator, individually.</p>
+<p class="why">Capacity, staffing and appetite vary. A feature the operator cannot honour is worse than a missing one, because it makes a promise.</p>
+<div class="meta"><span><span class="tag">USE IN</span> request buttons, optional data collection, notifications, prompts, self-service actions</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Grouped switch list with a live summary naming exactly what the end user will now see — including the case where everything is off.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.5</span><h3>Presets over bulk toggling</h3></div>
+<div class="body">
+<p>Long switch or permission lists carry named presets that set many values at once, still overridable individually.</p>
+<p class="why">Twenty switches is a decision nobody wants to make twenty times, and getting one wrong is silent.</p>
+<div class="meta"><span><span class="tag">USE IN</span> permissions, feature flags, notification preferences, report columns</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Preset buttons above the list, a granted count per group, and Clear all. Applying a preset never hides the underlying values.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.6</span><h3>Separate today's setup from permanent settings</h3></div>
+<div class="body">
+<p>What changes every day gets its own screen; what changes rarely stays in settings.</p>
+<p class="why">Mixed together, the daily task is buried among configuration nobody touches, and permanent settings get changed by accident.</p>
+<div class="meta"><span><span class="tag">USE IN</span> rostering, availability, capacity, daily notices, shift handover</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A "today" screen with the day's decisions and a same-as-last-time shortcut; settings holds the defaults it starts from.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">2.7</span><h3>Mark mandatory and optional explicitly</h3></div>
+<div class="body">
+<p>Required fields are marked, and the screen says how many remain.</p>
+<p class="why">Users otherwise discover requirements by failing to submit, which is the most expensive moment to learn them.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every form, especially long configuration and anything feeding a document</span></div>
+<div class="pat"><span class="tag">PATTERN</span> An asterisk after the label text, never on its own line, plus a live readiness line naming what is outstanding.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION THREE</div>
+<h2>Input and data entry</h2>
+<p class="lede">The cheapest bug fix is an input that cannot accept the wrong value in the first place.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.1</span><h3>Searchable dropdowns above about eight options</h3></div>
+<div class="body">
+<p>Any list that can grow past a handful gets a type-to-filter field.</p>
+<p class="why">Scanning beats scrolling until roughly eight items; past that, typing wins and keeps winning as the list grows.</p>
+<div class="meta"><span><span class="tag">USE IN</span> categories, assignees, locations, tags, accounts, products</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One field with a chevron: focus opens the full list, typing filters it, the chevron opens and closes it, selecting closes it and shows the value.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.2</span><h3>Create from inside the dropdown</h3></div>
+<div class="body">
+<p>When the typed value does not exist, an add row appears at the top of the list and creates it in place.</p>
+<p class="why">Sending a user to settings mid-task loses the task. Most abandoned records are abandoned at exactly this point.</p>
+<div class="meta"><span><span class="tag">USE IN</span> any taxonomy the user legitimately extends: categories, tags, roles, units, methods</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Add row only when there is no exact match. Creation selects the new value, writes an audit entry, and where the value has consequences collects them inline.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.3</span><h3>Constrain the format rather than validating it</h3></div>
+<div class="body">
+<p>Dates, times, months and numbers use native pickers and numeric inputs, so an invalid value cannot be typed.</p>
+<p class="why">A free-text date field guarantees ambiguity and a validation message. A picker removes the whole class of error.</p>
+<div class="meta"><span><span class="tag">USE IN</span> everywhere a date, time, duration or quantity is captured</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Store the machine format, display the human one, and keep paired ranges self-correcting so the end can never precede the start.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.4</span><h3>Show the derived value as it is typed</h3></div>
+<div class="body">
+<p>When two representations of one quantity exist, entering either shows the other immediately.</p>
+<p class="why">Users think in whichever unit suits the moment. Making them convert invites arithmetic errors in the one place errors matter.</p>
+<div class="meta"><span><span class="tag">USE IN</span> discounts, tax, margins, currency, progress, allocation</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Two bound fields plus a live consequence line in plain words. Amounts on legal or financial documents also print in words.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.5</span><h3>Bulk selection on long lists</h3></div>
+<div class="body">
+<p>Multi-select lists offer select-all, clear-all and group-level selection.</p>
+<p class="why">The common intent is "nearly all" or "none". Expressing that one item at a time is slow and error-prone.</p>
+<div class="meta"><span><span class="tag">USE IN</span> permissions, rosters, notification lists, report columns, batch actions</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Select-all beside a live count, per-group toggles, and a repeat-last-time shortcut where a previous selection exists.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.6</span><h3>Design for more than twenty of anything</h3></div>
+<div class="body">
+<p>Every list of records assumes it will be long: search, filter, grouping and a show-more path from the start.</p>
+<p class="why">Lists built for demo data break on the first real customer, and retrofitting search means rebuilding the screen.</p>
+<div class="meta"><span><span class="tag">USE IN</span> people, items, transactions, locations, documents, log entries</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Search, sensible grouping, a capped default view with an explicit expander, and a count so the user knows what is hidden.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">3.7</span><h3>Full CRUD, or a stated reason why not</h3></div>
+<div class="body">
+<p>Anything a user can create, they can read, edit and remove — or the screen says why not.</p>
+<p class="why">Create-only records make the first typo permanent, and permanent typos flow into every report built on them.</p>
+<div class="meta"><span><span class="tag">USE IN</span> any user-entered record: entries, notes, line items, contacts, configuration rows</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Edit and remove on every row, with reason capture and an audit entry where the record affects money, compliance or someone else's work.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION FOUR</div>
+<h2>Lists, tables and reporting</h2>
+<p class="lede">A table users cannot sort, search or export is a table they will re-key into a spreadsheet.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">4.1</span><h3>Sortable columns with visible direction</h3></div>
+<div class="body">
+<p>Column headers sort, and the active column and direction are shown.</p>
+<p class="why">Sorting is how people answer "biggest", "oldest", "whose". Hidden sort state makes users doubt what they are reading.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every data table</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Header as a button with an arrow on the active column; clicking it again reverses. The most useful order is the default.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">4.2</span><h3>One search box across all columns</h3></div>
+<div class="body">
+<p>A single field matches every meaningful field in the row, and works alongside the filters.</p>
+<p class="why">Users search for the fragment they remember, not the field it lives in. Per-column search asks them to know your schema.</p>
+<div class="meta"><span><span class="tag">USE IN</span> logs, transactions, directories, catalogues, history</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Search plus a live result count and a Clear action, and a no-matches state that names the term and offers to clear it.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">4.3</span><h3>Every report exports</h3></div>
+<div class="body">
+<p>Any screen presenting figures exports what is on screen — current filters and range included.</p>
+<p class="why">Reports get emailed, filed and reconciled elsewhere. Without an export users screenshot or retype, and the numbers stop matching.</p>
+<div class="meta"><span><span class="tag">USE IN</span> reports, ledgers, logs, audit trails, list views</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Export in the panel header, a confirmation naming row count and columns, and the export itself recorded in the audit trail.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">4.4</span><h3>One date range, obeyed by everything</h3></div>
+<div class="body">
+<p>A single range control governs every figure on the screen, and every label reflects the chosen range.</p>
+<p class="why">A panel that silently ignores the filter is worse than no filter: the number looks authoritative and is wrong.</p>
+<div class="meta"><span><span class="tag">USE IN</span> reports, dashboards, analytics, statements</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Quick presets plus custom from and to pickers, a derived duration summary, and copy that adapts — never "today" while showing a month.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">4.5</span><h3>A ledger view beside the summaries</h3></div>
+<div class="body">
+<p>Aggregated reports are paired with a one-row-per-record listing for the same range.</p>
+<p class="why">Summaries answer "how much"; only the ledger answers "which one". Reconciliation and disputes always need the second.</p>
+<div class="meta"><span><span class="tag">USE IN</span> financial reporting, activity reporting, operational history</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A ledger sub-report with every identifying column, rows that open the underlying record, and its own export.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION FIVE</div>
+<h2>States and feedback</h2>
+<p class="lede">The states nobody designs are the ones every user eventually sees.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.1</span><h3>The eight states, every time</h3></div>
+<div class="body">
+<p>Each data surface has a designed empty, first-run, loading, partial, error, success, permission-denied and offline state.</p>
+<p class="why">These are not edge cases. Empty is what every new customer sees first, and error is what they remember.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every list, table, form, dashboard and detail screen</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A state set per surface. Empty explains what will appear and offers the action that fills it; error names what failed and what to try; loading holds layout to prevent reflow.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.2</span><h3>Distinguish "nothing yet" from "nothing found"</h3></div>
+<div class="body">
+<p>An empty list because nothing exists reads differently from one because filters excluded everything.</p>
+<p class="why">One needs an onboarding action, the other needs the filter cleared. The same message serves neither.</p>
+<div class="meta"><span><span class="tag">USE IN</span> anywhere search or filters sit above a list</span></div>
+<div class="pat"><span class="tag">PATTERN</span> First-run empty state with the create action; no-matches state naming the active filters with a one-tap clear.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.3</span><h3>Confirm before anything destructive or financial</h3></div>
+<div class="body">
+<p>Deletions, cancellations, closures, discounts and irreversible sends confirm first, naming the consequence.</p>
+<p class="why">One-click destruction on a shared operational screen is a data-loss incident waiting for a busy afternoon.</p>
+<div class="meta"><span><span class="tag">USE IN</span> delete, cancel, close, refund, void, send, publish</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One shared confirm dialog stating what will happen in specifics — not "are you sure" — with the destructive action labelled by its verb.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.4</span><h3>Undo on anything reversible</h3></div>
+<div class="body">
+<p>Reversible actions confirm afterwards with a message carrying Undo, rather than asking first.</p>
+<p class="why">Undo is faster than a confirmation for the ninety-nine cases that were intentional, and kinder for the one that was not.</p>
+<div class="meta"><span><span class="tag">USE IN</span> archiving, status changes, list edits, clearing, marking done</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A message describing the action with Undo beside it, live for several seconds. Reserve confirmations for what undo cannot reach.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.5</span><h3>Say what happened, in specifics</h3></div>
+<div class="body">
+<p>Confirmations name the record, the values and the consequence, and adapt to what actually occurred.</p>
+<p class="why">"Saved" gives the user nothing to verify against. A specific message doubles as a receipt.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every write action</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Compose the message from the real values; if the count is one, do not claim a batch.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.6</span><h3>Only offer actions that will work</h3></div>
+<div class="body">
+<p>Where an action depends on a capability the record may lack, show the capability and withhold the action.</p>
+<p class="why">A button that silently does nothing is worse than an absent one: the operator believes the task is done.</p>
+<div class="meta"><span><span class="tag">USE IN</span> notifications, messaging, printing, integrations, exports, device-dependent actions</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A capability badge per row, the action rendered only when viable, and the fallback named where it is not.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">5.7</span><h3>Degrade honestly when a dependency fails</h3></div>
+<div class="body">
+<p>If a device, provider or integration is unavailable, the record still saves, the failure is visible, and a retry exists.</p>
+<p class="why">Coupling data capture to an unreliable side effect loses real work. The failure belongs on screen, not in a log.</p>
+<div class="meta"><span><span class="tag">USE IN</span> printing, payments, messaging, sync, third-party APIs</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Persist first, then attempt. Show a failed badge on the record with an explicit retry, and mark retries as retries.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION SIX</div>
+<h2>Trust, attribution and recovery</h2>
+<p class="lede">Shared operational software needs to answer "who did this" without an engineer.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">6.1</span><h3>An audit trail with date, time, actor and target</h3></div>
+<div class="body">
+<p>Every consequential action records what changed, when — date and time both — who did it, and which record it touched.</p>
+<p class="why">Disputes are resolved by the log or by argument. A log without a date only proves something happened eventually.</p>
+<div class="meta"><span><span class="tag">USE IN</span> anything multi-user: money, permissions, configuration, deletions, overrides</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A dedicated log screen with type filters, cross-column search, sortable columns and export — and confidential entries marked.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">6.2</span><h3>Attribution on screen, not only in the log</h3></div>
+<div class="body">
+<p>Records show who created, changed or approved them, in the interface.</p>
+<p class="why">Visible attribution answers the question where it is asked, and quietly improves behaviour.</p>
+<div class="meta"><span><span class="tag">USE IN</span> approvals, discounts, cancellations, notes, status changes</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A "by" line on the row or detail header, naming the person rather than an account identifier.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">6.3</span><h3>A consistent identity spine</h3></div>
+<div class="body">
+<p>The identifiers that locate a record appear on every screen that touches it, in the same order and place.</p>
+<p class="why">Staff cross-reference between screens constantly. A stable spine means never hunting for the same reference twice.</p>
+<div class="meta"><span><span class="tag">USE IN</span> order and case management, tickets, logistics, healthcare, field service</span></div>
+<div class="pat"><span class="tag">PATTERN</span> An identifier strip component fed the same fields everywhere, including on printed artefacts.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">6.4</span><h3>Record the origin of every entry</h3></div>
+<div class="body">
+<p>Where a record can arrive by several routes, store and show which one, and when.</p>
+<p class="why">Origin is what makes reporting on channels, self-service adoption and error sources possible at all. It cannot be reconstructed later.</p>
+<div class="meta"><span><span class="tag">USE IN</span> multi-channel intake: self-service, staff-entered, imported, API</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A source field on the record, shown on the detail view and available as a report column and filter.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">6.5</span><h3>Resumable sessions on fixed entry points</h3></div>
+<div class="body">
+<p>When a session is anchored to a durable thing rather than a browser, returning to the entry point restores the live state.</p>
+<p class="why">Users close tabs, lose signal and switch devices mid-task. Losing their progress is a self-inflicted failure.</p>
+<div class="meta"><span><span class="tag">USE IN</span> kiosk and QR entry points, shared links, multi-device workflows, long forms</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Resolve state server-side from the durable key, not client storage. Persist drafts too, and define explicitly when the session ends.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION SEVEN</div>
+<h2>Language and numbers</h2>
+<p class="lede">Vocabulary is interface. A word a new employee has to translate is a word that will be remembered wrongly.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">7.1</span><h3>Plain-language status, never internal codes</h3></div>
+<div class="body">
+<p>Statuses read as words someone understands on their first shift.</p>
+<p class="why">Internal vocabulary forces every user through a translation step, and translations get remembered wrongly.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every status, state machine, error and log entry</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One status vocabulary defined once and used identically across surfaces, exports and printed artefacts.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">7.2</span><h3>Money is itemised, never a single opaque total</h3></div>
+<div class="body">
+<p>Wherever a total appears, its components appear as separate lines.</p>
+<p class="why">An unexplained total is the most disputed element in any interface, and the dispute costs more than the line items.</p>
+<div class="meta"><span><span class="tag">USE IN</span> checkout, invoicing, payroll, quoting, expenses</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A totals block — components, adjustments, tax, then the payable emphasised — in the same order everywhere including print.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">7.3</span><h3>Pass-through money is not income</h3></div>
+<div class="body">
+<p>Amounts collected on someone else's behalf sit in their own ledger and stay out of revenue, while still appearing in what the payer owes.</p>
+<p class="why">Folding them into income overstates revenue and understates a liability. It is an accounting error, not a display choice.</p>
+<div class="meta"><span><span class="tag">USE IN</span> tips, deposits, taxes collected, agent collections, reimbursements</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A separate ledger with its own settlement state; summary screens show the figure while stating it is excluded.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">7.4</span><h3>Derive every figure from one source</h3></div>
+<div class="body">
+<p>Counts and totals appearing in several places are computed once and read everywhere.</p>
+<p class="why">Independently computed figures drift, and once two screens disagree users stop trusting both.</p>
+<div class="meta"><span><span class="tag">USE IN</span> dashboards, badges, report headers, exports</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One derived value per concept. Labels build from it too, so a count of one never reads as a plural.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">7.5</span><h3>Time from the device, with the source declared</h3></div>
+<div class="body">
+<p>Time-of-day copy, day names and relative times derive from the user's clock, and the interface says which clock it means.</p>
+<p class="why">Software that says "good evening" at breakfast reads as broken, and ambiguous timestamps are unusable across zones.</p>
+<div class="meta"><span><span class="tag">USE IN</span> greetings, schedules, opening hours, deadlines, logs</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Display from the local clock; keep operational records on the business clock and label anything readable either way.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION EIGHT</div>
+<h2>Scale, multiplicity and concurrency</h2>
+<p class="lede">Most expensive rewrites start as a one-to-one assumption nobody questioned.</p>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">8.1</span><h3>Question every one-to-one assumption</h3></div>
+<div class="body">
+<p>Before building, ask whether the real world allows many where the model assumes one — and make the singular case a group of one.</p>
+<p class="why">Retrofitting one-to-many touches every screen. Modelling it as a collection from the start costs almost nothing.</p>
+<div class="meta"><span><span class="tag">USE IN</span> accounts to users, orders to recipients, records to owners, assets to locations</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Store the collection; render the single-member case exactly as before so nothing regresses, and show the group identity when there is more than one.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">8.2</span><h3>Design the many-at-once case</h3></div>
+<div class="body">
+<p>Anything that can arrive one at a time will arrive ten at once. Decide now how ten look.</p>
+<p class="why">Interfaces designed for one alert become unusable under load, which is exactly when they matter.</p>
+<div class="meta"><span><span class="tag">USE IN</span> alerts, requests, approvals, incoming messages, queues</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Group by type with a count, a batch clear per group, a capped view with an expander, and ordering by urgency rather than arrival.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">8.3</span><h3>Handle two people acting on one record</h3></div>
+<div class="body">
+<p>Concurrent actions are anticipated: the second actor is told what the first already did.</p>
+<p class="why">Shared tools mean double-processing, and the resulting duplicates are painful to unpick.</p>
+<div class="meta"><span><span class="tag">USE IN</span> queues, approvals, dispatch, shared inboxes, payments</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Show in-progress state with the actor's name; block or warn on the second attempt rather than silently applying it twice.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">8.4</span><h3>Ordering rules that are fair and visible</h3></div>
+<div class="body">
+<p>Where position matters, it derives from a server-stamped fact, is shown to everyone, and any override is logged.</p>
+<p class="why">Invisible ordering invites accusations of queue-jumping, and staff cannot defend a rule they cannot see.</p>
+<div class="meta"><span><span class="tag">USE IN</span> queues, waitlists, ticketing, dispatch, prioritised work</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Position from a server timestamp, displayed to both sides, with reordering treated as an audited exception.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">8.5</span><h3>Layer notification, most reliable first</h3></div>
+<div class="body">
+<p>Reaching a user uses several mechanisms in order of reliability, and the interface never implies more than the available layer delivers.</p>
+<p class="why">Push and in-page channels fail routinely. A single-channel design fails silently, which is the worst kind.</p>
+<div class="meta"><span><span class="tag">USE IN</span> anything where a user waits to be called, alerted or summoned</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A durable human-readable identifier as the base layer, live updates while the surface is open, optional contact details for the closed case, and per-record capability shown to staff.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION NINE</div>
+<h2>Roles, access and credentials</h2>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">9.1</span><h3>Role presets with per-action overrides</h3></div>
+<div class="body">
+<p>Access is granted by applying a role preset, then adjusting individual permissions.</p>
+<p class="why">Roles cover the common case; reality always has exceptions. Supporting only one of the two guarantees workarounds.</p>
+<div class="meta"><span><span class="tag">USE IN</span> any multi-user product</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Grouped permission list with presets, granted counts per group, sensitive permissions marked, and grants recorded in the audit trail.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">9.2</span><h3>Credential issuance belongs to the create flow</h3></div>
+<div class="body">
+<p>Creating a user runs through to access: record, credential, permissions, and a way to hand the credential over.</p>
+<p class="why">Splitting these means users exist who cannot sign in, and nobody knows whose job the next step was.</p>
+<div class="meta"><span><span class="tag">USE IN</span> staff, member and partner onboarding</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A stepped dialog — details, credential shown once with copy and send actions, then access — reachable again later from the row.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">9.3</span><h3>Permission-denied is a designed screen</h3></div>
+<div class="body">
+<p>A user without rights sees an explanation and who can grant them, not a blank panel or a silent redirect.</p>
+<p class="why">Unexplained absence reads as a broken product and generates a support contact every time.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every gated screen and action</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A denied state naming the permission and the person to ask. Gated actions are visible but disabled with a reason, or hidden consistently — never a mixture.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">SECTION TEN</div>
+<h2>Layout, responsiveness and artefacts</h2>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">10.1</span><h3>Fluid by default</h3></div>
+<div class="body">
+<p>Rows of fields and cards wrap and shrink; only genuinely fixed formats keep fixed dimensions.</p>
+<p class="why">Fixed-width rows are the commonest source of overflow, and they break at the widths real users have.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every form row, card grid, toolbar and table container</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Flex or grid with gap, wrapping enabled, minimum widths that permit shrinking, no fixed heights on anything holding text, and horizontal scroll confined to wide tables.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">10.2</span><h3>Layout follows density, not device</h3></div>
+<div class="body">
+<p>Screens are designed by information density and posture — glanceable, operational, analytical — rather than by nominal breakpoint.</p>
+<p class="why">The same user opens the same product on a phone in a corridor and a desktop in an office, with different intent each time.</p>
+<div class="meta"><span><span class="tag">USE IN</span> any product used across contexts</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Consumer and field surfaces stay light with large touch targets; administrative surfaces go dense. Both reflow rather than switching to a separate design.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">10.3</span><h3>Printed and exported artefacts are first-class</h3></div>
+<div class="body">
+<p>Documents the business hands over are designed, not derived from a screen print.</p>
+<p class="why">These artefacts represent the organisation externally and often carry legal weight. A screenshot of a web page does not.</p>
+<div class="meta"><span><span class="tag">USE IN</span> invoices, receipts, letters, certificates, tickets, statements, labels</span></div>
+<div class="pat"><span class="tag">PATTERN</span> A print-owning document shell, identity pulled from settings, variables merged from the record, and unfilled placeholders visibly marked so nothing is signed blank.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">10.4</span><h3>Consolidate before adding</h3></div>
+<div class="body">
+<p>Before building a screen or component, check whether an existing pattern covers it, and extend that instead.</p>
+<p class="why">Near-duplicate screens diverge, then need fixing twice, and teach users two ways to do one thing.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every addition to an existing product</span></div>
+<div class="pat"><span class="tag">PATTERN</span> One dialog, one table, one combobox, one message, one confirm — parameterised. If a second is genuinely needed, name the difference out loud.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">10.5</span><h3>Put information where it is asked for</h3></div>
+<div class="body">
+<p>If a fact is useful on a screen, it appears there — even if it already exists somewhere else.</p>
+<p class="why">Making users navigate to assemble one answer is the most common and least visible usability failure.</p>
+<div class="meta"><span><span class="tag">USE IN</span> detail views, list rows, confirmations, printed artefacts</span></div>
+<div class="pat"><span class="tag">PATTERN</span> For each screen, name the question the user arrived with, and check the answer is on it without a click.</div>
+</div>
+</div>
+
+<div class="pr">
+<div class="prh"><span class="num">10.6</span><h3>Themed interaction states, never browser defaults</h3></div>
+<div class="body">
+<p>Hover, pressed, focus, selected and disabled are defined once in the system and inherited everywhere.</p>
+<p class="why">Undefined states are where a considered product suddenly looks unfinished, and default focus rings fail keyboard users quietly.</p>
+<div class="meta"><span><span class="tag">USE IN</span> every interactive element, including links added later by content editors</span></div>
+<div class="pat"><span class="tag">PATTERN</span> Hover and pressed from the accent ramp, a visible focus ring on keyboard focus, disabled at reduced opacity, and default link colours defined before any link exists.</div>
+</div>
+</div>
+
+<div class="sect">
+<div class="sectnum">BEFORE YOU BUILD</div>
+<h2>Four questions that catch most of it</h2>
+</div>
+<div class="band" style="margin-top:10px">
+<p style="font-size:12.8px;line-height:1.65">
+<strong>1.</strong> Would a customer have to ask us to change this?<br>
+<strong>2.</strong> What does this screen look like with nothing on it, and with ten thousand things on it?<br>
+<strong>3.</strong> What happens if two people do this at the same time?<br>
+<strong>4.</strong> If this action fails, does the user find out?
+</p>
+</div>
+
+<div class="sect">
+<div class="sectnum">BEFORE YOU SHIP</div>
+<h2>Pre-release checklist</h2>
+<p class="lede">Anything unticked is either a decision or a defect. Both are worth naming out loud.</p>
+</div>
+
+<div class="ck">
+<div class="ci"><span class="box"></span><span>Primary navigation pinned</span></div>
+<div class="ci"><span class="box"></span><span>Sub-navigation pinned where it exists</span></div>
+<div class="ci"><span class="box"></span><span>Long pages split into named sub-tabs</span></div>
+<div class="ci"><span class="box"></span><span>Summary figures link to their detail</span></div>
+<div class="ci"><span class="box"></span><span>One close affordance per dialog</span></div>
+<div class="ci"><span class="box"></span><span>No terminal screen without a way onward</span></div>
+<div class="ci"><span class="box"></span><span>User-facing copy editable in settings</span></div>
+<div class="ci"><span class="box"></span><span>Logo and identity configured once, used everywhere</span></div>
+<div class="ci"><span class="box"></span><span>Rates and thresholds configurable</span></div>
+<div class="ci"><span class="box"></span><span>Optional features switchable per surface</span></div>
+<div class="ci"><span class="box"></span><span>Presets for long switch lists</span></div>
+<div class="ci"><span class="box"></span><span>Daily setup separated from permanent settings</span></div>
+<div class="ci"><span class="box"></span><span>Mandatory fields marked, readiness shown</span></div>
+<div class="ci"><span class="box"></span><span>Dropdowns searchable past eight options</span></div>
+<div class="ci"><span class="box"></span><span>Add-new available inside the dropdown</span></div>
+<div class="ci"><span class="box"></span><span>Native pickers for dates, times, numbers</span></div>
+<div class="ci"><span class="box"></span><span>Derived values shown as they are typed</span></div>
+<div class="ci"><span class="box"></span><span>Select-all and bulk actions on long lists</span></div>
+<div class="ci"><span class="box"></span><span>Lists built for more than twenty records</span></div>
+<div class="ci"><span class="box"></span><span>Edit and delete on everything creatable</span></div>
+<div class="ci"><span class="box"></span><span>Columns sortable with visible direction</span></div>
+<div class="ci"><span class="box"></span><span>One search across all columns</span></div>
+<div class="ci"><span class="box"></span><span>Export on every report</span></div>
+<div class="ci"><span class="box"></span><span>One date range, obeyed by every panel</span></div>
+<div class="ci"><span class="box"></span><span>Ledger view beside the summaries</span></div>
+<div class="ci"><span class="box"></span><span>Empty, first-run, loading and error states</span></div>
+<div class="ci"><span class="box"></span><span>Success, denied and offline states</span></div>
+<div class="ci"><span class="box"></span><span>"Nothing yet" distinct from "nothing found"</span></div>
+<div class="ci"><span class="box"></span><span>Confirmation on destructive actions</span></div>
+<div class="ci"><span class="box"></span><span>Undo on reversible ones</span></div>
+<div class="ci"><span class="box"></span><span>Messages name the record and values</span></div>
+<div class="ci"><span class="box"></span><span>No action offered that cannot work</span></div>
+<div class="ci"><span class="box"></span><span>Dependency failure visible, with retry</span></div>
+<div class="ci"><span class="box"></span><span>Audit trail with date, time, actor, target</span></div>
+<div class="ci"><span class="box"></span><span>Attribution visible on screen</span></div>
+<div class="ci"><span class="box"></span><span>Identity spine consistent across screens</span></div>
+<div class="ci"><span class="box"></span><span>Origin recorded on every entry</span></div>
+<div class="ci"><span class="box"></span><span>Sessions resume from durable entry points</span></div>
+<div class="ci"><span class="box"></span><span>Plain-language statuses only</span></div>
+<div class="ci"><span class="box"></span><span>Totals itemised wherever they appear</span></div>
+<div class="ci"><span class="box"></span><span>Pass-through money excluded from income</span></div>
+<div class="ci"><span class="box"></span><span>Every figure derived from one source</span></div>
+<div class="ci"><span class="box"></span><span>Time and greetings from the device clock</span></div>
+<div class="ci"><span class="box"></span><span>One-to-one assumptions questioned</span></div>
+<div class="ci"><span class="box"></span><span>Many-at-once case designed</span></div>
+<div class="ci"><span class="box"></span><span>Concurrent action on one record handled</span></div>
+<div class="ci"><span class="box"></span><span>Ordering rules fair and visible</span></div>
+<div class="ci"><span class="box"></span><span>Notification layered by reliability</span></div>
+<div class="ci"><span class="box"></span><span>Role presets with per-action overrides</span></div>
+<div class="ci"><span class="box"></span><span>Credential issuance inside the create flow</span></div>
+<div class="ci"><span class="box"></span><span>Permission-denied designed, not blank</span></div>
+<div class="ci"><span class="box"></span><span>Rows wrap and shrink, nothing fixed-width</span></div>
+<div class="ci"><span class="box"></span><span>Density by posture, not by breakpoint</span></div>
+<div class="ci"><span class="box"></span><span>Printed artefacts designed as documents</span></div>
+<div class="ci"><span class="box"></span><span>Existing patterns extended, not duplicated</span></div>
+<div class="ci"><span class="box"></span><span>Answers where the question is asked</span></div>
+<div class="ci"><span class="box"></span><span>Hover, pressed, focus, disabled themed</span></div>
+<div class="ci"><span class="box"></span><span>Default link colours defined up front</span></div>
+</div>
+
+</div>
+</doc-page>
+</x-dc>
+</body>
+</html>

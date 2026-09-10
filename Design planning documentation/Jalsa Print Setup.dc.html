@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/styles.css">
+<script src="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F4F0EE;font-family:'Noto Sans',Poppins,system-ui,sans-serif;color:#241F1E;-webkit-font-smoothing:antialiased}
+a{color:#7A1C24;text-decoration:none}
+a:hover{color:#5E1319}
+.jh2{font-family:'Noto Sans',Poppins,system-ui,sans-serif;font-size:21px;font-weight:600;margin:0;letter-spacing:-.01em}
+.jsub{font-size:13px;color:#7C736F;margin:5px 0 0;line-height:1.5}
+.jsec{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#9A918D;margin:0 0 14px}
+.jcard{background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(36,31,30,.05),0 10px 26px rgba(36,31,30,.05);padding:22px}
+.jbtn{appearance:none;border:0;border-radius:999px;padding:11px 22px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#7A1C24;color:#fff}
+.jbtn:hover{background:#5E1319}
+.jbtn:active{background:#480F14}
+.jbtn2{appearance:none;border:1.5px solid rgba(122,28,36,.28);border-radius:999px;padding:9.5px 18px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:#fff;color:#7A1C24}
+.jbtn2:hover{background:#FAF0EF}
+.jghost{appearance:none;border:0;background:none;border-radius:999px;padding:7px 13px;font-family:inherit;font-size:12px;font-weight:600;color:#7C736F;cursor:pointer}
+.jghost:hover{background:#F1ECEA;color:#241F1E}
+.jchip{appearance:none;border:1.5px solid rgba(36,31,30,.11);background:#fff;border-radius:999px;padding:7px 15px;font-family:inherit;font-size:12.5px;font-weight:600;color:#57504D;cursor:pointer;white-space:nowrap}
+.jchip:hover{border-color:#7A1C24;color:#7A1C24}
+.jchip[data-on="1"]{background:#7A1C24;border-color:#7A1C24;color:#fff}
+.jinput{border:1.5px solid rgba(36,31,30,.13);border-radius:999px;padding:10px 16px;font-size:13px;font-family:inherit;background:#fff;color:#241F1E;width:100%}
+.jinput:focus{outline:2px solid #7A1C24;outline-offset:1px;border-color:#7A1C24}
+.jfield{display:flex;flex-direction:column;gap:6px;font-size:11.5px;font-weight:600;color:#57504D}
+.jtoggle{appearance:none;border:0;width:42px;height:24px;border-radius:999px;cursor:pointer;position:relative;background:#DCD5D2;transition:background .16s;flex:none}
+.jtoggle[data-on="1"]{background:#1E8E3E}
+.jknob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:999px;background:#fff;transition:transform .16s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.jtoggle[data-on="1"] .jknob{transform:translateX(18px)}
+.jth{text-align:left;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9A918D;padding:0 12px 9px;border-bottom:1px solid rgba(36,31,30,.08)}
+.jtd{font-size:13px;padding:12px;border-bottom:1px solid rgba(36,31,30,.055);vertical-align:middle}
+.jx{appearance:none;border:0;background:#F4F0EE;color:#57504D;width:32px;height:32px;border-radius:999px;font-size:17px;line-height:1;cursor:pointer;font-family:inherit}
+.jx:hover{background:#EDE7E4;color:#241F1E}
+.jtab{appearance:none;border:0;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:rgba(255,255,255,.66);padding:13px 16px;border-bottom:2.5px solid transparent;white-space:nowrap}
+.jtab:hover{color:#fff}
+.jtab[data-on="1"]{color:#fff;border-bottom-color:#F6A06B}
+.paper{background:#FFFDF9;box-shadow:0 2px 5px rgba(36,31,30,.1),0 16px 40px rgba(36,31,30,.14);position:relative}
+.tick{font-family:'Roboto Mono',ui-monospace,monospace;white-space:pre;color:#1A1614}
+.zig{height:7px;background:repeating-linear-gradient(-45deg,#FFFDF9 0 5px,transparent 5px 10px),repeating-linear-gradient(45deg,#FFFDF9 0 5px,transparent 5px 10px);background-position:0 0,0 0}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column">
+
+<header style="background:#7A1C24;color:#fff;padding:0 24px;position:sticky;top:0;z-index:30">
+<div style="max-width:1500px;margin:0 auto;display:flex;align-items:center;gap:18px;padding:13px 0">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:40px;height:40px;border-radius:11px;object-fit:contain;background:#fff;padding:2px">
+<div style="flex:1;min-width:0">
+<div style="font-size:14.5px;font-weight:600">Printing</div>
+<div style="font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px">{{ headerLine }}</div>
+</div>
+<button class="jbtn2" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);color:#fff" onClick="{{ openTest }}">Test print</button>
+</div>
+<div style="max-width:1500px;margin:0 auto;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+<button class="jtab" data-on="{{ t.on }}" onClick="{{ t.click }}">{{ t.label }}</button>
+</sc-for>
+</div>
+</header>
+
+<main style="flex:1;padding:24px;max-width:1500px;margin:0 auto;width:100%">
+
+<sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+<div>
+<h1 class="jh2">Printing overview</h1>
+<p class="jsub">{{ dashSub }}</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:18px">
+<sc-for list="{{ dashCards }}" as="c" hint-placeholder-count="4">
+<button onClick="{{ c.click }}" class="jcard" style="border:0;cursor:pointer;text-align:left;font-family:inherit">
+<p class="jsec" style="margin-bottom:9px">{{ c.title }}</p>
+<div style="font-size:30px;font-weight:600;letter-spacing:-.02em">{{ c.value }}</div>
+<div style="display:flex;align-items:center;gap:7px;margin-top:8px">
+<span style="width:8px;height:8px;border-radius:999px;{{ c.dot }};flex:none"></span>
+<span style="font-size:12px;color:#57504D">{{ c.note }}</span>
+</div>
+</button>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start">
+<div class="jcard">
+<p class="jsec">The three machines</p>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ printerBrief }}" as="p" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:16px;background:#FBF8F7">
+<span style="width:9px;height:9px;border-radius:999px;{{ p.dot }};flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:600">{{ p.name }}</span>
+<span style="display:block;font-size:11px;color:#7C736F;margin-top:2px">{{ p.meta }}</span>
+</span>
+<span style="font-size:11px;font-weight:600;color:#57504D;white-space:nowrap">{{ p.last }}</span>
+<button class="jghost" onClick="{{ p.open }}">Configure</button>
+</div>
+</sc-for>
+</div>
+</div>
+<div class="jcard">
+<p class="jsec">Needs attention</p>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ dashAlerts }}" as="a" hint-placeholder-count="2">
+<div style="border-radius:16px;padding:13px 15px;{{ a.tint }}">
+<div style="font-size:12.5px;font-weight:600">{{ a.title }}</div>
+<div style="font-size:11.5px;line-height:1.5;margin-top:4px;opacity:.85">{{ a.body }}</div>
+<button class="jghost" style="margin-top:7px;padding-left:0" onClick="{{ a.click }}">{{ a.action }}</button>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPrinters }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap">
+<div>
+<h1 class="jh2">Printers</h1>
+<p class="jsub">{{ printersSub }}</p>
+</div>
+<button class="jbtn" onClick="{{ addPrinter }}">+ Add printer</button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-top:18px">
+<sc-for list="{{ printers }}" as="p" hint-placeholder-count="3">
+<div class="jcard">
+<div style="display:flex;align-items:flex-start;gap:12px">
+<span style="flex:1;min-width:0">
+<span style="display:flex;align-items:center;gap:9px">
+<span style="width:9px;height:9px;border-radius:999px;{{ p.dot }};flex:none"></span>
+<span style="font-size:15px;font-weight:600">{{ p.name }}</span>
+</span>
+<span style="display:block;font-size:11.5px;color:#7C736F;margin-top:5px">{{ p.meta }}</span>
+</span>
+<span style="font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;{{ p.statePill }};white-space:nowrap">{{ p.state }}</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(36,31,30,.08);border-radius:14px;overflow:hidden;margin-top:15px">
+<sc-for list="{{ p.facts }}" as="f" hint-placeholder-count="4">
+<div style="background:#fff;padding:10px 12px">
+<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A918D">{{ f.k }}</div>
+<div style="font-size:12.5px;font-weight:600;margin-top:3px">{{ f.v }}</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px">
+<button class="jbtn2" onClick="{{ p.open }}">Configure</button>
+<button class="jghost" onClick="{{ p.template }}">Template</button>
+<button class="jghost" onClick="{{ p.test }}">Test print</button>
+<span style="flex:1"></span>
+<button class="jtoggle" data-on="{{ p.on }}" onClick="{{ p.toggle }}"><span class="jknob"></span></button>
+</div>
+</div>
+</sc-for>
+</div>
+<div class="jcard" style="margin-top:16px">
+<p class="jsec">Why three</p>
+<div style="font-size:12.5px;color:#57504D;line-height:1.6;max-width:60em">{{ printerRationale }}</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTemplate }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap">
+<div>
+<h1 class="jh2">{{ tplTitle }}</h1>
+<p class="jsub">{{ tplSub }}</p>
+</div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<sc-for list="{{ tplKinds }}" as="k" hint-placeholder-count="2">
+<button class="jchip" data-on="{{ k.on }}" onClick="{{ k.click }}">{{ k.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;margin-top:18px;align-items:start">
+
+<div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+
+<div class="jcard">
+<p class="jsec">Paper and fit</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<sc-for list="{{ widthChips }}" as="w" hint-placeholder-count="2">
+<button class="jchip" data-on="{{ w.on }}" onClick="{{ w.click }}">{{ w.label }}</button>
+</sc-for>
+<span style="flex:1"></span>
+<sc-for list="{{ fontChips }}" as="fc" hint-placeholder-count="3">
+<button class="jchip" data-on="{{ fc.on }}" onClick="{{ fc.click }}">{{ fc.label }}</button>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:rgba(36,31,30,.08);border-radius:14px;overflow:hidden;margin-top:14px">
+<sc-for list="{{ gridFacts }}" as="g" hint-placeholder-count="4">
+<div style="background:#fff;padding:11px 13px">
+<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A918D">{{ g.k }}</div>
+<div style="font-size:13.5px;font-weight:600;margin-top:3px">{{ g.v }}</div>
+</div>
+</sc-for>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:12px">{{ gridNote }}</div>
+</div>
+
+<div class="jcard">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<p class="jsec" style="margin:0">Lines on the ticket</p>
+<span style="font-size:11.5px;color:#7A1C24;font-weight:600">{{ fieldCount }}</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin:9px 0 13px">Switch a line off and it leaves the ticket. Move it and the ticket reorders. Empty lines never print.</div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ fieldGroups }}" as="g" hint-placeholder-count="4">
+<div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#57504D;margin-bottom:8px">{{ g.name }}</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<sc-for list="{{ g.fields }}" as="fd" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:13px;{{ fd.rowTint }}">
+<button class="jtoggle" data-on="{{ fd.on }}" onClick="{{ fd.toggle }}"><span class="jknob"></span></button>
+<span style="flex:1 1 auto;min-width:0;font-size:12.5px;font-weight:500;line-height:1.3">{{ fd.label }}</span>
+<span style="flex:none;font-size:10.5px;color:#9A918D;white-space:nowrap;max-width:88px;overflow:hidden;text-overflow:ellipsis">{{ fd.hint }}</span>
+<span style="flex:none;display:flex;gap:2px">
+<button class="jghost" style="padding:4px 6px;line-height:1" onClick="{{ fd.up }}" aria-label="Move up">↑</button>
+<button class="jghost" style="padding:4px 6px;line-height:1" onClick="{{ fd.down }}" aria-label="Move down">↓</button>
+</span>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{ isKot }}" hint-placeholder-val="{{ true }}">
+<div class="jcard">
+<p class="jsec">Food-type grouping</p>
+<div style="display:flex;align-items:center;gap:12px">
+<button class="jtoggle" data-on="{{ groupOn }}" onClick="{{ toggleGroup }}"><span class="jknob"></span></button>
+<span style="font-size:12.5px;font-weight:600">Group items under VEG, NON-VEG and EGG</span>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:9px">{{ groupNote }}</div>
+<sc-if value="{{ groupOn2 }}" hint-placeholder-val="{{ true }}">
+<div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
+<sc-for list="{{ groupOrder }}" as="g" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:11px;padding:9px 13px;border-radius:13px;background:#FBF8F7">
+<span style="width:11px;height:11px;border-radius:3px;{{ g.mark }};flex:none"></span>
+<span style="flex:1;font-size:12.5px;font-weight:600">{{ g.label }}</span>
+<span style="font-size:10.5px;color:#9A918D">{{ g.count }}</span>
+<button class="jghost" style="padding:4px 7px" onClick="{{ g.up }}" aria-label="Move up">↑</button>
+<button class="jghost" style="padding:4px 7px" onClick="{{ g.down }}" aria-label="Move down">↓</button>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:13px">
+<button class="jtoggle" data-on="{{ hideEmpty }}" onClick="{{ toggleHideEmpty }}"><span class="jknob"></span></button>
+<span style="font-size:12.5px;font-weight:500">Hide a group when nothing in the round belongs to it</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<div class="jcard">
+<p class="jsec">Layout</p>
+<div style="font-size:11.5px;font-weight:600;color:#57504D;margin-bottom:8px">How each item line reads</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ layoutOpts }}" as="l" hint-placeholder-count="3">
+<button onClick="{{ l.click }}" style="{{ l.style }}">
+<span style="flex:1;min-width:0;text-align:left">
+<span style="display:block;font-size:12.5px;font-weight:600">{{ l.name }}</span>
+<span class="tick" style="display:block;font-size:10.5px;margin-top:4px;opacity:.72">{{ l.sample }}</span>
+</span>
+<sc-if value="{{ l.warn }}" hint-placeholder-val="{{ false }}">
+<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:#FFF1DC;color:#8A5A10;white-space:nowrap">tight at 58 mm</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px">
+<div>
+<div style="font-size:11.5px;font-weight:600;color:#57504D;margin-bottom:7px">Separator</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<sc-for list="{{ sepChips }}" as="sc" hint-placeholder-count="3">
+<button class="jchip" style="font-family:'Roboto Mono',monospace" data-on="{{ sc.on }}" onClick="{{ sc.click }}">{{ sc.label }}</button>
+</sc-for>
+</div>
+</div>
+<div>
+<div style="font-size:11.5px;font-weight:600;color:#57504D;margin-bottom:7px">Line spacing</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<sc-for list="{{ spaceChips }}" as="sp" hint-placeholder-count="3">
+<button class="jchip" data-on="{{ sp.on }}" onClick="{{ sp.click }}">{{ sp.label }}</button>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="margin-top:16px;border-top:1px solid rgba(36,31,30,.08);padding-top:14px">
+<button class="jghost" style="padding-left:0" onClick="{{ toggleAdvanced }}">{{ advLabel }}</button>
+<sc-if value="{{ advOpen }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px">
+<label class="jfield">Printable width, mm<input class="jinput" value="{{ printableMm }}" onChange="{{ setPrintableMm }}"></label>
+<label class="jfield">Left margin, mm<input class="jinput" value="{{ marginL }}" onChange="{{ setMarginL }}"></label>
+<label class="jfield">Feed lines after cut<input class="jinput" value="{{ feedLines }}" onChange="{{ setFeedLines }}"></label>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.55;margin-top:11px">{{ advNote }}</div>
+</sc-if>
+</div>
+</div>
+
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px;position:sticky;top:108px;min-width:0">
+<div class="jcard" style="padding:16px">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+<span style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9A918D;flex:1">Preview · {{ widthLabel }}</span>
+<sc-for list="{{ zoomChips }}" as="z" hint-placeholder-count="3">
+<button class="jchip" style="padding:6px 11px;font-size:11px" data-on="{{ z.on }}" onClick="{{ z.click }}">{{ z.label }}</button>
+</sc-for>
+</div>
+
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+<div style="{{ rulerStyle }}">
+<div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;color:#9A918D;font-family:'Roboto Mono',monospace">
+<span>0</span><span>{{ paperMmLabel }}</span>
+</div>
+<div style="height:5px;border-left:1px solid #C9BFBB;border-right:1px solid #C9BFBB;border-bottom:1px solid #C9BFBB;position:relative">
+<div style="{{ printableBarStyle }}"></div>
+</div>
+</div>
+<div class="paper" style="{{ paperStyle }}">
+<div class="zig" style="margin-bottom:1px"></div>
+<div class="tick" style="{{ tickStyle }}">
+<sc-for list="{{ lines }}" as="l" hint-placeholder-count="18">
+<div style="{{ l.style }}">{{ l.text }}</div>
+</sc-for>
+</div>
+<div class="zig" style="margin-top:1px"></div>
+</div>
+<div style="font-size:10.5px;color:#9A918D;text-align:center;line-height:1.45;max-width:300px">{{ paperCaption }}</div>
+</div>
+</div>
+
+<div class="jcard" style="padding:16px 18px">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px">
+<span class="jsec" style="margin:0;flex:1">Validation</span>
+<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;{{ validPill }}">{{ validState }}</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ checks }}" as="c" hint-placeholder-count="6">
+<div style="display:flex;align-items:flex-start;gap:9px">
+<span style="font-size:12px;font-weight:700;{{ c.iconStyle }};flex:none;width:13px">{{ c.icon }}</span>
+<span style="flex:1;min-width:0;font-size:11.5px;line-height:1.45;{{ c.textStyle }}">{{ c.label }}</span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ hasFailure }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:13px;padding:12px 14px;border-radius:14px;background:#FDECEC">
+<div style="font-size:11.5px;color:#7A1614;line-height:1.5">{{ failureNote }}</div>
+<div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">
+<button class="jbtn" style="padding:9px 16px;font-size:12px" onClick="{{ autoFix }}">Fix automatically</button>
+</div>
+</div>
+</sc-if>
+<div style="display:flex;gap:8px;margin-top:15px;flex-wrap:wrap">
+<button class="{{ saveClass }}" style="flex:1" onClick="{{ saveTpl }}">{{ saveLabel }}</button>
+<button class="jbtn2" onClick="{{ openTest }}">Test print</button>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isRouting }}" hint-placeholder-val="{{ false }}">
+<div>
+<h1 class="jh2">Where each item prints</h1>
+<p class="jsub">{{ routingSub }}</p>
+<div class="jcard" style="margin-top:18px;overflow-x:auto">
+<div style="display:grid;grid-template-columns:minmax(190px,1fr) 34px minmax(150px,.8fr) 34px minmax(190px,1fr);gap:10px;align-items:center;min-width:760px">
+<div style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9A918D">Menu category</div>
+<div></div>
+<div style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9A918D">Station</div>
+<div></div>
+<div style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9A918D">Printer</div>
+<sc-for list="{{ routes }}" as="r" hint-placeholder-count="8">
+<div style="padding:11px 14px;border-radius:14px;background:#FBF8F7;display:flex;align-items:center;gap:9px">
+<span style="width:10px;height:10px;border-radius:3px;{{ r.mark }};flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:12.5px;font-weight:600">{{ r.category }}</span>
+<span style="display:block;font-size:10.5px;color:#7C736F;margin-top:2px">{{ r.count }}</span>
+</span>
+</div>
+<div style="text-align:center;color:#C9BFBB;font-size:15px">→</div>
+<div style="font-size:12px;font-weight:600;color:#57504D">{{ r.station }}</div>
+<div style="text-align:center;color:#C9BFBB;font-size:15px">→</div>
+<div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:14px;{{ r.tint }}">
+<span style="width:8px;height:8px;border-radius:999px;{{ r.dot }};flex:none"></span>
+<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600">{{ r.printer }}</span>
+<button class="jghost" onClick="{{ r.change }}">Change</button>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:16px">
+<div class="jcard">
+<p class="jsec">Food type splits the kitchen ticket</p>
+<div style="font-size:12.5px;color:#57504D;line-height:1.6">{{ splitNote }}</div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+<button class="jtoggle" data-on="{{ splitPrint }}" onClick="{{ toggleSplitPrint }}"><span class="jknob"></span></button>
+<span style="font-size:12.5px;font-weight:600">Print veg and non-veg as separate tickets</span>
+</div>
+</div>
+<div class="jcard">
+<p class="jsec">Fallback</p>
+<div style="font-size:12.5px;color:#57504D;line-height:1.6">{{ fallbackNote }}</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap">
+<div>
+<h1 class="jh2">Print history</h1>
+<p class="jsub">{{ historySub }}</p>
+</div>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<sc-for list="{{ historyFilters }}" as="h" hint-placeholder-count="5">
+<button class="jchip" data-on="{{ h.on }}" onClick="{{ h.click }}">{{ h.label }}</button>
+</sc-for>
+</div>
+</div>
+<div class="jcard" style="margin-top:18px;padding:8px 20px 14px;overflow-x:auto">
+<table style="width:100%;border-collapse:collapse;min-width:820px">
+<thead><tr>
+<th class="jth" style="width:78px">Time</th>
+<th class="jth" style="width:76px">Type</th>
+<th class="jth" style="width:96px">Number</th>
+<th class="jth" style="width:96px">Table</th>
+<th class="jth">Printer</th>
+<th class="jth" style="width:104px">Status</th>
+<th class="jth" style="width:74px">Tries</th>
+<th class="jth" style="width:130px"></th>
+</tr></thead>
+<tbody>
+<sc-for list="{{ jobs }}" as="j" hint-placeholder-count="8">
+<tr>
+<td class="jtd" style="color:#7C736F">{{ j.time }}</td>
+<td class="jtd" style="font-weight:600">{{ j.type }}</td>
+<td class="jtd">{{ j.no }}</td>
+<td class="jtd" style="color:#57504D">{{ j.table }}</td>
+<td class="jtd" style="color:#57504D">{{ j.printer }}</td>
+<td class="jtd"><span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;{{ j.pill }}">{{ j.status }}</span></td>
+<td class="jtd" style="color:#7C736F">{{ j.tries }}</td>
+<td class="jtd" style="text-align:right;white-space:nowrap">
+<sc-if value="{{ j.canRetry }}" hint-placeholder-val="{{ false }}">
+<button class="jghost" onClick="{{ j.retry }}">Retry</button>
+</sc-if>
+<button class="jghost" onClick="{{ j.reprint }}">Reprint</button>
+</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div class="jcard" style="margin-top:16px">
+<p class="jsec">Reprints are marked</p>
+<div style="font-size:12.5px;color:#57504D;line-height:1.6;max-width:60em">{{ reprintNote }}</div>
+</div>
+</div>
+</sc-if>
+
+</main>
+
+<sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;background:rgba(36,31,30,.45);display:flex;align-items:center;justify-content:center;padding:22px;z-index:60">
+<div style="background:#fff;border-radius:22px;padding:24px;max-width:460px;width:100%;position:relative;max-height:88vh;overflow-y:auto">
+<button class="jx" style="position:absolute;top:16px;right:16px" onClick="{{ closeModal }}" aria-label="Close">×</button>
+<div style="font-size:19px;font-weight:600;padding-right:34px">{{ modalTitle }}</div>
+<div style="font-size:12.5px;color:#7C736F;line-height:1.55;margin-top:6px">{{ modalSub }}</div>
+
+<sc-if value="{{ isTestModal }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:18px;display:flex;flex-direction:column;gap:1px;background:rgba(36,31,30,.08);border-radius:14px;overflow:hidden">
+<sc-for list="{{ testFacts }}" as="t" hint-placeholder-count="4">
+<div style="background:#fff;padding:11px 14px;display:flex;gap:12px">
+<span style="font-size:11.5px;color:#7C736F;width:96px;flex:none">{{ t.k }}</span>
+<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600">{{ t.v }}</span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ testAsking }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:16px;padding:14px 16px;border-radius:16px;background:#FBF1F0">
+<div style="font-size:12.5px;font-weight:600;color:#7A1C24">Did the printed ticket look right?</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+<button class="jbtn2" style="text-align:left" onClick="{{ testGood }}">Yes — the kitchen can read it</button>
+<button class="jbtn2" style="text-align:left" onClick="{{ testBad }}">No — take me back to the layout</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ testReady }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:9px;margin-top:20px">
+<button class="jbtn" style="flex:1" onClick="{{ runTest }}">Print test ticket</button>
+<button class="jbtn2" onClick="{{ closeModal }}">Cancel</button>
+</div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{ isPrinterModal }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px">
+<label class="jfield" style="grid-column:1/-1">Printer name<input class="jinput" value="{{ pfName }}" onChange="{{ setPfName }}"></label>
+<div class="jfield" style="grid-column:1/-1">What it prints
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<sc-for list="{{ purposeChips }}" as="pc" hint-placeholder-count="3">
+<button class="jchip" data-on="{{ pc.on }}" onClick="{{ pc.click }}">{{ pc.label }}</button>
+</sc-for>
+</div>
+</div>
+<label class="jfield">Station<input class="jinput" value="{{ pfStation }}" onChange="{{ setPfStation }}"></label>
+<div class="jfield">Paper
+<div style="display:flex;gap:6px">
+<sc-for list="{{ pfWidths }}" as="pw" hint-placeholder-count="2">
+<button class="jchip" style="flex:1" data-on="{{ pw.on }}" onClick="{{ pw.click }}">{{ pw.label }}</button>
+</sc-for>
+</div>
+</div>
+<div class="jfield" style="grid-column:1/-1">How it connects
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<sc-for list="{{ connChips }}" as="cc" hint-placeholder-count="3">
+<button class="jchip" data-on="{{ cc.on }}" onClick="{{ cc.click }}">{{ cc.label }}</button>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{ pfNeedsIp }}" hint-placeholder-val="{{ true }}">
+<label class="jfield">IP address<input class="jinput" value="{{ pfIp }}" onChange="{{ setPfIp }}"></label>
+<label class="jfield">Port<input class="jinput" value="{{ pfPort }}" onChange="{{ setPfPort }}"></label>
+</sc-if>
+</div>
+<div style="margin-top:15px;padding:13px 15px;border-radius:16px;{{ connTint }}">
+<div style="display:flex;align-items:center;gap:11px">
+<span style="width:9px;height:9px;border-radius:999px;{{ connDot }};flex:none"></span>
+<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600">{{ connState }}</span>
+<button class="jbtn2" style="padding:8px 14px;font-size:12px" onClick="{{ checkConn }}">Check connection</button>
+</div>
+<div style="font-size:11.5px;line-height:1.5;margin-top:9px;opacity:.85">{{ connNote }}</div>
+</div>
+<div style="display:flex;gap:9px;margin-top:20px">
+<button class="jbtn" style="flex:1" onClick="{{ savePrinter }}">{{ savePrinterLabel }}</button>
+<button class="jbtn2" onClick="{{ closeModal }}">Cancel</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReprintModal }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:16px;padding:14px 16px;border-radius:16px;background:#FFF6E8">
+<div style="font-size:12.5px;color:#6B4A12;line-height:1.55">{{ reprintWarn }}</div>
+</div>
+<div style="margin-top:15px;display:flex;justify-content:center">
+<div class="paper" style="{{ reprintPaperStyle }}">
+<div class="zig" style="margin-bottom:1px"></div>
+<div class="tick" style="{{ tickStyle }}">
+<sc-for list="{{ reprintLines }}" as="l" hint-placeholder-count="10">
+<div style="{{ l.style }}">{{ l.text }}</div>
+</sc-for>
+</div>
+<div class="zig" style="margin-top:1px"></div>
+</div>
+</div>
+<div style="display:flex;gap:9px;margin-top:20px">
+<button class="jbtn" style="flex:1" onClick="{{ doReprint }}">Reprint it</button>
+<button class="jbtn2" onClick="{{ closeModal }}">Cancel</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#241F1E;color:#fff;padding:13px 22px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 12px 30px rgba(36,31,30,.3);z-index:70;max-width:min(560px,92vw)">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440}}">
+// Paper geometry. Each width is its own printable canvas, never a scaled copy.
+const PAPER = {
+  "58": {mm: 58, printable: 48, cols: {small: 42, normal: 32, large: 21}},
+  "80": {mm: 80, printable: 72, cols: {small: 64, normal: 48, large: 32}}
+};
+const PX_PER_MM = 4;
+
+const SAMPLE = {
+  restaurant: "JALSA RESTAURANT",
+  branch: "Bagalur Road, Hosur",
+  phone: "+91 90000 12345",
+  gstin: "33ABCDE1234F1Z5",
+  kot: "KOT-0042",
+  order: "R-3",
+  bill: "B-1048",
+  table: "T12",
+  customer: "Rahul",
+  captain: "Imran",
+  waiter: "Mani",
+  date: "09-Sep-2026",
+  time: "08:42 PM",
+  source: "Guest phone",
+  note: "Less spicy, no onion in the paneer",
+  items: [
+    {name: "Paneer Butter Masala Special", qty: 1, type: "v", rate: 191, cat: "Indian Curry", instr: "less spicy"},
+    {name: "Veg Fried Rice", qty: 2, type: "v", rate: 130, cat: "Rice", instr: ""},
+    {name: "Chicken 65", qty: 2, type: "nv", rate: 140, cat: "Non-Veg Starters", instr: ""},
+    {name: "Chicken Tandoori Half", qty: 1, type: "nv", rate: 130, cat: "Non-Veg Starters", instr: "extra char"},
+    {name: "Egg Fried Rice", qty: 1, type: "e", rate: 160, cat: "Rice", instr: ""}
+  ]
+};
+
+const GROUPS = {v: "VEG", nv: "NON-VEG", e: "EGG"};
+const MARK = {v: "background:#1E8E3E", nv: "background:#C5221F", e: "background:#E09B12"};
+
+const KOT_FIELDS = [
+  ["logo", "Restaurant logo", "Header", "prints as a block"],
+  ["name", "Restaurant name", "Header", "centred, bold"],
+  ["branch", "Branch and address", "Header", ""],
+  ["phone", "Phone", "Header", ""],
+  ["kot", "KOT number", "Order", "large"],
+  ["order", "Round number", "Order", ""],
+  ["table", "Table", "Order", ""],
+  ["bill", "Bill number", "Order", ""],
+  ["customer", "Customer name", "Order", ""],
+  ["captain", "Captain", "Order", ""],
+  ["source", "Order source", "Order", ""],
+  ["date", "Date", "Order", ""],
+  ["time", "Time", "Order", ""],
+  ["itemName", "Item name", "Items", "always on"],
+  ["qty", "Quantity", "Items", "always on"],
+  ["instr", "Special instructions", "Items", ""],
+  ["cat", "Item category", "Items", ""],
+  ["note", "Round notes", "Footer", ""],
+  ["thanks", "Thank you line", "Footer", ""]
+];
+
+const BILL_FIELDS = [
+  ["logo", "Restaurant logo", "Header", ""],
+  ["name", "Restaurant name", "Header", "centred, bold"],
+  ["branch", "Address", "Header", ""],
+  ["phone", "Phone", "Header", ""],
+  ["gstin", "GSTIN", "Header", ""],
+  ["bill", "Bill number", "Order", ""],
+  ["table", "Table", "Order", ""],
+  ["customer", "Customer name", "Order", ""],
+  ["captain", "Captain", "Order", ""],
+  ["date", "Date", "Order", ""],
+  ["time", "Time", "Order", ""],
+  ["itemName", "Item name", "Items", "always on"],
+  ["qty", "Quantity", "Items", "always on"],
+  ["rate", "Rate", "Items", ""],
+  ["amount", "Amount", "Items", "always on"],
+  ["subtotal", "Subtotal", "Totals", ""],
+  ["discount", "Discount", "Totals", ""],
+  ["tax", "CGST and SGST", "Totals", ""],
+  ["total", "Total", "Totals", "large, bold"],
+  ["payment", "Payment mode", "Totals", ""],
+  ["qr", "UPI QR block", "Footer", ""],
+  ["thanks", "Thank you line", "Footer", ""]
+];
+
+const SEPS = {dash: "-", equals: "=", dot: "."};
+
+class Component extends DCLogic {
+  state = {
+    tab: "dash",
+    kind: "kot",
+    width: "80",
+    font: "normal",
+    zoom: 1.5,
+    sep: "dash",
+    spacing: "normal",
+    layout: "A",
+    group: true,
+    hideEmpty: true,
+    groupOrder: ["v", "nv", "e"],
+    advOpen: false,
+    printableMm: "72",
+    marginL: "4",
+    feedLines: "3",
+    splitPrint: true,
+    kotOn: KOT_FIELDS.reduce((a, f) => { a[f[0]] = ["logo","source","order","customer","cat"].indexOf(f[0]) < 0; return a; }, {}),
+    billOn: BILL_FIELDS.reduce((a, f) => { a[f[0]] = ["logo","captain","rate"].indexOf(f[0]) < 0; return a; }, {}),
+    kotOrder: KOT_FIELDS.map(f => f[0]),
+    billOrder: BILL_FIELDS.map(f => f[0]),
+    printersOn: {P1: true, P2: true, P3: true},
+    modal: null, editing: null, testStage: "ready",
+    conn: "connected",
+    pf: null,
+    histFilter: "All",
+    toast: null,
+    reprintJob: null,
+    savedAt: "8:12 PM"
+  };
+
+  flash(m){ this.setState({toast: m}); clearTimeout(this._t); this._t = setTimeout(() => this.setState({toast: null}), 2600); }
+  set(o){ this.setState(o); }
+
+  cols(){
+    const p = PAPER[this.state.width];
+    return p.cols[this.state.font];
+  }
+
+  // ---- line builders: exactly what a character-grid printer does ----
+  center(t, cols){
+    const s = String(t).slice(0, cols);
+    const pad = Math.max(0, Math.floor((cols - s.length) / 2));
+    return " ".repeat(pad) + s;
+  }
+  lr(l, r, cols){
+    const left = String(l), right = String(r);
+    const gap = cols - left.length - right.length;
+    if (gap < 1) return (left + " " + right).slice(0, cols);
+    return left + " ".repeat(gap) + right;
+  }
+  wrap(t, cols){
+    const words = String(t).split(/\s+/);
+    const out = []; let line = "";
+    words.forEach(w => {
+      if (!line.length) { line = w.slice(0, cols); return; }
+      if ((line + " " + w).length <= cols) line += " " + w;
+      else { out.push(line); line = w.slice(0, cols); }
+    });
+    if (line.length) out.push(line);
+    return out.length ? out : [""];
+  }
+  sepLine(cols){ return SEPS[this.state.sep].repeat(cols); }
+  groupHead(label, cols){
+    const tag = " " + label + " ";
+    const ch = SEPS[this.state.sep];
+    const side = Math.max(1, Math.floor((cols - tag.length) / 2));
+    let out = ch.repeat(side) + tag + ch.repeat(side);
+    while (out.length < cols) out += ch;
+    return out.slice(0, cols);
+  }
+
+  itemLines(it, cols, withAmount){
+    const L = this.state.layout;
+    const qty = String(it.qty);
+    const amt = withAmount ? String(it.qty * it.rate) : "";
+    const tail = withAmount ? this.lr("", qty + "   " + amt, 0) : qty;
+    const rightW = withAmount ? (qty + "   " + amt).length : qty.length;
+    const out = [];
+    if (L === "C") {
+      this.wrap(it.name, cols).forEach(l => out.push(l));
+      out.push(withAmount ? this.lr("  x" + qty, amt, cols) : "  x" + qty);
+      return out;
+    }
+    if (L === "B") {
+      const prefix = qty + " x ";
+      const nameCols = cols - prefix.length - (withAmount ? amt.length + 2 : 0);
+      const wrapped = this.wrap(it.name, Math.max(6, nameCols));
+      wrapped.forEach((l, i) => {
+        if (i === 0) out.push(withAmount ? this.lr(prefix + l, amt, cols) : prefix + l);
+        else out.push(" ".repeat(prefix.length) + l);
+      });
+      return out;
+    }
+    const nameCols = cols - rightW - 2;
+    const wrapped = this.wrap(it.name, Math.max(6, nameCols));
+    wrapped.forEach((l, i) => {
+      if (i === wrapped.length - 1) out.push(this.lr(l, withAmount ? qty + "   " + amt : qty, cols));
+      else out.push(l);
+    });
+    return out;
+  }
+
+  buildKot(cols, opts){
+    const s = this.state, on = s.kotOn, o = opts || {};
+    const L = [];
+    const push = (text, style) => L.push({text: text === "" ? " " : text, kind: style || ""});
+    if (o.reprint) { push(this.center("*** REPRINT ***", cols), "big"); push(this.sepLine(cols)); }
+    s.kotOrder.forEach(key => {
+      if (!on[key]) return;
+      if (key === "logo") { push(this.center("[ JALSA ]", cols), "big"); return; }
+      if (key === "name") { push(this.center(SAMPLE.restaurant, cols), "big"); return; }
+      if (key === "branch") this.wrap(SAMPLE.branch, cols).forEach(l => push(this.center(l, cols)));
+      if (key === "phone") push(this.center(SAMPLE.phone, cols));
+      if (key === "kot") { push(""); push(this.center(SAMPLE.kot, cols), "big"); push(this.sepLine(cols)); }
+      if (key === "order") push(this.lr("ROUND", SAMPLE.order, cols));
+      if (key === "table") push(this.lr("TABLE", SAMPLE.table, cols));
+      if (key === "bill") push(this.lr("BILL NO", SAMPLE.bill, cols));
+      if (key === "customer") push(this.lr("GUEST", SAMPLE.customer, cols));
+      if (key === "captain") push(this.lr("CAPTAIN", SAMPLE.captain, cols));
+      if (key === "source") push(this.lr("SOURCE", SAMPLE.source, cols));
+      if (key === "date") push(this.lr("DATE", SAMPLE.date, cols));
+      if (key === "time") push(this.lr("TIME", SAMPLE.time, cols));
+      if (key === "itemName") {
+        const order = s.group ? s.groupOrder : ["all"];
+        order.forEach(g => {
+          const items = g === "all" ? SAMPLE.items : SAMPLE.items.filter(i => i.type === g);
+          if (!items.length && s.hideEmpty) return;
+          if (s.group) push(this.groupHead(GROUPS[g], cols), "bold");
+          else push(this.sepLine(cols));
+          items.forEach(it => {
+            this.itemLines(it, cols, false).forEach(l => push(l));
+            if (on.cat) push("  (" + it.cat + ")".slice(0, cols));
+            if (on.instr && it.instr) this.wrap("  * " + it.instr, cols).forEach(l => push(l));
+          });
+        });
+        push(this.sepLine(cols));
+      }
+      if (key === "note" && SAMPLE.note) {
+        push("NOTES:");
+        this.wrap(SAMPLE.note, cols).forEach(l => push(l));
+        push(this.sepLine(cols));
+      }
+      if (key === "thanks") push(this.center("-- END OF KOT --", cols));
+    });
+    return L;
+  }
+
+  buildBill(cols){
+    const s = this.state, on = s.billOn;
+    const L = [];
+    const push = (text, style) => L.push({text: text === "" ? " " : text, kind: style || ""});
+    const sub = SAMPLE.items.reduce((a, i) => a + i.qty * i.rate, 0);
+    const disc = 50, taxable = sub - disc, tax = Math.round(taxable * 0.025 * 100) / 100;
+    const total = taxable + tax * 2;
+    s.billOrder.forEach(key => {
+      if (!on[key]) return;
+      if (key === "logo") { push(this.center("[ JALSA ]", cols), "big"); return; }
+      if (key === "name") { push(this.center(SAMPLE.restaurant, cols), "big"); return; }
+      if (key === "branch") this.wrap(SAMPLE.branch, cols).forEach(l => push(this.center(l, cols)));
+      if (key === "phone") push(this.center(SAMPLE.phone, cols));
+      if (key === "gstin") { push(this.center("GSTIN " + SAMPLE.gstin, cols)); push(this.sepLine(cols)); }
+      if (key === "bill") push(this.lr("BILL NO", SAMPLE.bill, cols));
+      if (key === "table") push(this.lr("TABLE", SAMPLE.table, cols));
+      if (key === "customer") push(this.lr("GUEST", SAMPLE.customer, cols));
+      if (key === "captain") push(this.lr("CAPTAIN", SAMPLE.captain, cols));
+      if (key === "date") push(this.lr("DATE", SAMPLE.date, cols));
+      if (key === "time") push(this.lr("TIME", SAMPLE.time, cols));
+      if (key === "itemName") {
+        push(this.sepLine(cols));
+        push(this.lr("ITEM", "QTY   AMT", cols), "bold");
+        push(this.sepLine(cols));
+        SAMPLE.items.forEach(it => {
+          this.itemLines(it, cols, true).forEach(l => push(l));
+          if (on.rate) push("  @ " + it.rate);
+        });
+        push(this.sepLine(cols));
+      }
+      if (key === "subtotal") push(this.lr("SUBTOTAL", String(sub), cols));
+      if (key === "discount") push(this.lr("DISCOUNT", "-" + disc, cols));
+      if (key === "tax") { push(this.lr("CGST 2.5%", tax.toFixed(2), cols)); push(this.lr("SGST 2.5%", tax.toFixed(2), cols)); }
+      if (key === "total") { push(this.sepLine(cols)); push(this.lr("TOTAL", total.toFixed(2), cols), "big"); push(this.sepLine(cols)); }
+      if (key === "payment") push(this.lr("PAID BY", "UPI", cols));
+      if (key === "qr") { push(""); push(this.center("[ UPI QR ]", cols)); push(this.center("jalsahosur@upi", cols)); }
+      if (key === "thanks") { push(""); push(this.center("THANK YOU", cols), "big"); }
+    });
+    return L;
+  }
+
+  renderVals(){
+    const s = this.state;
+    const cols = this.cols();
+    const paper = PAPER[s.width];
+    const isKot = s.kind === "kot";
+    const raw = isKot ? this.buildKot(cols) : this.buildBill(cols);
+
+    const over = raw.filter(l => l.text.length > cols);
+    const nameCrowd = SAMPLE.items.some(it => {
+      const q = String(it.qty).length + (isKot ? 0 : 6);
+      return s.layout === "A" && it.name.length > cols - q - 2 && this.wrap(it.name, cols - q - 2).length > 2;
+    });
+    const bigOn58 = s.width === "58" && s.font === "large";
+    const failures = [];
+    if (over.length) failures.push(over.length + (over.length === 1 ? " line" : " lines") + " exceed " + cols + " characters");
+    if (bigOn58) failures.push("large text on 58 mm leaves only " + cols + " characters a line");
+    if (nameCrowd) failures.push("long item names wrap more than twice");
+
+    const px = paper.mm * PX_PER_MM * s.zoom;
+    const printablePx = (parseFloat(s.printableMm) || paper.printable) * PX_PER_MM * s.zoom;
+    const charPx = printablePx / cols;
+    const fontPx = charPx / 0.6;
+    const lh = s.spacing === "tight" ? 1.15 : s.spacing === "airy" ? 1.7 : 1.4;
+
+    const lineStyle = k => {
+      const base = "line-height:" + lh + ";";
+      if (k === "big") return base + "font-weight:700;letter-spacing:.02em";
+      if (k === "bold") return base + "font-weight:700";
+      return base;
+    };
+
+    const printersRaw = [
+      {id:"P1", name:"Main Kitchen Printer", purpose:"KOT", station:"Main Kitchen", width:"80", conn:"Ethernet", ip:"192.168.1.101", port:"9100", state:"Connected", last:"2 min ago"},
+      {id:"P2", name:"Counter Bill Printer", purpose:"Bill", station:"Billing", width:"80", conn:"USB", ip:"—", port:"—", state:"Connected", last:"6 min ago"},
+      {id:"P3", name:"Tandoor Station", purpose:"KOT", station:"Tandoor", width:"58", conn:"Wi-Fi", ip:"192.168.1.104", port:"9100", state:"Offline", last:"1 h 20 min ago"}
+    ];
+    const dotFor = st => st === "Connected" ? "background:#1E8E3E" : st === "Checking" ? "background:#E09B12" : "background:#C5221F";
+    const pillFor = st => st === "Connected" ? "background:#E4F3E8;color:#166A2E" : st === "Checking" ? "background:#FFF6E8;color:#6B4A12" : "background:#FDECEC;color:#A81D19";
+
+    const openPrinter = p => this.setState({modal: "printer", pf: {...p}, conn: p.state === "Connected" ? "connected" : "offline"});
+
+    const jobsRaw = [
+      {time:"8:42 PM", type:"KOT", no:"KOT-0042", table:"T12", printer:"Main Kitchen Printer", status:"Printed", tries:"1"},
+      {time:"8:41 PM", type:"KOT", no:"KOT-0041", table:"A5", printer:"Tandoor Station", status:"Failed", tries:"3"},
+      {time:"8:38 PM", type:"Bill", no:"B-1047", table:"N3", printer:"Counter Bill Printer", status:"Printed", tries:"1"},
+      {time:"8:36 PM", type:"KOT", no:"KOT-0040", table:"A3", printer:"Main Kitchen Printer", status:"Printed", tries:"2"},
+      {time:"8:34 PM", type:"KOT", no:"KOT-0039", table:"T12", printer:"Tandoor Station", status:"Retrying", tries:"2"},
+      {time:"8:30 PM", type:"Bill", no:"B-1046", table:"A10", printer:"Counter Bill Printer", status:"Printed", tries:"1"},
+      {time:"8:28 PM", type:"KOT", no:"KOT-0038", table:"N8", printer:"Main Kitchen Printer", status:"Printed", tries:"1"},
+      {time:"8:24 PM", type:"KOT", no:"KOT-0037", table:"A5", printer:"Main Kitchen Printer", status:"Queued", tries:"0"}
+    ];
+    const jobPill = st => ({
+      Printed: "background:#E4F3E8;color:#166A2E",
+      Failed: "background:#FDECEC;color:#A81D19",
+      Retrying: "background:#FFF6E8;color:#6B4A12",
+      Queued: "background:#F4F0EE;color:#57504D",
+      Printing: "background:#EAF1FB;color:#1B4E8F"
+    })[st] || "background:#F4F0EE;color:#57504D";
+
+    const fieldDefs = isKot ? KOT_FIELDS : BILL_FIELDS;
+    const order = isKot ? s.kotOrder : s.billOrder;
+    const onMap = isKot ? s.kotOn : s.billOn;
+    const orderKey = isKot ? "kotOrder" : "billOrder";
+    const onKey = isKot ? "kotOn" : "billOn";
+    const locked = ["itemName", "qty", "amount"];
+
+    const move = (key, dir) => {
+      const arr = order.slice();
+      const i = arr.indexOf(key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= arr.length) return;
+      arr[i] = arr[j]; arr[j] = key;
+      this.setState({[orderKey]: arr});
+    };
+
+    const groupsSeen = [];
+    const fieldGroups = [];
+    order.forEach(key => {
+      const def = fieldDefs.find(f => f[0] === key);
+      if (!def) return;
+      const g = def[2];
+      if (groupsSeen.indexOf(g) < 0) { groupsSeen.push(g); fieldGroups.push({name: g, fields: []}); }
+      const bucket = fieldGroups.find(x => x.name === g);
+      const isLocked = locked.indexOf(key) >= 0;
+      bucket.fields.push({
+        label: def[1],
+        hint: isLocked ? "always on" : def[3],
+        on: onMap[key] ? "1" : "0",
+        rowTint: onMap[key] ? "background:#FBF8F7" : "background:#fff;opacity:.55",
+        toggle: () => {
+          if (isLocked) { this.flash(def[1] + " cannot be switched off — the ticket is useless without it"); return; }
+          this.setState({[onKey]: {...onMap, [key]: !onMap[key]}});
+        },
+        up: () => move(key, -1),
+        down: () => move(key, 1)
+      });
+    });
+
+    const onCount = order.filter(k => onMap[k]).length;
+
+    return {
+      headerLine: "3 machines · " + (s.width === "80" ? "80 mm" : "58 mm") + " template open · last saved " + s.savedAt,
+      tabs: [["dash","Overview"],["printers","Printers"],["template","Templates"],["routing","Routing"],["history","History"]]
+        .map(([k, label]) => ({label, on: s.tab === k ? "1" : "0", click: () => this.set({tab: k})})),
+      isDash: s.tab === "dash", isPrinters: s.tab === "printers",
+      isTemplate: s.tab === "template", isRouting: s.tab === "routing", isHistory: s.tab === "history",
+
+      dashSub: "Two kitchen machines and the counter bill printer. Everything here is about what physically comes out of them.",
+      dashCards: [
+        {title:"KOT printing", value:"2", note:"1 offline since 7:22 PM", dot:"background:#E09B12", click: () => this.set({tab:"printers"})},
+        {title:"Bill printing", value:"1", note:"Operational", dot:"background:#1E8E3E", click: () => this.set({tab:"printers"})},
+        {title:"Failed jobs today", value:"1", note:"KOT-0041 · Tandoor Station", dot:"background:#C5221F", click: () => this.set({tab:"history"})},
+        {title:"Templates", value:"2", note:"KOT 80 mm · Bill 80 mm", dot:"background:#1E8E3E", click: () => this.set({tab:"template"})}
+      ],
+      printerBrief: printersRaw.map(p => ({
+        name: p.name,
+        meta: p.purpose + " · " + p.station + " · " + p.width + " mm · " + p.conn,
+        dot: dotFor(p.state), last: p.last,
+        open: () => openPrinter(p)
+      })),
+      dashAlerts: [
+        {title:"Tandoor Station has not answered since 7:22 PM", body:"Its tickets are being held. Orders are safe — nothing is lost — but the tandoor is working from the main kitchen ticket until it is back.",
+         action:"Check the connection", tint:"background:#FDECEC;color:#7A1614", click: () => openPrinter(printersRaw[2])},
+        {title:"KOT-0041 failed three times", body:"Same machine. Reprint it to the main kitchen printer so the round is not missed.",
+         action:"Open print history", tint:"background:#FFF6E8;color:#6B4A12", click: () => this.set({tab:"history"})}
+      ],
+
+      printersSub: "Each machine has its own paper width, so each has its own template. Changing a width re-flows that template rather than shrinking it.",
+      printers: printersRaw.map(p => ({
+        name: p.name,
+        meta: p.purpose + " template · " + p.station,
+        state: p.state, statePill: pillFor(p.state), dot: dotFor(p.state),
+        on: s.printersOn[p.id] ? "1" : "0",
+        facts: [
+          {k:"Paper", v: p.width + " mm"},
+          {k:"Connection", v: p.conn},
+          {k:"Address", v: p.ip},
+          {k:"Last print", v: p.last}
+        ],
+        open: () => openPrinter(p),
+        template: () => this.setState({tab:"template", kind: p.purpose === "Bill" ? "bill" : "kot", width: p.width, printableMm: String(PAPER[p.width].printable)}),
+        test: () => this.setState({modal:"test", testStage:"ready", pf: {...p}}),
+        toggle: () => {
+          const next = !s.printersOn[p.id];
+          this.setState({printersOn: {...s.printersOn, [p.id]: next}});
+          this.flash(p.name + (next ? " enabled" : " disabled — its tickets will route to the main kitchen"));
+        }
+      })),
+      printerRationale: "The main kitchen and the counter are non-negotiable: one prints what to cook, the other prints what to pay. The tandoor machine exists because that station is across the kitchen and 58 mm paper is what it takes — which is why the KOT template has to work at both widths rather than one.",
+      addPrinter: () => this.setState({modal:"printer", conn:"unknown", pf: {id:"new", name:"", purpose:"KOT", station:"Main Kitchen", width:"80", conn:"Ethernet", ip:"", port:"9100"}}),
+
+      tplTitle: isKot ? "KOT print template" : "Bill print template",
+      tplSub: isKot
+        ? "What the kitchen holds in their hand. Every control here is a character grid decision, not a styling one."
+        : "What the guest takes away. Same grid, same rules, different content.",
+      tplKinds: [["kot","KOT"],["bill","Bill"]].map(([k, label]) => ({
+        label, on: s.kind === k ? "1" : "0", click: () => this.set({kind: k})
+      })),
+      isKot,
+
+      widthChips: ["58","80"].map(w => ({
+        label: w + " mm", on: s.width === w ? "1" : "0",
+        click: () => this.setState({width: w, printableMm: String(PAPER[w].printable)})
+      })),
+      fontChips: [["small","Small"],["normal","Normal"],["large","Large"]].map(([k, label]) => ({
+        label, on: s.font === k ? "1" : "0", click: () => this.set({font: k})
+      })),
+      gridFacts: [
+        {k:"Paper width", v: paper.mm + " mm"},
+        {k:"Printable", v: (parseFloat(s.printableMm) || paper.printable) + " mm"},
+        {k:"Characters a line", v: String(cols)},
+        {k:"Ticket length", v: raw.length + " lines"}
+      ],
+      gridNote: "A thermal printer has no pixels — it has " + cols + " character positions on this paper at this size. Every line below is measured against that number, which is why 58 mm is a different layout and not a smaller picture.",
+
+      fieldCount: onCount + " of " + fieldDefs.length + " lines on",
+      fieldGroups,
+
+      groupOn: s.group ? "1" : "0", groupOn2: s.group,
+      toggleGroup: () => this.set({group: !s.group}),
+      groupNote: s.group
+        ? "Each group prints its own heading band, so the person on the veg side never reads a chicken line."
+        : "Off — items print in the order they were added, which mixes veg and non-veg on one ticket.",
+      groupOrder: s.groupOrder.map((g, i) => ({
+        label: GROUPS[g], mark: MARK[g],
+        count: SAMPLE.items.filter(x => x.type === g).length + " in the sample",
+        up: () => { if (i === 0) return; const a = s.groupOrder.slice(); a[i] = a[i-1]; a[i-1] = g; this.setState({groupOrder: a}); },
+        down: () => { if (i === s.groupOrder.length - 1) return; const a = s.groupOrder.slice(); a[i] = a[i+1]; a[i+1] = g; this.setState({groupOrder: a}); }
+      })),
+      hideEmpty: s.hideEmpty ? "1" : "0",
+      toggleHideEmpty: () => this.set({hideEmpty: !s.hideEmpty}),
+
+      layoutOpts: [
+        {k:"A", name:"Name left, quantity right", sample:"Chicken 65                    2"},
+        {k:"B", name:"Quantity first", sample:"2 x Chicken 65"},
+        {k:"C", name:"Name on its own line", sample:"Chicken Tandoori Half\n  x1"}
+      ].map(o => ({
+        name: o.name, sample: o.sample,
+        warn: o.k === "A" && s.width === "58",
+        style: "appearance:none;border:1.5px solid " + (s.layout === o.k ? "#7A1C24" : "rgba(36,31,30,.11)")
+          + ";background:" + (s.layout === o.k ? "#FBF1F0" : "#fff")
+          + ";border-radius:16px;padding:12px 14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:11px;text-align:left",
+        click: () => this.set({layout: o.k})
+      })),
+      sepChips: [["dash","- - - -"],["equals","= = = ="],["dot",". . . ."]].map(([k, label]) => ({
+        label, on: s.sep === k ? "1" : "0", click: () => this.set({sep: k})
+      })),
+      spaceChips: [["tight","Tight"],["normal","Normal"],["airy","Airy"]].map(([k, label]) => ({
+        label, on: s.spacing === k ? "1" : "0", click: () => this.set({spacing: k})
+      })),
+
+      advOpen: s.advOpen,
+      advLabel: s.advOpen ? "Hide advanced settings" : "Advanced settings",
+      toggleAdvanced: () => this.set({advOpen: !s.advOpen}),
+      printableMm: s.printableMm, setPrintableMm: e => this.set({printableMm: e.target.value.replace(/[^0-9.]/g, "")}),
+      marginL: s.marginL, setMarginL: e => this.set({marginL: e.target.value.replace(/[^0-9.]/g, "")}),
+      feedLines: s.feedLines, setFeedLines: e => this.set({feedLines: e.target.value.replace(/[^0-9]/g, "")}),
+      advNote: "Paper width is the roll. Printable width is what the head can actually mark — usually a few millimetres narrower. If a machine clips the right edge, reduce printable width here rather than shrinking the font.",
+
+      widthLabel: paper.mm + " mm · " + cols + " characters",
+      zoomChips: [[1,"Actual size"],[1.5,"1.5×"],[2,"2×"]].map(([z, label]) => ({
+        label, on: s.zoom === z ? "1" : "0", click: () => this.set({zoom: z})
+      })),
+      paperStyle: "width:" + px + "px;padding:" + (10 * s.zoom) + "px " + ((paper.mm - (parseFloat(s.printableMm) || paper.printable)) / 2 * PX_PER_MM * s.zoom) + "px",
+      tickStyle: "font-size:" + fontPx.toFixed(2) + "px",
+      lines: raw.map(l => ({text: l.text, style: lineStyle(l.kind)})),
+      rulerStyle: "width:" + px + "px",
+      paperMmLabel: paper.mm + " mm",
+      printableBarStyle: "position:absolute;top:-1px;bottom:-1px;left:" + ((paper.mm - (parseFloat(s.printableMm) || paper.printable)) / 2 / paper.mm * 100) + "%;width:" + ((parseFloat(s.printableMm) || paper.printable) / paper.mm * 100) + "%;background:rgba(122,28,36,.14);border-left:1px solid #7A1C24;border-right:1px solid #7A1C24",
+      paperCaption: "Shaded band is the printable area. At actual size this is the physical width of the roll.",
+
+      checks: [
+        {ok: !over.length, label: "Every line fits " + cols + " characters"},
+        {ok: !nameCrowd, label: "Long item names wrap without swallowing the quantity"},
+        {ok: true, label: "Quantity column reserved on every item line"},
+        {ok: raw.filter(l => l.kind === "big").every(l => l.text.length <= cols), label: "Header and total fit at the chosen size"},
+        {ok: !bigOn58, label: "Font size is workable for this paper"},
+        {ok: true, label: "Empty food-type groups drop out"}
+      ].map(c => ({
+        label: c.label,
+        icon: c.ok ? "✓" : "⚠",
+        iconStyle: c.ok ? "color:#1E8E3E" : "color:#C5221F",
+        textStyle: c.ok ? "color:#57504D" : "color:#7A1614;font-weight:600"
+      })),
+      validState: failures.length ? "Will not save" : "Ready to save",
+      validPill: failures.length ? "background:#FDECEC;color:#A81D19" : "background:#E4F3E8;color:#166A2E",
+      hasFailure: failures.length > 0,
+      failureNote: failures.join(". ") + ". Fix this before saving — an over-width line does not shrink on a thermal printer, it disappears.",
+      autoFix: () => {
+        const patch = {};
+        if (bigOn58) patch.font = "normal";
+        if (s.layout === "A" && s.width === "58") patch.layout = "B";
+        if (s.sep === "equals") patch.sep = "dash";
+        this.setState(patch);
+        this.flash("Adjusted to fit " + paper.mm + " mm — check the preview before saving");
+      },
+      saveClass: failures.length ? "jbtn2" : "jbtn",
+      saveLabel: failures.length ? "Cannot save yet" : "Save template",
+      saveTpl: () => {
+        if (failures.length) { this.flash("Fix the validation warnings first — the template would print clipped"); return; }
+        this.setState({savedAt: "8:44 PM"});
+        this.flash((isKot ? "KOT" : "Bill") + " template saved for " + paper.mm + " mm");
+      },
+
+      routingSub: "Which machine prints which items. The tandoor station only exists as a route — everything else lands in the main kitchen.",
+      routes: [
+        {category:"Non-Veg Starters", station:"Tandoor", printer:"Tandoor Station", type:"nv", count:"7 items", offline: true},
+        {category:"Veg Starters", station:"Tandoor", printer:"Tandoor Station", type:"v", count:"3 items", offline: true},
+        {category:"Biryani", station:"Main Kitchen", printer:"Main Kitchen Printer", type:"nv", count:"4 items"},
+        {category:"Indian Curry", station:"Main Kitchen", printer:"Main Kitchen Printer", type:"v", count:"22 items"},
+        {category:"Rice", station:"Main Kitchen", printer:"Main Kitchen Printer", type:"v", count:"5 items"},
+        {category:"Chinese", station:"Main Kitchen", printer:"Main Kitchen Printer", type:"nv", count:"8 items"},
+        {category:"Desserts", station:"Cold counter", printer:"Main Kitchen Printer", type:"v", count:"4 items"},
+        {category:"Drinks", station:"Cold counter", printer:"Main Kitchen Printer", type:"v", count:"6 items"}
+      ].map(r => ({
+        category: r.category, station: r.station, printer: r.printer,
+        count: r.count, mark: MARK[r.type],
+        dot: r.offline ? "background:#C5221F" : "background:#1E8E3E",
+        tint: r.offline ? "background:#FDECEC" : "background:#FBF8F7",
+        change: () => this.flash(r.category + " → pick another printer")
+      })),
+      splitPrint: s.splitPrint ? "1" : "0",
+      toggleSplitPrint: () => this.set({splitPrint: !s.splitPrint}),
+      splitNote: "Routing decides the machine. Food type decides how many tickets come out of it — one combined, or a veg ticket and a non-veg ticket so the two sides of the kitchen never share paper.",
+      fallbackNote: "When a station printer does not answer, its tickets go to the main kitchen printer with the station name on the header rather than vanishing. That is why nothing was lost when the tandoor machine dropped at 7:22 PM.",
+
+      historySub: "Every ticket the system tried to print tonight, and what happened to it.",
+      historyFilters: ["All","KOT","Bill","Failed","Queued"].map(k => ({
+        label: k, on: s.histFilter === k ? "1" : "0", click: () => this.set({histFilter: k})
+      })),
+      jobs: jobsRaw.filter(j => s.histFilter === "All" || j.type === s.histFilter || j.status === s.histFilter).map(j => ({
+        time: j.time, type: j.type, no: j.no, table: j.table, printer: j.printer,
+        status: j.status, pill: jobPill(j.status), tries: j.tries,
+        canRetry: j.status === "Failed" || j.status === "Retrying",
+        retry: () => this.flash(j.no + " queued again for " + j.printer),
+        reprint: () => this.setState({modal:"reprint", reprintJob: j})
+      })),
+      reprintNote: "A reprinted kitchen ticket carries *** REPRINT *** across the top. Without it a cook reads the same round twice and the table gets two of everything — the one printing decision that costs real food.",
+
+      modal: s.modal,
+      closeModal: () => this.setState({modal: null, testStage: "ready"}),
+      modalTitle: s.modal === "test" ? "Test print"
+        : s.modal === "printer" ? (s.pf && s.pf.id === "new" ? "Add a printer" : "Configure printer")
+        : s.modal === "reprint" ? "Reprint this ticket" : "",
+      modalSub: s.modal === "test" ? "Prints the current template with the sample round, on the real machine."
+        : s.modal === "printer" ? "Name it for the person who will look for it, not for the network."
+        : s.modal === "reprint" ? "" : "",
+
+      isTestModal: s.modal === "test",
+      testFacts: [
+        {k:"Printer", v: s.pf ? s.pf.name : "Main Kitchen Printer"},
+        {k:"Paper", v: (s.pf ? s.pf.width : s.width) + " mm"},
+        {k:"Template", v: (isKot ? "KOT" : "Bill") + " · " + cols + " characters"},
+        {k:"Sample", v: SAMPLE.kot + " · table " + SAMPLE.table}
+      ],
+      testReady: s.testStage === "ready",
+      testAsking: s.testStage === "asking",
+      runTest: () => { this.setState({testStage: "asking"}); this.flash("Test ticket sent"); },
+      testGood: () => { this.setState({modal: null, testStage: "ready"}); this.flash("Noted — template confirmed against the machine"); },
+      testBad: () => { this.setState({modal: null, testStage: "ready", tab: "template"}); this.flash("Back to the layout — adjust and test again"); },
+
+      isPrinterModal: s.modal === "printer",
+      pfName: s.pf ? s.pf.name : "",
+      setPfName: e => this.setState({pf: {...s.pf, name: e.target.value}}),
+      pfStation: s.pf ? s.pf.station : "",
+      setPfStation: e => this.setState({pf: {...s.pf, station: e.target.value}}),
+      pfIp: s.pf ? s.pf.ip : "",
+      setPfIp: e => this.setState({pf: {...s.pf, ip: e.target.value}}),
+      pfPort: s.pf ? s.pf.port : "",
+      setPfPort: e => this.setState({pf: {...s.pf, port: e.target.value.replace(/[^0-9]/g, "")}}),
+      purposeChips: ["KOT","Bill"].map(k => ({
+        label: k, on: s.pf && s.pf.purpose === k ? "1" : "0",
+        click: () => this.setState({pf: {...s.pf, purpose: k}})
+      })),
+      pfWidths: ["58","80"].map(w => ({
+        label: w + " mm", on: s.pf && s.pf.width === w ? "1" : "0",
+        click: () => this.setState({pf: {...s.pf, width: w}})
+      })),
+      connChips: ["Ethernet","Wi-Fi","USB"].map(k => ({
+        label: k, on: s.pf && s.pf.conn === k ? "1" : "0",
+        click: () => this.setState({pf: {...s.pf, conn: k}})
+      })),
+      pfNeedsIp: !!(s.pf && s.pf.conn !== "USB"),
+      connState: s.conn === "connected" ? "Connected" : s.conn === "checking" ? "Checking…" : s.conn === "offline" ? "Printer offline" : "Not checked yet",
+      connDot: s.conn === "connected" ? "background:#1E8E3E" : s.conn === "checking" ? "background:#E09B12" : s.conn === "offline" ? "background:#C5221F" : "background:#B0A6A2",
+      connTint: s.conn === "connected" ? "background:#EDF7F0;color:#14602A" : s.conn === "offline" ? "background:#FDECEC;color:#7A1614" : "background:#FBF8F7;color:#57504D",
+      connNote: s.conn === "offline"
+        ? "The address answered nothing. Check the machine is powered, on the same network, and that the port is 9100."
+        : s.conn === "connected"
+        ? "The machine answered. A test print is the only way to be sure the paper and template match."
+        : "Check the connection before saving, so a failure is found now rather than mid-service.",
+      checkConn: () => {
+        this.setState({conn: "checking"});
+        setTimeout(() => this.setState({conn: s.pf && s.pf.ip === "192.168.1.104" ? "offline" : "connected"}), 900);
+      },
+      savePrinterLabel: s.pf && s.pf.id === "new" ? "Add the printer" : "Save changes",
+      savePrinter: () => {
+        if (!s.pf || !s.pf.name.trim()) { this.flash("Give it a name first"); return; }
+        this.setState({modal: null});
+        this.flash(s.pf.name + " saved · " + s.pf.width + " mm · " + s.pf.purpose + " template");
+      },
+
+      isReprintModal: s.modal === "reprint",
+      reprintWarn: s.reprintJob
+        ? "This goes to " + s.reprintJob.printer + " marked as a reprint, so nobody cooks the round twice."
+        : "",
+      reprintPaperStyle: "width:" + (PAPER["80"].mm * PX_PER_MM * 1.2) + "px;padding:12px 8px",
+      reprintLines: this.buildKot(PAPER["80"].cols.normal, {reprint: true}).slice(0, 22).map(l => ({
+        text: l.text, style: lineStyle(l.kind)
+      })),
+      doReprint: () => {
+        const j = s.reprintJob;
+        this.setState({modal: null});
+        this.flash((j ? j.no : "Ticket") + " reprinted, marked REPRINT");
+      },
+
+      openTest: () => this.setState({modal: "test", testStage: "ready"}),
+      toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

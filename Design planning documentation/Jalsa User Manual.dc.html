@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/styles.css">
+<style>
+doc-page:not(:defined){visibility:hidden}
+body{margin:0;font-family:var(--font-body);color:var(--color-text)}
+a{color:var(--color-accent-700)}
+a:hover{color:var(--color-accent-800)}
+.um h2{font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:21px;line-height:1.15;margin:0}
+.um h3{font-family:var(--font-body);font-weight:700;font-size:14px;margin:22px 0 7px;line-height:1.3}
+.um h4{font-family:var(--font-body);font-weight:700;font-size:12.4px;margin:15px 0 5px;letter-spacing:.01em}
+.um p{font-size:13.2px;line-height:1.6;margin:0 0 9px;max-width:44em}
+.um .lede{font-size:12.6px;color:#6E6560;line-height:1.55;margin:7px 0 0;max-width:46em}
+.um .kicker{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--color-accent-700)}
+.um .sect{margin-top:34px;padding-top:16px;border-top:2px solid var(--color-accent-700);break-after:avoid}
+.um ol,.um ul{margin:0 0 10px;padding-left:20px;max-width:44em}
+.um li{font-size:13px;line-height:1.6;margin-bottom:4px}
+.um ol.steps{counter-reset:s;list-style:none;padding-left:0}
+.um ol.steps>li{counter-increment:s;position:relative;padding-left:30px;margin-bottom:8px;break-inside:avoid}
+.um ol.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:999px;background:var(--color-accent-700);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.um .path{font-weight:700;color:var(--color-accent-800)}
+.um .note{background:var(--color-accent-100);border-radius:var(--radius-md);padding:13px 16px;margin:11px 0;break-inside:avoid}
+.um .note p{margin:0;font-size:12.4px}
+.um .band{background:var(--color-accent-2-100);border-radius:var(--radius-md);padding:13px 16px;margin:11px 0;break-inside:avoid}
+.um .band p{margin:0;font-size:12.4px}
+.um .warn{background:#FBEDE8;border-radius:var(--radius-md);padding:13px 16px;margin:11px 0;break-inside:avoid}
+.um .warn p{margin:0;font-size:12.4px}
+.um table{width:100%;border-collapse:collapse;margin:11px 0}
+.um th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8A817C;padding:7px 9px;border-bottom:1.4px solid rgba(32,30,29,.16)}
+.um td{font-size:12.2px;line-height:1.5;padding:8px 9px;border-bottom:1px solid rgba(32,30,29,.08);vertical-align:top}
+.um .toc{display:grid;grid-template-columns:1fr 1fr;gap:3px 24px;margin-top:12px}
+.um .toci{display:flex;gap:9px;align-items:baseline;font-size:12.4px;padding:4px 0;border-bottom:1px dotted rgba(32,30,29,.16)}
+.um .tocn{font-weight:700;color:var(--color-accent-700);width:18px;flex:none}
+.um .status{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--color-surface);margin-right:4px}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+<doc-page margin="0.72in">
+<div class="um">
+
+<div style="display:flex;align-items:flex-start;gap:16px">
+<img src="assets/jalsa-logo.png" alt="Jalsa Restaurant" style="width:64px;height:64px;border-radius:16px;object-fit:contain;background:#fff;flex:none">
+<div>
+<div class="kicker">Jalsa Restaurant · Hosur</div>
+<h1 style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:31px;line-height:1.08;margin:5px 0 0">User Manual</h1>
+</div>
+</div>
+<p class="lede" style="margin-top:13px">How to run the ordering system, written for the people who will actually use it. Section 2 is for captains and waiters and can be handed over on its own. Sections 3 to 8 are for Javeed and whoever else has owner access.</p>
+
+<div class="note">
+<p><strong>Two rules that explain most of the software.</strong> A guest never marks a bill paid — they send a payment request, and a member of staff records the closure against their own name. And a bill can cover more than one table, so a party of twenty across four tables is still one bill and one payment.</p>
+</div>
+
+<div class="toc">
+<div class="toci"><span class="tocn">1</span><span>What the guest sees</span></div>
+<div class="toci"><span class="tocn">5</span><span>Money — payments, discounts, tips</span></div>
+<div class="toci"><span class="tocn">2</span><span>For captains and waiters</span></div>
+<div class="toci"><span class="tocn">6</span><span>Staff and access</span></div>
+<div class="toci"><span class="tocn">3</span><span>Opening and closing the day</span></div>
+<div class="toci"><span class="tocn">7</span><span>Reports and the audit trail</span></div>
+<div class="toci"><span class="tocn">4</span><span>The menu</span></div>
+<div class="toci"><span class="tocn">8</span><span>Settings, printing, when things break</span></div>
+</div>
+
+<div class="sect">
+<div class="kicker">Section one</div>
+<h2>What the guest sees</h2>
+<p class="lede">Worth reading first, because everything staff do downstream is a response to something a guest tapped.</p>
+</div>
+
+<p>A guest scans the QR on the table. There is no app to install and nothing to sign into. They get a welcome screen that greets them by time of day, names their captain and waiter, and shows tonight's offers, then the menu.</p>
+
+<h4>Ordering</h4>
+<p>They browse by course, filter by veg, non-veg or egg — any combination — or search. Adding to the cart charges nothing; the order only reaches the kitchen when they tap send, and they can review quantities and add a note for the kitchen first.</p>
+<p>Each time they send, that round becomes its own kitchen ticket with its own number, all on the same bill. A table can order five times in an evening and still get one bill at the end.</p>
+
+<h4>Asking for things</h4>
+<p>The ⋯ button offers water, a sealed water bottle, a call for the captain, extra plates or cutlery, and a parcel for what is left. They can also ask for a particular member of staff by name. Requests appear on the captain's phone and the owner's dashboard at once.</p>
+
+<h4>Paying</h4>
+<p>When they are done they tap request payment. That is not a payment — it tells staff the table is ready to settle, and it releases the table into clearing so the waiter knows to reset it. The guest then sees an offer strip, a tip step, and the payment action. Tips go to the floor team and are tracked separately from the restaurant's takings.</p>
+
+<div class="band">
+<p><strong>If the guest closes the browser</strong> nothing is lost. The QR is a fixed address for the table, so rescanning finds the open bill and puts them back where they were. After the bill closes they keep seeing the receipt and review prompt for a window you set — 15 minutes by default — and after that the same QR starts fresh for the next party.</p>
+</div>
+
+<div class="sect">
+<div class="kicker">Section two</div>
+<h2>For captains and waiters</h2>
+<p class="lede">Hand this section over on its own. Everything below happens on a phone.</p>
+</div>
+
+<h3>Signing in</h3>
+<ol class="steps">
+<li>Open the staff link and enter your four-digit PIN.</li>
+<li>Change it the first time you sign in.</li>
+<li>Sign out at the end of your shift.</li>
+</ol>
+<div class="warn">
+<p><strong>Your PIN is you.</strong> Every order you place, every quantity you change, every cancellation and every payment you record is stored against your name. Do not share it, and do not work on someone else's session — if a mistake is investigated, the log names whoever was signed in.</p>
+</div>
+
+<h3>Your five screens</h3>
+<table>
+<tbody>
+<tr><td style="width:106px"><strong>Tables</strong></td><td>Your assigned tables and what state each is in. Tap one to open it.</td></tr>
+<tr><td><strong>Ready</strong></td><td>Rounds the kitchen has finished, oldest first. This is the screen to keep glancing at.</td></tr>
+<tr><td><strong>KOTs</strong></td><td>Every ticket for your tables, and whether it printed. Reprint from here.</td></tr>
+<tr><td><strong>Requests</strong></td><td>Water, bottles, plates, parcels, call-captain — grouped, with a count.</td></tr>
+<tr><td><strong>Me</strong></td><td>Your tables, your tips so far, what you have access to, sign out.</td></tr>
+</tbody>
+</table>
+
+<h3>Table states, in plain words</h3>
+<table>
+<tbody>
+<tr><td style="width:132px"><span class="status">Free</span></td><td>Nobody seated. Ready for the next party.</td></tr>
+<tr><td><span class="status">Ordering</span></td><td>Guests are seated and looking at the menu. Nothing sent yet.</td></tr>
+<tr><td><span class="status">In the kitchen</span></td><td>At least one round is being cooked.</td></tr>
+<tr><td><span class="status">Ready</span></td><td>Something is waiting to be carried out. Act on this one.</td></tr>
+<tr><td><span class="status">Served</span></td><td>Everything sent so far is on the table.</td></tr>
+<tr><td><span class="status">Payment requested</span></td><td>The guests want to settle. Owner or cashier records it.</td></tr>
+<tr><td><span class="status">Clearing</span></td><td>Paid or settling. Reset the table, then it goes back to free.</td></tr>
+</tbody>
+</table>
+
+<h3>Taking an order at the table</h3>
+<ol class="steps">
+<li>Open the table from <span class="path">Tables</span>.</li>
+<li>Tap add items and pick from the same menu the guests see. Anything the kitchen has run out of is already hidden.</li>
+<li>Send it. The ticket prints with your name on it.</li>
+</ol>
+<p>The guests can keep ordering from their own phones at the same time. Both routes land on one bill, and each round records who sent it.</p>
+
+<h3>Carrying food out</h3>
+<ol class="steps">
+<li>Watch <span class="path">Ready</span>. The oldest round sits at the top.</li>
+<li>Take it out, then tap it to mark it served.</li>
+<li>That unlocks the hearts on the guests' phones — if they heart a dish, they are offered it as a parcel to take home, which becomes a separate takeaway bill.</li>
+</ol>
+
+<h3>Changing or cancelling something</h3>
+<ol class="steps">
+<li>Open the table, find the round, tap the item.</li>
+<li>Change the quantity, or cancel it.</li>
+<li>Give a reason. This is not optional — it is what protects you when the figures are checked later.</li>
+</ol>
+<div class="note">
+<p>Before the kitchen starts, you can cancel yourself. Once cooking has begun it needs the owner, because the food has already been made and someone has to decide who absorbs it.</p>
+</div>
+
+<h3>Requests from tables</h3>
+<p>Requests arrive grouped by type with a count, so five tables wanting water read as one line rather than five alerts. Deal with them oldest first and mark each done — that clears it from the owner's dashboard too. If you clear one by mistake, undo is on the confirmation for a few seconds.</p>
+
+<h3>When a table wants to pay</h3>
+<p>You will see the table move to payment requested. Take the bill over. Payment itself is recorded by the owner or cashier, and once it is, the table moves to clearing — reset it and it returns to free.</p>
+
+<div class="sect">
+<div class="kicker">Section three</div>
+<h2>Opening and closing the day</h2>
+<p class="lede">Ten minutes at the start of service, five at the end. <span class="path">Day setup</span>.</p>
+</div>
+
+<h3>Before service</h3>
+<ol class="steps">
+<li>Open <span class="path">Day setup</span>. If today looks like yesterday, use the same-as-yesterday shortcut and adjust.</li>
+<li>Mark who is in. Anyone not marked in cannot be assigned a table and will not appear in tip settlement.</li>
+<li>Check the machines. If a printer shows as unreachable, deal with it now — mid-service is the worst time to find out.</li>
+<li>Add a notice if there is something the floor needs to know. It appears on every staff phone.</li>
+<li>Check the menu for anything you have run out of and close it. It disappears from every guest's phone within seconds.</li>
+</ol>
+<div class="band">
+<p><strong>Day setup is for today. Settings is for always.</strong> Who is working, which machines are up and tonight's notice belong in Day setup. Opening hours, tax rates, table names and printer configuration belong in Settings and should rarely be touched.</p>
+</div>
+
+<h3>During service</h3>
+<p>The dashboard is the screen to leave open. Every figure on it is clickable and lands on the detail behind it. Watch three things: bills awaiting closure, open table requests, and any alert about a printer or a failed payment.</p>
+
+<h3>At the end of the night</h3>
+<ol class="steps">
+<li>Close any bills still awaiting closure. A bill left open never reaches the reports.</li>
+<li>Enter the day's expenses while you remember them.</li>
+<li>Settle tips. The figure is per person and is not part of the restaurant's income.</li>
+<li>Open <span class="path">Reports › Final report</span> for the day and check it against the cash drawer.</li>
+</ol>
+
+<div class="sect">
+<div class="kicker">Section four</div>
+<h2>The menu</h2>
+<p class="lede"><span class="path">Menu</span>. Search by dish, category or food type.</p>
+</div>
+
+<h3>Adding or changing an item</h3>
+<ol class="steps">
+<li>Tap add item, or edit on an existing row.</li>
+<li>Fill in name, price, category and food type. For category you can search the existing ones or type a new one and add it without leaving the form.</li>
+<li>Add a photograph. Guests order more of what they can see.</li>
+<li>Optionally set serving windows — idly from 7 to 11 in the morning and again from 7 in the evening, biryani from noon.</li>
+<li>Optionally uncheck days. All seven are on by default.</li>
+</ol>
+<p>Outside its window or on an unchecked day, a dish is simply not shown, so nobody orders idly at three in the afternoon.</p>
+
+<h3>Running out of something</h3>
+<p>Flip the switch on the row. The dish leaves every guest's phone within seconds, defaulting to tonight only and back tomorrow at open. Captains see the same switch on their menu screen.</p>
+<p>For a longer stop — the master is off for three days — open the item and choose a duration under availability: tonight only, three days, a week, or until you switch it back. The row then reads "3 days · back Tue 9 Sep", and everything currently off appears in one card with a put-back button.</p>
+
+<div class="sect">
+<div class="kicker">Section five</div>
+<h2>Money — payments, discounts, tips</h2>
+</div>
+
+<h3>Recording a payment</h3>
+<ol class="steps">
+<li>Open <span class="path">Payments</span>. Bills awaiting closure are at the top.</li>
+<li>Open one. Check the itemised total — food, discount, GST and tip are separate lines.</li>
+<li>Apply a discount if there is one. Enter a percentage or an amount; the other is calculated as you type.</li>
+<li>Pick the payment mode and record any reference number.</li>
+<li>Record it. Your name goes on the closure.</li>
+</ol>
+<div class="warn">
+<p><strong>Discounts are logged with your name, the amount and the time.</strong> That is deliberate. If the day's takings look wrong, the discount log is the first place anyone looks.</p>
+</div>
+
+<h3>A party across several tables</h3>
+<p>Open any of their bills, then the tables cell in the identifier strip, and add the other tables. From then on it is one bill: each table keeps its own QR and orders on its own phone, every ticket carries the table it came from so the food goes to the right place, and payment is requested once from any of them. Closing it frees all the tables together.</p>
+<p>The closure screen shows what each table ordered, so the host can see who ate what — it is still one bill and one payment.</p>
+
+<h3>Tips</h3>
+<p>Tips are not restaurant income and the software never treats them as such. They sit in their own ledger, attributed to the captain who owned the table, with a settlement state. <span class="path">Tips</span> shows the total and the per-person split, and lets you record a settlement.</p>
+
+<h3>Expenses</h3>
+<p><span class="path">Expenses</span>. Date, category, amount, note. Categories work like the menu ones — search the existing or add a new one inline. Rows can be edited or deleted, each with a reason, because these figures feed the final report.</p>
+
+<div class="sect">
+<div class="kicker">Section six</div>
+<h2>Staff and access</h2>
+<p class="lede"><span class="path">Staff</span>. Adding somebody runs through to them being able to sign in.</p>
+</div>
+
+<h3>Adding a person</h3>
+<ol class="steps">
+<li>Add staff. Enter name, mobile and role; a new role can be added inline if none fits.</li>
+<li>Fill in the employment record — designation, department, date of joining, salary, gender, employment type. These are what the offer letter, experience certificate and payslip merge in, so filling them now means never being asked twice.</li>
+<li>Switch on staff app access if they need it.</li>
+<li>Generate a PIN. It is shown once — copy it, or send it on WhatsApp.</li>
+<li>Set module access. Apply the preset for their role, then adjust anything by hand. Confidential permissions are marked.</li>
+</ol>
+
+<h3>Paperwork</h3>
+<p>Paperwork on any staff row opens their offer letter, experience certificate or payslip, filled from the employment record and the restaurant identity in Settings. Anything not yet filled prints as a highlighted placeholder, so nothing gets signed blank.</p>
+
+<h3>Removing someone</h3>
+<p>Remove on their row, with a reason. Their PIN stops working and they leave Day setup, tip settlement and table assignment — but every bill, ticket and audit entry they touched keeps their name. If they are only away for a while, switch off their app access instead. You cannot remove yourself.</p>
+
+<div class="sect">
+<div class="kicker">Section seven</div>
+<h2>Reports and the audit trail</h2>
+</div>
+
+<h3>Reports</h3>
+<p>One date range at the top governs every panel — presets, or custom from and to dates. Everything exports what is on screen, with the current range and filters.</p>
+<table>
+<tbody>
+<tr><td style="width:150px"><strong>Sales</strong></td><td>Revenue by day, top and slow sellers, payment mix, category performance</td></tr>
+<tr><td><strong>Purchases &amp; expenses</strong></td><td>Everything entered in Expenses, grouped by category</td></tr>
+<tr><td><strong>Final report</strong></td><td>Income against expenses for the range, with the closing position. The one to check nightly.</td></tr>
+<tr><td><strong>All orders</strong></td><td>Every order, one row each, for reconciliation and disputes</td></tr>
+<tr><td><strong>Uplift</strong></td><td>Revenue the system itself created — repeat rounds, upsells, tips, parcels</td></tr>
+</tbody>
+</table>
+
+<h3>The audit trail</h3>
+<p><span class="path">Audit log</span> holds date, time, what changed, which bill or table, and who. Filter by type, search across every column, sort any column. Use it when a figure looks wrong: it will tell you who deleted the order, changed the quantity, removed the item or applied the discount, and when.</p>
+
+<div class="sect">
+<div class="kicker">Section eight</div>
+<h2>Settings, printing, and when things break</h2>
+</div>
+
+<h3>Settings, in one line each</h3>
+<table>
+<tbody>
+<tr><td style="width:150px"><strong>Opening hours</strong></td><td>The week, the afternoon break, holidays, when the business day starts</td></tr>
+<tr><td><strong>Restaurant details</strong></td><td>Logo, name, address, contact, who signs documents</td></tr>
+<tr><td><strong>Tax &amp; GST</strong></td><td>Rate and GSTIN. Changing the rate recomputes every open bill.</td></tr>
+<tr><td><strong>Invoice</strong></td><td>Prefix, when numbering restarts, rounding rule, what prints</td></tr>
+<tr><td><strong>Printers &amp; machines</strong></td><td>Machines, what each prints, associated chefs, test print</td></tr>
+<tr><td><strong>Tables</strong></td><td>Names, zones, seat counts, active state, QR format, rescan window</td></tr>
+<tr><td><strong>What the customer sees</strong></td><td>Every optional guest feature as a switch, with presets</td></tr>
+<tr><td><strong>Words the guest sees</strong></td><td>Every guest-facing phrase, so you never need us to change text</td></tr>
+<tr><td><strong>Replies to suggestions</strong></td><td>The canned replies, editable and addable</td></tr>
+<tr><td><strong>Customer engagement</strong></td><td>Review link, photo prompt, WhatsApp settings, phone number</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<p><strong>Seat counts matter more than they look.</strong> The waitlist reads them when suggesting where to put a party. A wrong number sends four people to a two-seater.</p>
+</div>
+
+<h3>The waitlist on a busy night</h3>
+<ol class="steps">
+<li>Set the quoted wait and make sure the queue is open.</li>
+<li>Guests scan the entrance QR and pick their party size. Position comes from the second they tap join, so simultaneous scans get separate places.</li>
+<li>Someone without a phone gets added as a walk-in — optionally with a number.</li>
+<li>Each row shows how that party can be reached. If it says no phone, the pair name called at the door is the only way, so Notify is not offered.</li>
+<li>Seat opens the suggestions that actually fit their size, tightest first. Bigger parties get table combinations on one bill.</li>
+</ol>
+
+<h3>When a printer stops</h3>
+<p>The order is never lost. It exists on the server, the failure shows on the record with a retry, and station tickets fall back to the main kitchen printer with the station name in the header. Reprints are marked as reprints across the top — that is what stops a cook making the same round twice.</p>
+
+<h3>When a payment fails</h3>
+<p>Nothing is charged and the bill stays open. The guest sees that plainly and can try again or pay the captain directly. If they pay at the table, record it as cash or UPI in the normal way.</p>
+
+<div class="warn">
+<p><strong>Three things to check first when something looks wrong.</strong> Is the bill actually closed — an open bill never reaches the reports. Is the person signed in as themselves — the log names whoever was. And has the item or table been switched off rather than deleted — deactivated things keep their history and can be switched back.</p>
+</div>
+
+<div class="band" style="margin-top:24px">
+<p><strong>One last thing.</strong> Almost every phrase a guest reads, and every optional button they can tap, is a setting in this software. If something on a guest's phone reads wrongly for Jalsa, change it under Settings rather than living with it.</p>
+</div>
+
+</div>
+</doc-page>
+</x-dc>
+</body>
+</html>

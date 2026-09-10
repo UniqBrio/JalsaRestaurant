@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/styles.css">
+<script src="_ds/organic-e77bc3db-1087-404f-b5f0-8108fad6ce20/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&text=%E2%82%B9">
+<style>
+body{margin:0;background:#F4F0EE;font-family:'Noto Sans',Poppins,system-ui,sans-serif;color:#241F1E;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#7A1C24;text-decoration:none}
+a:hover{color:#5E1319}
+.dv-turn{padding:40px 44px 34px;border-bottom:1px solid rgba(36,31,30,.09)}
+.dv-thd{display:flex;align-items:baseline;gap:11px;margin:0 0 26px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 8px;background:#7A1C24;color:#fff;border-radius:5px;text-decoration:none}
+.dv-tname{font:600 14px/1.2 Poppins,sans-serif}
+.dv-grp{font:700 10.5px/1 Poppins,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9A918D;margin:34px 0 14px}
+.dv-opts{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 8px;background:rgba(36,31,30,.08);color:#241F1E;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11.5px/1.3 Poppins,sans-serif;color:#7C736F}
+.dv-opt:target .dv-oid{background:#7A1C24;color:#fff}
+.dv-next{margin:30px 0 0;font:12.5px/1.6 Poppins,sans-serif;color:#7C736F}
+.ph{width:300px;background:#fff;border-radius:26px;overflow:hidden;box-shadow:0 2px 4px rgba(36,31,30,.07),0 18px 40px rgba(36,31,30,.11)}
+.phh{background:#7A1C24;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:10px}
+.phb{background:#7A1C24;color:#fff;font-size:11px;letter-spacing:.02em;padding:6px 16px 0;display:flex;justify-content:space-between;opacity:.75}
+.lg{height:28px;width:28px;border-radius:8px;object-fit:contain;background:#fff;padding:1px;flex:none}
+.body{padding:16px;display:flex;flex-direction:column;gap:13px}
+.img{background:#F1ECEA;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:600;color:#B6ACA8;letter-spacing:.1em;flex:none}
+.nm{font-size:13.5px;font-weight:600;line-height:1.25}
+.pr{font-size:14px;font-weight:600}
+.mut{font-size:11px;color:#7C736F;line-height:1.4}
+.add{appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:10px 0;font:600 12.5px 'Noto Sans',Poppins,sans-serif;cursor:pointer;width:100%}
+.add:hover{background:#5E1319}
+.plus{appearance:none;border:0;width:28px;height:28px;border-radius:9px;background:#7A1C24;color:#fff;font-size:16px;line-height:1;cursor:pointer;flex:none}
+.plus:hover{background:#5E1319}
+.stp{appearance:none;width:24px;height:24px;border-radius:999px;border:1.5px solid rgba(36,31,30,.14);background:#fff;font-size:13px;font-weight:600;cursor:pointer;line-height:1}
+.chip{border:1.5px solid rgba(36,31,30,.11);border-radius:999px;padding:6px 13px;font-size:11.5px;font-weight:600;color:#57504D;white-space:nowrap}
+.chip.on{background:#7A1C24;border-color:#7A1C24;color:#fff}
+.dotv{width:12px;height:12px;border-radius:999px;background:#1E8E3E;flex:none}
+.dotn{width:12px;height:12px;border-radius:999px;background:#C5221F;flex:none}
+.dote{width:12px;height:12px;border-radius:999px;background:#E09B12;flex:none}
+.sqv{width:14px;height:14px;border-radius:4px;background:#1E8E3E;flex:none}
+.sqn{width:14px;height:14px;border-radius:4px;background:#C5221F;flex:none}
+.sqe{width:14px;height:14px;border-radius:4px;background:#E09B12;flex:none}
+.bdg{font-size:9px;font-weight:700;letter-spacing:.08em;padding:3px 7px;border-radius:5px}
+.row{display:flex;align-items:center;gap:11px}
+.tot{display:flex;justify-content:space-between;font-size:12.5px;color:#57504D}
+@keyframes steam{0%{opacity:0;transform:translateY(6px) scaleX(.8)}30%{opacity:.85}100%{opacity:0;transform:translateY(-26px) scaleX(1.25)}}
+@keyframes ring{0%{transform:scale(.72);opacity:.55}100%{transform:scale(1.5);opacity:0}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes beat{0%,100%{transform:scale(1)}18%{transform:scale(1.22)}36%{transform:scale(1)}54%{transform:scale(1.14)}}
+@keyframes fill{0%{width:8%}100%{width:64%}}
+.stm{position:absolute;bottom:52%;width:5px;height:22px;border-radius:999px;background:#fff;animation:steam 2.6s ease-out infinite}
+.rng{position:absolute;inset:0;border-radius:999px;border:2px solid #7A1C24;animation:ring 2.4s ease-out infinite}
+.hb{animation:beat 2.4s ease-in-out infinite}
+@keyframes drop{0%{transform:translateY(-22px) rotate(0);opacity:0}12%{opacity:1}100%{transform:translateY(190px) rotate(420deg);opacity:0}}
+@keyframes march{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.cf{position:absolute;top:0;width:8px;height:12px;border-radius:2px;animation:drop 3.2s linear infinite}
+.mq{animation:march 14s linear infinite}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t9">
+<div class="dv-thd"><a class="dv-tid" href="#t9">9</a><span class="dv-tname">Hours and holidays — reachable from both QRs</span></div>
+
+<p class="dv-grp">19 · The button, and what it opens</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="9a">
+<div class="dv-olabel"><a class="dv-oid" href="#9a">9a</a>On the table QR — a quiet line under the menu header</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:13px;padding-top:16px">
+<div class="row" style="gap:9px">
+<div style="width:32px;height:32px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;flex:none">I</div>
+<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">Imran is your captain</div><div class="mut" style="margin-top:2px">Mani is serving your table</div></div>
+</div>
+<div class="row" style="padding:11px 13px;border:1.5px solid rgba(36,31,30,.1);border-radius:16px;gap:11px">
+<span style="width:30px;height:30px;border-radius:10px;background:#F0FAE1;color:#3D472B;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">◷</span>
+<div style="flex:1;min-width:0">
+<div style="font-size:12.5px;font-weight:600">Open until 11:30 tonight</div>
+<div class="mut" style="margin-top:2px">Hours &amp; holidays</div>
+</div>
+<span style="font-size:14px;color:#B0A6A2">›</span>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="font-size:12.5px;font-weight:600">Menu</div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="mut" style="margin-top:3px">₹180</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Paneer Butter Masala</span></div><div class="mut" style="margin-top:3px">₹191</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="9b">
+<div class="dv-olabel"><a class="dv-oid" href="#9b">9b</a>The sheet — this week, then the dated exceptions</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Hours</span></div>
+<div class="body" style="gap:14px;padding-top:18px">
+<div>
+<div style="font-size:16px;font-weight:600">Open until 11:30 tonight</div>
+<div class="mut" style="margin-top:4px">Last order 11:00 · kitchen stops 30 minutes before closing</div>
+</div>
+<div style="border-radius:16px;overflow:hidden;border:1.5px solid rgba(36,31,30,.09)">
+<div class="tot" style="padding:9px 13px;background:#FBF1F0;color:#7A1C24;font-weight:600"><span>Friday · today</span><span>12:00 PM – 11:30 PM</span></div>
+<div class="tot" style="padding:9px 13px"><span>Saturday</span><span>11:30 AM – 11:30 PM</span></div>
+<div class="tot" style="padding:9px 13px;background:#FBF8F7"><span>Sunday</span><span>11:30 AM – 11:00 PM</span></div>
+<div class="tot" style="padding:9px 13px"><span>Monday</span><span>12:00 PM – 11:00 PM</span></div>
+<div class="tot" style="padding:9px 13px;background:#FBF8F7"><span>Tuesday</span><span>12:00 PM – 11:00 PM</span></div>
+<div class="tot" style="padding:9px 13px;color:#A81D19"><span>Wednesday</span><span style="font-weight:600">Closed</span></div>
+<div class="tot" style="padding:9px 13px;background:#FBF8F7"><span>Thursday</span><span>12:00 PM – 11:00 PM</span></div>
+</div>
+<div style="padding:12px 14px;border-radius:14px;background:#F0FAE1;color:#3D472B;font-size:11.5px;line-height:1.5">Afternoon break 3:30 – 6:30. The kitchen is closed but the hall stays open for tea.</div>
+<div>
+<div style="font-size:12.5px;font-weight:600;margin-bottom:8px">Holidays ahead</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div class="row" style="padding:10px 13px;border-radius:13px;background:#FDECEC;color:#7A1C24;gap:11px"><span style="font-size:12px;font-weight:700;width:52px">20 Sep</span><span style="flex:1;font-size:11.5px">Closed — Milad-un-Nabi</span></div>
+<div class="row" style="padding:10px 13px;border-radius:13px;background:#FFF6E8;color:#6B4A12;gap:11px"><span style="font-size:12px;font-weight:700;width:52px">2 Oct</span><span style="flex:1;font-size:11.5px">Dinner only, opens 6 PM</span></div>
+</div>
+</div>
+<span class="chip" style="text-align:center;padding:11px 0">Back to the menu</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="9c">
+<div class="dv-olabel"><a class="dv-oid" href="#9c">9c</a>On the entrance QR — the same sheet, before they are seated</div>
+<div class="ph">
+<div class="phb"><span>8:26</span><span>Entrance</span></div>
+<div style="background:#7A1C24;color:#fff;padding:24px 22px 20px;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:56px;height:56px;border-radius:16px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:18px;font-weight:600;margin-top:12px">Busy tonight</div>
+<div style="font-size:12px;opacity:.85;margin-top:6px;line-height:1.45">About 20 minutes right now</div>
+</div>
+<div class="body" style="gap:13px;padding-top:16px">
+<div class="row" style="padding:11px 13px;border:1.5px solid rgba(36,31,30,.1);border-radius:16px;gap:11px">
+<span style="width:30px;height:30px;border-radius:10px;background:#F0FAE1;color:#3D472B;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">◷</span>
+<div style="flex:1;min-width:0">
+<div style="font-size:12.5px;font-weight:600">Open until 11:30 tonight</div>
+<div class="mut" style="margin-top:2px">Hours, break times &amp; holidays</div>
+</div>
+<span style="font-size:14px;color:#B0A6A2">›</span>
+</div>
+<div>
+<div style="font-size:12.5px;font-weight:600;margin-bottom:9px">How many of you?</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px">
+<span class="chip" style="text-align:center;padding:11px 0">1</span>
+<span class="chip" style="text-align:center;padding:11px 0">2</span>
+<span class="chip on" style="text-align:center;padding:11px 0">4</span>
+<span class="chip" style="text-align:center;padding:11px 0">6+</span>
+</div>
+</div>
+<button class="add" style="padding:14px 0;font-size:14px">Join the queue</button>
+<span class="chip" style="text-align:center;padding:11px 0">See the menu</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="9d">
+<div class="dv-olabel"><a class="dv-oid" href="#9d">9d</a>Scanned on a closed day — the sheet answers the question</div>
+<div class="ph">
+<div class="phb"><span>2:14</span><span>Entrance</span></div>
+<div style="background:#7A1C24;color:#fff;padding:24px 22px 20px;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:52px;height:52px;border-radius:16px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:17px;font-weight:600;margin-top:12px">Closed today</div>
+<div style="font-size:12px;opacity:.85;margin-top:6px;line-height:1.45">Wednesday is our weekly day off</div>
+</div>
+<div class="body" style="gap:13px;padding-top:16px">
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;font-size:12.5px;color:#57504D;line-height:1.55">Back tomorrow at 12:00 noon, open until 11:00 PM. Afternoon break 3:30 to 6:30.</div>
+<div class="row" style="padding:10px 13px;border-radius:13px;background:#FDECEC;color:#7A1C24;gap:11px"><span style="font-size:12px;font-weight:700;width:52px">20 Sep</span><span style="flex:1;font-size:11.5px">Closed — Milad-un-Nabi</span></div>
+<span class="chip" style="text-align:center;padding:11px 0">See the full week</span>
+<span class="chip" style="text-align:center;padding:11px 0">See the menu</span>
+<span class="chip" style="text-align:center;padding:11px 0">Call the restaurant</span>
+<div class="mut" style="text-align:center;line-height:1.45">Each of these four is a switch in Settings — the owner shows only what they want answered</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "put the hours button in the live customer flow" · "let a guest set a reminder for reopening"</p>
+</section>
+
+<section class="dv-turn" id="t8">
+<div class="dv-thd"><a class="dv-tid" href="#t8">8</a><span class="dv-tname">How the restaurant finds out it is someone's birthday</span></div>
+
+<p class="dv-grp">17 · The guest tells us</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="8a">
+<div class="dv-olabel"><a class="dv-oid" href="#8a">8a</a>Where it lives — one quiet line on the table's first screen</div>
+<div class="ph">
+<div class="phb"><span>8:31</span><span>Table A5</span></div>
+<div style="background:#7A1C24;color:#fff;padding:26px 22px 22px;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:58px;height:58px;border-radius:16px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:19px;font-weight:600;margin-top:12px">Welcome to Jalsa</div>
+<div style="font-size:12px;opacity:.85;margin-top:6px">Table A5 · Imran is your captain</div>
+</div>
+<div class="body" style="gap:13px;padding-top:18px">
+<button class="add" style="padding:15px 0;font-size:14.5px">Start ordering</button>
+<div class="row" style="padding:12px 14px;border-radius:16px;background:#FFF6E8;gap:11px">
+<span style="font-size:17px">🎂</span>
+<span style="flex:1;min-width:0"><span style="display:block;font-size:12.5px;font-weight:600;color:#6B4A12">Celebrating something?</span><span style="display:block;font-size:11px;color:#8A5A10;margin-top:2px">Tell us and we will make a bit of a fuss</span></span>
+<span class="chip" style="padding:6px 12px">Tell us</span>
+</div>
+<div class="mut" style="text-align:center">Skippable, and never asked twice in one visit</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="8b">
+<div class="dv-olabel"><a class="dv-oid" href="#8b">8b</a>The marking screen — occasion, whose, done</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:15px;padding-top:20px">
+<div>
+<div style="font-size:17px;font-weight:600">What are we celebrating?</div>
+<div class="mut" style="margin-top:5px">Only your captain and the kitchen see this. Nothing is saved after tonight.</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<span class="chip on" style="padding:14px 10px;text-align:center">Birthday</span>
+<span class="chip" style="padding:14px 10px;text-align:center">Anniversary</span>
+<span class="chip" style="padding:14px 10px;text-align:center">Family do</span>
+<span class="chip" style="padding:14px 10px;text-align:center">Something else</span>
+</div>
+<div>
+<div style="font-size:11.5px;font-weight:600;color:#57504D;margin-bottom:7px">Whose is it? Optional</div>
+<div style="border:1.5px solid rgba(36,31,30,.12);border-radius:999px;padding:11px 16px;font-size:12.5px;color:#B0A6A2">Divya</div>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Tell the restaurant</button>
+<span class="chip" style="text-align:center;padding:11px 0">Not today, thanks</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="8c">
+<div class="dv-olabel"><a class="dv-oid" href="#8c">8c</a>Marked — and it promises nothing the kitchen has not agreed to</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div style="position:relative;background:#7A1C24;color:#fff;padding:28px 22px 24px;text-align:center;overflow:hidden">
+<span class="cf" style="left:16%;background:#F6A06B;animation-delay:.2s"></span>
+<span class="cf" style="left:46%;background:#E1EECC;animation-delay:1s"></span>
+<span class="cf" style="left:76%;background:#fff;animation-delay:.6s"></span>
+<div style="position:relative">
+<div class="hb" style="display:inline-block;font-size:30px">🎂</div>
+<div style="font-size:20px;font-weight:600;margin-top:10px">Happy birthday, Divya</div>
+<div style="font-size:12px;opacity:.85;margin-top:6px">Imran has been told</div>
+</div>
+</div>
+<div class="body" style="gap:14px;padding-top:18px">
+<div style="padding:13px 15px;border-radius:16px;background:#FFF6E8;font-size:12px;color:#6B4A12;line-height:1.5">Your captain will come by. Anything the kitchen sends out is their decision on the night — we would rather surprise you than promise it here.</div>
+<button class="add" style="padding:15px 0;font-size:14.5px">Start ordering</button>
+<div class="mut" style="text-align:center">Change or remove it any time from the menu screen</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="8d">
+<div class="dv-olabel"><a class="dv-oid" href="#8d">8d</a>Asked at the door instead — for parties joining the queue</div>
+<div class="ph">
+<div class="phb"><span>8:26</span><span>Entrance</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Joining queue</span></div>
+<div class="body" style="gap:15px;padding-top:20px">
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;font-size:12.5px;color:#57504D;line-height:1.5">4 guests · about 20 minutes</div>
+<div>
+<div style="font-size:15px;font-weight:600">Any occasion tonight?</div>
+<div class="mut" style="margin-top:5px">Helps us seat you somewhere nicer if we can</div>
+</div>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<span class="chip">Birthday</span>
+<span class="chip">Anniversary</span>
+<span class="chip on">No, just dinner</span>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Join the queue</button>
+<div class="mut" style="text-align:center">The owner can switch this question off entirely</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "ask on the closure screen instead of the welcome" · "let the captain add it from their side only" · "add a cake pre-order to <a class="dv-oid" href="#8b">8b</a>"</p>
+</section>
+
+<section class="dv-turn" id="t7">
+<div class="dv-thd"><a class="dv-tid" href="#t7">7</a><span class="dv-tname">Quick asks that skip the menu, and the offer strip at the top of it</span></div>
+
+<p class="dv-grp">17 · Quick buttons — nothing here is a menu item</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="7a">
+<div class="dv-olabel"><a class="dv-oid" href="#7a">7a</a>Five asks, one tap each, sitting above the menu</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:14px;padding-top:16px">
+<div class="row" style="gap:9px">
+<div style="width:32px;height:32px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;flex:none">I</div>
+<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">Imran is your captain</div><div class="mut" style="margin-top:2px">Mani is serving your table</div></div>
+</div>
+<div>
+<div style="font-size:12.5px;font-weight:600;margin-bottom:9px">Ask for something</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<span class="chip" style="text-align:center;padding:13px 0">Need water</span>
+<span class="chip" style="text-align:center;padding:13px 0">Call captain</span>
+<span class="chip" style="text-align:center;padding:13px 0">Extra plates</span>
+<span class="chip" style="text-align:center;padding:13px 0">Parcel the rest</span>
+</div>
+<div style="margin-top:8px;border:1.5px solid rgba(36,31,30,.1);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:11px">
+<div style="width:34px;height:34px;border-radius:11px;background:#EAF1FB;color:#1B4E8F;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none">◇</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:12.5px;font-weight:600">Water bottle</div>
+<div class="mut" style="margin-top:2px">1 litre · ₹20 · added to your bill</div>
+</div>
+<div class="row" style="gap:7px"><span class="stp">−</span><span style="font-size:13px;font-weight:600">1</span><span class="stp">+</span></div>
+</div>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="font-size:12.5px;font-weight:600">Menu</div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="mut" style="margin-top:3px">₹180</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="7b">
+<div class="dv-olabel"><a class="dv-oid" href="#7b">7b</a>Parcel the rest — picks up what is actually on the table</div>
+<div class="ph">
+<div class="phb"><span>9:04</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Parcel</span></div>
+<div class="body" style="gap:14px;padding-top:18px">
+<div>
+<div style="font-size:16px;font-weight:600">Take the rest home</div>
+<div class="mut" style="margin-top:5px">Tick what is left. Mani will box it and it goes on a separate takeaway bill.</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<div class="row" style="padding:12px 13px;border:1.5px solid #7A1C24;border-radius:16px;background:#FBF1F0">
+<span style="width:20px;height:20px;border-radius:6px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex:none">✓</span>
+<div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="mut" style="margin-top:3px;color:#8C4A3E">served ×2 · packing charge ₹10</div></div>
+</div>
+<div class="row" style="padding:12px 13px;border:1.5px solid rgba(36,31,30,.1);border-radius:16px">
+<span style="width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(36,31,30,.2);flex:none"></span>
+<div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Dal Fry</span></div><div class="mut" style="margin-top:3px">served ×1</div></div>
+</div>
+<div class="row" style="padding:12px 13px;border:1.5px solid rgba(36,31,30,.1);border-radius:16px">
+<span style="width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(36,31,30,.2);flex:none"></span>
+<div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Butter Naan</span></div><div class="mut" style="margin-top:3px">served ×4</div></div>
+</div>
+</div>
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:7px">
+<div class="tot"><span>Already paid for — no food charge</span><span>₹0</span></div>
+<div class="tot"><span>Packing</span><span>₹10</span></div>
+<div class="tot" style="font-weight:600;color:#241F1E;padding-top:7px;border-top:1px solid rgba(36,31,30,.09)"><span>Takeaway bill</span><span>₹10</span></div>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Ask Mani to pack it</button>
+<div class="mut" style="text-align:center">The kitchen gets a TAKEAWAY ticket, not a new order</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">18 · Offers at the top of the menu</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="7c">
+<div class="dv-olabel"><a class="dv-oid" href="#7c">7c</a>Four strips, each a different reason to look</div>
+<div class="ph">
+<div class="phb"><span>8:06</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:16px;padding-top:16px">
+
+<div>
+<div class="row" style="margin-bottom:9px"><span style="flex:1;font-size:13px;font-weight:600">Today's special</span><span class="mut">Friday only</span></div>
+<div style="border-radius:18px;overflow:hidden;border:1.5px solid #7A1C24">
+<div class="img" style="height:96px">IMG</div>
+<div style="padding:12px 14px;background:#FBF1F0">
+<div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:13.5px">Hyderabadi Dum Biryani</span></div>
+<div class="mut" style="margin-top:4px;color:#8C4A3E">Slow-cooked, only 20 plates tonight</div>
+<div class="row" style="margin-top:10px"><span class="pr" style="flex:1;font-size:15px">₹210</span><button class="add" style="width:auto;padding:10px 20px;font-size:12.5px">Add</button></div>
+</div>
+</div>
+</div>
+
+<div>
+<div class="row" style="margin-bottom:9px"><span style="flex:1;font-size:13px;font-weight:600">Combos</span><span class="mut">Saves ₹40–₹70</span></div>
+<div style="display:flex;gap:10px">
+<div style="flex:1;border:1.5px solid rgba(36,31,30,.1);border-radius:16px;padding:12px">
+<div class="nm" style="font-size:12.5px;line-height:1.3">Biryani + Raita + Gulab Jamun</div>
+<div class="mut" style="margin-top:5px">for two</div>
+<div class="row" style="margin-top:9px;gap:7px"><span class="pr" style="font-size:13.5px">₹235</span><span class="mut" style="text-decoration:line-through">₹255</span></div>
+<button class="add" style="margin-top:9px;padding:9px 0;font-size:12px">Add</button>
+</div>
+<div style="flex:1;border:1.5px solid rgba(36,31,30,.1);border-radius:16px;padding:12px">
+<div class="nm" style="font-size:12.5px;line-height:1.3">Paneer + Naan ×2 + Lime Tea</div>
+<div class="mut" style="margin-top:5px">veg thali</div>
+<div class="row" style="margin-top:9px;gap:7px"><span class="pr" style="font-size:13.5px">₹265</span><span class="mut" style="text-decoration:line-through">₹293</span></div>
+<button class="add" style="margin-top:9px;padding:9px 0;font-size:12px">Add</button>
+</div>
+</div>
+</div>
+
+<div>
+<div class="row" style="margin-bottom:9px"><span style="flex:1;font-size:13px;font-weight:600">Festival menu</span><span class="mut" style="color:#7A1C24;font-weight:600">Till Sunday</span></div>
+<div style="border-radius:18px;padding:14px 16px;background:#F0FAE1;color:#3D472B">
+<div style="font-size:13px;font-weight:600">Eid special sweets</div>
+<div style="font-size:11.5px;margin-top:5px;line-height:1.45;opacity:.85">Sheer khurma and double ka meetha, made fresh each evening</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:11px">
+<span class="chip" style="background:#fff;border-color:rgba(61,71,43,.2)">Sheer Khurma ₹80</span>
+<span class="chip" style="background:#fff;border-color:rgba(61,71,43,.2)">Double ka Meetha ₹70</span>
+</div>
+</div>
+</div>
+
+<div>
+<div class="row" style="margin-bottom:9px"><span style="flex:1;font-size:13px;font-weight:600">Jalsa favourites</span><span class="mut">Most loved</span></div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div class="row"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken 65</span></div><div class="mut" style="margin-top:3px">♥ 214 this month · ₹140</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Paneer Butter Masala</span></div><div class="mut" style="margin-top:3px">♥ 188 this month · ₹191</div></div><button class="plus">+</button></div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="7d">
+<div class="dv-olabel"><a class="dv-oid" href="#7d">7d</a>Quieter — one offers row, the menu starts higher</div>
+<div class="ph">
+<div class="phb"><span>8:06</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div style="padding:14px 16px 0;display:flex;flex-wrap:wrap;gap:7px">
+<span class="chip on">★ Today's special</span>
+<span class="chip">Combos</span>
+<span class="chip">Festival</span>
+<span class="chip">Favourites</span>
+</div>
+<div class="body" style="gap:13px;padding-top:14px">
+<div style="border-radius:18px;padding:13px 15px;background:#FBF1F0;display:flex;align-items:center;gap:12px">
+<div class="img" style="width:54px;height:54px;border-radius:14px;flex:none">IMG</div>
+<div style="flex:1;min-width:0">
+<div class="nm" style="font-size:12.5px">Hyderabadi Dum Biryani</div>
+<div class="mut" style="margin-top:3px;color:#8C4A3E">Tonight only · ₹210 · 20 plates</div>
+</div>
+<button class="plus" style="background:#7A1C24;color:#fff;border-color:#7A1C24">+</button>
+</div>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<span class="chip">Biryani</span><span class="chip">Starter</span><span class="chip">Chinese</span><span class="chip">Curry</span>
+</div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="mut" style="margin-top:3px">₹180</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Mutton Biryani</span></div><div class="mut" style="margin-top:3px">₹240</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Veg Biryani</span></div><div class="mut" style="margin-top:3px">₹140</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "make <a class="dv-oid" href="#7d">7d</a> the live menu header" · "add a per-section switch for each offer strip in owner settings"</p>
+</section>
+
+<section class="dv-turn" id="t6">
+<div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">Festival nights — one QR at the door puts you in the queue</span></div>
+
+<p class="dv-grp">16 · Join the queue</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="6a">
+<div class="dv-olabel"><a class="dv-oid" href="#6a">6a</a>Scan at the door, pick how many you are — nothing else asked</div>
+<div class="ph">
+<div class="phb"><span>8:26</span><span>Entrance</span></div>
+<div style="background:#7A1C24;color:#fff;padding:26px 22px 22px;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:60px;height:60px;border-radius:16px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:19px;font-weight:600;margin-top:13px">Busy tonight</div>
+<div style="font-size:12px;opacity:.85;margin-top:6px;line-height:1.45">About 20 minutes right now. Join the queue and watch your place from here.</div>
+</div>
+<div class="body" style="gap:15px;padding-top:20px">
+<div>
+<div style="font-size:13px;font-weight:600">How many of you?</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:11px">
+<span class="chip" style="text-align:center;padding:12px 0">1</span>
+<span class="chip" style="text-align:center;padding:12px 0">2</span>
+<span class="chip" style="text-align:center;padding:12px 0">3</span>
+<span class="chip on" style="text-align:center;padding:12px 0">4</span>
+<span class="chip" style="text-align:center;padding:12px 0">5</span>
+<span class="chip" style="text-align:center;padding:12px 0">6</span>
+<span class="chip" style="text-align:center;padding:12px 0">8</span>
+<span class="chip" style="text-align:center;padding:12px 0">10+</span>
+</div>
+</div>
+<button class="add" style="padding:15px 0;font-size:14.5px">Join the queue</button>
+<div class="mut" style="text-align:center">No name or number needed. Your time is locked the moment you tap.</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="6b">
+<div class="dv-olabel"><a class="dv-oid" href="#6b">6b</a>Token — position and locked time, refreshing on its own</div>
+<div class="ph">
+<div class="phb"><span>8:31</span><span>W-18</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">In queue</span></div>
+<div class="body" style="gap:16px;padding-top:22px;align-items:center;text-align:center">
+<div>
+<div class="mut">Your token</div>
+<div style="font-size:40px;font-weight:600;letter-spacing:.04em;margin-top:4px">W-18</div>
+</div>
+<div style="width:100%;display:flex;gap:10px">
+<div style="flex:1;padding:14px 10px;border-radius:16px;background:#FBF8F7">
+<div style="font-size:22px;font-weight:600">2nd</div>
+<div class="mut" style="margin-top:3px">in line</div>
+</div>
+<div style="flex:1;padding:14px 10px;border-radius:16px;background:#FBF8F7">
+<div style="font-size:22px;font-weight:600">~12</div>
+<div class="mut" style="margin-top:3px">minutes</div>
+</div>
+<div style="flex:1;padding:14px 10px;border-radius:16px;background:#FBF8F7">
+<div style="font-size:22px;font-weight:600">4</div>
+<div class="mut" style="margin-top:3px">guests</div>
+</div>
+</div>
+<div style="width:100%;padding:13px 15px;border-radius:16px;background:#FBF1F0;font-size:11.5px;color:#7A1C24;line-height:1.5;text-align:left">Joined at 8:26 PM · locked. Two parties ahead of you. Keep this screen open — it updates itself, and we will show a big alert when your table is ready.</div>
+<div style="width:100%;display:flex;flex-direction:column;gap:9px">
+<span class="chip" style="text-align:center;padding:11px 0">See the menu while you wait</span>
+<span class="chip" style="text-align:center;padding:11px 0">Leave the queue</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="6c">
+<div class="dv-olabel"><a class="dv-oid" href="#6c">6c</a>Table ready — the alert, then straight into ordering</div>
+<div class="ph">
+<div class="phb"><span>8:38</span><span>W-18</span></div>
+<div style="position:relative;background:#7A1C24;color:#fff;padding:30px 22px 26px;text-align:center;overflow:hidden">
+<span class="cf" style="left:14%;background:#F6A06B;animation-delay:.1s"></span>
+<span class="cf" style="left:42%;background:#E1EECC;animation-delay:.9s"></span>
+<span class="cf" style="left:70%;background:#fff;animation-delay:.5s"></span>
+<span class="cf" style="left:90%;background:#F6A06B;animation-delay:1.6s"></span>
+<div style="position:relative">
+<div class="hb" style="display:inline-block;font-size:32px">🎉</div>
+<div style="font-size:21px;font-weight:600;margin-top:10px">Your table is ready</div>
+<div style="font-size:12.5px;opacity:.88;margin-top:7px">W-18 · 4 guests · Table A4</div>
+</div>
+</div>
+<div class="body" style="gap:14px;padding-top:20px">
+<div style="padding:13px 15px;border-radius:16px;background:#EDF7F0;font-size:12px;color:#14602A;line-height:1.5">You waited 12 minutes. Imran is holding A4 for the next 5 minutes — please come in.</div>
+<button class="add" style="padding:15px 0;font-size:14.5px">Start ordering</button>
+<div class="mut" style="text-align:center">Scanning the QR on your table also works</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="6d">
+<div class="dv-olabel"><a class="dv-oid" href="#6d">6d</a>Queue closed — honest instead of a dead end</div>
+<div class="ph">
+<div class="phb"><span>10:48</span><span>Entrance</span></div>
+<div style="background:#7A1C24;color:#fff;padding:26px 22px 22px;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:56px;height:56px;border-radius:16px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:18px;font-weight:600;margin-top:13px">We have stopped taking the queue</div>
+<div style="font-size:12px;opacity:.85;margin-top:6px;line-height:1.45">The kitchen closes at 11. Sorry to send you away tonight.</div>
+</div>
+<div class="body" style="gap:14px;padding-top:20px">
+<div style="padding:14px 16px;border-radius:16px;background:#FBF8F7;font-size:12.5px;color:#57504D;line-height:1.55">Tomorrow we open at noon. Weekends after 8 PM are the busiest — earlier is easier.</div>
+<span class="chip" style="text-align:center;padding:11px 0">See the menu</span>
+<span class="chip" style="text-align:center;padding:11px 0">Call the restaurant</span>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "add a big-party route to <a class="dv-oid" href="#6a">6a</a>" · "let <a class="dv-oid" href="#6b">6b</a> pre-order while waiting" · "show the host stand view of the queue"</p>
+</section>
+
+<section class="dv-turn" id="t5">
+<div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">Asking for someone by name</span></div>
+
+<p class="dv-grp">15 · Request a specific captain or waiter</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="5a">
+<div class="dv-olabel"><a class="dv-oid" href="#5a">5a</a>Assigned pair up top, everyone else a tap away</div>
+<div class="ph">
+<div class="phb"><span>8:36</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:14px;padding-top:18px">
+<div>
+<div style="font-size:16px;font-weight:600">Who would you like?</div>
+<div class="mut" style="margin-top:5px">Your table is Imran's. Ask for anyone else and they will come if they are free.</div>
+</div>
+<div class="row" style="padding:12px 14px;border-radius:16px;background:#FBF1F0;gap:11px">
+<div style="width:34px;height:34px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none">I</div>
+<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">Imran</div><div class="mut" style="margin-top:2px">Your captain</div></div>
+<span class="chip on" style="padding:6px 13px">Call</span>
+</div>
+<div class="row" style="padding:12px 14px;border-radius:16px;border:1.5px solid rgba(36,31,30,.09);gap:11px">
+<div style="width:34px;height:34px;border-radius:999px;background:#F1ECEA;color:#7A1C24;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none">M</div>
+<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">Mani</div><div class="mut" style="margin-top:2px">Serving your table</div></div>
+<span class="chip" style="padding:6px 13px">Call</span>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9A918D">Also on the floor</div>
+<div class="row" style="gap:11px">
+<div style="width:30px;height:30px;border-radius:999px;background:#F1ECEA;color:#7A1C24;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">R</div>
+<span style="flex:1;font-size:12.5px;font-weight:600">Ramesh</span>
+<span class="mut">Captain</span>
+<span class="chip" style="padding:6px 13px">Call</span>
+</div>
+<div class="row" style="gap:11px">
+<div style="width:30px;height:30px;border-radius:999px;background:#F1ECEA;color:#7A1C24;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">I</div>
+<span style="flex:1;font-size:12.5px;font-weight:600">Imran</span>
+<span class="mut">Captain</span>
+<span class="chip" style="padding:6px 13px">Call</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="5b">
+<div class="dv-olabel"><a class="dv-oid" href="#5b">5b</a>Attach a name to the request instead of a separate screen</div>
+<div class="ph">
+<div class="phb"><span>8:36</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:0;padding:0;position:relative;min-height:390px">
+<div style="padding:16px 16px 76px;display:flex;flex-direction:column;gap:11px">
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Kadai Paneer</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹180</div></div><button class="plus">+</button></div>
+</div>
+<div style="position:relative;margin-top:auto;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(36,31,30,.15);padding:20px 18px">
+<div style="font-size:14.5px;font-weight:600">What do you need?</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px">
+<span class="chip on" style="text-align:center;padding:11px 0">Need water</span>
+<span class="chip" style="text-align:center;padding:11px 0">Call someone</span>
+<span class="chip" style="grid-column:1 / -1;text-align:center;padding:11px 0">Extra plates or cutlery</span>
+</div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9A918D;margin:17px 0 9px">Ask for someone in particular</div>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<span class="chip on">Anyone free</span>
+<span class="chip">Imran</span>
+<span class="chip">Mani</span>
+<span class="chip">Ramesh</span>
+</div>
+<button class="add" style="margin-top:16px;padding:13px 0">Send request</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="5c">
+<div class="dv-olabel"><a class="dv-oid" href="#5c">5c</a>Named request, acknowledged — and honest when they are busy</div>
+<div class="ph">
+<div class="phb"><span>8:37</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:14px;padding-top:22px">
+<div style="text-align:center">
+<div style="width:54px;height:54px;border-radius:999px;background:#E4F3E8;color:#166A2E;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto">✓</div>
+<div style="font-size:16px;font-weight:600;margin-top:12px">Ramesh has been asked for</div>
+<div class="mut" style="margin-top:5px">Water requested at 8:37 PM</div>
+</div>
+<div style="padding:13px 15px;border-radius:16px;background:#FFF6E8;font-size:11.5px;color:#6B4A12;line-height:1.5">Ramesh is with another table right now. Imran, your own captain, has also been notified so you are not left waiting.</div>
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:9px">
+<div class="row" style="gap:9px"><span style="width:8px;height:8px;border-radius:999px;background:#1E8E3E"></span><span style="flex:1;font-size:12px">Need water · asked for Ramesh</span><span class="mut">Seen</span></div>
+<div class="row" style="gap:9px"><span style="width:8px;height:8px;border-radius:999px;background:#D6CFCC"></span><span style="flex:1;font-size:12px">Extra plates · 8:14 PM</span><span class="mut">Done</span></div>
+</div>
+<span class="chip" style="text-align:center;padding:11px 0">Back to the menu</span>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "use <a class="dv-oid" href="#5b">5b</a> and drop the separate screen" · "hide other captains from <a class="dv-oid" href="#5a">5a</a>" · "show what the captain sees when named"</p>
+</section>
+
+<section class="dv-turn" id="t4">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">The welcome, and a way to tell the owner something</span></div>
+
+<p class="dv-grp">13 · First screen after the scan</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="4a">
+<div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Confetti welcome — one button, nothing else to decide</div>
+<div class="ph">
+<div class="phb"><span>8:31</span><span>Table A5</span></div>
+<div style="position:relative;background:#7A1C24;color:#fff;padding:34px 22px 30px;overflow:hidden">
+<span class="cf" style="left:8%;background:#F6A06B;animation-delay:0s"></span>
+<span class="cf" style="left:20%;background:#E1EECC;animation-delay:.7s"></span>
+<span class="cf" style="left:33%;background:#F6A06B;animation-delay:1.5s"></span>
+<span class="cf" style="left:47%;background:#fff;animation-delay:.3s"></span>
+<span class="cf" style="left:61%;background:#E1EECC;animation-delay:1.1s"></span>
+<span class="cf" style="left:74%;background:#F6A06B;animation-delay:1.9s"></span>
+<span class="cf" style="left:88%;background:#fff;animation-delay:.9s"></span>
+<div style="position:relative;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:74px;height:74px;border-radius:20px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:23px;font-weight:600;margin-top:16px;line-height:1.25">Welcome to Jalsa</div>
+<div style="font-size:12.5px;opacity:.85;margin-top:7px;line-height:1.45">You are at Table A5 · Imran is your captain</div>
+</div>
+</div>
+<div class="body" style="gap:14px;padding-top:20px">
+<button class="add" style="padding:15px 0;font-size:14.5px">Start ordering</button>
+<div style="display:flex;gap:8px">
+<span class="chip" style="flex:1;text-align:center;padding:10px 0">Need water</span>
+<span class="chip" style="flex:1;text-align:center;padding:10px 0">Call captain</span>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="font-size:12px;font-weight:600">Tonight's favourites</div>
+<div style="display:flex;gap:10px">
+<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="img" style="height:58px;border-radius:14px">IMG</div><span style="font-size:10.5px;font-weight:600">Full Biryani</span></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="img" style="height:58px;border-radius:14px">IMG</div><span style="font-size:10.5px;font-weight:600">Paneer Tikka</span></div>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="img" style="height:58px;border-radius:14px">IMG</div><span style="font-size:10.5px;font-weight:600">Chicken 65</span></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="4b">
+<div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Marquee greeting — a moving line of welcome, calmer than confetti</div>
+<div class="ph">
+<div class="phb"><span>8:31</span><span>Table A5</span></div>
+<div style="background:#7A1C24;color:#fff;padding:28px 0 0;text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:66px;height:66px;border-radius:18px;background:#fff;padding:3px;object-fit:contain">
+<div style="font-size:21px;font-weight:600;margin-top:14px">Jalsa Restaurant</div>
+<div style="font-size:11.5px;opacity:.8;margin-top:5px">Hosur · since 2016</div>
+<div style="margin-top:20px;background:#5E1319;overflow:hidden;padding:10px 0">
+<div class="mq" style="display:flex;gap:34px;white-space:nowrap;font-size:12px;font-weight:600;letter-spacing:.04em">
+<span>Welcome to Table A5</span><span>·</span><span>Celebrate every bite</span><span>·</span><span>Imran is your captain</span><span>·</span><span>Welcome to Table A5</span><span>·</span><span>Celebrate every bite</span>
+</div>
+</div>
+</div>
+<div class="body" style="gap:14px;padding-top:20px">
+<div style="text-align:center">
+<div style="font-size:15px;font-weight:600">Good evening</div>
+<div class="mut" style="margin-top:5px">The full menu is on your phone. Order as many rounds as you like — one bill at the end.</div>
+</div>
+<button class="add" style="padding:15px 0;font-size:14.5px">Start ordering</button>
+<span class="chip" style="text-align:center;padding:11px 0">Tell us something</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="4c">
+<div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Occasion welcome — the captain flagged a birthday at this table</div>
+<div class="ph">
+<div class="phb"><span>8:31</span><span>Table A5</span></div>
+<div style="position:relative;background:#7A1C24;color:#fff;padding:30px 22px 26px;overflow:hidden;text-align:center">
+<span class="cf" style="left:12%;background:#F6A06B;animation-delay:.2s"></span>
+<span class="cf" style="left:38%;background:#fff;animation-delay:1.2s"></span>
+<span class="cf" style="left:64%;background:#E1EECC;animation-delay:.6s"></span>
+<span class="cf" style="left:86%;background:#F6A06B;animation-delay:1.7s"></span>
+<div style="position:relative">
+<div style="font-size:34px;line-height:1">🎉</div>
+<div style="font-size:21px;font-weight:600;margin-top:12px;line-height:1.25">Happy birthday, Divya</div>
+<div style="font-size:12px;opacity:.85;margin-top:7px">Dessert is on us tonight — Imran will bring it</div>
+</div>
+</div>
+<div class="body" style="gap:13px;padding-top:18px">
+<button class="add" style="padding:15px 0;font-size:14.5px">Start ordering</button>
+<div class="mut" style="text-align:center">Owner sets the occasion note when seating the table. Off by default.</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">14 · Tell the owner something</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="4d">
+<div class="dv-olabel"><a class="dv-oid" href="#4d">4d</a>Suggestion box — free text, no rating, no account</div>
+<div class="ph">
+<div class="phb"><span>9:04</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:15px;padding-top:20px">
+<div>
+<div style="font-size:17px;font-weight:600">Anything we could do better?</div>
+<div class="mut" style="margin-top:6px">Goes straight to the owner. Not published anywhere, and your table is the only thing attached to it.</div>
+</div>
+<div style="border:1.5px solid rgba(36,31,30,.12);border-radius:18px;padding:14px 15px;min-height:104px;font-size:12.5px;color:#B0A6A2;line-height:1.5">The biryani was excellent. The raita was a little salty for us.</div>
+<div style="display:flex;gap:7px;flex-wrap:wrap">
+<span class="chip">Food</span>
+<span class="chip">Service</span>
+<span class="chip">Seating</span>
+<span class="chip">Price</span>
+<span class="chip">Something else</span>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Send to the owner</button>
+<div class="mut" style="text-align:center">Skip if you would rather not</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="4f">
+<div class="dv-olabel"><a class="dv-oid" href="#4f">4f</a>The owner replies — and the guest sees they were heard</div>
+<div class="ph">
+<div class="phb"><span>9:11</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Reply</span></div>
+<div class="body" style="gap:15px;padding-top:20px">
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;font-size:12px;color:#57504D;line-height:1.5">
+<div style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9A918D">You wrote · 9:04 PM</div>
+<div style="margin-top:5px;color:#241F1E">The biryani was excellent. The raita was a little salty for us.</div>
+</div>
+<div class="row" style="gap:11px;padding:0 2px">
+<img src="assets/jalsa-logo.png" alt="Jalsa" style="width:34px;height:34px;border-radius:10px;object-fit:contain;background:#7A1C24;padding:2px;flex:none">
+<div style="flex:1;min-width:0">
+<div style="font-size:12.5px;font-weight:600">Javeed · Jalsa Restaurant</div>
+<div class="mut" style="margin-top:2px">Replied 9:11 PM</div>
+</div>
+</div>
+<div style="padding:15px 16px;border-radius:18px;background:#FBF1F0;font-size:13px;color:#7A1C24;line-height:1.6">Thank you for feedback and bringing this to our attention, we shall take necessary measure to keep it great.</div>
+<div class="mut" style="text-align:center">A real person read your note. Nothing further is needed from you.</div>
+<span class="chip" style="text-align:center;padding:11px 0">Write to us again</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="4e">
+<div class="dv-olabel"><a class="dv-oid" href="#4e">4e</a>Sent — and the review ask stays separate from the complaint</div>
+<div class="ph">
+<div class="phb"><span>9:05</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Sent</span></div>
+<div class="body" style="gap:15px;padding-top:24px">
+<div style="text-align:center">
+<div style="width:54px;height:54px;border-radius:999px;background:#F0FAE1;color:#56633F;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto">✓</div>
+<div style="font-size:17px;font-weight:600;margin-top:12px">Javeed will read this</div>
+<div class="mut" style="margin-top:6px">Thank you for taking the time. Nothing else is needed from you.</div>
+</div>
+<div style="padding:14px 16px;border-radius:16px;background:#FBF8F7;font-size:12px;color:#57504D;line-height:1.5">Your note · 9:04 PM<br><span style="color:#241F1E">The biryani was excellent. The raita was a little salty for us.</span></div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="padding:14px 16px;border-radius:16px;background:#FBF1F0;display:flex;flex-direction:column;gap:9px">
+<div style="font-size:12.5px;font-weight:600">Happy to say it publicly too?</div>
+<div class="mut" style="color:#8C4A3E">Only if you want — the note above already reached the owner.</div>
+<button class="add">Write a Google review</button>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "use <a class="dv-oid" href="#4a">4a</a> as the home screen" · "put the suggestion button on <a class="dv-oid" href="#2h">2h</a> instead" · "show <a class="dv-oid" href="#4c">4c</a> for anniversaries too"</p>
+</section>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Who is serving you, and asking for something without waving</span></div>
+
+<p class="dv-grp">12 · Captain and waiter on the customer screen</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Named strip under the header — quick buttons sit with it</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div style="background:#FBF1F0;padding:13px 16px">
+<div class="row" style="gap:10px">
+<div style="width:34px;height:34px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none">I</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:12.5px;font-weight:600">Imran is your captain</div>
+<div class="mut" style="margin-top:2px">Mani is serving your table</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px">
+<span class="chip" style="text-align:center;background:#fff">Need water</span>
+<span class="chip" style="text-align:center;background:#fff">Call captain</span>
+<span class="chip" style="grid-column:1 / -1;text-align:center;background:#fff">Extra plates or cutlery</span>
+</div>
+</div>
+<div class="body" style="gap:11px">
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Chettinad</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹240</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Kadai Paneer</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹180</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqe"></span><span class="nm" style="font-size:12.5px">Egg Masala</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹95</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Captain only — waiter name switched off in settings</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Imran · A5</span></div>
+<div class="body" style="gap:13px">
+<div class="row" style="padding:11px 14px;border-radius:16px;border:1.5px solid rgba(36,31,30,.09);gap:10px">
+<div style="width:30px;height:30px;border-radius:999px;background:#FBF1F0;color:#7A1C24;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">I</div>
+<span style="flex:1;font-size:12.5px;font-weight:600">Captain Imran</span>
+<span class="chip" style="padding:5px 12px">Call</span>
+</div>
+<div style="display:flex;gap:8px">
+<span class="chip" style="flex:1;text-align:center;padding:11px 0">Need water</span>
+<span class="chip" style="flex:1;text-align:center;padding:11px 0">Ask for the bill</span>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Full Biryani</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹115</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Veg Pulav</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹120</div></div><button class="plus">+</button></div>
+<div class="mut" style="text-align:center">Owner can hide either name from Settings</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3c">
+<div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a>Floating help button — quick actions stay out of the menu</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:0;padding:0;position:relative;min-height:380px">
+<div style="padding:16px 16px 76px;display:flex;flex-direction:column;gap:11px">
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹90</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Dal Fry</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹120</div></div><button class="plus">+</button></div>
+</div>
+<div style="position:relative;margin-top:auto;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(36,31,30,.15);padding:20px 18px">
+<div style="position:absolute;right:16px;top:-24px;width:48px;height:48px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 8px 20px rgba(122,28,36,.4)">?</div>
+<div class="row" style="gap:10px;margin-bottom:15px">
+<div style="width:32px;height:32px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;flex:none">I</div>
+<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">Imran · your captain</div><div class="mut" style="margin-top:2px">Usually at the table in a minute</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span class="chip" style="text-align:center;padding:12px 0">Need water</span>
+<span class="chip" style="text-align:center;padding:12px 0">Call captain</span>
+<span class="chip" style="text-align:center;padding:12px 0">Extra plates or cutlery</span>
+<span class="chip" style="text-align:center;padding:12px 0">Ask for the bill</span>
+</div>
+<div class="mut" style="text-align:center;margin-top:12px">Imran gets a notification — no waving</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3d">
+<div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a>Request acknowledged — the loop closes</div>
+<div class="ph">
+<div class="phb"><span>8:33</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:14px;padding-top:22px">
+<div style="text-align:center">
+<div style="width:54px;height:54px;border-radius:999px;background:#E4F3E8;color:#166A2E;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto">✓</div>
+<div style="font-size:16px;font-weight:600;margin-top:12px">Imran is on the way</div>
+<div class="mut" style="margin-top:5px">Water requested at 8:33 PM</div>
+</div>
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:9px">
+<div class="row" style="gap:9px"><span style="width:8px;height:8px;border-radius:999px;background:#1E8E3E"></span><span style="flex:1;font-size:12px">Need water · 8:33 PM</span><span class="mut">Seen</span></div>
+<div class="row" style="gap:9px"><span style="width:8px;height:8px;border-radius:999px;background:#D6CFCC"></span><span style="flex:1;font-size:12px">Call captain · 8:21 PM</span><span class="mut">Done</span></div>
+</div>
+<span class="chip" style="text-align:center;padding:11px 0">Back to the menu</span>
+<div class="mut" style="text-align:center">Requests are rate-limited so one table cannot spam the floor</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "use <a class="dv-oid" href="#3a">3a</a>'s strip with <a class="dv-oid" href="#3c">3c</a>'s help sheet" · "add extra plates to <a class="dv-oid" href="#3a">3a</a>" · "show the captain's incoming-request screen"</p>
+</section>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">The four new moments — order confirmation, recommendations, the loved-it heart, and takeaway</span></div>
+
+<p class="dv-grp">8 · Order accepted — the kitchen has it</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Cooking animation — steam and a filling bar, no numbers to read</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">KOT-124</span></div>
+<div class="body" style="gap:0;padding:26px 20px 22px;align-items:center;text-align:center">
+<div style="position:relative;width:118px;height:118px;display:flex;align-items:center;justify-content:center">
+<span class="rng"></span>
+<span class="rng" style="animation-delay:1.2s"></span>
+<div style="position:relative;width:78px;height:78px;border-radius:999px;background:#7A1C24;display:flex;align-items:flex-end;justify-content:center;overflow:visible;animation:bob 3s ease-in-out infinite">
+<span class="stm" style="left:26px"></span>
+<span class="stm" style="left:37px;animation-delay:.9s"></span>
+<span class="stm" style="left:48px;animation-delay:1.7s"></span>
+<span style="width:46px;height:14px;border-radius:0 0 999px 999px;background:#fff;margin-bottom:20px"></span>
+</div>
+</div>
+<div style="font-size:19px;font-weight:600;margin-top:20px">Your order is being cooked</div>
+<div class="mut" style="margin-top:6px">Imran has it · usually 18–22 minutes</div>
+<div style="width:100%;height:8px;border-radius:999px;background:#F1ECEA;margin-top:20px;overflow:hidden">
+<div style="height:100%;border-radius:999px;background:#7A1C24;animation:fill 4s ease-in-out infinite alternate"></div>
+</div>
+<div style="display:flex;justify-content:space-between;width:100%;margin-top:7px;font-size:9.5px;color:#7C736F"><span>Received</span><span style="font-weight:600;color:#7A1C24">Cooking</span><span>Ready</span><span>Served</span></div>
+<div style="width:100%;margin-top:22px;padding:13px 15px;border-radius:16px;background:#FBF8F7;font-size:12px;color:#57504D;line-height:1.45">Chicken Biryani ×2 · Dal Fry ×1 · Egg Burji ×1</div>
+<span class="chip" style="margin-top:14px;width:100%;text-align:center;padding:11px 0">Order something else</span>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Quieter — a checkmark that settles, then the recommendation strip</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">KOT-124</span></div>
+<div class="body" style="gap:16px;padding-top:22px">
+<div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+<div style="position:relative;width:70px;height:70px;display:flex;align-items:center;justify-content:center">
+<span class="rng"></span>
+<div style="width:54px;height:54px;border-radius:999px;background:#1E8E3E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px">✓</div>
+</div>
+<div style="font-size:17px;font-weight:600;margin-top:14px">In the kitchen</div>
+<div class="mut" style="margin-top:5px">4 items · KOT-124 · 8:32 PM</div>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="font-size:13px;font-weight:600">While you wait</div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Onion Cucumber Raita</span></div><div class="mut" style="margin-top:3px">Goes with biryani · ₹45</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Lime Tea</span></div><div class="mut" style="margin-top:3px">₹12</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">9 · Recommendations, matched to what you eat</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Diet filter at the top — every suggestion below respects it</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div style="padding:14px 16px 0;display:flex;gap:7px">
+<span class="chip" style="flex:1;text-align:center">All</span>
+<span class="chip on" style="flex:1;text-align:center">Veg</span>
+<span class="chip" style="flex:1;text-align:center">Non-veg</span>
+<span class="chip" style="flex:1;text-align:center">Egg</span>
+</div>
+<div class="body" style="gap:14px;padding-top:16px">
+<div>
+<div style="font-size:13.5px;font-weight:600">Popular with veg tables tonight</div>
+<div class="mut" style="margin-top:3px">Ordered by 10 other tables this week</div>
+</div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Paneer Butter Masala</span></div><div class="mut" style="margin-top:3px">14 tables ordered this · ₹191</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Chilli Paneer</span></div><div class="mut" style="margin-top:3px">10 tables ordered this · ₹220</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Veg Pulav</span></div><div class="mut" style="margin-top:3px">Pairs with Dal Fry · ₹120</div></div><button class="plus">+</button></div>
+<div style="padding:13px 15px;border-radius:16px;background:#FBF1F0;font-size:11.5px;color:#7A1C24;font-weight:600;line-height:1.45">Veg filter on — non-veg and egg dishes stay hidden until you change it</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2d">
+<div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Inline nudge — sits under the dish you just added</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">3 items</span></div>
+<div class="body" style="gap:13px">
+<div class="row" style="padding:11px 13px;border-radius:16px;background:#EDF7F0"><span style="font-size:16px;color:#166A2E">✓</span><span style="flex:1;font-size:12.5px;font-weight:600;color:#14602A">Chicken Biryani ×2 added</span></div>
+<div>
+<div style="font-size:13px;font-weight:600">10 other tables added these too</div>
+<div class="mut" style="margin-top:3px">Non-veg, like your order</div>
+</div>
+<div style="display:flex;gap:11px">
+<div style="flex:1;border:1.5px solid rgba(36,31,30,.09);border-radius:16px;overflow:hidden">
+<div class="img" style="height:66px">IMG</div>
+<div style="padding:9px 10px 11px"><div class="row" style="gap:5px"><span class="sqn"></span><span class="nm" style="font-size:11.5px">Chicken 65</span></div><div class="row" style="margin-top:6px"><span class="pr" style="flex:1;font-size:12.5px">₹140</span><button class="plus" style="width:22px;height:22px;font-size:13px">+</button></div></div>
+</div>
+<div style="flex:1;border:1.5px solid rgba(36,31,30,.09);border-radius:16px;overflow:hidden">
+<div class="img" style="height:66px">IMG</div>
+<div style="padding:9px 10px 11px"><div class="row" style="gap:5px"><span class="sqv"></span><span class="nm" style="font-size:11.5px">Raita</span></div><div class="row" style="margin-top:6px"><span class="pr" style="flex:1;font-size:12.5px">₹45</span><button class="plus" style="width:22px;height:22px;font-size:13px">+</button></div></div>
+</div>
+</div>
+<div style="height:1px;background:rgba(36,31,30,.08)"></div>
+<div style="font-size:13px;font-weight:600">Finish with</div>
+<div class="row"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Gulab Jamun</span></div><div class="mut" style="margin-top:3px">₹30 a piece</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">10 · Served — the loved-it heart</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2e">
+<div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>Heart appears only once the captain marks it served</div>
+<div class="ph">
+<div class="phb"><span>8:52</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Served</span></div>
+<div class="body" style="gap:15px;padding-top:20px">
+<div style="text-align:center">
+<div style="font-size:17px;font-weight:600">On your table — enjoy</div>
+<div class="mut" style="margin-top:5px">Tap the heart on anything you loved</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div class="row" style="padding:11px 13px;border:1.5px solid rgba(36,31,30,.09);border-radius:16px"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="mut" style="margin-top:3px">×2</div></div><span class="hb" style="font-size:20px;color:#7A1C24">♥</span></div>
+<div class="row" style="padding:11px 13px;border:1.5px solid rgba(36,31,30,.09);border-radius:16px"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Dal Fry</span></div><div class="mut" style="margin-top:3px">×1</div></div><span style="font-size:20px;color:#D6CFCC">♡</span></div>
+<div class="row" style="padding:11px 13px;border:1.5px solid rgba(36,31,30,.09);border-radius:16px"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqe"></span><span class="nm" style="font-size:12.5px">Egg Burji</span></div><div class="mut" style="margin-top:3px">×1</div></div><span style="font-size:20px;color:#D6CFCC">♡</span></div>
+</div>
+<div style="display:flex;gap:8px"><span class="chip" style="flex:1;text-align:center;padding:11px 0">Order more</span><span class="chip on" style="flex:1;text-align:center;padding:11px 0">Request payment</span></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2f">
+<div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a>The thank-you, and the takeaway question</div>
+<div class="ph">
+<div class="phb"><span>8:53</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Served</span></div>
+<div class="body" style="gap:0;padding:0;position:relative;min-height:400px">
+<div style="padding:16px;display:flex;flex-direction:column;gap:11px;opacity:.35">
+<div class="row"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1"><div class="nm" style="font-size:12.5px">Chicken Biryani</div></div><span style="font-size:19px;color:#7A1C24">♥</span></div>
+<div class="row"><div class="img" style="width:44px;height:44px;border-radius:12px">IMG</div><div style="flex:1"><div class="nm" style="font-size:12.5px">Dal Fry</div></div><span style="font-size:19px;color:#D6CFCC">♡</span></div>
+</div>
+<div style="margin-top:auto;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(36,31,30,.16);padding:22px 18px">
+<div style="text-align:center">
+<span class="hb" style="display:inline-block;font-size:34px;color:#7A1C24">♥</span>
+<div style="font-size:17px;font-weight:600;margin-top:10px">Thank you</div>
+<div class="mut" style="margin-top:6px;padding:0 6px">Chicken Biryani is a favourite here too. Take a portion home for someone you love?</div>
+</div>
+<div style="margin:18px 0;padding:14px;border-radius:16px;background:#FBF8F7;display:flex;align-items:center;gap:12px">
+<div class="img" style="width:48px;height:48px;border-radius:13px">IMG</div>
+<div style="flex:1;min-width:0">
+<div class="nm" style="font-size:12.5px">Chicken Biryani · parcel</div>
+<div class="mut" style="margin-top:3px">₹90 each · packed fresh at closure</div>
+</div>
+<div class="row" style="gap:7px"><span class="stp">−</span><span style="font-size:13px;font-weight:600">1</span><span class="stp">+</span></div>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Add parcel — ₹90</button>
+<div class="mut" style="text-align:center;margin-top:10px">Billed separately as a takeaway, not added to your table bill</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2g">
+<div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a>Split confirmed — two bills, one table</div>
+<div class="ph">
+<div class="phb"><span>8:54</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">2 bills</span></div>
+<div class="body" style="gap:14px;padding-top:20px">
+<div style="text-align:center">
+<div style="font-size:17px;font-weight:600">Parcel added</div>
+<div class="mut" style="margin-top:5px">The kitchen has a separate ticket for it</div>
+</div>
+<div style="border:1.5px solid rgba(36,31,30,.09);border-radius:18px;padding:15px">
+<div class="row" style="margin-bottom:11px"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#9A918D;flex:1">DINE-IN · B-1044</span><span class="pr" style="font-size:15px">₹1,842</span></div>
+<div class="tot" style="margin-bottom:4px"><span>4 items · 2 rounds</span><span>Table A5</span></div>
+<div class="mut">Imran · KOT-108, KOT-123</div>
+</div>
+<div style="border:1.5px solid #7A1C24;border-radius:18px;padding:15px;background:#FBF1F0">
+<div class="row" style="margin-bottom:11px"><span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#7A1C24;flex:1">TAKEAWAY · B-1044-T</span><span class="pr" style="font-size:15px">₹90</span></div>
+<div class="tot" style="margin-bottom:4px;color:#7A1C24"><span>Chicken Biryani ×1 · parcel</span><span>KOT-127</span></div>
+<div class="mut" style="color:#8C4A3E">Ready in 8 minutes · collect at the counter</div>
+</div>
+<div style="padding:14px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:7px">
+<div class="tot"><span>Dine-in</span><span>₹1,842</span></div>
+<div class="tot"><span>Takeaway</span><span>₹90</span></div>
+<div class="tot" style="font-weight:600;color:#241F1E;padding-top:7px;border-top:1px solid rgba(36,31,30,.09)"><span>Pay both together</span><span>₹1,932</span></div>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Request payment</button>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">11 · After payment — take a favourite home</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2h">
+<div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a>Paid, then one last offer — built from what they hearted</div>
+<div class="ph">
+<div class="phb"><span>9:02</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Paid</span></div>
+<div class="body" style="gap:15px">
+<div style="text-align:center;padding:8px 0 0">
+<div style="width:52px;height:52px;border-radius:999px;background:#E4F3E8;color:#166A2E;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto">✓</div>
+<div style="font-size:17px;font-weight:600;margin-top:11px">Paid · ₹1,862</div>
+<div class="mut" style="margin-top:4px">UPI · ₹20 tip to Imran</div>
+</div>
+<div style="padding:16px;border-radius:18px;background:#FBF1F0">
+<div style="font-size:13.5px;font-weight:600;line-height:1.35">Take the one you loved home</div>
+<div class="mut" style="margin-top:5px;color:#8C4A3E">You hearted Chicken Biryani tonight. Share it with someone who missed dinner.</div>
+<div class="row" style="margin-top:14px;gap:11px">
+<div class="img" style="width:50px;height:50px;border-radius:13px">IMG</div>
+<div style="flex:1;min-width:0"><div class="nm" style="font-size:12.5px">Chicken Biryani · parcel</div><div class="mut" style="margin-top:3px">₹90 · ready in 8 min</div></div>
+<div class="row" style="gap:7px"><span class="stp">−</span><span style="font-size:13px;font-weight:600">1</span><span class="stp">+</span></div>
+</div>
+<button class="add" style="margin-top:14px">Add parcel &amp; pay ₹90</button>
+</div>
+<div style="display:flex;gap:8px">
+<span class="chip" style="flex:1;text-align:center;padding:11px 0">Send bill to WhatsApp</span>
+</div>
+<div style="padding:14px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:9px">
+<div style="font-size:12.5px;font-weight:600">Loved it? Tell Google</div>
+<div class="mut">A photo from tonight helps more than words</div>
+<button class="add">Write a review</button>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "put <a class="dv-oid" href="#2a">2a</a>, <a class="dv-oid" href="#2c">2c</a>, <a class="dv-oid" href="#2f">2f</a> and <a class="dv-oid" href="#2h">2h</a> into one clickable customer flow" · "make the heart in <a class="dv-oid" href="#2e">2e</a> per-round instead of per-dish" · "show the captain side of the takeaway split"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Customer screen patterns — seven decisions, on real Jalsa menu data</span></div>
+
+<p class="dv-grp">1 · Menu card layouts</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Card — one dish at a time, description visible</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body">
+<div style="border:1.5px solid rgba(36,31,30,.09);border-radius:18px;overflow:hidden">
+<div class="img" style="height:132px">IMAGE</div>
+<div style="padding:13px;display:flex;flex-direction:column;gap:8px">
+<div class="row"><span class="nm" style="flex:1">Paneer Butter Masala</span><span class="sqv"></span></div>
+<div class="mut">Cottage cheese in a mild tomato and butter gravy</div>
+<div class="row"><span class="pr" style="flex:1">₹191</span></div>
+<button class="add">Add to order</button>
+</div>
+</div>
+<div style="border:1.5px solid rgba(36,31,30,.09);border-radius:18px;overflow:hidden;opacity:.55">
+<div class="img" style="height:76px">IMAGE</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>List — fastest to scan, most items per screen</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:11px">
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:7px"><span class="sqn"></span><span class="nm">Chicken Biryani</span></div><div class="pr" style="margin-top:4px">₹90</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:7px"><span class="sqv"></span><span class="nm">Paneer Butter Masala</span></div><div class="pr" style="margin-top:4px">₹191</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:7px"><span class="sqn"></span><span class="nm">Mutton Chettinadu</span></div><div class="pr" style="margin-top:4px">₹320</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:7px"><span class="sqe"></span><span class="nm">Egg Masala</span></div><div class="pr" style="margin-top:4px">₹95</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:7px"><span class="sqv"></span><span class="nm">Dal Fry</span></div><div class="pr" style="margin-top:4px">₹120</div></div><button class="plus">+</button></div>
+<div class="row" style="opacity:.45"><div class="img" style="width:52px;height:52px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:7px"><span class="sqn"></span><span class="nm">Mutton Shuka</span></div><div class="mut" style="margin-top:3px;font-weight:600">Sold out</div></div></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Two-up grid — appetite first, needs real photography</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+<div style="border-radius:16px;overflow:hidden;border:1.5px solid rgba(36,31,30,.08)">
+<div class="img" style="height:88px">IMAGE</div>
+<div style="padding:9px 10px 11px"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12px">Full Biryani</span></div><div class="row" style="margin-top:7px"><span class="pr" style="flex:1;font-size:13px">₹115</span><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div></div>
+</div>
+<div style="border-radius:16px;overflow:hidden;border:1.5px solid rgba(36,31,30,.08)">
+<div class="img" style="height:88px">IMAGE</div>
+<div style="padding:9px 10px 11px"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12px">Chilli Paneer</span></div><div class="row" style="margin-top:7px"><span class="pr" style="flex:1;font-size:13px">₹220</span><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div></div>
+</div>
+<div style="border-radius:16px;overflow:hidden;border:1.5px solid rgba(36,31,30,.08)">
+<div class="img" style="height:88px">IMAGE</div>
+<div style="padding:9px 10px 11px"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12px">Chicken Tikka</span></div><div class="row" style="margin-top:7px"><span class="pr" style="flex:1;font-size:13px">₹260</span><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div></div>
+</div>
+<div style="border-radius:16px;overflow:hidden;border:1.5px solid rgba(36,31,30,.08)">
+<div class="img" style="height:88px">IMAGE</div>
+<div style="padding:9px 10px 11px"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12px">Veg Pulav</span></div><div class="row" style="margin-top:7px"><span class="pr" style="flex:1;font-size:13px">₹120</span><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">2 · Closure &amp; tip</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>One screen — amount, tip, pay. Two taps to done</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Bill B-1044</span></div>
+<div class="body" style="gap:16px">
+<div style="text-align:center;padding:6px 0 0">
+<div style="font-size:13px;color:#7C736F">Your order is ready for payment</div>
+<div style="font-size:38px;font-weight:600;letter-spacing:-.02em;margin-top:6px">₹1,842</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px;padding:14px;background:#FBF8F7;border-radius:16px">
+<div class="tot"><span>Subtotal</span><span>₹1,755</span></div>
+<div class="tot"><span>GST 5%</span><span>₹87</span></div>
+<div class="tot" style="font-weight:600;color:#241F1E;padding-top:7px;border-top:1px solid rgba(36,31,30,.09)"><span>Payable</span><span>₹1,842</span></div>
+</div>
+<div>
+<div style="font-size:12px;font-weight:600;margin-bottom:9px">Add a tip for Imran?</div>
+<div style="display:flex;gap:8px">
+<span class="chip" style="flex:1;text-align:center;padding:10px 0">+₹10</span>
+<span class="chip on" style="flex:1;text-align:center;padding:10px 0">+₹20</span>
+<span class="chip" style="flex:1;text-align:center;padding:10px 0">+₹30</span>
+</div>
+<div class="mut" style="margin-top:8px">Goes to your captain, not the restaurant</div>
+</div>
+<button class="add" style="padding:14px 0;font-size:14px">Pay ₹1,862</button>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Post-payment — receipt and review in one place</div>
+<div class="ph">
+<div class="phb"><span>8:34</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Paid</span></div>
+<div class="body" style="gap:15px">
+<div style="text-align:center;padding:10px 0 0">
+<div style="width:56px;height:56px;border-radius:999px;background:#E4F3E8;color:#166A2E;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto">✓</div>
+<div style="font-size:17px;font-weight:600;margin-top:12px">Paid — thank you</div>
+<div class="mut" style="margin-top:4px">₹1,862 by UPI · ₹20 tip to Imran</div>
+</div>
+<div style="border:1.5px solid rgba(36,31,30,.09);border-radius:16px;padding:13px">
+<div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9A918D;margin-bottom:9px">Receipt</div>
+<div class="tot" style="margin-bottom:5px"><span>Chicken Chettinad × 1</span><span>₹240</span></div>
+<div class="tot" style="margin-bottom:5px"><span>Chicken Fried Rice × 2</span><span>₹340</span></div>
+<div class="tot" style="margin-bottom:5px"><span>Dal Fry × 1</span><span>₹120</span></div>
+<div class="tot"><span>Gulab Jamun × 3</span><span>₹90</span></div>
+</div>
+<div style="display:flex;gap:8px">
+<span class="chip" style="flex:1;text-align:center;padding:11px 0">Send to WhatsApp</span>
+</div>
+<div style="border-radius:16px;padding:14px;background:#FBF1F0;display:flex;flex-direction:column;gap:9px">
+<div style="font-size:12.5px;font-weight:600;line-height:1.35">Loved it? A review helps us a lot</div>
+<div class="mut">Photos from tonight make it even better</div>
+<button class="add">Write a Google review</button>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">3 · Category navigation</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Chip row — one tap, always visible, scales to 12 categories</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div style="padding:14px 16px 0"><div style="border:1.5px solid rgba(36,31,30,.11);border-radius:999px;padding:10px 15px;font-size:12px;color:#9A918D">Search dishes</div></div>
+<div style="position:relative;margin-top:13px">
+<div style="display:flex;gap:7px;padding:0 16px;overflow:hidden"><span class="chip on">All</span><span class="chip">Biryani</span><span class="chip">Indian Curry</span></div>
+<div style="position:absolute;inset:0 0 0 auto;width:52px;background:linear-gradient(to right,rgba(255,255,255,0),#fff 62%);pointer-events:none"></div>
+</div>
+<div class="body" style="gap:11px;padding-top:15px">
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹90</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Paneer 65</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹130</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Chilly</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹190</div></div><button class="plus">+</button></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Category first — a landing grid, then the list</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body">
+<div style="font-size:15px;font-weight:600">What are you in the mood for?</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Biryani</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Starters</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Curry</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Chinese</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Combo</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Desserts</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Rice</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Salads</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div class="img" style="width:100%;height:62px;border-radius:16px">IMG</div><span style="font-size:10.5px;font-weight:600">Drinks</span></div>
+</div>
+<div style="padding:12px 14px;border-radius:16px;background:#FBF1F0;font-size:11.5px;font-weight:600;color:#7A1C24">Popular tonight · Full Biryani ₹115</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1h">
+<div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Side rail — category and dishes on screen together</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div style="display:flex;min-height:330px">
+<div style="width:88px;background:#FBF8F7;padding:12px 0;display:flex;flex-direction:column;gap:2px;flex:none">
+<div style="padding:10px 12px;font-size:11px;font-weight:600;background:#7A1C24;color:#fff;border-radius:0 12px 12px 0">Biryani</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Starters</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Indian Curry</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Chinese</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Rice</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Combo</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Desserts</div>
+<div style="padding:10px 12px;font-size:11px;color:#57504D">Drinks</div>
+</div>
+<div style="flex:1;padding:14px;display:flex;flex-direction:column;gap:13px;min-width:0">
+<div class="row" style="gap:9px"><div class="img" style="width:42px;height:42px;border-radius:11px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:5px"><span class="sqn"></span><span class="nm" style="font-size:12px">Chicken Biryani</span></div><div class="pr" style="font-size:12.5px;margin-top:3px">₹90</div></div><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div>
+<div class="row" style="gap:9px"><div class="img" style="width:42px;height:42px;border-radius:11px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:5px"><span class="sqn"></span><span class="nm" style="font-size:12px">Full Biryani</span></div><div class="pr" style="font-size:12.5px;margin-top:3px">₹115</div></div><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div>
+<div class="row" style="gap:9px"><div class="img" style="width:42px;height:42px;border-radius:11px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:5px"><span class="sqn"></span><span class="nm" style="font-size:12px">Chicken Biryani Combo</span></div><div class="pr" style="font-size:12.5px;margin-top:3px">₹90</div></div><button class="plus" style="width:24px;height:24px;font-size:14px">+</button></div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">4 · Cart</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1i">
+<div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>Sticky bar that expands — never leaves the menu</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div class="body" style="gap:11px;padding-bottom:8px;opacity:.5">
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="nm" style="font-size:12.5px">Kadai Paneer</div><div class="pr" style="font-size:13px;margin-top:3px">₹180</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="nm" style="font-size:12.5px">Chicken Nuggets</div><div class="pr" style="font-size:13px;margin-top:3px">₹140</div></div><button class="plus">+</button></div>
+</div>
+<div style="background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -8px 26px rgba(36,31,30,.14);padding:16px">
+<div class="row" style="margin-bottom:13px"><span style="font-size:14px;font-weight:600;flex:1">Your order · 3 items</span><span class="mut">Table A5</span></div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div class="row" style="gap:9px"><span class="sqn"></span><span class="nm" style="flex:1;font-size:12.5px">Chicken Biryani</span><span class="stp">−</span><span style="font-size:12.5px;font-weight:600">2</span><span class="stp">+</span><span class="pr" style="font-size:12.5px;min-width:46px;text-align:right">₹180</span></div>
+<div class="row" style="gap:9px"><span class="sqv"></span><span class="nm" style="flex:1;font-size:12.5px">Dal Fry</span><span class="stp">−</span><span style="font-size:12.5px;font-weight:600">1</span><span class="stp">+</span><span class="pr" style="font-size:12.5px;min-width:46px;text-align:right">₹120</span></div>
+<div class="row" style="gap:9px"><span class="sqe"></span><span class="nm" style="flex:1;font-size:12.5px">Egg Burji</span><span class="stp">−</span><span style="font-size:12.5px;font-weight:600">1</span><span class="stp">+</span><span class="pr" style="font-size:12.5px;min-width:46px;text-align:right">₹80</span></div>
+</div>
+<div class="row" style="margin:14px 0 12px;padding-top:12px;border-top:1px solid rgba(36,31,30,.09)"><span style="font-size:13px;color:#57504D;flex:1">Subtotal</span><span style="font-size:16px;font-weight:600">₹380</span></div>
+<button class="add" style="padding:13px 0;font-size:13.5px">Send to kitchen</button>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1j">
+<div class="dv-olabel"><a class="dv-oid" href="#1j">1j</a>Full review screen — catches quantity mistakes before the KOT</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><span style="font-size:15px">←</span><span style="font-size:14px;font-weight:600">Review order</span><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">A5</span></div>
+<div class="body" style="gap:15px">
+<div style="display:flex;flex-direction:column;gap:13px">
+<div class="row"><div class="img" style="width:48px;height:48px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqn"></span><span class="nm" style="font-size:12.5px">Chicken Biryani</span></div><div class="mut" style="margin-top:3px">₹90 each</div></div><div class="row" style="gap:7px"><span class="stp">−</span><span style="font-size:13px;font-weight:600">2</span><span class="stp">+</span></div></div>
+<div class="row"><div class="img" style="width:48px;height:48px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Dal Fry</span></div><div class="mut" style="margin-top:3px">₹120 each</div></div><div class="row" style="gap:7px"><span class="stp">−</span><span style="font-size:13px;font-weight:600">1</span><span class="stp">+</span></div></div>
+<div class="row"><div class="img" style="width:48px;height:48px;border-radius:13px">IMG</div><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><span class="sqe"></span><span class="nm" style="font-size:12.5px">Egg Burji</span></div><div class="mut" style="margin-top:3px">₹80 each</div></div><div class="row" style="gap:7px"><span class="stp">−</span><span style="font-size:13px;font-weight:600">1</span><span class="stp">+</span></div></div>
+</div>
+<div style="padding:14px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:7px">
+<div class="tot"><span>3 items</span><span>₹380</span></div>
+<div class="mut">Tax and any discount appear at closure, not now</div>
+</div>
+<button class="add" style="padding:14px 0;font-size:13.5px">Send to kitchen</button>
+<div class="mut" style="text-align:center">You can order more later without rescanning</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">5 · Type scale</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1k">
+<div class="dv-olabel"><a class="dv-oid" href="#1k">1k</a>Poppins, five steps — the whole customer app needs no more</div>
+<div style="width:420px;background:#fff;border-radius:22px;padding:26px;box-shadow:0 2px 4px rgba(36,31,30,.07),0 18px 40px rgba(36,31,30,.1)">
+<div style="font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.15">Jalsa Restaurant</div>
+<div style="font-size:11px;color:#9A918D;margin-top:5px">Display · 30/34 SemiBold · screen titles and payable amounts</div>
+<div style="height:1px;background:rgba(36,31,30,.08);margin:19px 0"></div>
+<div style="font-size:19px;font-weight:600">Indian Curry</div>
+<div style="font-size:11px;color:#9A918D;margin-top:5px">Section · 19/24 SemiBold · category and screen headings</div>
+<div style="height:1px;background:rgba(36,31,30,.08);margin:19px 0"></div>
+<div style="font-size:14px;font-weight:600">Paneer Butter Masala</div>
+<div style="font-size:11px;color:#9A918D;margin-top:5px">Item · 14/18 SemiBold · dish names, totals, buttons</div>
+<div style="height:1px;background:rgba(36,31,30,.08);margin:19px 0"></div>
+<div style="font-size:12.5px;line-height:1.5;color:#241F1E">Cottage cheese in a mild tomato and butter gravy, finished with cream</div>
+<div style="font-size:11px;color:#9A918D;margin-top:5px">Body · 12.5/19 Regular · descriptions and helper text</div>
+<div style="height:1px;background:rgba(36,31,30,.08);margin:19px 0"></div>
+<div style="font-size:11px;color:#7C736F">Goes to your captain, not the restaurant</div>
+<div style="font-size:11px;color:#9A918D;margin-top:5px">Caption · 11/15 Regular · the smallest type we ship</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">6 · Food-type marking</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1l">
+<div class="dv-olabel"><a class="dv-oid" href="#1l">1l</a>Square mark — quiet, sits beside the name</div>
+<div style="width:290px;background:#fff;border-radius:22px;padding:22px;box-shadow:0 2px 4px rgba(36,31,30,.07),0 18px 40px rgba(36,31,30,.1);display:flex;flex-direction:column;gap:15px">
+<div class="row"><span class="sqv"></span><span class="nm" style="flex:1">Paneer Butter Masala</span><span class="pr">₹191</span></div>
+<div class="row"><span class="sqn"></span><span class="nm" style="flex:1">Chicken Biryani</span><span class="pr">₹90</span></div>
+<div class="row"><span class="sqe"></span><span class="nm" style="flex:1">Egg Masala</span><span class="pr">₹95</span></div>
+<div class="mut" style="padding-top:11px;border-top:1px solid rgba(36,31,30,.08)">Reads at a glance, survives black-and-white KOT printing as a filled or hollow square</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1m">
+<div class="dv-olabel"><a class="dv-oid" href="#1m">1m</a>Word badge — unambiguous, heavier on the eye</div>
+<div style="width:290px;background:#fff;border-radius:22px;padding:22px;box-shadow:0 2px 4px rgba(36,31,30,.07),0 18px 40px rgba(36,31,30,.1);display:flex;flex-direction:column;gap:15px">
+<div class="row"><span class="bdg" style="background:#E4F3E8;color:#166A2E">VEG</span><span class="nm" style="flex:1">Paneer Butter Masala</span><span class="pr">₹191</span></div>
+<div class="row"><span class="bdg" style="background:#FDECEC;color:#A81D19">NON-VEG</span><span class="nm" style="flex:1">Chicken Biryani</span><span class="pr">₹90</span></div>
+<div class="row"><span class="bdg" style="background:#FFF1DC;color:#8A5A10">EGG</span><span class="nm" style="flex:1">Egg Masala</span><span class="pr">₹95</span></div>
+<div class="mut" style="padding-top:11px;border-top:1px solid rgba(36,31,30,.08)">Best where the stakes are highest — the cart, the KOT and the bill</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1n">
+<div class="dv-olabel"><a class="dv-oid" href="#1n">1n</a>Dot on the image — no room taken in the text line</div>
+<div style="width:290px;background:#fff;border-radius:22px;padding:22px;box-shadow:0 2px 4px rgba(36,31,30,.07),0 18px 40px rgba(36,31,30,.1);display:flex;flex-direction:column;gap:15px">
+<div class="row"><div style="position:relative"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><span class="dotv" style="position:absolute;top:-3px;right:-3px;box-shadow:0 0 0 2px #fff"></span></div><span class="nm" style="flex:1">Paneer Butter Masala</span><span class="pr">₹191</span></div>
+<div class="row"><div style="position:relative"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><span class="dotn" style="position:absolute;top:-3px;right:-3px;box-shadow:0 0 0 2px #fff"></span></div><span class="nm" style="flex:1">Chicken Biryani</span><span class="pr">₹90</span></div>
+<div class="row"><div style="position:relative"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><span class="dote" style="position:absolute;top:-3px;right:-3px;box-shadow:0 0 0 2px #fff"></span></div><span class="nm" style="flex:1">Egg Masala</span><span class="pr">₹95</span></div>
+<div class="mut" style="padding-top:11px;border-top:1px solid rgba(36,31,30,.08)">Only works where an image exists — needs a fallback for text-only rows</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-grp">7 · Order status</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1o">
+<div class="dv-olabel"><a class="dv-oid" href="#1o">1o</a>Timeline — full history, good for multiple rounds</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">KOT-108</span></div>
+<div class="body" style="gap:14px">
+<div><div style="font-size:15px;font-weight:600">Round 1 · 4 items</div><div class="mut" style="margin-top:3px">Sent at 7:24 PM · Imran</div></div>
+<div style="display:flex;flex-direction:column;gap:0">
+<div style="display:flex;gap:13px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:999px;background:#1E8E3E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">✓</span><span style="width:2px;flex:1;background:#1E8E3E;min-height:26px"></span></div><div style="padding-bottom:16px"><div style="font-size:13px;font-weight:600">Order received</div><div class="mut">7:24 PM</div></div></div>
+<div style="display:flex;gap:13px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:999px;background:#1E8E3E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px">✓</span><span style="width:2px;flex:1;background:#1E8E3E;min-height:26px"></span></div><div style="padding-bottom:16px"><div style="font-size:13px;font-weight:600">In the kitchen</div><div class="mut">7:26 PM</div></div></div>
+<div style="display:flex;gap:13px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">●</span><span style="width:2px;flex:1;background:rgba(36,31,30,.13);min-height:26px"></span></div><div style="padding-bottom:16px"><div style="font-size:13px;font-weight:600">Ready</div><div class="mut">Your captain is bringing it</div></div></div>
+<div style="display:flex;gap:13px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:24px;height:24px;border-radius:999px;background:#F1ECEA;color:#B6ACA8;display:flex;align-items:center;justify-content:center;font-size:11px">●</span></div><div><div style="font-size:13px;font-weight:600;color:#9A918D">Served</div></div></div>
+</div>
+<div style="display:flex;gap:8px"><span class="chip" style="flex:1;text-align:center;padding:11px 0">Order more</span><span class="chip on" style="flex:1;text-align:center;padding:11px 0">Request payment</span></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1p">
+<div class="dv-olabel"><a class="dv-oid" href="#1p">1p</a>Compact stepper — sits above the menu so ordering continues</div>
+<div class="ph">
+<div class="phb"><span>8:32</span><span>Table A5</span></div>
+<div class="phh"><img class="lg" src="assets/jalsa-logo.png" alt="Jalsa"><span style="flex:1"></span><span style="font-size:11.5px;opacity:.85">Table A5</span></div>
+<div style="padding:15px 16px;background:#FBF1F0">
+<div class="row" style="margin-bottom:12px"><span style="font-size:12.5px;font-weight:600;flex:1">KOT-108 · Ready</span><span class="mut">7:24 PM</span></div>
+<div style="display:flex;align-items:center;gap:5px">
+<span style="width:20px;height:20px;border-radius:999px;background:#1E8E3E;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">✓</span>
+<span style="flex:1;height:2px;background:#1E8E3E"></span>
+<span style="width:20px;height:20px;border-radius:999px;background:#1E8E3E;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">✓</span>
+<span style="flex:1;height:2px;background:#1E8E3E"></span>
+<span style="width:20px;height:20px;border-radius:999px;background:#7A1C24;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center">●</span>
+<span style="flex:1;height:2px;background:rgba(36,31,30,.13)"></span>
+<span style="width:20px;height:20px;border-radius:999px;background:#E6DFDC;color:#B6ACA8;font-size:9px;display:flex;align-items:center;justify-content:center">●</span>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:7px;font-size:9.5px;color:#7C736F"><span>Placed</span><span>Kitchen</span><span>Ready</span><span>Served</span></div>
+</div>
+<div class="body" style="gap:11px">
+<div style="font-size:13px;font-weight:600">Add something else?</div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Gulab Jamun</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹30</div></div><button class="plus">+</button></div>
+<div class="row"><div class="img" style="width:46px;height:46px;border-radius:12px">IMG</div><div style="flex:1"><div class="row" style="gap:6px"><span class="sqv"></span><span class="nm" style="font-size:12.5px">Badam Milk</span></div><div class="pr" style="font-size:13px;margin-top:3px">₹25</div></div><button class="plus">+</button></div>
+<button class="add" style="margin-top:4px">Request payment</button>
+</div>
+</div>
+</div>
+
+</div>
+
+<p class="dv-next">Try next: "build the customer journey on <a class="dv-oid" href="#1b">1b</a>, <a class="dv-oid" href="#1f">1f</a>, <a class="dv-oid" href="#1i">1i</a> and <a class="dv-oid" href="#1d">1d</a>" · "make <a class="dv-oid" href="#1c">1c</a> full-bleed" · "combine <a class="dv-oid" href="#1m">1m</a> badges into <a class="dv-oid" href="#1b">1b</a>"</p>
+</section>
+</x-dc>
+</body>
+</html>

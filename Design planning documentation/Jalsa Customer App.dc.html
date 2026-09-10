@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#EDE7E4;font-family:'Noto Sans',Poppins,system-ui,sans-serif;color:#241F1E;-webkit-font-smoothing:antialiased}
+a{color:#7A1C24;text-decoration:none}
+a:hover{color:#5E1319}
+@keyframes steam{0%{opacity:0;transform:translateY(6px) scaleX(.8)}30%{opacity:.85}100%{opacity:0;transform:translateY(-26px) scaleX(1.25)}}
+@keyframes ring{0%{transform:scale(.72);opacity:.5}100%{transform:scale(1.5);opacity:0}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes beat{0%,100%{transform:scale(1)}18%{transform:scale(1.22)}36%{transform:scale(1)}54%{transform:scale(1.14)}}
+@keyframes fill{0%{width:8%}100%{width:64%}}
+@keyframes fall{0%{transform:translateY(-14px) rotate(0);opacity:0}12%{opacity:1}100%{transform:translateY(150px) rotate(320deg);opacity:0}}
+@keyframes up{0%{transform:translateY(14px);opacity:0}100%{transform:translateY(0);opacity:1}}
+@keyframes marq{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.stm{position:absolute;bottom:52%;width:5px;height:22px;border-radius:999px;background:#fff;animation:steam 2.6s ease-out infinite}
+.rng{position:absolute;inset:0;border-radius:999px;border:2px solid #7A1C24;animation:ring 2.4s ease-out infinite}
+.hb{animation:beat 2.4s ease-in-out infinite;display:inline-block}
+.cf{position:absolute;top:0;width:7px;height:11px;border-radius:2px;animation:fall 3.4s linear infinite}
+.sc{animation:up .26s ease-out}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:16px;padding:26px 16px 40px">
+
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;max-width:520px;text-align:center">
+<div>
+<div style="font:700 10px Poppins,sans-serif;letter-spacing:.15em;text-transform:uppercase;color:#7A1C24">Clickable prototype</div>
+<div style="font:600 17px Poppins,sans-serif;margin-top:4px">{{ stepLabel }}</div>
+<div style="font-size:12px;color:#7C736F;line-height:1.45;margin-top:5px">{{ stepHint }}</div>
+</div>
+</div>
+
+<div style="width:390px;max-width:100%;background:#fff;border-radius:34px;overflow:hidden;box-shadow:0 2px 6px rgba(36,31,30,.08),0 24px 56px rgba(36,31,30,.16);position:relative">
+
+<div style="background:#7A1C24;color:#fff;font-size:11px;padding:9px 20px 0;display:flex;justify-content:space-between;opacity:.8">
+<span>{{ clock }}</span><span>{{ tableLabel }}</span>
+</div>
+
+<sc-if value="{{ showHeader }}" hint-placeholder-val="{{ false }}">
+<div style="background:#7A1C24;color:#fff;padding:11px 16px 13px;display:flex;align-items:center;gap:11px">
+<img src="assets/jalsa-logo.png" alt="Jalsa Restaurant" style="width:30px;height:30px;border-radius:9px;object-fit:contain;background:#fff;padding:1px;flex:none">
+<span style="flex:1;min-width:0">
+<span style="display:block;font:600 13.5px Poppins,sans-serif">{{ headerTitle }}</span>
+<span style="display:block;font-size:10.5px;opacity:.82;margin-top:2px">{{ headerSub }}</span>
+</span>
+<button onClick="{{ openHelp }}" style="appearance:none;border:1.5px solid rgba(255,255,255,.34);background:none;color:#fff;border-radius:999px;width:32px;height:32px;font-size:14px;cursor:pointer;flex:none" aria-label="Ask for something">⋯</button>
+</div>
+</sc-if>
+
+<div style="min-height:600px;position:relative">
+
+<sc-if value="{{ isWelcome }}" hint-placeholder-val="{{ true }}">
+<div class="sc">
+<div style="position:relative;background:#7A1C24;color:#fff;padding:30px 22px 26px;overflow:hidden;text-align:center">
+<span class="cf" style="left:10%;background:#F6A06B;animation-delay:.1s"></span>
+<span class="cf" style="left:26%;background:#E1EECC;animation-delay:1.1s"></span>
+<span class="cf" style="left:46%;background:#fff;animation-delay:.5s"></span>
+<span class="cf" style="left:66%;background:#F6A06B;animation-delay:1.7s"></span>
+<span class="cf" style="left:84%;background:#E1EECC;animation-delay:.8s"></span>
+<div style="position:relative">
+<img src="assets/jalsa-logo.png" alt="Jalsa Restaurant" style="width:66px;height:66px;border-radius:18px;object-fit:contain;background:#fff;padding:4px">
+<div style="font:600 22px Poppins,sans-serif;margin-top:14px">{{ greeting }}</div>
+<div style="font-size:12.5px;opacity:.88;margin-top:7px;line-height:1.5">{{ welcomeLine }}</div>
+</div>
+</div>
+<div style="overflow:hidden;background:#F0FAE1;padding:9px 0">
+<div style="display:flex;width:max-content;animation:marq 26s linear infinite;font:600 11.5px Poppins,sans-serif;color:#3D472B;white-space:nowrap">
+<span style="flex:none;width:auto">{{ marquee }}</span>
+<span style="flex:none;width:auto">{{ marquee }}</span>
+</div>
+</div>
+<div style="padding:18px 18px 22px;display:flex;flex-direction:column;gap:13px">
+<div style="padding:14px 16px;border-radius:18px;background:#FBF8F7;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ crew }}" as="c" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:11px">
+<span style="width:30px;height:30px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font:600 12px Poppins,sans-serif;flex:none">{{ c.initial }}</span>
+<span style="font-size:12.5px"><strong>{{ c.name }}</strong> {{ c.role }}</span>
+</div>
+</sc-for>
+</div>
+<button onClick="{{ startOrdering }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:15px 0;font:600 14.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Start ordering</button>
+<div style="display:flex;gap:8px">
+<button onClick="{{ openHours }}" style="appearance:none;flex:1;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:11px 0;font:600 12px 'Noto Sans',sans-serif;color:#57504D;cursor:pointer">Hours &amp; holidays</button>
+<button onClick="{{ openOccasion }}" style="appearance:none;flex:1;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:11px 0;font:600 12px 'Noto Sans',sans-serif;color:#57504D;cursor:pointer">Celebrating?</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMenu }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding-bottom:96px">
+<div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:10px">
+<input value="{{ query }}" onChange="{{ setQuery }}" placeholder="Search the menu" style="appearance:none;font-family:inherit;font-size:13px;width:100%;padding:11px 15px;border-radius:999px;border:1.5px solid rgba(36,31,30,.12);background:#FBF8F7">
+<div>
+<div style="display:flex;align-items:baseline;gap:9px">
+<span style="font:700 10px Poppins,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9A918D;flex:1;min-width:0">{{ dietLabel }}</span>
+<sc-if value="{{ hasDiet }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ clearDiet }}" style="appearance:none;border:0;background:none;font:600 10.5px 'Noto Sans',sans-serif;color:#7A1C24;cursor:pointer;padding:0;white-space:nowrap;flex:none">Show everything</button>
+</sc-if>
+</div>
+<div style="display:flex;gap:6px;margin-top:8px">
+<sc-for list="{{ dietChips }}" as="d" hint-placeholder-count="3">
+<button onClick="{{ d.click }}" style="{{ d.style }}">{{ d.label }}</button>
+</sc-for>
+</div>
+<div style="font-size:10.5px;color:#7C736F;line-height:1.45;margin-top:7px">{{ dietSub }}</div>
+</div>
+<div>
+<div style="font:700 10px Poppins,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9A918D">{{ catHeading }}</div>
+<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 0 3px;scrollbar-width:none">
+<sc-for list="{{ catChips }}" as="c" hint-placeholder-count="8">
+<button onClick="{{ c.click }}" style="{{ c.style }}">{{ c.label }}</button>
+</sc-for>
+</div>
+</div>
+</div>
+
+<sc-if value="{{ showFeatures }}" hint-placeholder-val="{{ true }}">
+<div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ features }}" as="s" hint-placeholder-count="3">
+<div style="border-radius:20px;padding:14px 15px;{{ s.tint }}">
+<div style="display:flex;align-items:baseline;gap:8px">
+<span style="font:600 13.5px Poppins,sans-serif;flex:1">{{ s.title }}</span>
+<span style="font-size:10.5px;font-weight:600;opacity:.75">{{ s.badge }}</span>
+</div>
+<div style="font-size:11px;line-height:1.45;opacity:.8;margin-top:4px">{{ s.note }}</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:11px">
+<sc-for list="{{ s.items }}" as="i" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:15px;padding:9px 11px">
+<span style="width:42px;height:42px;border-radius:12px;background:#F1ECEA;display:flex;align-items:center;justify-content:center;font:600 8px 'Noto Sans',sans-serif;color:#B6ACA8;letter-spacing:.1em;flex:none">IMG</span>
+<span style="flex:1;min-width:0">
+<span style="display:flex;align-items:center;gap:6px">
+<span style="width:10px;height:10px;border-radius:3px;{{ i.mark }};flex:none"></span>
+<span style="font-size:12.5px;font-weight:600;line-height:1.25">{{ i.name }}</span>
+</span>
+<span style="display:block;font-size:10.5px;color:#7C736F;margin-top:3px">{{ i.sub }}</span>
+</span>
+<span style="font-size:13px;font-weight:600;flex:none">{{ i.price }}</span>
+<button onClick="{{ i.add }}" style="appearance:none;border:0;width:28px;height:28px;border-radius:9px;background:#7A1C24;color:#fff;font-size:16px;line-height:1;cursor:pointer;flex:none" aria-label="Add">+</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<div style="padding:18px 16px 0;display:flex;flex-direction:column;gap:9px">
+<div style="font:700 10px Poppins,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9A918D">{{ listHeading }}</div>
+<sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+<div style="padding:22px 16px;border-radius:18px;background:#FBF8F7;text-align:center">
+<div style="font-size:13px;font-weight:600">{{ emptyTitle }}</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:6px">{{ emptyNote }}</div>
+<button onClick="{{ clearFilters }}" style="appearance:none;margin-top:12px;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:9px 18px;font:600 12px 'Noto Sans',sans-serif;cursor:pointer">Clear the filters</button>
+</div>
+</sc-if>
+<sc-for list="{{ rows }}" as="m" hint-placeholder-count="7">
+<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(36,31,30,.07)">
+<button onClick="{{ m.open }}" style="appearance:none;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:left">
+<span style="width:52px;height:52px;border-radius:14px;background:#F1ECEA;display:flex;align-items:center;justify-content:center;font:600 8px 'Noto Sans',sans-serif;color:#B6ACA8;letter-spacing:.1em;flex:none">IMG</span>
+<span style="flex:1;min-width:0">
+<span style="display:flex;align-items:center;gap:6px">
+<span style="width:11px;height:11px;border-radius:3px;{{ m.mark }};flex:none"></span>
+<span style="font-size:13px;font-weight:600;line-height:1.3">{{ m.name }}</span>
+</span>
+<span style="display:block;font-size:11px;color:#7C736F;margin-top:3px">{{ m.meta }}</span>
+</span>
+</button>
+<span style="font-size:13.5px;font-weight:600;flex:none">{{ m.price }}</span>
+<sc-if value="{{ m.inCart }}" hint-placeholder-val="{{ false }}">
+<span style="display:flex;align-items:center;gap:7px;flex:none">
+<button onClick="{{ m.dec }}" style="appearance:none;width:26px;height:26px;border-radius:999px;border:1.5px solid rgba(36,31,30,.14);background:#fff;font-size:14px;line-height:1;cursor:pointer" aria-label="One fewer">−</button>
+<span style="font-size:13px;font-weight:600;min-width:12px;text-align:center">{{ m.qty }}</span>
+<button onClick="{{ m.add }}" style="appearance:none;width:26px;height:26px;border-radius:999px;border:0;background:#7A1C24;color:#fff;font-size:14px;line-height:1;cursor:pointer" aria-label="One more">+</button>
+</span>
+</sc-if>
+<sc-if value="{{ m.notInCart }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ m.add }}" style="appearance:none;border:0;width:30px;height:30px;border-radius:10px;background:#7A1C24;color:#fff;font-size:17px;line-height:1;cursor:pointer;flex:none" aria-label="Add">+</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:16px 16px 96px;display:flex;flex-direction:column;gap:13px">
+<div>
+<div style="font:600 17px Poppins,sans-serif">Check your order</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:4px">{{ cartMeta }}</div>
+</div>
+<sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:16px;background:#FBF8F7">
+<span style="width:11px;height:11px;border-radius:3px;{{ l.mark }};flex:none"></span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:12.5px;font-weight:600">{{ l.name }}</span>
+<span style="display:block;font-size:10.5px;color:#7C736F;margin-top:2px">{{ l.each }}</span>
+</span>
+<span style="display:flex;align-items:center;gap:7px;flex:none">
+<button onClick="{{ l.dec }}" style="appearance:none;width:26px;height:26px;border-radius:999px;border:1.5px solid rgba(36,31,30,.14);background:#fff;font-size:14px;line-height:1;cursor:pointer" aria-label="One fewer">−</button>
+<span style="font-size:13px;font-weight:600;min-width:12px;text-align:center">{{ l.qty }}</span>
+<button onClick="{{ l.inc }}" style="appearance:none;width:26px;height:26px;border-radius:999px;border:0;background:#7A1C24;color:#fff;font-size:14px;line-height:1;cursor:pointer" aria-label="One more">+</button>
+</span>
+<span style="font-size:13px;font-weight:600;width:58px;text-align:right;flex:none">{{ l.total }}</span>
+</div>
+</sc-for>
+<input value="{{ note }}" onChange="{{ setNote }}" placeholder="Anything for the kitchen? Less spicy, no onion…" style="appearance:none;font-family:inherit;font-size:12.5px;width:100%;padding:12px 15px;border-radius:16px;border:1.5px solid rgba(36,31,30,.12);background:#fff">
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ cartTotals }}" as="t" hint-placeholder-count="3">
+<div style="display:flex;justify-content:space-between;{{ t.style }}">
+<span>{{ t.label }}</span><span>{{ t.value }}</span>
+</div>
+</sc-for>
+</div>
+<button onClick="{{ placeOrder }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:15px 0;font:600 14.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">{{ placeLabel }}</button>
+<button onClick="{{ backToMenu }}" style="appearance:none;border:0;background:none;font:600 12.5px 'Noto Sans',sans-serif;color:#7A1C24;cursor:pointer;padding:2px">Add something else</button>
+<div style="font-size:11px;color:#7C736F;line-height:1.5;text-align:center">Nothing is charged now. You pay at the end, all rounds on one bill.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPlaced }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:28px 20px 24px;display:flex;flex-direction:column;align-items:center;text-align:center">
+<div style="position:relative;width:118px;height:118px;display:flex;align-items:center;justify-content:center">
+<span class="rng"></span>
+<span class="rng" style="animation-delay:1.2s"></span>
+<div style="position:relative;width:78px;height:78px;border-radius:999px;background:#7A1C24;display:flex;align-items:flex-end;justify-content:center;animation:bob 3s ease-in-out infinite">
+<span class="stm" style="left:26px"></span>
+<span class="stm" style="left:37px;animation-delay:.9s"></span>
+<span class="stm" style="left:48px;animation-delay:1.7s"></span>
+<span style="width:46px;height:14px;border-radius:0 0 999px 999px;background:#fff;margin-bottom:20px"></span>
+</div>
+</div>
+<div style="font:600 19px Poppins,sans-serif;margin-top:20px">Your order is being cooked</div>
+<div style="font-size:12px;color:#7C736F;margin-top:6px">{{ placedSub }}</div>
+<div style="width:100%;height:8px;border-radius:999px;background:#F1ECEA;margin-top:20px;overflow:hidden">
+<div style="height:100%;border-radius:999px;background:#7A1C24;animation:fill 4s ease-in-out infinite alternate"></div>
+</div>
+<div style="display:flex;justify-content:space-between;width:100%;margin-top:7px;font-size:9.5px;color:#7C736F">
+<span>Received</span><span style="font-weight:600;color:#7A1C24">Cooking</span><span>Ready</span><span>Served</span>
+</div>
+<div style="width:100%;margin-top:20px;padding:13px 15px;border-radius:16px;background:#FBF8F7;font-size:12px;color:#57504D;line-height:1.5">{{ placedItems }}</div>
+<button onClick="{{ toStatus }}" style="appearance:none;margin-top:18px;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:14px 0;font:600 13.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">See my order</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStatus }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:16px 16px 24px;display:flex;flex-direction:column;gap:13px">
+<div>
+<div style="font:600 17px Poppins,sans-serif">{{ statusTitle }}</div>
+<div style="font-size:11.5px;color:#7C736F;margin-top:4px">{{ statusSub }}</div>
+</div>
+<sc-for list="{{ rounds }}" as="r" hint-placeholder-count="2">
+<div style="border-radius:18px;border:1.5px solid rgba(36,31,30,.09);overflow:hidden">
+<div style="display:flex;align-items:center;gap:9px;padding:11px 13px;background:#FBF8F7">
+<span style="font-size:11.5px;font-weight:600;flex:1">{{ r.label }}</span>
+<span style="font-size:10px;font-weight:600;padding:3px 9px;border-radius:999px;{{ r.pill }}">{{ r.status }}</span>
+</div>
+<div style="padding:4px 13px 11px;display:flex;flex-direction:column">
+<sc-for list="{{ r.items }}" as="i" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+<span style="width:10px;height:10px;border-radius:3px;{{ i.mark }};flex:none"></span>
+<span style="flex:1;min-width:0;font-size:12.5px">{{ i.name }}</span>
+<span style="font-size:11.5px;color:#7C736F">{{ i.qty }}</span>
+<sc-if value="{{ i.canHeart }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ i.heart }}" style="appearance:none;border:0;background:none;font-size:19px;line-height:1;cursor:pointer;padding:0 2px;{{ i.heartStyle }}" aria-label="I loved this">{{ i.heartIcon }}</button>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<div style="padding:13px 15px;border-radius:16px;background:#FBF8F7;display:flex;justify-content:space-between;font-size:13px;font-weight:600">
+<span>So far</span><span>{{ runningTotal }}</span>
+</div>
+<div style="display:flex;gap:8px">
+<button onClick="{{ backToMenu }}" style="appearance:none;flex:1;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:13px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer">Order more</button>
+<button onClick="{{ requestPayment }}" style="appearance:none;flex:1;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:13px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer">Request payment</button>
+</div>
+<button onClick="{{ openHelp }}" style="appearance:none;border:0;background:none;font:600 12.5px 'Noto Sans',sans-serif;color:#7A1C24;cursor:pointer;padding:2px">Ask for something</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isUpsell }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:14px">
+<div style="text-align:center">
+<div style="width:50px;height:50px;border-radius:999px;background:#E4F3E8;color:#166A2E;display:flex;align-items:center;justify-content:center;font-size:23px;margin:0 auto">✓</div>
+<div style="font:600 17px Poppins,sans-serif;margin-top:11px">{{ crewFirst }} is bringing your bill</div>
+<div style="font-size:12px;color:#7C736F;margin-top:5px">{{ payableLine }}</div>
+</div>
+<div style="border-radius:18px;padding:15px;background:#FBF1F0">
+<div style="font:600 13px Poppins,sans-serif;color:#7A1C24">One last thing?</div>
+<div style="font-size:11px;color:#8C4A3E;line-height:1.45;margin-top:4px">Added as a fresh round — the kitchen still has time.</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+<sc-for list="{{ upsellItems }}" as="u" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:15px;padding:9px 11px">
+<span style="width:10px;height:10px;border-radius:3px;{{ u.mark }};flex:none"></span>
+<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600">{{ u.name }}</span>
+<span style="font-size:12.5px;font-weight:600">{{ u.price }}</span>
+<button onClick="{{ u.add }}" style="appearance:none;border:0;width:26px;height:26px;border-radius:9px;background:#7A1C24;color:#fff;font-size:15px;line-height:1;cursor:pointer;flex:none" aria-label="Add">+</button>
+</div>
+</sc-for>
+</div>
+</div>
+<button onClick="{{ toTip }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:15px 0;font:600 14.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">No thanks, carry on</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTip }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:14px">
+<div>
+<div style="font:600 17px Poppins,sans-serif">Add something for the team?</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:5px">{{ tipNote }}</div>
+</div>
+<div style="display:flex;gap:8px">
+<sc-for list="{{ tipChips }}" as="t" hint-placeholder-count="4">
+<button onClick="{{ t.click }}" style="{{ t.style }}">{{ t.label }}</button>
+</sc-for>
+</div>
+<div style="padding:14px 16px;border-radius:18px;background:#FBF8F7;display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ payTotals }}" as="t" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;{{ t.style }}">
+<span>{{ t.label }}</span><span>{{ t.value }}</span>
+</div>
+</sc-for>
+</div>
+<button onClick="{{ toPay }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:15px 0;font:600 14.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">{{ payLabel }}</button>
+<button onClick="{{ payAtCounter }}" style="appearance:none;border:0;background:none;font:600 12.5px 'Noto Sans',sans-serif;color:#7A1C24;cursor:pointer;padding:2px">I will pay {{ crewFirst }} directly</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPaying }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:36px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
+<div style="position:relative;width:84px;height:84px;display:flex;align-items:center;justify-content:center">
+<span class="rng"></span>
+<span class="rng" style="animation-delay:1.2s"></span>
+<span style="width:56px;height:56px;border-radius:999px;background:#FBF1F0;color:#7A1C24;display:flex;align-items:center;justify-content:center;font-size:23px">₹</span>
+</div>
+<div style="font:600 17px Poppins,sans-serif">Waiting for your bank</div>
+<div style="font-size:12px;color:#7C736F;line-height:1.5">{{ payingNote }}</div>
+<div style="width:100%;padding:13px 15px;border-radius:16px;background:#FFF6E8;font-size:11.5px;color:#6B4A12;line-height:1.5">Do not close this page. If the payment fails, nothing is charged and your bill stays open.</div>
+<button onClick="{{ finishPay }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:14px 0;font:600 13.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Simulate success</button>
+<button onClick="{{ failPay }}" style="appearance:none;border:0;background:none;font:600 12px 'Noto Sans',sans-serif;color:#7C736F;cursor:pointer">Simulate failure</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isFailed }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:30px 20px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:13px">
+<span style="width:54px;height:54px;border-radius:999px;background:#FDECEC;color:#A81D19;display:flex;align-items:center;justify-content:center;font-size:24px">!</span>
+<div style="font:600 17px Poppins,sans-serif">That payment did not go through</div>
+<div style="font-size:12px;color:#7C736F;line-height:1.5">Nothing was charged. Your bill is still open at {{ payableTotal }} and your table is still yours.</div>
+<button onClick="{{ toPay }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:14px 0;font:600 13.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Try again</button>
+<button onClick="{{ payAtCounter }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:13px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Pay {{ crewFirst }} instead</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPaid }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:14px">
+<div style="text-align:center">
+<div style="width:52px;height:52px;border-radius:999px;background:#E4F3E8;color:#166A2E;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto">✓</div>
+<div style="font:600 18px Poppins,sans-serif;margin-top:11px">{{ paidTitle }}</div>
+<div style="font-size:12px;color:#7C736F;margin-top:5px">{{ paidSub }}</div>
+</div>
+<sc-if value="{{ hasLoved }}" hint-placeholder-val="{{ false }}">
+<div style="padding:15px 16px;border-radius:18px;background:#FBF1F0">
+<div style="font:600 13px Poppins,sans-serif;color:#7A1C24">Take the one you loved home</div>
+<div style="font-size:11px;color:#8C4A3E;line-height:1.45;margin-top:5px">{{ lovedNote }}</div>
+<div style="display:flex;align-items:center;gap:11px;margin-top:12px">
+<span style="width:46px;height:46px;border-radius:13px;background:#F1ECEA;display:flex;align-items:center;justify-content:center;font:600 8px 'Noto Sans',sans-serif;color:#B6ACA8;letter-spacing:.1em;flex:none">IMG</span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:12.5px;font-weight:600">{{ lovedName }} · parcel</span>
+<span style="display:block;font-size:10.5px;color:#8C4A3E;margin-top:2px">{{ lovedPrice }} · ready in 8 minutes</span>
+</span>
+</div>
+<button onClick="{{ addParcel }}" style="appearance:none;margin-top:12px;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:12px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Add parcel — billed separately</button>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;gap:8px">
+<button onClick="{{ sendWhatsapp }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:13px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer">Send the bill to WhatsApp</button>
+<button onClick="{{ toInvoice }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.13);background:#fff;border-radius:999px;padding:13px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer">See the full bill</button>
+</div>
+<div style="padding:15px 16px;border-radius:18px;background:#FBF8F7">
+<div style="font:600 13px Poppins,sans-serif">Loved it? Tell Google</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5;margin-top:5px">{{ reviewNote }}</div>
+<button onClick="{{ leaveReview }}" style="appearance:none;margin-top:12px;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:12px 0;font:600 12.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Write a review</button>
+</div>
+<button onClick="{{ openSuggestion }}" style="appearance:none;border:0;background:none;font:600 12.5px 'Noto Sans',sans-serif;color:#7A1C24;cursor:pointer;padding:2px">Suggest an improvement</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInvoice }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="padding:18px 16px 24px;display:flex;flex-direction:column;gap:13px">
+<div style="text-align:center">
+<img src="assets/jalsa-logo.png" alt="Jalsa Restaurant" style="width:44px;height:44px;border-radius:12px;object-fit:contain">
+<div style="font:600 15px Poppins,sans-serif;margin-top:8px">Jalsa Restaurant</div>
+<div style="font-size:10.5px;color:#7C736F;margin-top:3px">{{ invoiceMeta }}</div>
+</div>
+<div style="border-top:1px dashed rgba(36,31,30,.2);border-bottom:1px dashed rgba(36,31,30,.2);padding:12px 0;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ invoiceLines }}" as="l" hint-placeholder-count="4">
+<div style="display:flex;gap:10px;font-size:12px">
+<span style="flex:1;min-width:0">{{ l.name }}</span>
+<span style="color:#7C736F;width:26px;text-align:center">{{ l.qty }}</span>
+<span style="width:62px;text-align:right;font-weight:600">{{ l.total }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<sc-for list="{{ payTotals }}" as="t" hint-placeholder-count="5">
+<div style="display:flex;justify-content:space-between;{{ t.style }}">
+<span>{{ t.label }}</span><span>{{ t.value }}</span>
+</div>
+</sc-for>
+</div>
+<div style="padding:12px 14px;border-radius:14px;background:#FBF8F7;font-size:11px;color:#57504D;line-height:1.5">{{ invoiceFooter }}</div>
+<button onClick="{{ sendWhatsapp }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:14px 0;font:600 13.5px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Send to WhatsApp</button>
+<button onClick="{{ toPaid }}" style="appearance:none;border:0;background:none;font:600 12.5px 'Noto Sans',sans-serif;color:#7A1C24;cursor:pointer;padding:2px">Back</button>
+</div>
+</sc-if>
+
+</div>
+
+<sc-if value="{{ showCartBar }}" hint-placeholder-val="{{ false }}">
+<div style="position:sticky;bottom:0;background:#fff;border-top:1px solid rgba(36,31,30,.08);padding:11px 14px;display:flex;align-items:center;gap:12px">
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:600">{{ cartCount }}</span>
+<span style="display:block;font-size:11px;color:#7C736F;margin-top:2px">{{ cartSubtotal }}</span>
+</span>
+<button onClick="{{ toCart }}" style="appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:12px 22px;font:600 13px 'Noto Sans',sans-serif;cursor:pointer;flex:none">Review order</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheet }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:rgba(36,31,30,.42);display:flex;align-items:flex-end;z-index:5">
+<div class="sc" style="width:100%;background:#fff;border-radius:24px 24px 0 0;padding:20px 18px 22px;max-height:88%;overflow-y:auto">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+<span style="flex:1;font:600 16px Poppins,sans-serif">{{ sheetTitle }}</span>
+<button onClick="{{ closeSheet }}" style="appearance:none;border:0;background:#F4F0EE;color:#57504D;border-radius:999px;width:28px;height:28px;font-size:15px;line-height:1;cursor:pointer;flex:none" aria-label="Close">×</button>
+</div>
+<div style="font-size:11.5px;color:#7C736F;line-height:1.5">{{ sheetSub }}</div>
+
+<sc-if value="{{ sheetIsHelp }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+<sc-for list="{{ helpActions }}" as="h" hint-placeholder-count="5">
+<button onClick="{{ h.click }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.11);background:#fff;border-radius:16px;padding:13px 15px;font-family:inherit;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:600">{{ h.label }}</span>
+<span style="display:block;font-size:10.5px;color:#7C736F;margin-top:2px">{{ h.note }}</span>
+</span>
+<span style="font-size:15px;color:#7A1C24">›</span>
+</button>
+</sc-for>
+</div>
+<div style="font-size:11px;color:#7C736F;line-height:1.5;margin-top:13px">{{ helpFooter }}</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsItem }}" hint-placeholder-val="{{ false }}">
+<div style="height:150px;border-radius:18px;background:#F1ECEA;display:flex;align-items:center;justify-content:center;font:600 9px 'Noto Sans',sans-serif;color:#B6ACA8;letter-spacing:.12em;margin-top:14px">IMAGE</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+<span style="width:12px;height:12px;border-radius:3px;{{ itemMark }};flex:none"></span>
+<span style="flex:1;font:600 16px Poppins,sans-serif">{{ itemName }}</span>
+<span style="font:600 16px 'Noto Sans',sans-serif">{{ itemPrice }}</span>
+</div>
+<div style="font-size:12px;color:#57504D;line-height:1.55;margin-top:8px">{{ itemDesc }}</div>
+<div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+<button onClick="{{ itemDec }}" style="appearance:none;width:34px;height:34px;border-radius:999px;border:1.5px solid rgba(36,31,30,.14);background:#fff;font-size:17px;line-height:1;cursor:pointer" aria-label="One fewer">−</button>
+<span style="font:600 15px 'Noto Sans',sans-serif;min-width:18px;text-align:center">{{ itemQty }}</span>
+<button onClick="{{ itemInc }}" style="appearance:none;width:34px;height:34px;border-radius:999px;border:0;background:#7A1C24;color:#fff;font-size:17px;line-height:1;cursor:pointer" aria-label="One more">+</button>
+<button onClick="{{ itemAdd }}" style="appearance:none;flex:1;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:13px 0;font:600 13px 'Noto Sans',sans-serif;cursor:pointer">{{ itemAddLabel }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsHours }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:2px;margin-top:14px">
+<sc-for list="{{ hoursRows }}" as="h" hint-placeholder-count="7">
+<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;{{ h.tint }}">
+<span style="flex:1;font-size:12.5px;font-weight:600">{{ h.day }}</span>
+<span style="font-size:12px">{{ h.hours }}</span>
+</div>
+</sc-for>
+</div>
+<div style="margin-top:13px;padding:13px 15px;border-radius:16px;background:#FFF6E8;font-size:11.5px;color:#6B4A12;line-height:1.5">{{ holidayNote }}</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsOccasion }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px">
+<sc-for list="{{ occasions }}" as="o" hint-placeholder-count="4">
+<button onClick="{{ o.click }}" style="{{ o.style }}">{{ o.label }}</button>
+</sc-for>
+</div>
+<input value="{{ occName }}" onChange="{{ setOccName }}" placeholder="Whose celebration is it?" style="appearance:none;font-family:inherit;font-size:12.5px;width:100%;padding:12px 15px;border-radius:16px;border:1.5px solid rgba(36,31,30,.12);background:#fff;margin-top:12px">
+<button onClick="{{ saveOccasion }}" style="appearance:none;margin-top:12px;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:13px 0;font:600 13px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Tell the team</button>
+<div style="font-size:11px;color:#7C736F;line-height:1.5;margin-top:11px">{{ occasionNote }}</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsSuggestion }}" hint-placeholder-val="{{ false }}">
+<textarea value="{{ suggestion }}" onChange="{{ setSuggestion }}" placeholder="What would you change?" style="appearance:none;font-family:inherit;font-size:12.5px;line-height:1.55;width:100%;padding:13px 15px;border-radius:16px;border:1.5px solid rgba(36,31,30,.12);background:#fff;margin-top:14px;min-height:96px;resize:vertical"></textarea>
+<button onClick="{{ sendSuggestion }}" style="appearance:none;margin-top:12px;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:13px 0;font:600 13px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Send it to Javeed</button>
+<div style="font-size:11px;color:#7C736F;line-height:1.5;margin-top:11px">{{ suggestionNote }}</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsHeart }}" hint-placeholder-val="{{ false }}">
+<div style="text-align:center;margin-top:16px">
+<span class="hb" style="font-size:34px;color:#7A1C24">♥</span>
+<div style="font:600 16px Poppins,sans-serif;margin-top:10px">Thank you</div>
+<div style="font-size:12px;color:#7C736F;line-height:1.5;margin-top:6px">{{ heartNote }}</div>
+</div>
+<div style="margin:16px 0 0;padding:14px;border-radius:16px;background:#FBF8F7;display:flex;align-items:center;gap:12px">
+<span style="width:46px;height:46px;border-radius:13px;background:#F1ECEA;display:flex;align-items:center;justify-content:center;font:600 8px 'Noto Sans',sans-serif;color:#B6ACA8;letter-spacing:.1em;flex:none">IMG</span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:12.5px;font-weight:600">{{ heartItem }} · parcel</span>
+<span style="display:block;font-size:10.5px;color:#7C736F;margin-top:2px">{{ heartPrice }} · packed at closure</span>
+</span>
+</div>
+<button onClick="{{ addParcel }}" style="appearance:none;margin-top:12px;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:13px 0;font:600 13px 'Noto Sans',sans-serif;cursor:pointer;width:100%">Add a parcel</button>
+<button onClick="{{ closeSheet }}" style="appearance:none;margin-top:8px;border:0;background:none;font:600 12.5px 'Noto Sans',sans-serif;color:#7C736F;cursor:pointer;width:100%;padding:4px">Not this time</button>
+<div style="font-size:11px;color:#7C736F;line-height:1.5;margin-top:11px;text-align:center">Billed separately as a takeaway, not added to your table bill.</div>
+</sc-if>
+
+<sc-if value="{{ sheetIsCrew }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+<sc-for list="{{ crewChoices }}" as="c" hint-placeholder-count="4">
+<button onClick="{{ c.click }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.11);background:#fff;border-radius:16px;padding:12px 15px;font-family:inherit;cursor:pointer;text-align:left;display:flex;align-items:center;gap:11px">
+<span style="width:32px;height:32px;border-radius:999px;background:#7A1C24;color:#fff;display:flex;align-items:center;justify-content:center;font:600 12px Poppins,sans-serif;flex:none">{{ c.initial }}</span>
+<span style="flex:1;min-width:0">
+<span style="display:block;font-size:13px;font-weight:600">{{ c.name }}</span>
+<span style="display:block;font-size:10.5px;color:#7C736F;margin-top:2px">{{ c.note }}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div class="sc" style="position:absolute;left:14px;right:14px;bottom:16px;background:#241F1E;color:#fff;border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px;z-index:9">
+<span style="flex:1;min-width:0;font-size:12px;line-height:1.45">{{ toast }}</span>
+<sc-if value="{{ canUndo }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ undo }}" style="appearance:none;border:0;background:none;color:#F6A06B;font:600 12px 'Noto Sans',sans-serif;cursor:pointer;flex:none">Undo</button>
+</sc-if>
+<button onClick="{{ hideToast }}" style="appearance:none;border:0;background:none;color:rgba(255,255,255,.6);font-size:15px;line-height:1;cursor:pointer;flex:none" aria-label="Dismiss">×</button>
+</div>
+</sc-if>
+
+</div>
+
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;max-width:390px">
+<button onClick="{{ restart }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.15);background:#fff;border-radius:999px;padding:9px 18px;font:600 12px 'Noto Sans',sans-serif;color:#57504D;cursor:pointer">Restart the journey</button>
+<button onClick="{{ markServed }}" style="appearance:none;border:1.5px solid rgba(36,31,30,.15);background:#fff;border-radius:999px;padding:9px 18px;font:600 12px 'Noto Sans',sans-serif;color:#57504D;cursor:pointer">{{ servedLabel }}</button>
+</div>
+<div style="font-size:11px;color:#8A817C;line-height:1.5;text-align:center;max-width:360px">The second button stands in for the captain marking the round served — that is what unlocks the hearts.</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460}}">
+const MENU = [
+  ["Chicken Tikka — 5 pc", 260, "Non-Veg Starters", "nv", "Boneless thigh, hung curd and kasuri methi, off the tandoor."],
+  ["Chicken Lollipop — 1 pc", 30, "Non-Veg Starters", "nv", "Frenched wing, fried and tossed in a dry chilli glaze."],
+  ["Tandoori Chicken — Half", 130, "Non-Veg Starters", "nv", "Overnight marinade, charred on the bone."],
+  ["Chilli Paneer", 220, "Veg Starters", "v", "Paneer, capsicum and onion in a dry Indo-Chinese toss."],
+  ["Paneer 65", 130, "Veg Starters", "v", "Battered paneer, curry leaf and a short chilli finish."],
+  ["Veg Pepper Salt", 140, "Veg Starters", "v", "Mixed vegetables, crushed pepper, plenty of salt-fry crunch."],
+  ["Full Biryani", 320, "Biryani", "nv", "Long-grain rice layered with chicken, served with raita."],
+  ["Veg Pulav", 120, "Rice", "v", "Rice cooked with whole spice and seasonal vegetables."],
+  ["Paneer Butter Masala", 191, "Indian Curry", "v", "Tomato and cashew gravy, finished with butter."],
+  ["Chicken Chettinad", 240, "Indian Curry", "nv", "Roasted Chettinad masala, coconut and black pepper."],
+  ["Mutton Chettinadu", 320, "Indian Curry", "nv", "Slow-cooked mutton in a dark roasted masala."],
+  ["Dal Fry", 120, "Indian Curry", "v", "Yellow dal tempered with cumin, garlic and ghee."],
+  ["Egg Burji", 80, "Indian Curry", "e", "Scrambled egg with onion, tomato and green chilli."],
+  ["Chicken Manchurian", 190, "Chinese", "nv", "Fried chicken tossed in a soy and garlic sauce."],
+  ["Veg Hot & Sour Soup", 135, "Chinese", "v", "Peppery, tangy broth with shredded vegetables."],
+  ["Onion Cucumber Raita", 45, "Salads", "v", "Set curd with onion, cucumber and roasted cumin."],
+  ["Gulab Jamun — 1 pc", 30, "Desserts", "v", "Warm milk dumpling in cardamom syrup."],
+  ["Royal Falooda", 290, "Desserts", "v", "Rose syrup, vermicelli, jelly and ice cream."],
+  ["Badam Milk", 25, "Drinks", "v", "Chilled milk with almond and saffron."],
+  ["Lime Tea", 12, "Drinks", "v", "Black tea, lime, no milk."]
+];
+
+const TYPE = {
+  v:  {label: "Veg", mark: "background:#1E8E3E"},
+  nv: {label: "Non-veg", mark: "background:#C5221F"},
+  e:  {label: "Egg", mark: "background:#E09B12"}
+};
+
+const HOURS = [
+  ["Monday", "12:00 PM – 11:00 PM"], ["Tuesday", "12:00 PM – 11:00 PM"],
+  ["Wednesday", "12:00 PM – 11:00 PM"], ["Thursday", "12:00 PM – 11:00 PM"],
+  ["Friday", "12:00 PM – 11:30 PM"], ["Saturday", "12:00 PM – 11:30 PM"],
+  ["Sunday", "11:30 AM – 11:00 PM"]
+];
+
+const CREW = [
+  {name: "Imran", role: "is your captain", initial: "I", note: "Captain · looks after this section"},
+  {name: "Mani", role: "is serving your table", initial: "M", note: "Waiter · serving tonight"},
+  {name: "Suhana", role: "is on the floor", initial: "S", note: "Waiter · nearest to the terrace"},
+  {name: "Karthik", role: "is on the floor", initial: "K", note: "Captain · covering the AC hall"}
+];
+
+const REQUESTS = [
+  ["Need water", "Someone fills your jug"],
+  ["Water bottle", "A sealed bottle, added to the bill"],
+  ["Call captain", "Imran comes to the table"],
+  ["Extra plates / cutlery", "Plates, spoons or a serving spoon"],
+  ["Parcel what is left", "We pack the rest to take home"]
+];
+
+const TIPS = [0, 10, 20, 30];
+
+class Component extends DCLogic {
+  state = {
+    screen: "welcome",
+    cart: {}, rounds: [], loved: {},
+    query: "", diets: [], cat: "All",
+    note: "", tip: 0, occasion: null, occName: "", suggestion: "",
+    sheet: null, sheetItem: null, sheetQty: 1,
+    served: false, toast: null, canUndo: false, lastRemoved: null,
+    kot: 123, paidAt: null, parcel: false
+  };
+
+  componentDidMount(){ this.setState({now: new Date()}); }
+
+  set(o){ this.setState(o); }
+
+  flash(msg, undo){ this.setState({toast: msg, canUndo: !!undo, lastRemoved: undo || null}); }
+
+  rupee(n){ return "\u20B9" + Math.round(n).toLocaleString("en-IN"); }
+
+  item(name){ return MENU.find(m => m[0] === name); }
+
+  addItem(name, qty){
+    const q = (this.state.cart[name] || 0) + (qty || 1);
+    this.setState({cart: {...this.state.cart, [name]: q}});
+    this.flash(name + (q > 1 ? " ×" + q : "") + " added");
+  }
+
+  decItem(name){
+    const cur = this.state.cart[name] || 0;
+    const cart = {...this.state.cart};
+    if (cur <= 1) { delete cart[name]; this.setState({cart}); this.flash(name + " removed", {name}); }
+    else { cart[name] = cur - 1; this.setState({cart}); }
+  }
+
+  cartTotal(){
+    return Object.keys(this.state.cart).reduce((a, n) => {
+      const it = this.item(n);
+      return a + (it ? it[1] * this.state.cart[n] : 0);
+    }, 0);
+  }
+
+  roundsTotal(){
+    return this.state.rounds.reduce((a, r) => a + r.lines.reduce((b, l) => b + l.price * l.qty, 0), 0);
+  }
+
+  bill(){
+    const sub = this.roundsTotal();
+    const tax = Math.round(sub * 0.05);
+    return {sub, tax, tip: this.state.tip, total: sub + tax + this.state.tip};
+  }
+
+  greetingFor(h){
+    if (h < 12) return "Good morning";
+    if (h < 16) return "Good afternoon";
+    if (h < 21) return "Good evening";
+    return "Good night";
+  }
+
+  chip(on){
+    return on
+      ? "appearance:none;border:0;background:#7A1C24;color:#fff;border-radius:999px;padding:9px 15px;font:600 12px 'Noto Sans',sans-serif;cursor:pointer;flex:none;white-space:nowrap"
+      : "appearance:none;border:1.5px solid rgba(36,31,30,.12);background:#fff;color:#57504D;border-radius:999px;padding:9px 15px;font:600 12px 'Noto Sans',sans-serif;cursor:pointer;flex:none;white-space:nowrap";
+  }
+
+  openItem(name){ this.setState({sheet: "item", sheetItem: name, sheetQty: 1}); }
+
+  submitOrder(){
+    const lines = Object.keys(this.state.cart).map(n => {
+      const it = this.item(n);
+      return {name: n, qty: this.state.cart[n], price: it[1], type: it[3]};
+    });
+    if (!lines.length) return;
+    const kot = this.state.kot + 1;
+    const round = {
+      kot: "KOT-" + kot,
+      at: this.clockStr(),
+      status: "preparing",
+      note: this.state.note,
+      lines
+    };
+    this.setState({
+      rounds: this.state.rounds.concat([round]),
+      cart: {}, note: "", kot, screen: "placed", served: false
+    });
+  }
+
+  clockStr(){
+    const d = this.state.now || new Date();
+    let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, "0");
+    const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+    return h + ":" + m + " " + ap;
+  }
+
+  renderVals(){
+    const s = this.state;
+    const d = s.now || new Date();
+    const bill = this.bill();
+    const cartCount = Object.keys(s.cart).reduce((a, n) => a + s.cart[n], 0);
+    const cartSub = this.cartTotal();
+    const captain = CREW[0], waiter = CREW[1];
+
+    const rowsFor = list => list.map(m => ({
+      name: m[0], price: this.rupee(m[1]), mark: TYPE[m[3]].mark,
+      meta: TYPE[m[3]].label + " · " + m[2],
+      qty: String(s.cart[m[0]] || 0),
+      inCart: !!s.cart[m[0]], notInCart: !s.cart[m[0]],
+      add: () => this.addItem(m[0]),
+      dec: () => this.decItem(m[0]),
+      open: () => this.openItem(m[0])
+    }));
+
+    const q = s.query.trim().toLowerCase();
+    const diets = s.diets || [];
+    const dietOk = m => !diets.length || diets.indexOf(m[3]) >= 0;
+    const filtered = MENU.filter(m => {
+      if (!dietOk(m)) return false;
+      if (s.cat !== "All" && m[2] !== s.cat) return false;
+      if (q && !(m[0] + " " + m[2]).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const dietPool = MENU.filter(dietOk);
+    const dietNames = diets.map(k => TYPE[k].label);
+    const dietPhrase = dietNames.length === 0 ? ""
+      : dietNames.length === 1 ? dietNames[0]
+      : dietNames.slice(0, -1).join(", ") + " and " + dietNames[dietNames.length - 1];
+
+    const featureItem = name => {
+      const m = this.item(name);
+      return {name, price: this.rupee(m[1]), mark: TYPE[m[3]].mark, add: () => this.addItem(name)};
+    };
+
+    const features = [
+      {title: "Today's special", badge: "till 10 PM", note: "Chef puts up two dishes a day. Tonight it is the Chettinad.",
+       tint: "background:#FBF1F0;color:#7A1C24",
+       items: [{...featureItem("Chicken Chettinad"), sub: "Roasted masala · tonight only"},
+               {...featureItem("Veg Pepper Salt"), sub: "Fresh off the pan"}]},
+      {title: "Combos", badge: "saves ₹60", note: "Biryani with raita and a jamun, priced together.",
+       tint: "background:#F0FAE1;color:#3D472B",
+       items: [{...featureItem("Full Biryani"), sub: "with raita and gulab jamun"}]},
+      {title: "Jalsa favourites", badge: "most ordered", note: "What tables order most, all year round.",
+       tint: "background:#FBF8F7;color:#241F1E",
+       items: [{...featureItem("Paneer Butter Masala"), sub: "14 tables ordered this today"},
+               {...featureItem("Chicken Tikka — 5 pc"), sub: "11 tables ordered this today"}]},
+      {title: "Festival offer", badge: "this week", note: "Falooda at a flat rate through the festival week.",
+       tint: "background:#FFF6E8;color:#6B4A12",
+       items: [{...featureItem("Royal Falooda"), sub: "Rose, vermicelli and ice cream"}]}
+    ];
+
+    const cats = ["All", ...Array.from(new Set(dietPool.map(m => m[2])))];
+
+    const rounds = s.rounds.map((r, ri) => {
+      const isLast = ri === s.rounds.length - 1;
+      const status = s.served || !isLast ? "Served" : r.status === "preparing" ? "In the kitchen" : "Ready";
+      const pill = status === "Served" ? "background:#E4F3E8;color:#166A2E"
+        : status === "Ready" ? "background:#FFF6E8;color:#6B4A12" : "background:#F4F0EE;color:#57504D";
+      return {
+        label: r.kot + " · " + r.at,
+        status, pill,
+        items: r.lines.map(l => ({
+          name: l.name, qty: "×" + l.qty, mark: TYPE[l.type].mark,
+          canHeart: status === "Served",
+          heartIcon: s.loved[l.name] ? "\u2665" : "\u2661",
+          heartStyle: s.loved[l.name] ? "color:#7A1C24" : "color:#D6CFCC",
+          heart: () => {
+            if (s.loved[l.name]) {
+              const loved = {...s.loved}; delete loved[l.name];
+              this.setState({loved});
+              return;
+            }
+            this.setState({loved: {...s.loved, [l.name]: true}, sheet: "heart", sheetItem: l.name});
+          }
+        }))
+      };
+    });
+
+    const lovedNames = Object.keys(s.loved);
+    const lovedName = lovedNames[0] || "";
+    const lovedItem = lovedName ? this.item(lovedName) : null;
+
+    const helpActions = REQUESTS.map(([label, note]) => ({
+      label, note,
+      click: () => {
+        this.setState({sheet: null});
+        this.flash(label === "Need water" ? "Asked for water — " + waiter.name + " is on the way"
+          : label === "Call captain" ? captain.name + " has been called to your table"
+          : label + " requested — " + waiter.name + " is on the way");
+      }
+    })).concat([
+      {label: "Ask for a particular person", note: "Someone who knows your usual order",
+       click: () => this.setState({sheet: "crew"})},
+      {label: "Suggest an improvement", note: "Goes straight to Javeed, the owner",
+       click: () => this.setState({sheet: "suggestion"})},
+      {label: "Hours and holidays", note: "When we open, and when we do not",
+       click: () => this.setState({sheet: "hours"})}
+    ]);
+
+    const stepMap = {
+      welcome: ["Welcome", "Scanned the QR on table A5. Greeting and crew names follow the device clock and the owner's settings."],
+      menu: ["Menu", "Search, diet filter, categories, and the four promoted sections the owner configures."],
+      cart: ["Review the order", "Quantities, a kitchen note and the running total before anything reaches the kitchen."],
+      placed: ["Order placed", "A KOT number exists now. The animation stands in for kitchen progress."],
+      status: ["My order", "Every round on this bill. Hearts appear once a round is served."],
+      upsell: ["Payment requested", "The offer strip runs before the tip, and adds a fresh round if taken."],
+      tip: ["Tip", "Separate from the bill total, attributed to " + captain.name + "."],
+      paying: ["Paying", "Pending state — the moment where a real gateway can fail."],
+      failed: ["Payment failed", "Nothing charged, bill still open. The recovery path."],
+      paid: ["Paid", "Receipt, the parcel offer built from what was hearted, and the review prompt."],
+      invoice: ["The bill", "Itemised, GST separate, tip listed outside the food total."]
+    };
+    const step = stepMap[s.screen] || stepMap.welcome;
+
+    return {
+      clock: this.clockStr(),
+      tableLabel: "Table A5",
+      stepLabel: step[0], stepHint: step[1],
+
+      isWelcome: s.screen === "welcome", isMenu: s.screen === "menu", isCart: s.screen === "cart",
+      isPlaced: s.screen === "placed", isStatus: s.screen === "status", isUpsell: s.screen === "upsell",
+      isTip: s.screen === "tip", isPaying: s.screen === "paying", isFailed: s.screen === "failed",
+      isPaid: s.screen === "paid", isInvoice: s.screen === "invoice",
+      showHeader: s.screen !== "welcome",
+      showCartBar: s.screen === "menu" && cartCount > 0,
+
+      headerTitle: s.screen === "menu" ? "Jalsa Restaurant" : s.screen === "cart" ? "Your order"
+        : s.screen === "status" ? "Table A5" : s.screen === "invoice" ? "Bill" : "Jalsa Restaurant",
+      headerSub: s.rounds.length
+        ? s.rounds.length + (s.rounds.length === 1 ? " round" : " rounds") + " · " + captain.name + " and " + waiter.name
+        : captain.name + " and " + waiter.name + " look after this table",
+
+      greeting: this.greetingFor(d.getHours()),
+      welcomeLine: "You are at table A5. Order from here, add more whenever you like, and settle it all at the end.",
+      marquee: "\u00A0\u00A0Festival week \u00B7 Royal Falooda at a flat rate \u00B7 Chef's Chettinad tonight \u00B7 Biryani combo saves \u20B960\u00A0\u00A0",
+      crew: [captain, waiter].map(c => ({name: c.name, role: c.role, initial: c.initial})),
+      startOrdering: () => this.set({screen: "menu"}),
+
+      query: s.query,
+      setQuery: e => this.set({query: e.target.value}),
+      dietLabel: "Preferred menu type",
+      dietSub: diets.length
+        ? "Showing " + dietPhrase.toLowerCase() + " only · tap again to remove"
+        : "Pick one or more. Leave it alone to see everything.",
+      dietChips: [["v","Veg"],["nv","Non-veg"],["e","Egg"]].map(([k, label]) => {
+        const on = diets.indexOf(k) >= 0;
+        const count = MENU.filter(m => m[3] === k).length;
+        return {
+          label: on ? "\u2713 " + label : label,
+          count: count + " dishes",
+          style: this.chip(on) + ";flex:1;display:flex;align-items:center;justify-content:center;gap:6px",
+          click: () => {
+            const next = on ? diets.filter(x => x !== k) : diets.concat([k]);
+            const stillThere = next.length === 0 || MENU.some(m => m[2] === s.cat && next.indexOf(m[3]) >= 0);
+            this.setState({diets: next, cat: stillThere ? s.cat : "All"});
+          }
+        };
+      }),
+      dietAllOn: diets.length === 0,
+      hasDiet: diets.length > 0,
+      clearDiet: () => this.set({diets: [], cat: "All"}),
+      showCatRow: true,
+      catHeading: diets.length
+        ? dietPhrase + " on the menu"
+        : "Browse by course",
+      catChips: cats.map(c => {
+        const n = c === "All" ? dietPool.length : dietPool.filter(m => m[2] === c).length;
+        return {
+          label: c === "All" ? "All " + n : c + " " + n,
+          style: this.chip(s.cat === c),
+          click: () => this.set({cat: c})
+        };
+      }),
+      features, showFeatures: !q && s.cat === "All" && diets.length === 0,
+      rows: rowsFor(filtered),
+      listHeading: q || s.cat !== "All" || diets.length
+        ? filtered.length + (filtered.length === 1 ? " dish" : " dishes")
+        : "The full menu",
+      noResults: filtered.length === 0,
+      emptyTitle: "Nothing matches that",
+      emptyNote: q ? "No dish is called \u201C" + s.query.trim() + "\u201D. Try a shorter word, or clear the filters." : "The filters you have set rule everything out.",
+      clearFilters: () => this.set({query: "", cat: "All", diets: []}),
+
+      cartCount: cartCount + (cartCount === 1 ? " item" : " items"),
+      cartSubtotal: this.rupee(cartSub) + " before tax",
+      toCart: () => this.set({screen: "cart"}),
+      backToMenu: () => this.set({screen: "menu"}),
+      cartMeta: cartCount + (cartCount === 1 ? " item" : " items") + " · nothing sent to the kitchen yet",
+      cartLines: Object.keys(s.cart).map(n => {
+        const it = this.item(n);
+        return {
+          name: n, mark: TYPE[it[3]].mark, qty: String(s.cart[n]),
+          each: this.rupee(it[1]) + " each",
+          total: this.rupee(it[1] * s.cart[n]),
+          inc: () => this.addItem(n), dec: () => this.decItem(n)
+        };
+      }),
+      note: s.note, setNote: e => this.set({note: e.target.value}),
+      cartTotals: [
+        {label: "This round", value: this.rupee(cartSub), style: "font-size:12.5px;color:#57504D"},
+        {label: "Already ordered", value: this.rupee(this.roundsTotal()), style: "font-size:12.5px;color:#57504D"},
+        {label: "Food so far", value: this.rupee(cartSub + this.roundsTotal()), style: "font-size:13.5px;font-weight:700;padding-top:7px;border-top:1px solid rgba(36,31,30,.09)"}
+      ],
+      placeLabel: "Send to the kitchen · " + this.rupee(cartSub),
+      placeOrder: () => this.submitOrder(),
+
+      placedSub: captain.name + " has it · usually 18–22 minutes",
+      placedItems: s.rounds.length
+        ? s.rounds[s.rounds.length - 1].lines.map(l => l.name + " ×" + l.qty).join(" · ")
+        : "",
+      toStatus: () => this.set({screen: "status"}),
+
+      statusTitle: s.served ? "On your table" : "Your order",
+      statusSub: s.served
+        ? "Tap the heart on anything you loved"
+        : "The kitchen is working through it. Order more any time.",
+      rounds,
+      runningTotal: this.rupee(this.roundsTotal()) + " before tax",
+      requestPayment: () => this.set({screen: "upsell"}),
+
+      crewFirst: captain.name,
+      payableLine: this.rupee(bill.total) + " including GST",
+      upsellItems: ["Gulab Jamun — 1 pc", "Badam Milk", "Royal Falooda"].map(n => {
+        const m = this.item(n);
+        return {name: n, price: this.rupee(m[1]), mark: TYPE[m[3]].mark, add: () => { this.addItem(n); this.set({screen: "cart"}); }};
+      }),
+      toTip: () => this.set({screen: "tip"}),
+
+      tipNote: "Goes to " + captain.name + " and the floor team, tracked apart from the restaurant's own takings.",
+      tipChips: TIPS.map(t => ({
+        label: t === 0 ? "No tip" : "+ " + this.rupee(t),
+        style: this.chip(s.tip === t) + ";flex:1",
+        click: () => this.set({tip: t})
+      })),
+      payTotals: [
+        {label: "Food", value: this.rupee(bill.sub), style: "font-size:12.5px;color:#57504D"},
+        {label: "GST 5%", value: this.rupee(bill.tax), style: "font-size:12.5px;color:#57504D"},
+        {label: "Tip for the team", value: bill.tip ? this.rupee(bill.tip) : "—", style: "font-size:12.5px;color:#57504D"},
+        {label: "To pay", value: this.rupee(bill.total), style: "font-size:14.5px;font-weight:700;padding-top:8px;border-top:1px solid rgba(36,31,30,.09)"}
+      ],
+      payLabel: "Pay " + this.rupee(bill.total),
+      payableTotal: this.rupee(bill.total),
+      toPay: () => this.set({screen: "paying"}),
+      payAtCounter: () => { this.set({screen: "status"}); this.flash(captain.name + " has been told you will pay at the table"); },
+
+      payingNote: "Approve the request in your UPI app. This page updates itself.",
+      finishPay: () => this.setState({screen: "paid", paidAt: this.clockStr()}),
+      failPay: () => this.set({screen: "failed"}),
+
+      paidTitle: "Paid · " + this.rupee(bill.total),
+      paidSub: "UPI at " + (s.paidAt || this.clockStr()) + (bill.tip ? " · " + this.rupee(bill.tip) + " tip to " + captain.name : ""),
+      hasLoved: lovedNames.length > 0,
+      lovedName, lovedNote: lovedName
+        ? "You hearted " + lovedName + " tonight. Share it with someone who missed dinner."
+        : "",
+      lovedPrice: lovedItem ? this.rupee(Math.round(lovedItem[1] * 0.72)) : "",
+      addParcel: () => { this.setState({parcel: true, sheet: null}); this.flash("Parcel added as a separate takeaway bill · ready in 8 minutes"); },
+      sendWhatsapp: () => this.flash("Bill sent to WhatsApp on the number you gave"),
+      toInvoice: () => this.set({screen: "invoice"}),
+      toPaid: () => this.set({screen: "paid"}),
+      reviewNote: "A photo from tonight helps more than words.",
+      leaveReview: () => this.flash("Opening Google reviews — thank you"),
+
+      invoiceMeta: "Table A5 · B-1057 · " + (s.paidAt || this.clockStr()) + " · " + captain.name,
+      invoiceLines: s.rounds.reduce((acc, r) => acc.concat(r.lines.map(l => ({
+        name: l.name, qty: "×" + l.qty, total: this.rupee(l.price * l.qty)
+      }))), []),
+      invoiceFooter: "GST 33ABCDE1234F1Z5 · Tip is not restaurant income and is paid to the floor team in full."
+        + (s.parcel ? " A separate takeaway bill covers your parcel." : ""),
+
+      openHelp: () => this.setState({sheet: "help"}),
+      openHours: () => this.setState({sheet: "hours"}),
+      openOccasion: () => this.setState({sheet: "occasion"}),
+      openSuggestion: () => this.setState({sheet: "suggestion"}),
+      closeSheet: () => this.setState({sheet: null}),
+      sheet: s.sheet,
+      sheetIsHelp: s.sheet === "help", sheetIsItem: s.sheet === "item",
+      sheetIsHours: s.sheet === "hours", sheetIsOccasion: s.sheet === "occasion",
+      sheetIsSuggestion: s.sheet === "suggestion", sheetIsHeart: s.sheet === "heart",
+      sheetIsCrew: s.sheet === "crew",
+      sheetTitle: s.sheet === "help" ? "Ask for something"
+        : s.sheet === "item" ? "About this dish"
+        : s.sheet === "hours" ? "Hours and holidays"
+        : s.sheet === "occasion" ? "Celebrating something?"
+        : s.sheet === "suggestion" ? "Tell us what to fix"
+        : s.sheet === "heart" ? "Glad you liked it"
+        : s.sheet === "crew" ? "Who would you like?" : "",
+      sheetSub: s.sheet === "help" ? "No need to wave. " + waiter.name + " sees these the moment you tap."
+        : s.sheet === "hours" ? "Kitchen closes half an hour before we do."
+        : s.sheet === "occasion" ? "The team will know before the food comes out."
+        : s.sheet === "suggestion" ? "Javeed reads every one of these and replies."
+        : s.sheet === "heart" ? "" : s.sheet === "crew" ? "Any of them can take your order." : "",
+      helpActions,
+      helpFooter: "The owner chooses which of these appear, so this list can be shorter on a busy night.",
+
+      itemName: s.sheetItem || "",
+      itemPrice: s.sheetItem ? this.rupee(this.item(s.sheetItem)[1]) : "",
+      itemMark: s.sheetItem ? TYPE[this.item(s.sheetItem)[3]].mark : "",
+      itemDesc: s.sheetItem ? this.item(s.sheetItem)[4] : "",
+      itemQty: String(s.sheetQty),
+      itemInc: () => this.setState({sheetQty: s.sheetQty + 1}),
+      itemDec: () => this.setState({sheetQty: Math.max(1, s.sheetQty - 1)}),
+      itemAddLabel: s.sheetItem ? "Add · " + this.rupee(this.item(s.sheetItem)[1] * s.sheetQty) : "Add",
+      itemAdd: () => { this.addItem(s.sheetItem, s.sheetQty); this.setState({sheet: null}); },
+
+      hoursRows: HOURS.map(([day, hours]) => {
+        const today = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()] === day;
+        return {day: today ? day + " · today" : day, hours, tint: today ? "background:#F0FAE1;color:#3D472B" : "background:#FBF8F7"};
+      }),
+      holidayNote: "Closed on 15 September for Ayudha Puja. Kitchen takes a break from 3:30 PM to 6:30 PM on weekdays.",
+
+      occasions: ["Birthday", "Anniversary", "Family celebration", "Something else"].map(o => ({
+        label: o, style: this.chip(s.occasion === o), click: () => this.set({occasion: o})
+      })),
+      occName: s.occName, setOccName: e => this.set({occName: e.target.value}),
+      saveOccasion: () => {
+        this.setState({sheet: null});
+        this.flash(s.occasion
+          ? (s.occName ? s.occasion + " for " + s.occName + " — the team knows" : s.occasion + " noted — the team knows")
+          : "Tell us what you are celebrating first");
+      },
+      occasionNote: "Nothing is added to your bill. The owner decides whether this is even asked.",
+
+      suggestion: s.suggestion,
+      setSuggestion: e => this.set({suggestion: e.target.value}),
+      sendSuggestion: () => {
+        if (!s.suggestion.trim()) { this.flash("Write a line first"); return; }
+        this.setState({sheet: null, suggestion: ""});
+        this.flash("Sent to Javeed. He replies to every suggestion.");
+      },
+      suggestionNote: "Suggestions land in the owner's dashboard, not on a public page.",
+
+      heartItem: s.sheetItem || "",
+      heartPrice: s.sheetItem ? this.rupee(Math.round(this.item(s.sheetItem)[1] * 0.72)) : "",
+      heartNote: s.sheetItem ? s.sheetItem + " is a favourite here too. Take a portion home for someone you love?" : "",
+
+      crewChoices: CREW.map(c => ({
+        name: c.name, initial: c.initial, note: c.note,
+        click: () => { this.setState({sheet: null}); this.flash(c.name + " has been asked to come to table A5"); }
+      })),
+
+      toast: s.toast, canUndo: s.canUndo,
+      hideToast: () => this.setState({toast: null, canUndo: false}),
+      undo: () => {
+        const r = s.lastRemoved;
+        if (r) this.setState({cart: {...s.cart, [r.name]: (s.cart[r.name] || 0) + 1}});
+        this.setState({toast: "Put back", canUndo: false, lastRemoved: null});
+      },
+
+      served: s.served,
+      servedLabel: s.served ? "Un-serve the round" : "Mark the round served",
+      markServed: () => this.setState({served: !s.served}),
+      restart: () => this.setState({
+        screen: "welcome", cart: {}, rounds: [], loved: {}, query: "", cat: "All",
+        note: "", tip: 0, occasion: null, occName: "", suggestion: "", sheet: null, diets: [],
+        served: false, toast: null, kot: 123, paidAt: null, parcel: false
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>
