@@ -133,6 +133,68 @@ never because an action exists. A treatment that names no meaning is decoration 
 A delete control is never adjacent to the primary action. Opposite side of the row, or rendered
 as an outline or icon. Primary actions group together; destructive ones stand apart.
 
+### The reversibility decision, made once per action (CP-28)
+Every action that changes something answers one question before it is built: **can this be
+undone?**
+
+**No** → it confirms **first**, through the shared confirm dialog, and the message names what
+will happen in specifics — the record, the count, the scope. "Are you sure?" is not a question
+anyone can answer, and a button labelled "OK" tells the user nothing about what they agreed to.
+
+**Yes** → it acts immediately, says what happened, and carries **Undo in the message**. Do not
+confirm it. A confirmation on something reversible is not extra safety: it teaches the user
+that confirmations are noise to click past, and the one that mattered gets clicked past too.
+
+The undo is a **deferred commit**, not a compensating write. The effect is held for the undo
+window and committed when the window closes, so Undo is a local cancel that cannot fail. The
+tempting version — write now, write the opposite on Undo — fails in production exactly once and
+then tells the user "Undone" about a change that is still there. Where a write genuinely cannot
+be deferred, do not offer undo at all: confirm instead, and say why in the module document.
+
+The message says what happened **in specifics**, composed from the real values — "Archived 3
+invoices", never "Saved", and never "1 invoices".
+
+### A waiting screen is a designed screen (CP-3)
+"Loading…" tells a user the page is not broken and nothing else. Where a whole surface has
+nothing to show yet, it says **what is being made for them**, from configurable copy — and past
+a threshold it **stops pretending**: it reports that the wait is abnormal and offers a route
+onward. A waiting screen is the one surface where the user has nothing else to click, so a dead
+end there is an abandoned session. Thresholds are settings, not constants, and a misconfigured
+pair is repaired rather than left with the failure state unreachable.
+
+### Money is itemised, never one opaque total (CP-29)
+Wherever an amount is payable, its components are separate rows — items, adjustments, tax, then
+the payable emphasised — in one order, on every surface showing that money, print included. An
+unexplained total is the most disputed element in any interface, and the dispute costs more than
+the line items.
+
+Three rules keep the figures trustworthy. **The rows shown add up to the total shown** — round
+each row once and sum the rounded rows, because a breakdown off by a paisa reads as an
+arithmetic bug, which it is. **Pass-through money is not income** — tax, deposits, tips and
+agent collections appear in what the payer owes and stay out of revenue; folding them in
+overstates revenue and understates a liability. **An impossible total is reported, not clamped**
+— a discount larger than the charge is a data-entry mistake, and flooring it at zero hides the
+mistake and gives the money away.
+
+One calculation, one renderer: checkout, the quote dialog, the invoice and the receipt are four
+screens showing one number, and two of them disagreeing is how a customer stops believing every
+figure the product shows, including the correct ones.
+
+### Selecting rows, and acting on many at once (CP-18)
+A list that supports multi-select carries a checkbox on **every row** and a **three-state**
+checkbox in the header: none · some · all, where `some` renders indeterminate. A header
+checkbox showing plain "off" over four selected rows is not a cosmetic problem — it is the
+screen telling the user something false about what their next click will act on.
+
+"Select all" means the rows **currently in view**, and the bar says so in words. The other
+reading — every record matching the filter — is how a user deletes a year of data intending to
+delete a page of it. When the filter changes, rows that left the view leave the selection, and
+the screen says how many: a selection that outlives its filter reaches records the user cannot
+see, which is the same defect arrived at slowly.
+
+Bulk actions then obey the reversibility decision above: the destructive one confirms with the
+count and the scope named, the reversible one goes straight through with Undo.
+
 ### Configuration is not a peer of daily work
 A settings screen does not earn a slot beside the lists a user touches every day. Before adding
 an item to any navigation row, ask what **kind** it is and how often it is opened. If the answer

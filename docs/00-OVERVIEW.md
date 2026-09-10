@@ -97,6 +97,16 @@ session. See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md). Without this the rest i
 `checklists/` — screen · design quality *(the Gate 3 judge)* · definition of done ·
 code review · security · accessibility · release readiness · business readiness · manual test
 
+### The reference implementation
+`starter/` — every file a worked example of a canonical pattern, verified by the same gates as
+everything else. The shared components: theme (tokens, toggle, per-theme images) · list and
+table controls (CP-23) with column control (CP-21) and row/header selection (CP-18) · dialogs
+and the reversibility pair — confirm for the irreversible, toast + undo for the reversible
+(CP-28) · the designed full-surface wait (CP-3) · the itemised price breakdown (CP-29) ·
+analytics (CP-24) · the audit trail (CP-27) · module customizer and access panel. Per-file roles
+are in [FRAMEWORK_MANIFEST.md](../FRAMEWORK_MANIFEST.md); reusable status per stack is in
+`docs/registers/COMPONENT_LIBRARY.md`.
+
 ### The living registers
 `docs/registers/` — root causes · canonical patterns · design rules · component library
 (stack-keyed reuse + the standard baseline) · known limitations ·

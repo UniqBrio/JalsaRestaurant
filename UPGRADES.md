@@ -12,6 +12,42 @@
 
 ---
 
+## 1.29.0 — 2026-09-10 — MINOR
+
+**Six design directives, built once so no application builds them again**
+
+Six corrections arrived together, and five of them were the same shape: a rule the framework already stated in prose with nothing implementing it. Confirmation on destructive actions was written down and had a component; undo was written down beside it and had nothing at all — the bulk-action bar shipped a one-click delete over a selection built by shift-clicking. "Scope is the visible set" was a sentence in the bulk-selection pattern that no checkbox implemented, because there were no checkboxes. Tabs had a component, a scroll rule and a keyboard rule, and no styling whatsoever, so the selected tab was distinguished by nothing. A rule nothing executes is not a rule, and the cheapest place to execute these is the shared component every application already reaches for. So each directive lands as working code in the reference implementation with a rung under it, not as another paragraph.
+
+### Added
+- **A designed full-surface wait** — `src/lib/loading.ts` + `src/components/LoadingScreen.tsx`. It says what is being made for the user (configurable copy, defaulting to "We're working for you, making things for you."), draws the pipeline as a `currentColor` line diagram needing no per-theme asset, marks the active stage in words as well as colour, and past a threshold **stops pretending**: it reports that the wait has gone wrong and offers a route onward. Thresholds are settings; a misconfigured pair is repaired rather than left with the stalled state unreachable.
+- **One itemised price breakdown** — `src/lib/pricing.ts` + `src/components/PricingPanel.tsx`, CP-29. Items, adjustments, tax and the emphasised payable, in one order, on screen and in print. The rows shown add up to the total shown, because each row rounds once and the total is the sum of the rounded rows. Pass-through money is owed by the payer and kept out of revenue. An over-discount is reported, never clamped to zero behind the user. Currency formatting is the existing shared formatter, not a second one.
+- **Undo, actually implemented** — `src/lib/undo.ts` + `src/components/ToastHost.tsx`, CP-28. Undo is a **deferred commit**: the effect is held for the window and committed when it closes, so Undo is a local cancel that cannot fail — unlike the compensating write, which tells the user "Undone" about a change that is still there. The queue never drops a pending action: overflow commits early and unmount drains.
+- **Row and header selection** — `src/lib/selection.ts` + `src/components/SelectionColumn.tsx`, CP-18 amended. A checkbox on every row, a three-state header checkbox (`some` renders indeterminate), select-all scoped to the **visible** set, shift-select over the visible order, and a filter change that drops what left the view and says how many.
+- **DR-3, the selected tab** — every tab carries a visible border, and the selected one differs by fill, border and weight together, on the contrast-asserted `primarySurface` / `onPrimarySurface` pair. Styling hangs off `aria-selected`, so what is drawn and what is announced cannot disagree.
+- `src/components/components.css` — one token-only stylesheet for tabs, toasts, the wait, the price breakdown and row selection. No colour literal; every pair used is asserted by the contrast gate in both themes.
+
+### Fixed
+- **The bulk-action bar had a one-click delete.** The highest-consequence control in the starter, over a selection the user may not be able to see all of, with no confirmation at all. It now routes through `ConfirmDialog` with the count and the scope named in the message and the verb on the button. Archive stays one click — it is reversible, so its safety net is Undo, and confirming it too is how a user learns to click through the dialog that matters.
+- **The column-control audit counted `<th scope="row">` as a column.** A correct three-column table with a row header was reported as four and told to add a column control. That is worse than a miscount: the cheapest way to satisfy it was to demote the `<th>` to a `<td>` and lose the accessible row name — a gate pushing an accessibility regression to make itself green. Only column headers count now; an unmarked `<th>` still counts, so a genuinely wide table cannot slip past.
+- **`BulkBar` described the selection in its own words.** It now uses `selectionSummary` from the shared module, so the bar and the header checkbox cannot drift into two wordings for one selection.
+
+### Stated as honest debt, not papered over
+- TD-002 — the addressability audit reads an opening tag with a `[^>]` scan, so it stops at the first `>` (an arrow function's included) and cannot see attributes after one; it also matches a tag written inside a comment. Both are false positives. Fixing it needs a JSX parser; the convention (`data-testid` ahead of any arrow-function prop) costs nothing and is now recorded rather than folklore.
+- The two tab targets added to the render contrast spec are NOT OBSERVED FAILING: they need a browser and a running application, which this environment has neither of. The token pair they assert is verified by G2 in both themes.
+
+### App action required
+**Nothing is required.** Every change is additive: four new modules, four new components, one new stylesheet, and amendments to three patterns and one audit. No existing export changed shape and no rule became stricter about code you have already written.
+
+What you may want, and in what order:
+
+1. **`BulkBar` gained an optional `subject` prop** (`{ one, many }`) used in the delete confirmation, defaulting to `record` / `records`. If you use `BulkBar`, pass what your rows actually are — "Delete 3 records" is worse than "Delete 3 invoices", and the default is a placeholder, not an answer. **Note the behaviour change:** bulk delete now opens a confirmation instead of firing immediately. If your `onAction('delete', …)` handler had its own confirmation, remove one of the two.
+2. **If any list of yours supports multi-select**, adopt `SelectionColumn` + `lib/selection` rather than keeping a local implementation — the three-state header and the filter reconciliation are the parts that are easy to get subtly wrong.
+3. **If you show an amount payable anywhere**, adopt `PricingPanel` + `lib/pricing`. If your totals are computed in more than one place today, that is the defect CP-29 exists for.
+4. **If you have a full-surface loading state**, `LoadingScreen` replaces it and gives you the stalled case for free.
+5. **Tabs:** if you render `TabRow` and import `components.css` (the component imports it itself), your tabs pick up DR-3 styling. If you style tabs yourself, check them against DR-3 — border always, and the selected state differing by more than colour.
+6. **The column-control audit will now count one fewer column** on any table with a `<th scope="row">`. If such a table sits in your baseline, regenerate it (`node scripts/audits/check-column-control.mjs --write-baseline`) — a fixed-but-still-listed entry blocks.
+
+---
 ## 1.28.0 — 08-Sep-2026 — MINOR
 
 **CP-27 - the audit trail, as a reusable component**

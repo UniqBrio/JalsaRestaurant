@@ -22,6 +22,16 @@
  *   Those are not decidable syntactically, and a detector that is confidently wrong is worse
  *   than one that declines. This is a FLOOR: the review checklist carries the rest, and says so.
  *
+ * A ROW HEADER IS NOT A COLUMN (fixed 10-Sep-2026)
+ *   `<th scope="row">` is the correct markup for the cell that names a row — it is what lets a
+ *   screen reader announce "Subtotal: 1,200" instead of a bare figure. Counting it inflated
+ *   every properly marked-up table by one, and this detector then demanded a column control for
+ *   a three-column table that had one row header. That is worse than a miscount: the cheapest
+ *   way to satisfy it was to demote the `<th>` to a `<td>` and lose the accessible name — a gate
+ *   pushing an accessibility REGRESSION to make itself go green. Only column headers count now.
+ *   The bias is deliberate: an unmarked `<th>` (no scope) is still counted as a column, because
+ *   under-counting would let a wide table slip past, and this gate exists to catch exactly that.
+ *
  * USAGE
  *   node scripts/audits/check-column-control.mjs [--dir <src>] [--threshold 3] [--report|--write-baseline]
  */
@@ -41,6 +51,10 @@ const CMD = 'node scripts/audits/check-column-control.mjs --write-baseline';
 
 /* A header cell, opening tag only. `<thead>` must not match, hence the boundary. */
 const TH_OPEN = /<th[\s/>]/g;
+/* The same tag WITH an explicit row scope. Subtracted from the count above: see the note in the
+ * header. Matching is limited to the opening tag's own attributes, so a `scope="row"` mentioned
+ * anywhere else in the file cannot deflate the count. */
+const TH_ROW_SCOPED = /<th\s[^>]*?scope\s*=\s*["'{]?\s*row\b/g;
 
 /**
  * Evidence that this screen already offers the control. Deliberately a SET OF MARKERS rather
@@ -63,8 +77,10 @@ let tablesSeen = 0;
 for (const file of files) {
   const rel = path.relative(ROOT, file).replace(/\\/g, '/');
   const src = fs.readFileSync(file, 'utf8');
-  const columns = (src.match(TH_OPEN) ?? []).length;
-  if (columns === 0) continue;
+  const headerCells = (src.match(TH_OPEN) ?? []).length;
+  if (headerCells === 0) continue;
+  const columns = headerCells - (src.match(TH_ROW_SCOPED) ?? []).length;
+  if (columns <= 0) continue;
   tablesSeen++;
   widestSeen = Math.max(widestSeen, columns);
   if (columns <= THRESHOLD) continue;

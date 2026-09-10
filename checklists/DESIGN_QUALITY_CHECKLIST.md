@@ -44,7 +44,7 @@
 - [ ] Spacing rhythm from tokens; edges aligned; no eyeballed gaps.
 
 ## 6. UI consistency
-- [ ] One treatment per meaning across all touched screens; at most one primary per screen.
+- [ ] One treatment per meaning across all touched screens; at most one primary per screen. Selected tabs/chips/segments differ by fill, border AND weight, on a declared contrast pair (DR-3).
 - [ ] Reuse → extend → refactor → create order respected; no local forks of shared components.
 - [ ] Copy uses approved terms; shipped strings untouched (freeze rule).
 
@@ -64,10 +64,12 @@
 
 ## 10. States and feedback
 - [ ] State matrix (docs/24 §8) filled for every component — "N/A" is an answer, blank is not.
-- [ ] Loading terminates and is layout-stable; success names the next step.
+- [ ] Loading terminates and is layout-stable; success names the next step. A full-surface wait names the work and offers a route onward once stalled (CP-3).
+- [ ] The reversibility decision is made per action (CP-28): irreversible confirms first with the consequence named; reversible acts and carries Undo in the message. No action does both, and none does neither.
 
 ## 11. Error handling
 - [ ] Every error state says what happened and what to do next, in customer wording (taxonomy).
+- [ ] Any amount payable is itemised — components, adjustments, tax, then the payable — with the rows adding up to the total shown and pass-through money kept out of revenue (CP-29). N/A is an answer where the domain handles no money; blank is not.
 - [ ] Failed API / slow network / offline walked in the scenarios; nothing hangs or lies.
 
 ## 12. Empty states
@@ -91,7 +93,7 @@
 
 ## 16. Production readiness
 - [ ] All roles walked: what each sees, cannot see, and the denial states.
-- [ ] Large-dataset day designed (paging, density); every list/table view carries the CP-23 standard controls — search fields, filters, date presets where dated, sortable columns — via `ListControls`; performance budget stated.
+- [ ] Large-dataset day designed (paging, density); every list/table view carries the CP-23 standard controls — search fields, filters, date presets where dated, sortable columns — via `ListControls`; where rows are selectable, the row + three-state header checkboxes and the visible-set scope (CP-18); column visibility and order past three columns (CP-21); performance budget stated.
 - [ ] Permissions answered (five RBAC questions); analytics/instrumentation named if required.
 
 ## 17. Edge cases

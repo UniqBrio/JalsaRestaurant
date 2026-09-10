@@ -22,11 +22,12 @@ Regardless of business requirements, every application ships these; the product-
 | Authentication | Login · logout/sign-out · forgot password · reset password · session identity |
 | Layout & navigation | App shell (header/nav) · section tabs · back behaviour · cold-loadable routes |
 | Analytics & dashboards | Every business needs to know what is happening and what to do: configurable metric tiles · comparisons and targets · insight/exception cards · ranking and trend visuals · drill-down ladders · role-scoped visibility (CP-24) |
-| Lists & tables | Every list/table view: search across key fields · contextual multi-select filters · date presets (Today · This week · Last week · This month · Custom) where dated · asc/desc sort on relevant columns · matching/total count (CP-23) |
-| States | Empty · loading · error · offline · permission-denied, as shared treatments |
+| Lists & tables | Every list/table view: search across key fields · contextual multi-select filters · date presets (Today · This week · Last week · This month · Custom) where dated · asc/desc sort on relevant columns · matching/total count (CP-23) · **row and header selection with bulk actions** (CP-18) · **column visibility and order** where wider than three columns (CP-21) |
+| States | Empty · loading · error · offline · permission-denied, as shared treatments · a **designed full-surface wait** that names the work and stops pretending past a threshold (CP-3) |
 | Support | A way for a stuck user to reach a human: email · phone · call and WhatsApp actions, with an expectation set |
-| Confirmation | One confirm dialog for destructive and session-ending actions; reversible actions use undo instead |
+| Confirmation | One confirm dialog for destructive and session-ending actions; reversible actions use undo instead — and the **undo itself is implemented**, as a deferred commit carried in the toast (CP-28) |
 | Audit trail | Who changed what, from what, to what, when — wherever roles or access can be changed |
+| Money | **Wherever the application shows an amount payable** — one itemised breakdown (items · adjustments · tax · payable), one renderer, pass-through kept out of revenue (CP-29). Conditional on the domain handling money at all; where it does not, this row is N/A, stated once. |
 | Session | Session persists until the user signs out explicitly; sign-out confirms first and lives under the overflow menu |
 | Install | PWA installability where the application is a web app: manifest, icons, offline shell |
 | Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
@@ -75,6 +76,13 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Analytics | Domain configs: restaurant · gym · academy · badminton | `starter/src/lib/analytics/examples.ts` | READY |
 | Analytics | Donut / funnel / heatmap / calendar-heatmap / stacked / area / timeline | — | **GAP** — deliberately unbuilt; first app with a real need contributes back (docs/25 §4) |
 | Confirmation | Confirm dialog — composes CP-14; destructive variant separated and named, never "OK" | `starter/src/components/ConfirmDialog.tsx` | READY |
+| Confirmation | Undo — deferred commit, expiry, overflow and the composed message (CP-28) | `starter/src/lib/undo.ts` | READY |
+| Confirmation | Toast host — the message that carries Undo; owns the clock and drains pending commits on unmount | `starter/src/components/ToastHost.tsx` | READY |
+| States | Full-surface wait — configurable copy, named stages, and a route onward once stalled (CP-3) | `starter/src/lib/loading.ts` + `starter/src/components/LoadingScreen.tsx` | READY |
+| Money | Price breakdown — line/adjustment/tax/pass-through arithmetic, rows that add up to the total (CP-29) | `starter/src/lib/pricing.ts` | READY |
+| Money | Price panel — the one itemised breakdown for screen, dialog, export and print | `starter/src/components/PricingPanel.tsx` | READY |
+| UI | Row + header selection — three-state header, visible-set scope, shift-range (CP-18) | `starter/src/lib/selection.ts` + `starter/src/components/SelectionColumn.tsx` | READY |
+| UI | Shared component styling — tabs (DR-3), toasts, wait, price breakdown, selection; semantic tokens only | `starter/src/components/components.css` | READY |
 | Audit trail | Audit model, redaction, set-diffing and the RBAC event builders (CP-27) | `starter/src/lib/audit.ts` | READY |
 | Audit trail | Audit log table — read-only by construction; **composes CP-23** (search · module filter · date presets · sort) and **CP-21** (seven columns), never a second implementation of either | `starter/src/components/AuditLogTable.tsx` | READY |
 | Navigation | Overflow menu with an isolated, confirm-routed sign out | `starter/src/components/MoreMenu.tsx` | READY |
@@ -82,7 +90,7 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Copy | Sentence case for labels, headings and table cells (DR-1) — capitalises the first letter and never lowercases the rest | `starter/src/lib/text-format.ts` | READY |
 | Session | JWT and username/password session persistence — survives reload and backgrounding; ends only on explicit sign out (DR-2) | — | **GAP** — first app to build it contributes back |
 | Install | PWA manifest, icons, service-worker shell, install prompt | — | **GAP** — an option in the customizer, never a silent default |
-| UI | Bulk-action bar | `starter/src/components/BulkBar.tsx` | READY |
+| UI | Bulk-action bar — composes CP-28 (delete confirms with the count and scope named; archive is one click plus Undo) and `selectionSummary`, never a second wording | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
 | Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |
 | Settings | App customizer — per-module enable/disable, button reorder, always-on locks, enabled-only position badges | `starter/src/components/ModuleCustomizer.tsx` + `starter/src/lib/module-customizer.ts` | READY |

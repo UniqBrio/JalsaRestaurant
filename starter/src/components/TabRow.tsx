@@ -11,6 +11,15 @@
  * Scrolling keeps every item at one level, preserves the ordering signal, and shows a partial
  * item at the edge — which is the affordance that tells a user to scroll.
  *
+ * THE SELECTED TAB IS DISTINGUISHED THREE WAYS, NOT ONE (DR-3)
+ *   Every tab carries a visible border, so the row reads as a set of controls rather than a
+ *   line of text. The selected one differs by FILL, BORDER and WEIGHT together: colour alone
+ *   fails a colour-blind user, weight alone is invisible at a glance, and a border alone
+ *   disappears on a small screen. The fill is the `primarySurface` / `onPrimarySurface` pair,
+ *   which the contrast gate asserts in both themes — so a tinted tab never turns its own label
+ *   into pale text on a pale wash. `aria-selected` drives the styling, so the visual state and
+ *   the announced state cannot disagree. See components.css.
+ *
  * THE RULE THAT ACTUALLY CONSTRAINS THE ROW
  *   Because it no longer wraps, nothing stops it growing forever. So: a configuration screen is
  *   NOT a peer of a daily-use list. Before adding an item, ask what KIND it is and how often it
@@ -18,6 +27,7 @@
  *   action, or on its own screen.
  */
 import React, { useEffect, useRef } from 'react';
+import './components.css';
 
 export interface Tab { id: string; label: string; badge?: string }
 

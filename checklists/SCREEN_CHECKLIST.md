@@ -39,10 +39,13 @@ mount? Read one before writing this one.
 ## States
 
 **8.** Empty, loading, error and offline all exist, and **loading always terminates** (a
-`finally`, not a hope). A never-resolving spinner is a failure, not a skip.
+`finally`, not a hope). A never-resolving spinner is a failure, not a skip. A full-surface wait
+says what is being made and offers a way onward once stalled (CP-3).
 
-**9.** Destructive actions confirm. Reversible ones use undo, not a dialog. An input dialog
-**never dismisses on a backdrop tap**, and closing with unsaved changes asks first.
+**9.** Destructive actions confirm, naming the record or the count — never "Are you sure?" alone.
+Reversible ones use **undo in the message**, not a dialog, and the undo is a deferred commit that
+cannot fail (CP-28). An input dialog **never dismisses on a backdrop tap**, and closing with
+unsaved changes asks first.
 
 ## Appearance
 
@@ -55,7 +58,8 @@ compiled" is not evidence that text is readable.
 using the shared clearance constant, never a hand-picked number.
 
 **13.** Emphasis names a meaning. Peer actions share one treatment, **at most one is primary**,
-and status is never conveyed by colour alone.
+and status is never conveyed by colour alone — a selected tab, chip or segment differs by fill,
+border AND weight, on a declared contrast pair (DR-3).
 
 ## Data
 
@@ -64,7 +68,9 @@ and status is never conveyed by colour alone.
 **15.** Every query is tenant-scoped. A permission denial shows an honest no-access state —
 never an empty list that looks like real data.
 
-**16.** Entity cardinality matches what the requirements actually specified.
+**16.** Entity cardinality matches what the requirements actually specified. Multi-select lists
+carry a row checkbox and a three-state header scoped to the **visible** set (CP-18); any total
+shown is itemised, never one opaque figure (CP-29).
 
 ## Done
 

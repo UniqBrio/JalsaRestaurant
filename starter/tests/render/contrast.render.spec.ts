@@ -47,6 +47,12 @@ const TARGETS = [
   { selector: '[data-testid="page-title"]', min: 4.5, state: 'default' },
   { selector: '[data-testid="page-subtitle"]', min: 4.5, state: 'default' },
   { selector: '[data-testid="status-badge"]', min: 4.5, state: 'default' },
+  // DR-3 — the selected tab is the one element whose background CHANGES under it. The token
+  // pair is asserted by the contrast gate; this asserts the tab actually used it, which is the
+  // defect the token gate structurally cannot see. Both states are listed: an unselected tab
+  // that became unreadable while the selected one was being tuned is the same bug, unnoticed.
+  { selector: '.tab-row__tab[aria-selected="true"]', min: 4.5, state: 'tab selected' },
+  { selector: '.tab-row__tab[aria-selected="false"]', min: 4.5, state: 'tab unselected' },
 ];
 
 for (const theme of THEMES) {

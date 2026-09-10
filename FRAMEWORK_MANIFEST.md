@@ -115,6 +115,19 @@ round N−1's file.
 | `starter/src/lib/audit.ts` | CP-27: the audit model — actor resolution that never invents "System", secret redaction, set-diffing so a reorder is not a change, and the three RBAC event builders. No updater, no deleter |
 | `starter/src/components/AuditLogTable.tsx` | CP-27: the audit log table. Read-only by construction; composes CP-23 and CP-21 rather than rebuilding search, filters, sorting or column control |
 | `starter/tests/unit/audit.unit.spec.ts` | The rung under CP-27 — 19 assertions executed against the compiled lib |
+| `starter/src/lib/loading.ts` | CP-3 (user half): the waiting screen's decision — working / slow / stalled, configurable copy that falls back rather than blanking, and thresholds repaired so the stalled state can never be unreachable |
+| `starter/src/components/LoadingScreen.tsx` | The full-surface wait: the promise, the named stages, a `currentColor` line diagram needing no per-theme asset, and a route onward once stalled |
+| `starter/tests/unit/loading.unit.spec.ts` | The rung under CP-3's user half — 7 assertions executed against the compiled lib |
+| `starter/src/lib/pricing.ts` | CP-29: the money breakdown — rows rounded once and summed, tax after adjustments, pass-through out of revenue, an over-discount reported not clamped |
+| `starter/src/components/PricingPanel.tsx` | CP-29: the one itemised price breakdown, for screen, dialog, export and print. Reuses the shared currency formatter; never adds up its own props |
+| `starter/tests/unit/pricing.unit.spec.ts` | The rung under CP-29 — 11 assertions executed against the compiled lib |
+| `starter/src/lib/undo.ts` | CP-28: undo as a **deferred commit** — the window, the refusals (`too-late`, `already-undone`), overflow that commits rather than drops, and the message composed from real values |
+| `starter/src/components/ToastHost.tsx` | CP-28: the message carrying Undo. Owns the clock; drains pending commits on tick and on unmount, so no action is silently discarded |
+| `starter/tests/unit/undo.unit.spec.ts` | The rung under CP-28 — 9 assertions executed against the compiled lib |
+| `starter/src/lib/selection.ts` | CP-18: the set arithmetic behind the checkboxes — three-state header, visible-set scope, reconciliation that reports what a filter change dropped |
+| `starter/src/components/SelectionColumn.tsx` | CP-18: the row checkbox and the indeterminate header checkbox, as native inputs (CP-22) |
+| `starter/tests/unit/selection.unit.spec.ts` | The rung under CP-18's selection half — 9 assertions executed against the compiled lib |
+| `starter/src/components/components.css` | The shared visual treatments: tabs (DR-3), toasts, the wait, the price breakdown, row selection. Semantic tokens only — no literal, no second stylesheet to drift |
 | `par.mjs` | Runs independent checks **concurrently** and reports each one's cost. Backs `audit:all` and `guard:test`; deliberately NOT the gate, whose order is a prerequisite chain. Aggregates every failure instead of stopping at the first |
 | `review-plan.mjs` | Decides **which review passes a change needs, from the diff** — the executable form of the review matrix, and the authority for selection |
 | `review-plan.test.sh` | **Executes** the selector against built diffs in scratch repositories, including that the same diff twice yields a byte-identical plan |

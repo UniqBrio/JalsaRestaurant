@@ -13,6 +13,93 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Gate run - 2026-09-10 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
+Time: 4.3s total - slowest G10 Backward compatibility (fixtures) (3.8s).
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (76ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (71ms)
+- **G3 Theme assets present per theme** - PASS (73ms)
+- **G4 No hard-coded colours** - PASS (91ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (74ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.8s)
+- **G11 Wide tables are configurable** - PASS (73ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Cases added - 2026-09-10 - v1.29.0 (the six design directives)
+
+Four new unit specs, 36 assertions, executed against the **tsc-compiled actual modules** with a
+minimal `test`/`expect` harness, because this environment has no package registry and therefore
+no Playwright runner. That substitution is stated rather than hidden: the specs are written for
+`@playwright/test` and will run under `npm run test:unit` in any environment with dependencies
+installed; what was verified here is the **logic**, not the runner.
+
+FAIL-FIRST: starter/tests/unit/pricing.unit.spec.ts - with `payable` summed from the RAW line
+values instead of the rounded rows, "THE ROWS SHOWN ADD UP TO THE TOTAL SHOWN" failed: three
+rows of 33.34 under a total of 100.01. Fixed: 11 passed.
+
+FAIL-FIRST: starter/tests/unit/loading.unit.spec.ts - with `resolveThresholds` returning the
+configured value unordered, "a stalled threshold at or below the slow one is REPAIRED" failed
+with `expected > 5000, got 1000` - the state carrying the only way out of the screen was
+unreachable. Fixed: 7 passed.
+
+FAIL-FIRST: starter/tests/unit/undo.unit.spec.ts - with `pushToast` returning an empty commit
+list for its overflow, "AN OVERFLOWING QUEUE COMMITS THE OLDEST" failed with
+`expected ["a"], got []` - a pending archive silently discarded. Fixed: 9 passed.
+
+FAIL-FIRST: starter/tests/unit/selection.unit.spec.ts - with `reconcileSelection` keeping every
+id regardless of the view, "a filter change drops what left the view, and SAYS how many" failed
+with `expected ["r1","r2"], got ["r1","r2","r9"]` - a bulk action reaching a row the user could
+no longer see. Fixed: 9 passed.
+
+FAIL-FIRST: scripts/audits/check-column-control.mjs (gate change, so it carries cases) - the
+detector counted `<th scope="row">` as a column, so a correct three-column table with a row
+header was reported as four and demanded a column control. Observed BLOCKED on
+`starter/src/components/PricingPanel.tsx|4` before the fix. After the fix, executed against
+scratch fixtures: a 4-column table with a row header still BLOCKS (exit 2), an unmarked
+4-column table still BLOCKS, and the 3-column table with a row header passes (exit 0). The gate
+can still fire; it no longer pushes an accessibility regression to make itself green.
+
+NOT OBSERVED FAILING: starter/tests/render/contrast.render.spec.ts (two tab targets added under
+DR-3) - it needs a browser and a running application, and this environment has neither. The
+token pair it asserts (`primarySurface` / `onPrimarySurface`) IS verified here, in both themes,
+by G2.
+
+---
+
+## Gate run - 2026-09-10 - VERDICT: BLOCKED
+
+Steps: 7 pass, 0 fail, 4 blocked.
+Time: 4.1s total - slowest G10 Backward compatibility (fixtures) (3.6s).
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (74ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (67ms)
+- **G3 Theme assets present per theme** - PASS (64ms)
+- **G4 No hard-coded colours** - PASS (69ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" - not fetched from the registry on purpose. Run `npm install` (provides typescript), or state why this class is unverified.
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass
+- **G9 Automation addressability** - PASS (67ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (77ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
 FAIL-FIRST: starter/tests/unit/audit.unit.spec.ts - 19 assertions executed against the
 esbuild-compiled actual lib (19/19 pass). Two defects were INJECTED into
 starter/src/lib/audit.ts and both were observed failing before revert:

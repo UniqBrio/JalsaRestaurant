@@ -153,6 +153,14 @@ the canonical patterns register. Craft-level additions:
 - **Consistency beats novelty.** The tenth screen should cost nothing to learn because it
   behaves like the nine before it. An interaction pattern is only "elegant" the second time
   the user meets it.
+- **A selected thing is unmistakably selected — in three ways, not one (DR-3).** Tabs, segmented
+  controls, chips and filter pills all carry a **visible border** whether selected or not: a row
+  of borderless labels does not read as a set of controls at all, and hover — the affordance
+  that would have rescued it — does not exist on a phone. The selected one then differs by
+  **fill, border and weight together**, because each alone fails somebody: colour alone fails a
+  colour-blind user, weight alone is invisible at a glance, a border alone disappears at small
+  sizes. Where the selected state is a background fill, the fill and its label must be a
+  **declared contrast pair**, or the selected tab is the one whose name nobody can read.
 
 ## 7. The polish pass — small details, checked deliberately
 
@@ -166,7 +174,9 @@ of them are forgotten:
   disabled states all exist and all differ.
 - Empty, one-item and thousand-item versions of every list are each designed — the singular
   label, the plural, the overflowing.
-- Loading is layout-stable: content appears where the skeleton was, nothing jumps.
+- Loading is layout-stable: content appears where the skeleton was, nothing jumps. A wait that
+  takes over the whole surface says what is being made and, past a threshold, admits it has gone
+  wrong and offers a way onward (CP-3) — never the same cheerful message at minute three.
 - The favicon, the page title, the toast position, the scroll restoration — the frame around
   the feature behaves as deliberately as the feature.
 
