@@ -4,6 +4,17 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-11 - the guest journey (issue #3, row 1)
+
+FAIL-FIRST: tests/functional/guest-journey.functional.spec.ts - first run on the build
+container: `guest-welcome` never appears; `unreachable-guest` renders. Red where it cannot run.
+
+NOT OBSERVED FAILING: tests/functional/guest-journey.functional.spec.ts (all data assertions) -
+not executable here. First execution is the first CI run against the dedicated test project,
+after `npm run test:reset`. Record that run's log here when it lands.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-11 - the database reachability rung
 
 FAIL-FIRST: tests/functional/reachability.functional.spec.ts - first run on the build container,

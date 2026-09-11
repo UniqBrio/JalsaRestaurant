@@ -5,6 +5,26 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Guest journey spec - 2026-09-11 - written, not yet executed against data
+
+Runs ONLY against a dedicated test project, reset to its seed first by
+jalsa/scripts/reset-test-db.mjs (refuses the development/production project by ref, refuses
+without APP_ENV=test and RESET_TEST_DB=yes). Issue #3, row 1.
+
+FAIL-FIRST: jalsa/tests/functional/guest-journey.functional.spec.ts - run first on the build
+container, where the database is unreachable: the first assertion (`guest-welcome` visible)
+fails with `unreachable-guest` rendered instead. Proves the file goes red, not silent, where it
+cannot run.
+
+NOT OBSERVED FAILING: jalsa/tests/functional/guest-journey.functional.spec.ts (every data
+assertion - round present in state, status payment_requested, tip recorded, second phone joins
+the same bill) - they cannot be executed on the build container at all. The first CI run against
+the test project is their first execution; its log is the evidence to record here in the same
+change that proves it green. Until then this file has never been seen passing.
+
+
+---
+
 ## Close-out - KL-1 - 2026-09-11 - run 34577750747 on claude/close-kl1-kl3 @ 5e49d73
 
 304 passed, 0 skipped, 0 failed. `reachability.functional.spec.ts` green on all six functional

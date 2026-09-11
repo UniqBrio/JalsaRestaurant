@@ -28,7 +28,8 @@
     "audit:all": "node ../scripts/par.mjs \"theme-sync=npm run --silent theme:check\" \"contrast=npm run --silent theme:contrast\" \"theme-assets=npm run --silent theme:assets\" \"colors=npm run --silent audit:colors\" \"testids=npm run --silent audit:testids\" \"columns=npm run --silent audit:columns\" \"fixtures=npm run --silent audit:fixtures\" \"deadweight=npm run --silent audit:deadweight\"",
     "theme:check": "node ../scripts/theme-build.mjs --tokens design/tokens.json --out src/theme --check",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "test:reset": "node scripts/reset-test-db.mjs"
   },
   "//": "Dependencies ARE pinned here, deliberately: the starter is a shape, but a restaurant that cannot reproduce tonight's build tomorrow morning has no build. Every version below was installed and verified at scaffold time and the lockfile is committed.",
   "dependencies": {
