@@ -55,10 +55,15 @@ which is worse than no run because the report then says `mobile-ios passed`.
 coverage did NOT run` to stderr on every run. Geometry is still covered at four viewports
 (`desktop`, `desktop-wide`, `mobile`, `mobile-short`), on Chromium.
 
-**What is therefore unverified.** Safari-specific layout and input behaviour — `100dvh` under the
-iOS toolbar, momentum scrolling inside the bottom sheets, and date/number input rendering. Run
-`npx playwright install webkit` on a machine with egress and re-run without the override to close
-this.
+**What is therefore unverified _here_.** Safari-specific layout and input behaviour — `100dvh`
+under the iOS toolbar, momentum scrolling inside the bottom sheets, and date/number input
+rendering.
+
+**Closed in CI, 11-Sep-2026.** `.github/workflows/e2e.yml` installs both engines
+(`npx playwright install --with-deps chromium webkit`), never sets `PLAYWRIGHT_CHROMIUM_PATH`, and
+**fails the job** if the two WebKit projects are absent from `--list` — so the conditional drop
+cannot quietly reappear there. This entry stays active because it still describes the build
+container, where the suite is written; it is no longer a gap in what the repository verifies.
 
 ---
 
