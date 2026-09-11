@@ -81,11 +81,14 @@ mobile-ios` on stderr. It does not quietly substitute Chromium for Safari.
 | render | 14 | computed contrast on real elements, both themes, every target asserted to exist |
 | functional | 20 × 4 viewports + degraded | sign-in end to end, keyboard parity, geometry at 320–1920px, and the whole outage path against a real second instance with no database |
 
-**252 assertions pass. The data journeys — the guest's, the captain's and the owner's — are BLOCKED,
-not passing**: this build container's egress policy refuses the Supabase host, so the application
-could never be run against its own database here. The evidence, the exact denial and the list of
-what that leaves unverified are KL-1 in `docs/registers/KNOWN_LIMITATIONS.md`. Run the suite on a
-machine with outbound access and those journeys are the first thing to write.
+**304 assertions pass in CI** (run [34577750747](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34577750747)), on Chromium
+and WebKit across six viewport projects, including a read-only round trip to the live database.
+KL-1 and KL-3 in `docs/registers/KNOWN_LIMITATIONS.md` are **closed** on that evidence.
+
+**What is still not verified — a coverage gap, not a limitation.** The guest, captain and owner
+*data* journeys have no specs yet; only their reachability and their outage behaviour do. The
+build container itself still cannot reach the database, so those journeys will be written and
+proven in CI, never here. `tests/cases/reference/README.md` lists them.
 
 ---
 

@@ -43,8 +43,34 @@ mitigation. Rung: `set_own_pin` rejects the shared code (verified against the li
 
 ---
 
+### KL-2 — Thermal printers are unvalidated, so every KOT is written and then marked failed
+**Since** 10-Sep-2026 · **Category** unvalidated dependency
+
+No printer has been connected to this build. All four seeded printers carry `online = false`, and
+`queuePrint` persists the job first and then marks it `print_status = 'failed'` when no printer is
+reachable, with a visible retry on the KOT.
+
+**Why not hide it.** A kitchen ticket that silently did not print is the single most expensive
+failure this application can have — the guest waits, the kitchen never knew, and nobody finds out
+until the table asks. A visible red retry on every KOT is the honest state until a printer is
+actually on the network, and it is what the staff surface is designed around.
+
+---
+
+## Resolved / expired
+
+| ID | Resolved | Date | Notes |
+|---|---|---|---|
+| KL-1 | `.github/workflows/e2e.yml`, run [34577750747](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34577750747) on `claude/close-kl1-kl3` @ `5e49d73` | 11-Sep-2026 | **304 passed, 0 skipped, 0 failed.** `tests/functional/reachability.functional.spec.ts` passed on all six functional projects — a read-only round trip (`restaurant` by slug, then `dining_table`) that only renders `guest-unknown-table` after a reachable, **seeded** database answered; `unreachable-guest` and `not-configured` both asserted absent, and zero unreachable/unseeded errors from the configured instance in the log. **Not closed on run 34575687627** — that run never touched the database (`supabase.co` appears nowhere in its log), and citing it would have been RC-009. **Residual, stated plainly:** the guest, captain and owner data journeys still have **no specs** (`tests/cases/reference/README.md`). That was never the platform's doing; it is the next test-writing task, and it is no longer blocked by anything. |
+| KL-3 | `.github/workflows/e2e.yml`, run [34575687627](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34575687627) on `main` @ `6fdc6d2` | 11-Sep-2026 | **298 passed, 0 skipped**, on Chromium and WebKit. The log carries 20 `[tablet]` and 20 `[mobile-ios]` results and **zero** `SKIPPED:` lines, so the conditional drop did not fire; the job's own assertion step would have failed it if it had. What the build container cannot run, CI now runs on every dispatch. (Attempt 1 of the same run failed before attempt 2 went green; its log was not retrievable through the API and is not part of this evidence.) |
+
+---
+
 ### KL-3 — WebKit is not installed on the build container, so `tablet` and `mobile-ios` do not run
-**Since** 10-Sep-2026 · **Category** environment
+**Since** 10-Sep-2026 · **CLOSED** 11-Sep-2026 · **Category** environment
+
+> **Resolved.** Kept in full, below the table, because the build container it describes has not
+> changed — only where the evidence comes from has.
 
 `/opt/pw-browsers` supplies Chromium only. The two iOS-flavoured Playwright projects are backed by
 WebKit; pointing WebKit at a Chromium binary produces a Chromium run wearing an iPhone's viewport,
@@ -67,22 +93,14 @@ container, where the suite is written; it is no longer a gap in what the reposit
 
 ---
 
-### KL-2 — Thermal printers are unvalidated, so every KOT is written and then marked failed
-**Since** 10-Sep-2026 · **Category** unvalidated dependency
-
-No printer has been connected to this build. All four seeded printers carry `online = false`, and
-`queuePrint` persists the job first and then marks it `print_status = 'failed'` when no printer is
-reachable, with a visible retry on the KOT.
-
-**Why not hide it.** A kitchen ticket that silently did not print is the single most expensive
-failure this application can have — the guest waits, the kitchen never knew, and nobody finds out
-until the table asks. A visible red retry on every KOT is the honest state until a printer is
-actually on the network, and it is what the staff surface is designed around.
-
 ---
 
 ### KL-1 — The database is unreachable from the build container, so the data journeys are BLOCKED, not passing
-**Since** 10-Sep-2026 · **Category** environment · **Blocks** the largest part of the functional tier
+**Since** 10-Sep-2026 · **CLOSED** 11-Sep-2026 · **Category** environment
+
+> **Resolved as a limitation.** Kept in full because the build container it describes has not
+> changed. What follows is the entry as written while it was open; the residual it leaves behind
+> is a **coverage gap**, not a platform limit — see the Resolved row.
 
 The container's egress policy refuses `yxgxmbyilpivbmeemqkp.supabase.co`. This is a policy denial,
 not a credential problem.
@@ -117,9 +135,3 @@ are unit-tested against their real modules (56 cases).
 **To close this.** Add `*.supabase.co` to the environment's network egress allowlist
 (https://code.claude.com/docs/en/claude-code-on-the-web), or run the suite on a machine with
 outbound access: `npm run dev` then `npx playwright test`.
-
-## Resolved / expired
-
-| ID | Resolved | Date | Notes |
-|---|---|---|---|
-| _none yet_ | | | |

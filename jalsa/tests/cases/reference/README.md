@@ -29,6 +29,8 @@ live in the framework at `starter/tests/functional/`.
 | Archive semantics, round-tripped through a re-read | CP-26 | **NOT EXECUTED** — same |
 | Two records with the same name stay distinguishable | CP-26 | **NOT EXECUTED** — same |
 
-The three NOT EXECUTED rungs are blocked, not skipped, and the reason is recorded with its
-evidence in `docs/registers/KNOWN_LIMITATIONS.md` (KL-1). They are the first thing to write when
-the database is reachable from a test runner.
+The three NOT EXECUTED rungs were blocked by KL-1 until 11-Sep-2026. **KL-1 is now closed** —
+`tests/functional/reachability.functional.spec.ts` proved the configured instance reaches the
+seeded database in CI (run 34577750747) — so nothing blocks them any more. They are a **coverage
+gap**, and the first thing to write: each needs a test that runs only in CI and, because the only
+project is the seeded one, writes nothing it does not clean up.

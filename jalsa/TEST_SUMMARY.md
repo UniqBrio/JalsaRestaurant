@@ -4,6 +4,17 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-11 - the database reachability rung
+
+FAIL-FIRST: tests/functional/reachability.functional.spec.ts - first run on the build container,
+where egress to *.supabase.co is refused by policy: `expect(locator).toBeVisible() failed -
+Locator: getByTestId('guest-unknown-table') - element(s) not found` after the 8s wait; the page
+rendered `unreachable-guest` instead. That is the pre-fix state of KL-1, observed by the assertion
+written to close it. Read-only by construction: an unknown table name runs the same two SELECTs
+as a real one and returns before the guest_session insert, so the suite still writes nothing.
+
+---
+
 ## Gate run - 2026-09-11 - VERDICT: PASS
 
 Steps: 11 pass, 0 fail, 0 blocked.
