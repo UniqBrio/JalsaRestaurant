@@ -104,16 +104,15 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
   s = await state(page);
   expect(s.billStatus, 'asking for the bill is a request, not a closure').toBe('payment_requested');
 
-  // 6. Tip. Skip the upsell if it appears, choose the first configured amount, read it back.
+  // 6. Tip. Skip the upsell if it appears, then choose ₹20 — the seed's tip options are
+  //    [0, 10, 20, 30] and the seed IS the fixture, so the value is deterministic. Not "the first
+  //    chip": that is 0, addTip returns early on a zero, and the read-back would prove nothing.
   const skip = page.getByTestId('guest-upsell-skip');
   if (await skip.isVisible().catch(() => false)) await skip.click();
   await expect(page.getByTestId('guest-tip')).toBeVisible();
-  const tips = page.locator('[data-testid^="guest-tip-"]').filter({ hasNot: page.getByTestId('guest-tip') });
-  await expect(tips.first()).toBeVisible();
-  const label = (await tips.first().innerText()).trim();
-  await tips.first().click();
+  await page.getByTestId('guest-tip-20').click();
   s = await state(page);
-  expect(s.tipChosen, `the tip chosen (${label}) is on the bill`).toBeGreaterThan(0);
+  expect(s.tipChosen, 'the ₹20 tip is on the bill, read back through the state route').toBe(20);
   expect(s.billStatus, 'a tip does not close a bill').toBe('payment_requested');
 
   // 7. "Pay at the table" hands the closure to a person. The guest's half ends here.

@@ -5,6 +5,27 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Test project seeded and the reset interlocks proven - 2026-09-11
+
+Supabase project uxmyomxtosjlkvjxnvpy (JalsaRestaurant-test, ap-southeast-2) created on the
+user's free-tier confirmation ($0/month, second of two free projects) and seeded with the four
+migrations verbatim. Verified by SQL: restaurant 1, tables 20 (A5 active), menu items 57,
+staff 27 (10 with PIN, all provisional), permission rows 278, settings 11, tip options
+[0,10,20,30], counters bill 1041 / kot 105 / group 7, bills 0, sessions 0.
+
+FAIL-FIRST: jalsa/scripts/reset-test-db.mjs - all four interlocks observed refusing with exit 2
+BEFORE any network call: APP_ENV=development -> `APP_ENV is "development", not "test"`;
+RESET_TEST_DB=no -> `RESET_TEST_DB is not "yes"`; the development/production ref
+yxgxmbyilpivbmeemqkp -> `is the development/production project. This script must never touch
+it`; empty SUPABASE_SECRET_KEY -> refused. With all four satisfied for the TEST ref it got past
+every interlock and failed only at `deleting bill: TypeError: fetch failed` - this container's
+egress policy - which is the proof the deny-list ALLOWS the test project.
+
+Spec correction before first run: the seed's first tip option is 0, so "click the first chip"
+would have chosen a zero tip that addTip drops; the spec now chooses guest-tip-20 and asserts
+tipChosen === 20. Found by reading the seed, not by a run - recorded so the first CI run is not
+credited with a defect the fixture already revealed.
+
 ## Guest journey spec - 2026-09-11 - written, not yet executed against data
 
 Runs ONLY against a dedicated test project, reset to its seed first by
