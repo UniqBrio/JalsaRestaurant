@@ -1,0 +1,37 @@
+{
+  "name": "app-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test:unit": "playwright test tests/unit --reporter=list",
+    "test:functional": "playwright test tests/functional --reporter=list,html",
+    "test:render": "playwright test tests/render --reporter=list",
+    "test:all": "playwright test --reporter=list,html",
+    "theme:build": "node ../scripts/theme-build.mjs --tokens design/tokens.json --out src/theme",
+    "theme:contrast": "node ../scripts/check-contrast.mjs --tokens design/tokens.json --baseline .baselines/contrast-baseline.txt",
+    "gate": "node ../scripts/gate-runner.mjs --cwd ."
+  },
+  "//": "Dependencies are declared as RANGES and deliberately NOT pinned: this starter is a SHAPE, not a lockfile. Declaring them at all is what makes `npm install` produce a toolchain, so G5-G8 (types, lint, unit, functional) can RUN - with none declared they were BLOCKED in every environment, including CI, and were for 28 consecutive gate runs. Each name was verified against the registry before being written here (RC-011). When you scaffold: install, verify each package is the intended one, and commit the lockfile.",
+  "dependencies": {
+    "next": "^16",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
+    "eslint": "^10",
+    "typescript": "^5",
+    "typescript-eslint": "^8.70.0"
+  }
+}

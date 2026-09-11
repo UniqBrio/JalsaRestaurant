@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" width="260" height="64" role="img" aria-label="Jalsa Restaurant, Hosur">
+  <rect x="2" y="4" width="56" height="56" rx="18" fill="#7A1C24"/>
+  <path d="M38 20v18.5c0 5.3-3.6 8.5-9 8.5-4.4 0-7.6-2.2-8.8-5.9l5.2-1.7c.6 1.7 1.9 2.6 3.6 2.6 2.1 0 3.4-1.4 3.4-3.9V20z" fill="#FFFFFF"/>
+  <circle cx="43.5" cy="21.5" r="3" fill="#FFD9A0"/>
+  <text x="76" y="34" font-family="Poppins, 'Noto Sans', system-ui, sans-serif" font-size="26" font-weight="700" fill="#201C1B" letter-spacing="-0.5">Jalsa</text>
+  <text x="77" y="48" font-family="'Noto Sans', system-ui, sans-serif" font-size="9.5" font-weight="600" fill="#665D59" letter-spacing="2.4">RESTAURANT · HOSUR</text>
+</svg>

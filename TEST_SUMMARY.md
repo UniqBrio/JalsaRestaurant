@@ -3,6 +3,83 @@
 _Newest run first. **Append-only: never overwrite a prior run.**_
 _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps for them._
 
+---
+
+## Review run - Track R - 2026-09-11 - VERDICT: PASS
+
+Post-generation review of the generated Jalsa application. Framework `audit:all` 10/10,
+`guard:test` 10/10 (89 assertions, 6 new), fixtures green -> green, app gate PASS 11/11.
+
+FAIL-FIRST: jalsa/tests/unit/refresh-gate.unit.spec.ts - "a refresh a person caused is never
+dropped" was written against the behaviour `useLiveData` actually shipped with: a single
+`inFlight` boolean and an unconditional `if (inFlight.current) return;`. Modelled exactly, it
+fails - `begin(g)` true, `begin(g, true)` false, `end(g)` **false** where true is required, so
+nothing ever re-runs the read. `expected true, received false`. That is a captain's round sent,
+the screen refused its own confirmation for up to six seconds, and the obvious human response
+being to press Send again. Fixed by src/hooks/refresh-gate.ts; the same run turned green.
+
+NOT OBSERVED FAILING: jalsa/tests/unit/refresh-gate.unit.spec.ts ("a scheduled poll is dropped
+freely") - it is the behaviour the old code already had. It is asserted so the fix above cannot
+be implemented by making every refresh queue, which would rebuild the request pile-up the drop
+existed to prevent.
+
+FAIL-FIRST: scripts/audit-scope.test.sh - all six cases failed against the pre-scope audits,
+which printed the OK line and nothing else. The load-bearing one is "the scope travels WITH the
+verdict, whatever the verdict is": it was observed failing a second time mid-run, when adding
+the test file itself turned the dead-weight audit BLOCKED and the assertion was still pinned to
+the OK line. Both the audit (it caught its own new unreferenced script) and the test (it was
+over-specified) were doing their jobs; the assertion is now verdict-agnostic.
+
+FAILFIRST-NA: framework-upstream/** - every spec under this path is a READ-ONLY SNAPSHOT of
+UniqBrio/custom-web-app-development-framework v1.35.0 (commit 4cdc7b4), copied verbatim so this
+review could read the current canonical runbooks rather than this repository's v1.29.0 copy.
+Nothing under that directory is executed, maintained, or authoritative here, and re-deriving
+fail-first evidence for sixteen upstream specs would mean injecting sixteen defects into code
+this repository did not write and does not run. See framework-upstream/README-SNAPSHOT.md.
+
+> Guard G3 reads only the ROOT `TEST_SUMMARY.md`, so `jalsa/`'s own evidence is invisible to it
+> and has to be summarised here as well. That is CAND-002 in `docs/registers/CANDIDATES.md`,
+> parked at n=1 - and this run is its second sighting. It is now at n=2 and eligible for
+> promotion through `workflows/promote.md`.
+
+
+---
+
+## Application run - jalsa - 2026-09-10 - VERDICT: PASS
+
+Gate 11/11, 0 blocked. 252 assertions across three tiers, 8/8 audits clean.
+
+**The full record for this run lives in `jalsa/TEST_SUMMARY.md`**, which is the append-only gate
+log for that application. This block exists because guard G3 reads only the root file, and an
+application in a subdirectory is a layout the guard does not yet understand - recorded as
+CAND-002 rather than escaped with a token.
+
+FAIL-FIRST: jalsa/tests/functional/signin.functional.spec.ts - "submits exactly once" failed on
+its first run against shipped code: `expected 1, received 2`. PinSignIn called submit() inside a
+setPin updater and React 19 invokes updaters twice under StrictMode, so every correct PIN made two
+sign-in attempts. Fixed.
+
+FAIL-FIRST: jalsa/tests/functional/keyboard-signin.functional.spec.ts - the same defect, found
+independently by the keyboard route: `expected 1, received 2`.
+
+FAIL-FIRST: jalsa/tests/functional/degraded.functional.spec.ts - every assertion failed before the
+fix. `/t/A5` returned **500**: supabase-js's `TypeError: fetch failed` escaped a server component
+and Next.js rendered its own error page in a guest's hand. Fixed with `attempt()` and
+`UnreachableState`.
+
+FAIL-FIRST: jalsa/tests/render/jalsa-surfaces.render.spec.ts - two dark-theme targets failed at
+2.40:1, reporting colours in neither palette, because the theme was applied after navigation and
+`transition-colors` was still running. The measurement was wrong, not the screen.
+
+FAIL-FIRST: jalsa/tests/unit/{money,status,permissions,guest-phase}.unit.spec.ts - four mutations
+observed failing; two of them are recorded with their own corrections, where the FIRST attempt did
+not reproduce and was therefore not evidence.
+
+NOT OBSERVED FAILING and FAILFIRST-NA entries for every remaining spec in that tree - including
+the fifteen inherited from the scaffold, which this change did not write - are enumerated in
+`jalsa/TEST_SUMMARY.md`.
+
+
 > The run below is real — produced while this framework was being verified. It is BLOCKED rather
 > than PASS because the build environment had no package registry, so the type, lint and test
 > steps could not be obtained. That is the correct verdict: those classes were **not verified**,

@@ -1,0 +1,144 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { handleError } from '@/lib/errors';
+import { newGate, begin, end } from './refresh-gate';
+
+/**
+ * useLiveData — the ONE way this application keeps a screen current (Standard 10.4).
+ *
+ * All three surfaces need the same four behaviours, and every one of them is a defect if a
+ * screen invents its own version:
+ *
+ *   1. POLL, don't stream. What arrives from elsewhere — a round sent, a round ready, a request
+ *      raised, a dish sold out — is seconds-urgent, not milliseconds-urgent, and every one of
+ *      those events also has a person narrating it in the room. Polling survives a dead spot
+ *      without a reconnect storm, and it needs no browser-reachable database policy, so a phone
+ *      on the restaurant's wifi still cannot read anyone else's bill.
+ *
+ *   2. STOP WHEN HIDDEN. A handset in an apron pocket polling all evening is a flat battery by
+ *      nine. It resumes on focus and re-reads immediately, so returning to the tab shows the
+ *      truth rather than a stale screen under a spinner.
+ *
+ *   3. NEVER BLANK ON FAILURE. The last good payload stays and a reason is surfaced beside it.
+ *      A captain in a dead spot can still read the table they are standing at; blanking would be
+ *      honest about the network and useless about the work.
+ *
+ *   4. ONE IN FLIGHT — BUT A WRITE'S OWN READ IS NEVER DROPPED. A slow response must not stack
+ *      up behind itself and arrive out of order, which is how a screen ends up showing an older
+ *      state than the one it just showed. That applies to SCHEDULED polls. The read that follows
+ *      a write is a different thing and `refresh-gate.ts` treats it as one: dropping it leaves
+ *      the person looking at a screen that does not show what they just did, and the next thing
+ *      they do is press the button again. See that file for the account.
+ */
+
+export interface LiveData<T> {
+  data: T;
+  refreshing: boolean;
+  /** Set when the LAST refresh failed. `data` still holds the last good answer. */
+  staleReason: string | null;
+  refresh: () => Promise<void>;
+  /** POST JSON, then refresh — a refresh that is never dropped. Throws with a user-worded
+   *  message for the caller to surface. */
+  send: <R>(path: string, payload: unknown) => Promise<R>;
+}
+
+export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): LiveData<T> {
+  const [data, setData] = useState<T>(initial);
+  const [refreshing, setRefreshing] = useState(false);
+  const [staleReason, setStaleReason] = useState<string | null>(null);
+  const gate = useRef(newGate());
+  /** The last payload as sent by the server. Compared as text so an identical poll changes no
+   *  state at all — on the owner console that is one large tree not re-rendering every 8
+   *  seconds for a screen that did not change. */
+  const lastText = useRef<string | null>(null);
+
+  const refreshOnce = useCallback(
+    async (force: boolean): Promise<boolean> => {
+      if (!begin(gate.current, force)) return false;
+      setRefreshing(true);
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`${url} ${res.status}`);
+        const text = await res.text();
+        if (text !== lastText.current) {
+          lastText.current = text;
+          setData(JSON.parse(text) as T);
+        }
+        setStaleReason(null);
+      } catch (err) {
+        const handled = handleError(err, 'live.refresh');
+        setStaleReason(handled.message ?? 'This screen is not live at the moment.');
+      }
+      // Deliberately NOT a `finally { return ... }`: a return inside finally discards any
+      // exception the block was unwinding. Everything above is caught, so this line is reached
+      // on both paths, and the gate is released exactly once either way.
+      setRefreshing(false);
+      return end(gate.current);
+    },
+    [url]
+  );
+
+  /** A scheduled poll. Dropped without ceremony if a read is already out. */
+  const refresh = useCallback(async () => {
+    await refreshOnce(false);
+  }, [refreshOnce]);
+
+  /** A read a person caused. Waits its turn rather than being dropped. */
+  const refreshNow = useCallback(async () => {
+    if (await refreshOnce(true)) await refreshOnce(true);
+  }, [refreshOnce]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (!timer) timer = setInterval(() => void refresh(), intervalMs);
+    };
+    const stop = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    const onWake = () => {
+      if (document.visibilityState === 'visible') {
+        // Returning to the tab is a person, not a timer: show them the truth, do not drop it.
+        void refreshNow();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('online', onWake);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('online', onWake);
+    };
+  }, [refresh, refreshNow, intervalMs]);
+
+  const send = useCallback(
+    async <R>(path: string, payload: unknown): Promise<R> => {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const parsed = (await res.json()) as R & { message?: string };
+      if (!res.ok) throw new Error(parsed.message ?? 'That did not go through.');
+      // Never `refresh()`. The whole point of this hook is that what you just did appears on
+      // the screen, and a poll already on the wire must not be allowed to swallow that.
+      await refreshNow();
+      return parsed;
+    },
+    [refreshNow]
+  );
+
+  // `refresh` on the returned object is the person-caused one: a screen asking for fresh
+  // data on purpose is never a tick, and every caller of it means "now".
+  return { data, refreshing, staleReason, refresh: refreshNow, send };
+}

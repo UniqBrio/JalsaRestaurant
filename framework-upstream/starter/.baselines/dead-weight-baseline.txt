@@ -1,0 +1,5 @@
+# DEAD WEIGHT BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# REVIEW candidates, never a delete list. Add a reason beside any entry you keep deliberately.
+# Regenerate: node scripts/audits/check-dead-weight.mjs --write-baseline
+# Generated: 2026-08-28 - 0 entries

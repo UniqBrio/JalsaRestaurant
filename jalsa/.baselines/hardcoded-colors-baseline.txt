@@ -1,0 +1,5 @@
+# HARDCODED COLOUR BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# Signature: <path>|<count>. Count is included so a file may only get BETTER, never quietly worse.
+# Regenerate: node scripts/audits/check-hardcoded-colors.mjs --write-baseline
+# Generated: 2026-08-28 - 0 entries

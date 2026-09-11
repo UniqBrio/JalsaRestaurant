@@ -1,0 +1,5 @@
+# COLUMN CONTROL BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# Signature: <path>|<column count>. A table wider than 3 columns with no column control (CP-21).
+# Regenerate: node scripts/audits/check-column-control.mjs --write-baseline
+# Generated: 2026-08-30 - 0 entries

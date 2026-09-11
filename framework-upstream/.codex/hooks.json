@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codex/hooks/pre-tool-use-guard.mjs",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

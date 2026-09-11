@@ -12,6 +12,16 @@
 
 ---
 
+## 1.30.0 — 11-Sep-2026 — MINOR
+
+**A verdict that did not carry its scope, a read that could be dropped, and the review step the intake had no row for**
+
+A post-generation review of a freshly generated application found three causes worth generalising. First: `audit:deadweight` printed OK ... CLEAN GATE while 1,988 lines across 15 unreferenced components sat in the application's src/components/. The audit was not lying - it declines application source deliberately, for a sound reason in its own header - but the header is not what a reader meets. A verdict that cannot be read as narrow will be read as broad, and a close-out cited it as a sweep. `evaluateRatchet` now takes a `scope` and prints it beside EVERY verdict, OK and BLOCKED alike; the dead-weight audit states what it audited, that application source is not audited, and not to cite it as coverage of src/. Second: the one polling hook dropped the read that follows a write whenever a scheduled poll happened to be on the wire, so a screen could keep showing pre-write state for a full interval - and the obvious human response to 'nothing happened' is to press the button again, which in a restaurant is a second round in the kitchen. A refresh a person caused is now never dropped; one a timer caused still is. Third: the request intake had no row for 'review what was generated'. Forced into BUG it makes the run pick a defect before it has evidence for any; forced into FRAMEWORK it asserts a process failure nobody has established. Track R now exists, and its binding rule is that no finding ships without the command that produced it.
+
+### App action required
+Nothing is required. Existing applications keep working unchanged: `scope` is optional on `evaluateRatchet` and an audit that passes none behaves exactly as before. Three things are worth doing. (1) Re-read any close-out that cited `audit:deadweight` as evidence of no dead components - it never audited src/; sweep that directory by hand and state the command. (2) If your application polls, check whether the read that follows a write can be dropped by a poll already in flight; the pattern is in the starter as `refresh-gate.ts`. (3) Use `/review` at the end of a build rather than declaring done - it ends in a framework change or in an explicit 'nothing general was learned', and there is no third ending.
+
+---
 ## 1.29.0 — 2026-09-10 — MINOR
 
 **Six design directives, built once so no application builds them again**

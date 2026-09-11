@@ -1,0 +1,601 @@
+import 'server-only';
+import { db, currentRestaurantId } from '@/lib/supabase/server';
+import { tableStateFrom, type KotStatus } from '@/lib/status';
+import { totalBill } from '@/lib/money';
+import type {
+  AuditRow,
+  Bill,
+  ExpenseRow,
+  FloorTable,
+  Kot,
+  MenuCategory,
+  MenuItem,
+  PrinterRow,
+  StaffMember,
+  Suggestion,
+  TableRequest,
+  TipRow,
+} from './types';
+
+/**
+ * queries - every READ the application makes.
+ *
+ * WHY THE JOINS ARE SPELLED OUT HERE AND NOWHERE ELSE
+ *   A bill is a row, its tables are a join table, its rounds are two more, and its tip is a
+ *   fifth. Assembled at the call site, that shape gets assembled four slightly different ways
+ *   by four screens, and the fourth one forgets that a cancelled line still exists but must
+ *   not be charged. Assembled once, here, every surface is looking at the same bill.
+ *
+ * WHY totals ARE NOT STORED ON THE ROW
+ *   They are computed by `totalBill` from the lines, on every read. A stored total is a second
+ *   source of truth that is correct until the first quantity change that forgets to update it -
+ *   and a wrong total is the single most disputed thing an interface can show (Standard 7.2).
+ */
+
+const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+
+/* ── Menu ──────────────────────────────────────────────────────────────── */
+
+export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuCategory[] }> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('menu_item')
+    .select(
+      'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+    )
+    .eq('restaurant_id', restaurantId)
+    .order('sort', { ascending: true });
+  if (error) throw error;
+
+  const now = Date.now();
+  const items: MenuItem[] = (data ?? []).map((row) => {
+    const cat = row.menu_category as unknown as { id: string; name: string; sort: number };
+    // A dated closure that has run out is not a closure any more. Expiring it on READ rather
+    // than by a scheduled job means the dish comes back on its own, at the minute it should,
+    // without anything having to be running.
+    const closedUntil = row.closed_until as string | null;
+    const stillClosed = closedUntil ? new Date(closedUntil).getTime() > now : false;
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      description: (row.description as string) ?? '',
+      price: Number(row.price),
+      foodType: row.food_type as MenuItem['foodType'],
+      category: cat.name,
+      categoryId: cat.id,
+      imageUrl: (row.image_url as string) ?? '',
+      available: (row.available as boolean) && !stillClosed,
+      closedReason: (row.closed_reason as string) ?? '',
+      closedUntil: stillClosed ? closedUntil : null,
+      sort: (row.sort as number) ?? 0,
+    };
+  });
+
+  const byCat = new Map<string, MenuCategory>();
+  for (const it of items) {
+    const seen = byCat.get(it.categoryId);
+    if (seen) seen.count += 1;
+    else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1 });
+  }
+  const { data: cats } = await db()
+    .from('menu_category')
+    .select('id,name,sort')
+    .eq('restaurant_id', restaurantId)
+    .order('sort', { ascending: true });
+  const categories: MenuCategory[] = (cats ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    sort: (c.sort as number) ?? 0,
+    count: byCat.get(c.id as string)?.count ?? 0,
+  }));
+
+  return { items, categories };
+}
+
+/* ── Bills ─────────────────────────────────────────────────────────────── */
+
+const BILL_SELECT = `
+  id, code, status, group_code, guests, occasion_type, occasion_name, occasion_source,
+  discount_pct, discount_amount, tax_rate, payment_mode, payment_reference,
+  payment_requested_at, closed_at, opened_at,
+  host_table:host_table_id (name),
+  captain:captain_staff_id (id, name),
+  waiter:waiter_staff_id (id, name),
+  closed_by:closed_by_staff_id (name),
+  discount_by:discount_by_staff_id (name),
+  bill_table ( released_at, dining_table:table_id (id, name) ),
+  tip ( amount ),
+  kot (
+    id, code, status, source, placed_by_label, note, print_status, print_attempts,
+    reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
+    dining_table:table_id (name),
+    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason )
+  )
+`;
+
+interface RawRef {
+  name?: string;
+  id?: string;
+}
+
+function shapeBill(row: Record<string, unknown>): Bill {
+  const captain = (row.captain ?? null) as RawRef | null;
+  const waiter = (row.waiter ?? null) as RawRef | null;
+  const closedBy = (row.closed_by ?? null) as RawRef | null;
+  const discountBy = (row.discount_by ?? null) as RawRef | null;
+  const hostTable = (row.host_table ?? null) as RawRef | null;
+
+  const memberships = (row.bill_table ?? []) as Array<{ dining_table: RawRef }>;
+  const tables = memberships
+    .map((m) => m.dining_table?.name ?? '')
+    .filter(Boolean)
+    .sort();
+
+  const tips = (row.tip ?? []) as Array<{ amount: number }>;
+  const tip = tips.reduce((a, t) => a + Number(t.amount), 0);
+
+  const kots: Kot[] = ((row.kot ?? []) as Array<Record<string, unknown>>)
+    .map((k) => {
+      const t = (k.dining_table ?? null) as RawRef | null;
+      return {
+        id: k.id as string,
+        code: k.code as string,
+        status: k.status as KotStatus,
+        source: k.source as Kot['source'],
+        placedBy: (k.placed_by_label as string) ?? '',
+        tableName: t?.name ?? '',
+        note: (k.note as string) ?? '',
+        printStatus: k.print_status as Kot['printStatus'],
+        printAttempts: (k.print_attempts as number) ?? 0,
+        reprintCount: (k.reprint_count as number) ?? 0,
+        createdAt: k.created_at as string,
+        startedAt: (k.started_at as string) ?? null,
+        readyAt: (k.ready_at as string) ?? null,
+        pickedUpAt: (k.picked_up_at as string) ?? null,
+        servedAt: (k.served_at as string) ?? null,
+        items: ((k.kot_item ?? []) as Array<Record<string, unknown>>).map((i) => ({
+          id: i.id as string,
+          name: i.name as string,
+          unitPrice: Number(i.unit_price),
+          qty: i.qty as number,
+          foodType: i.food_type as KotItemFoodType,
+          qtyBefore: (i.qty_before as number) ?? null,
+          cancelledAt: (i.cancelled_at as string) ?? null,
+          cancelReason: (i.cancel_reason as string) ?? '',
+        })),
+      };
+    })
+    // Oldest first. Rounds are read as a history, and a history that starts at the end is
+    // read wrongly by everyone at least once.
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  return {
+    id: row.id as string,
+    code: row.code as string,
+    status: row.status as Bill['status'],
+    tables,
+    hostTable: hostTable?.name ?? tables[0] ?? '',
+    groupCode: (row.group_code as string) ?? null,
+    guests: (row.guests as number) ?? 0,
+    captain: captain?.name ?? 'Unassigned',
+    captainId: captain?.id ?? null,
+    waiter: waiter?.name ?? 'Unassigned',
+    waiterId: waiter?.id ?? null,
+    occasion: row.occasion_type
+      ? {
+          type: row.occasion_type as string,
+          name: (row.occasion_name as string) ?? '',
+          source: (row.occasion_source as string) ?? '',
+        }
+      : null,
+    discountPct: Number(row.discount_pct ?? 0),
+    discountAmount: Number(row.discount_amount ?? 0),
+    discountBy: discountBy?.name ?? null,
+    taxRate: Number(row.tax_rate ?? 5),
+    tip,
+    paymentMode: (row.payment_mode as string) ?? null,
+    paymentReference: (row.payment_reference as string) ?? '',
+    paymentRequestedAt: (row.payment_requested_at as string) ?? null,
+    closedAt: (row.closed_at as string) ?? null,
+    closedBy: closedBy?.name ?? null,
+    openedAt: row.opened_at as string,
+    kots,
+  };
+}
+
+type KotItemFoodType = MenuItem['foodType'];
+
+/** Every line that is actually chargeable: cancelled ones stay visible but are never billed. */
+export function chargeableLines(bill: Bill) {
+  return bill.kots
+    .filter((k) => k.status !== 'cancelled')
+    .flatMap((k) => k.items.filter((i) => !i.cancelledAt))
+    .map((i) => ({ name: i.name, unitPrice: i.unitPrice, qty: i.qty }));
+}
+
+export function billTotals(bill: Bill) {
+  return totalBill({
+    lines: chargeableLines(bill),
+    discountPct: bill.discountPct,
+    discountAmount: bill.discountAmount,
+    taxRate: bill.taxRate,
+    tip: bill.tip,
+  });
+}
+
+export async function getBill(billId: string): Promise<Bill | null> {
+  const { data, error } = await db().from('bill').select(BILL_SELECT).eq('id', billId).maybeSingle();
+  if (error) throw error;
+  return data ? shapeBill(data as Record<string, unknown>) : null;
+}
+
+/**
+ * The open bill on a table, if there is one.
+ *
+ * Resolved through bill_table.released_at rather than a status filter, because that column is
+ * what the "one open bill per table" unique index is built on - so this query and that
+ * constraint can never disagree about which bill is live.
+ */
+export async function openBillForTable(tableId: string): Promise<Bill | null> {
+  const { data, error } = await db()
+    .from('bill_table')
+    .select('bill_id')
+    .eq('table_id', tableId)
+    .is('released_at', null)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return getBill(data.bill_id as string);
+}
+
+/** The most recently closed bill on a table, for the rescan window ("scan again, bill closed"). */
+export async function lastClosedBillForTable(tableId: string): Promise<Bill | null> {
+  const { data, error } = await db()
+    .from('bill_table')
+    .select('bill_id, released_at')
+    .eq('table_id', tableId)
+    .not('released_at', 'is', null)
+    .order('released_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return getBill(data.bill_id as string);
+}
+
+export async function listOpenBills(): Promise<Bill[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bill')
+    .select(BILL_SELECT)
+    .eq('restaurant_id', restaurantId)
+    .neq('status', 'closed')
+    .order('opened_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+}
+
+export async function listClosedBillsToday(): Promise<Bill[]> {
+  const restaurantId = await currentRestaurantId();
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  const { data, error } = await db()
+    .from('bill')
+    .select(BILL_SELECT)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'closed')
+    .gte('closed_at', since.toISOString())
+    .order('closed_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+}
+
+/* ── Floor ─────────────────────────────────────────────────────────────── */
+
+/**
+ * The floor, with each table's state DERIVED from its bill and rounds.
+ *
+ * One query for tables, one for open bills, one for open requests - then joined in memory.
+ * Twenty tables and a handful of open bills is a trivial amount of data, and doing it this way
+ * means `tableStateFrom` is the single definition of what "ready" means, shared with the unit
+ * tests, instead of a CASE expression in SQL that no test can reach.
+ */
+export async function listFloor(): Promise<FloorTable[]> {
+  const restaurantId = await currentRestaurantId();
+  const [tablesRes, bills, requests] = await Promise.all([
+    db()
+      .from('dining_table')
+      .select('id,name,zone,seats,active,sort')
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
+    listOpenBills(),
+    listOpenRequests(),
+  ]);
+  if (tablesRes.error) throw tablesRes.error;
+
+  const billByTable = new Map<string, Bill>();
+  for (const b of bills) for (const t of b.tables) billByTable.set(t, b);
+
+  const requestsByTable = new Map<string, number>();
+  for (const r of requests) requestsByTable.set(r.tableName, (requestsByTable.get(r.tableName) ?? 0) + 1);
+
+  return (tablesRes.data ?? []).map((t) => {
+    const name = t.name as string;
+    const bill = billByTable.get(name) ?? null;
+    const statuses = bill ? bill.kots.map((k) => k.status) : [];
+    const totals = bill ? billTotals(bill) : null;
+    return {
+      id: t.id as string,
+      name,
+      zone: t.zone as string,
+      seats: t.seats as number,
+      active: t.active as boolean,
+      state: tableStateFrom({
+        hasBill: !!bill,
+        ...(bill ? { billStatus: bill.status } : {}),
+        kotStatuses: statuses,
+      }),
+      billId: bill?.id ?? null,
+      billCode: bill?.code ?? null,
+      groupCode: bill?.groupCode ?? null,
+      guests: bill?.guests ?? 0,
+      captain: bill?.captain ?? '',
+      waiter: bill?.waiter ?? '',
+      roundCount: bill?.kots.length ?? 0,
+      readyCount: statuses.filter((s) => s === 'ready' || s === 'picked_up').length,
+      openRequests: requestsByTable.get(name) ?? 0,
+      hasOccasion: !!bill?.occasion,
+      total: totals?.payable ?? 0,
+    };
+  });
+}
+
+export async function findTableByName(
+  name: string
+): Promise<{ id: string; name: string; zone: string; seats: number; active: boolean } | null> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('dining_table')
+    .select('id,name,zone,seats,active')
+    .eq('restaurant_id', restaurantId)
+    .ilike('name', name)
+    .maybeSingle();
+  if (error) throw error;
+  return data
+    ? {
+        id: data.id as string,
+        name: data.name as string,
+        zone: data.zone as string,
+        seats: data.seats as number,
+        active: data.active as boolean,
+      }
+    : null;
+}
+
+/* ── Requests and suggestions ──────────────────────────────────────────── */
+
+export async function listOpenRequests(): Promise<TableRequest[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('table_request')
+    .select(
+      'id,kind,note,created_at,dining_table:table_id (id,name),bill:bill_id (code,captain:captain_staff_id(name))'
+    )
+    .eq('restaurant_id', restaurantId)
+    .is('done_at', null)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const t = r.dining_table as unknown as RawRef;
+    const b = r.bill as unknown as { code?: string; captain?: RawRef } | null;
+    return {
+      id: r.id as string,
+      kind: r.kind as string,
+      note: (r.note as string) ?? '',
+      tableName: t?.name ?? '',
+      tableId: t?.id ?? '',
+      billCode: b?.code ?? null,
+      captain: b?.captain?.name ?? '',
+      createdAt: r.created_at as string,
+      ageMinutes: minutesSince(r.created_at as string),
+    };
+  });
+}
+
+export async function listSuggestions(limit = 20): Promise<Suggestion[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('suggestion')
+    .select('id,body,created_at,reply,replied_at,replied_by,dining_table:table_id (name)')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((s) => ({
+    id: s.id as string,
+    body: s.body as string,
+    tableName: (s.dining_table as unknown as RawRef)?.name ?? null,
+    createdAt: s.created_at as string,
+    reply: (s.reply as string) ?? '',
+    repliedAt: (s.replied_at as string) ?? null,
+    repliedBy: (s.replied_by as string) ?? '',
+  }));
+}
+
+/* ── People ────────────────────────────────────────────────────────────── */
+
+export async function listStaff(): Promise<StaffMember[]> {
+  const restaurantId = await currentRestaurantId();
+  const [staffRes, bills] = await Promise.all([
+    db()
+      .from('staff')
+      .select('id,name,role,initials,mobile,active,on_duty,pin_hash,staff_table(dining_table:table_id(name))')
+      .eq('restaurant_id', restaurantId)
+      .is('removed_at', null)
+      .order('name', { ascending: true }),
+    listOpenBills(),
+  ]);
+  if (staffRes.error) throw staffRes.error;
+
+  // Live tables are DERIVED from the open bills, never hand-typed, so the Staff screen and
+  // Live orders can never disagree about who is on what.
+  const live = new Map<string, Set<string>>();
+  for (const b of bills) {
+    for (const person of [b.captainId, b.waiterId]) {
+      if (!person) continue;
+      const set = live.get(person) ?? new Set<string>();
+      for (const t of b.tables) set.add(t);
+      live.set(person, set);
+    }
+  }
+
+  return (staffRes.data ?? []).map((s) => ({
+    id: s.id as string,
+    name: s.name as string,
+    role: s.role as string,
+    initials: (s.initials as string) ?? '',
+    mobile: (s.mobile as string) ?? '',
+    active: s.active as boolean,
+    onDuty: s.on_duty as boolean,
+    hasPin: !!s.pin_hash,
+    standingTables: ((s.staff_table ?? []) as Array<{ dining_table: RawRef }>)
+      .map((r) => r.dining_table?.name ?? '')
+      .filter(Boolean)
+      .sort(),
+    liveTables: [...(live.get(s.id as string) ?? [])].sort(),
+  }));
+}
+
+export async function grantsFor(staffId: string): Promise<string[]> {
+  const { data, error } = await db()
+    .from('staff_permission')
+    .select('perm_key')
+    .eq('staff_id', staffId)
+    .eq('granted', true);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.perm_key as string);
+}
+
+/* ── Ledgers ───────────────────────────────────────────────────────────── */
+
+export async function listTips(): Promise<TipRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('tip')
+    .select(
+      'id,amount,settled_at,created_at,staff:staff_id(id,name),bill:bill_id(code,bill_table(dining_table:table_id(name)))'
+    )
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((t) => {
+    const bill = t.bill as unknown as { code?: string; bill_table?: Array<{ dining_table: RawRef }> } | null;
+    const staff = t.staff as unknown as RawRef | null;
+    return {
+      id: t.id as string,
+      billCode: bill?.code ?? '',
+      tableName: bill?.bill_table?.[0]?.dining_table?.name ?? '',
+      amount: Number(t.amount),
+      staffId: staff?.id ?? null,
+      staffName: staff?.name ?? 'Unattributed',
+      settledAt: (t.settled_at as string) ?? null,
+      createdAt: t.created_at as string,
+    };
+  });
+}
+
+export async function listExpenses(): Promise<ExpenseRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('expense')
+    .select('id,spent_on,category,note,amount,entered_by')
+    .eq('restaurant_id', restaurantId)
+    .is('deleted_at', null)
+    .order('spent_on', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((e) => ({
+    id: e.id as string,
+    spentOn: e.spent_on as string,
+    category: e.category as string,
+    note: (e.note as string) ?? '',
+    amount: Number(e.amount),
+    enteredBy: e.entered_by as string,
+  }));
+}
+
+export async function listAudit(limit = 200): Promise<AuditRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('audit_entry')
+    .select('id,at,action,detail,actor_label,confidential,bill:bill_id(code),dining_table:table_id(name)')
+    .eq('restaurant_id', restaurantId)
+    .order('at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((a) => {
+    const bill = a.bill as unknown as { code?: string } | null;
+    const table = a.dining_table as unknown as RawRef | null;
+    const where = [bill?.code, table?.name].filter(Boolean).join(' · ');
+    return {
+      id: a.id as number,
+      at: a.at as string,
+      action: a.action as string,
+      detail: (a.detail as string) ?? '',
+      where: where || '—',
+      by: a.actor_label as string,
+      confidential: a.confidential as boolean,
+    };
+  });
+}
+
+export async function listPrinters(): Promise<PrinterRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('printer')
+    .select('id,machine_id,name,purpose,paper_mm,routes,chefs,online')
+    .eq('restaurant_id', restaurantId)
+    .order('machine_id', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    machineId: p.machine_id as string,
+    name: p.name as string,
+    purpose: p.purpose as string,
+    paperMm: p.paper_mm as number,
+    routes: (p.routes as string[]) ?? [],
+    chefs: (p.chefs as string[]) ?? [],
+    online: p.online as boolean,
+  }));
+}
+
+/* ── Settings ──────────────────────────────────────────────────────────── */
+
+export async function readSettings<T extends Record<string, unknown>>(key: string, fallback: T): Promise<T> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('setting')
+    .select('value')
+    .eq('restaurant_id', restaurantId)
+    .eq('key', key)
+    .maybeSingle();
+  if (error) throw error;
+  // A missing setting falls back to the shipped default rather than to undefined. A cleared
+  // field must fall back, never blank the screen (Standard 2.1).
+  return { ...fallback, ...((data?.value as T) ?? {}) };
+}
+
+export async function readAllSettings(): Promise<Record<string, Record<string, unknown>>> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db().from('setting').select('key,value').eq('restaurant_id', restaurantId);
+  if (error) throw error;
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const row of data ?? []) out[row.key as string] = (row.value as Record<string, unknown>) ?? {};
+  return out;
+}
+
+export async function readRestaurant() {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db().from('restaurant').select('*').eq('id', restaurantId).single();
+  if (error) throw error;
+  return data;
+}

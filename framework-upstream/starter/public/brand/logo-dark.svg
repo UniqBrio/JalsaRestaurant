@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 32" width="160" height="32" role="img" aria-label="Acme">
+  <!-- Placeholder wordmark. Replace with the real artwork; keep BOTH theme variants.
+       Ink is #FFFFFF so it reads on the surfaces this variant is declared against. -->
+  <rect x="0" y="4" width="24" height="24" rx="6" fill="#818CF8"/>
+  <path d="M7 21 L12 11 L17 21 M9.4 17.4 H14.6" stroke="#FFFFFF" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="34" y="22" font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif"
+        font-size="17" font-weight="700" fill="#FFFFFF" letter-spacing="-0.4">Acme</text>
+</svg>

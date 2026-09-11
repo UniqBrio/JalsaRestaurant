@@ -1,0 +1,5 @@
+{
+  "comment": "HALF A (process) is LINKED from the framework, not copied. Workflows, checklists, docs, scripts and .claude live there. Editing a process file per-app is forbidden by design - the urge to do so is the signal to run /promote.",
+  "framework": "..",
+  "halfA": ["scripts", "docs", "checklists", "workflows", "templates", "ci", ".claude"]
+}
