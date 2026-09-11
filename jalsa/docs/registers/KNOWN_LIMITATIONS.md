@@ -43,30 +43,6 @@ mitigation. Rung: `set_own_pin` rejects the shared code (verified against the li
 
 ---
 
-### KL-3 — WebKit is not installed on the build container, so `tablet` and `mobile-ios` do not run
-**Since** 10-Sep-2026 · **Category** environment
-
-`/opt/pw-browsers` supplies Chromium only. The two iOS-flavoured Playwright projects are backed by
-WebKit; pointing WebKit at a Chromium binary produces a Chromium run wearing an iPhone's viewport,
-which is worse than no run because the report then says `mobile-ios passed`.
-
-**What we do instead.** `playwright.config.ts` drops those two projects when
-`PLAYWRIGHT_CHROMIUM_PATH` is set, and writes `SKIPPED: tablet, mobile-ios … Safari-engine
-coverage did NOT run` to stderr on every run. Geometry is still covered at four viewports
-(`desktop`, `desktop-wide`, `mobile`, `mobile-short`), on Chromium.
-
-**What is therefore unverified _here_.** Safari-specific layout and input behaviour — `100dvh`
-under the iOS toolbar, momentum scrolling inside the bottom sheets, and date/number input
-rendering.
-
-**Closed in CI, 11-Sep-2026.** `.github/workflows/e2e.yml` installs both engines
-(`npx playwright install --with-deps chromium webkit`), never sets `PLAYWRIGHT_CHROMIUM_PATH`, and
-**fails the job** if the two WebKit projects are absent from `--list` — so the conditional drop
-cannot quietly reappear there. This entry stays active because it still describes the build
-container, where the suite is written; it is no longer a gap in what the repository verifies.
-
----
-
 ### KL-2 — Thermal printers are unvalidated, so every KOT is written and then marked failed
 **Since** 10-Sep-2026 · **Category** unvalidated dependency
 
@@ -122,4 +98,33 @@ outbound access: `npm run dev` then `npx playwright test`.
 
 | ID | Resolved | Date | Notes |
 |---|---|---|---|
-| _none yet_ | | | |
+| KL-3 | `.github/workflows/e2e.yml`, run [34575687627](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34575687627) on `main` @ `6fdc6d2` | 11-Sep-2026 | **298 passed, 0 skipped**, on Chromium and WebKit. The log carries 20 `[tablet]` and 20 `[mobile-ios]` results and **zero** `SKIPPED:` lines, so the conditional drop did not fire; the job's own assertion step would have failed it if it had. What the build container cannot run, CI now runs on every dispatch. (Attempt 1 of the same run failed before attempt 2 went green; its log was not retrievable through the API and is not part of this evidence.) |
+
+---
+
+### KL-3 — WebKit is not installed on the build container, so `tablet` and `mobile-ios` do not run
+**Since** 10-Sep-2026 · **CLOSED** 11-Sep-2026 · **Category** environment
+
+> **Resolved.** Kept in full, below the table, because the build container it describes has not
+> changed — only where the evidence comes from has.
+
+`/opt/pw-browsers` supplies Chromium only. The two iOS-flavoured Playwright projects are backed by
+WebKit; pointing WebKit at a Chromium binary produces a Chromium run wearing an iPhone's viewport,
+which is worse than no run because the report then says `mobile-ios passed`.
+
+**What we do instead.** `playwright.config.ts` drops those two projects when
+`PLAYWRIGHT_CHROMIUM_PATH` is set, and writes `SKIPPED: tablet, mobile-ios … Safari-engine
+coverage did NOT run` to stderr on every run. Geometry is still covered at four viewports
+(`desktop`, `desktop-wide`, `mobile`, `mobile-short`), on Chromium.
+
+**What is therefore unverified _here_.** Safari-specific layout and input behaviour — `100dvh`
+under the iOS toolbar, momentum scrolling inside the bottom sheets, and date/number input
+rendering.
+
+**Closed in CI, 11-Sep-2026.** `.github/workflows/e2e.yml` installs both engines
+(`npx playwright install --with-deps chromium webkit`), never sets `PLAYWRIGHT_CHROMIUM_PATH`, and
+**fails the job** if the two WebKit projects are absent from `--list` — so the conditional drop
+cannot quietly reappear there. This entry stays active because it still describes the build
+container, where the suite is written; it is no longer a gap in what the repository verifies.
+
+---

@@ -5,6 +5,23 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Close-out - KL-1 and KL-3 - 2026-09-11
+
+KL-3 closed on CI run 34575687627 (298 passed, 0 skipped, `[tablet]` and `[mobile-ios]` present,
+zero `SKIPPED:` lines). KL-1 could NOT be closed on the same run: `grep supabase.co` on its log
+matches zero lines - nothing in the suite touched the database. The rung below is what makes the
+claim true; KL-1 closes on the first green run that includes it.
+
+FAIL-FIRST: jalsa/tests/functional/reachability.functional.spec.ts - run first on the build
+container, where egress to *.supabase.co is refused by policy: `expect(locator).toBeVisible()
+failed - Locator: getByTestId('guest-unknown-table') - element(s) not found` after the 8s wait;
+the page rendered `unreachable-guest` instead. That is the pre-fix state of KL-1 observed by the
+assertion written to close it. The file must go red, never skip, wherever the database cannot be
+reached; it is expected green only in CI.
+
+
+---
+
 ## Review run - Track R - 2026-09-11 - VERDICT: PASS
 
 Post-generation review of the generated Jalsa application. Framework `audit:all` 10/10,
