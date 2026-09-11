@@ -57,8 +57,50 @@ actually on the network, and it is what the staff surface is designed around.
 
 ---
 
+## Resolved / expired
+
+| ID | Resolved | Date | Notes |
+|---|---|---|---|
+| KL-1 | `.github/workflows/e2e.yml`, run [34577750747](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34577750747) on `claude/close-kl1-kl3` @ `5e49d73` | 11-Sep-2026 | **304 passed, 0 skipped, 0 failed.** `tests/functional/reachability.functional.spec.ts` passed on all six functional projects — a read-only round trip (`restaurant` by slug, then `dining_table`) that only renders `guest-unknown-table` after a reachable, **seeded** database answered; `unreachable-guest` and `not-configured` both asserted absent, and zero unreachable/unseeded errors from the configured instance in the log. **Not closed on run 34575687627** — that run never touched the database (`supabase.co` appears nowhere in its log), and citing it would have been RC-009. **Residual, stated plainly:** the guest, captain and owner data journeys still have **no specs** (`tests/cases/reference/README.md`). That was never the platform's doing; it is the next test-writing task, and it is no longer blocked by anything. |
+| KL-3 | `.github/workflows/e2e.yml`, run [34575687627](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34575687627) on `main` @ `6fdc6d2` | 11-Sep-2026 | **298 passed, 0 skipped**, on Chromium and WebKit. The log carries 20 `[tablet]` and 20 `[mobile-ios]` results and **zero** `SKIPPED:` lines, so the conditional drop did not fire; the job's own assertion step would have failed it if it had. What the build container cannot run, CI now runs on every dispatch. (Attempt 1 of the same run failed before attempt 2 went green; its log was not retrievable through the API and is not part of this evidence.) |
+
+---
+
+### KL-3 — WebKit is not installed on the build container, so `tablet` and `mobile-ios` do not run
+**Since** 10-Sep-2026 · **CLOSED** 11-Sep-2026 · **Category** environment
+
+> **Resolved.** Kept in full, below the table, because the build container it describes has not
+> changed — only where the evidence comes from has.
+
+`/opt/pw-browsers` supplies Chromium only. The two iOS-flavoured Playwright projects are backed by
+WebKit; pointing WebKit at a Chromium binary produces a Chromium run wearing an iPhone's viewport,
+which is worse than no run because the report then says `mobile-ios passed`.
+
+**What we do instead.** `playwright.config.ts` drops those two projects when
+`PLAYWRIGHT_CHROMIUM_PATH` is set, and writes `SKIPPED: tablet, mobile-ios … Safari-engine
+coverage did NOT run` to stderr on every run. Geometry is still covered at four viewports
+(`desktop`, `desktop-wide`, `mobile`, `mobile-short`), on Chromium.
+
+**What is therefore unverified _here_.** Safari-specific layout and input behaviour — `100dvh`
+under the iOS toolbar, momentum scrolling inside the bottom sheets, and date/number input
+rendering.
+
+**Closed in CI, 11-Sep-2026.** `.github/workflows/e2e.yml` installs both engines
+(`npx playwright install --with-deps chromium webkit`), never sets `PLAYWRIGHT_CHROMIUM_PATH`, and
+**fails the job** if the two WebKit projects are absent from `--list` — so the conditional drop
+cannot quietly reappear there. This entry stays active because it still describes the build
+container, where the suite is written; it is no longer a gap in what the repository verifies.
+
+---
+
+---
+
 ### KL-1 — The database is unreachable from the build container, so the data journeys are BLOCKED, not passing
-**Since** 10-Sep-2026 · **Category** environment · **Blocks** the largest part of the functional tier
+**Since** 10-Sep-2026 · **CLOSED** 11-Sep-2026 · **Category** environment
+
+> **Resolved as a limitation.** Kept in full because the build container it describes has not
+> changed. What follows is the entry as written while it was open; the residual it leaves behind
+> is a **coverage gap**, not a platform limit — see the Resolved row.
 
 The container's egress policy refuses `yxgxmbyilpivbmeemqkp.supabase.co`. This is a policy denial,
 not a credential problem.
@@ -93,38 +135,3 @@ are unit-tested against their real modules (56 cases).
 **To close this.** Add `*.supabase.co` to the environment's network egress allowlist
 (https://code.claude.com/docs/en/claude-code-on-the-web), or run the suite on a machine with
 outbound access: `npm run dev` then `npx playwright test`.
-
-## Resolved / expired
-
-| ID | Resolved | Date | Notes |
-|---|---|---|---|
-| KL-3 | `.github/workflows/e2e.yml`, run [34575687627](https://github.com/UniqBrio/JalsaRestaurant/actions/runs/34575687627) on `main` @ `6fdc6d2` | 11-Sep-2026 | **298 passed, 0 skipped**, on Chromium and WebKit. The log carries 20 `[tablet]` and 20 `[mobile-ios]` results and **zero** `SKIPPED:` lines, so the conditional drop did not fire; the job's own assertion step would have failed it if it had. What the build container cannot run, CI now runs on every dispatch. (Attempt 1 of the same run failed before attempt 2 went green; its log was not retrievable through the API and is not part of this evidence.) |
-
----
-
-### KL-3 — WebKit is not installed on the build container, so `tablet` and `mobile-ios` do not run
-**Since** 10-Sep-2026 · **CLOSED** 11-Sep-2026 · **Category** environment
-
-> **Resolved.** Kept in full, below the table, because the build container it describes has not
-> changed — only where the evidence comes from has.
-
-`/opt/pw-browsers` supplies Chromium only. The two iOS-flavoured Playwright projects are backed by
-WebKit; pointing WebKit at a Chromium binary produces a Chromium run wearing an iPhone's viewport,
-which is worse than no run because the report then says `mobile-ios passed`.
-
-**What we do instead.** `playwright.config.ts` drops those two projects when
-`PLAYWRIGHT_CHROMIUM_PATH` is set, and writes `SKIPPED: tablet, mobile-ios … Safari-engine
-coverage did NOT run` to stderr on every run. Geometry is still covered at four viewports
-(`desktop`, `desktop-wide`, `mobile`, `mobile-short`), on Chromium.
-
-**What is therefore unverified _here_.** Safari-specific layout and input behaviour — `100dvh`
-under the iOS toolbar, momentum scrolling inside the bottom sheets, and date/number input
-rendering.
-
-**Closed in CI, 11-Sep-2026.** `.github/workflows/e2e.yml` installs both engines
-(`npx playwright install --with-deps chromium webkit`), never sets `PLAYWRIGHT_CHROMIUM_PATH`, and
-**fails the job** if the two WebKit projects are absent from `--list` — so the conditional drop
-cannot quietly reappear there. This entry stays active because it still describes the build
-container, where the suite is written; it is no longer a gap in what the repository verifies.
-
----

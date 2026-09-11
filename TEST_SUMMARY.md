@@ -5,6 +5,14 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Close-out - KL-1 - 2026-09-11 - run 34577750747 on claude/close-kl1-kl3 @ 5e49d73
+
+304 passed, 0 skipped, 0 failed. `reachability.functional.spec.ts` green on all six functional
+projects; zero unreachable/unseeded errors from the configured instance. KL-1 CLOSED on this run.
+The residual - the data journeys still have no specs - is a coverage gap, recorded as such.
+
+---
+
 ## Close-out - KL-1 and KL-3 - 2026-09-11
 
 KL-3 closed on CI run 34575687627 (298 passed, 0 skipped, `[tablet]` and `[mobile-ios]` present,
