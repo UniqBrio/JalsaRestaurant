@@ -4,6 +4,12 @@ node_modules/
 .next-degraded/
 # tsc's incremental cache. Machine-specific paths; a merge conflict here means nothing.
 tsconfig.tsbuildinfo
+# Rewritten by EVERY `next dev` / `next build` / `next typegen`, and its contents depend on which
+# ran last: the dev flavour imports ./.next/dev/types/*, the build flavour ./.next/types/*, and
+# the degraded test instance (NEXT_DIST_DIR=.next-degraded, see playwright.config.ts) its own
+# dist dir. Tracked, it dirtied the tree after every test run and once shipped a path into a
+# directory that only exists after the suite has run. `tsc --noEmit` passes without it.
+next-env.d.ts
 dist/
 .env
 .env.*
