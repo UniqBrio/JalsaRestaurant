@@ -1,0 +1,40 @@
+{
+  "name": "custom-web-app-development-framework",
+  "version": "1.35.0",
+  "private": true,
+  "type": "module",
+  "description": "A domain-agnostic, gate-driven application development framework: SDLC workflows, quality ratchets, a centralised theme system with enforced contrast, and runnable starter code.",
+  "scripts": {
+    "theme:build": "node scripts/theme-build.mjs",
+    "theme:check": "node scripts/theme-build.mjs --check",
+    "theme:contrast": "node scripts/check-contrast.mjs",
+    "theme:contrast:report": "node scripts/check-contrast.mjs --report",
+    "theme:assets": "node scripts/check-theme-assets.mjs",
+    "audit:colors": "node scripts/audits/check-hardcoded-colors.mjs",
+    "audit:testids": "node scripts/audits/check-testid-coverage.mjs",
+    "audit:rules": "node scripts/audits/check-rule-coverage.mjs",
+    "audit:columns": "node scripts/audits/check-column-control.mjs",
+    "audit:pwa": "node scripts/audits/check-pwa-baseline.mjs",
+    "audit:fixtures": "node scripts/audits/check-fixture-leak.mjs",
+    "audit:all": "node scripts/par.mjs \"theme-sync=node scripts/theme-build.mjs --check\" \"contrast=node scripts/check-contrast.mjs\" \"theme-assets=node scripts/check-theme-assets.mjs\" \"colors=node scripts/audits/check-hardcoded-colors.mjs\" \"testids=node scripts/audits/check-testid-coverage.mjs\" \"rules=node scripts/audits/check-rule-coverage.mjs\" \"columns=node scripts/audits/check-column-control.mjs\" \"fixtures=node scripts/audits/check-fixture-leak.mjs\" \"deadweight=node scripts/audits/check-dead-weight.mjs\" \"pwa=node scripts/audits/check-pwa-baseline.mjs\" \"compat=node scripts/audits/check-backward-compat.mjs\"",
+    "gate": "node scripts/gate-runner.mjs",
+    "guard:test": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\" \"theme-build=bash scripts/theme-build.test.sh\" \"gate-scope=bash scripts/gate-scope.test.sh\" \"pwa-baseline=bash scripts/pwa-baseline.test.sh\" \"ratchet=bash scripts/ratchet.test.sh\" \"shpath=bash scripts/shpath.test.sh\"",
+    "fanout:check": "node scripts/fanout-check.mjs",
+    "guard:install": "node -e \"require('fs').copyFileSync('scripts/hooks/pre-commit-guard.sh','.git/hooks/pre-commit');require('fs').chmodSync('.git/hooks/pre-commit',0o755);console.log('installed .git/hooks/pre-commit \u2014 note: .claude/settings.json already wires the same guards for Claude Code sessions')\"",
+    "new:app": "node scripts/new-app.mjs",
+    "audit:deadweight": "node scripts/audits/check-dead-weight.mjs",
+    "lineage": "node scripts/lineage.mjs",
+    "upgrade": "node scripts/upgrade.mjs",
+    "conformance": "node scripts/conformance.mjs",
+    "audit:compat": "node scripts/audits/check-backward-compat.mjs",
+    "upgrade:test": "bash scripts/upgrade.test.sh",
+    "runlog": "node scripts/run-log.mjs",
+    "audit:all:serial": "node scripts/par.mjs \"theme-sync=node scripts/theme-build.mjs --check\" \"contrast=node scripts/check-contrast.mjs\" \"theme-assets=node scripts/check-theme-assets.mjs\" \"colors=node scripts/audits/check-hardcoded-colors.mjs\" \"testids=node scripts/audits/check-testid-coverage.mjs\" \"rules=node scripts/audits/check-rule-coverage.mjs\" \"columns=node scripts/audits/check-column-control.mjs\" \"fixtures=node scripts/audits/check-fixture-leak.mjs\" \"deadweight=node scripts/audits/check-dead-weight.mjs\" \"pwa=node scripts/audits/check-pwa-baseline.mjs\" \"compat=node scripts/audits/check-backward-compat.mjs\" --serial",
+    "guard:test:serial": "node scripts/par.mjs \"guards=bash scripts/hooks/guard-reachability.test.sh\" \"claude-hook=bash .claude/hooks/adapter.test.sh\" \"codex-hook=bash .codex/hooks/adapter.test.sh\" \"fanout=bash scripts/fanout-check.test.sh\" \"upgrade=bash scripts/upgrade.test.sh\" \"gate-timing=bash scripts/gate-timing.test.sh\" \"run-log=bash scripts/run-log.test.sh\" \"review-plan=bash scripts/review-plan.test.sh\" \"close-out=bash scripts/close-out.test.sh\" \"theme-build=bash scripts/theme-build.test.sh\" \"gate-scope=bash scripts/gate-scope.test.sh\" \"pwa-baseline=bash scripts/pwa-baseline.test.sh\" \"ratchet=bash scripts/ratchet.test.sh\" \"shpath=bash scripts/shpath.test.sh\" --serial",
+    "review:plan": "node scripts/review-plan.mjs",
+    "closeout": "node scripts/close-out.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

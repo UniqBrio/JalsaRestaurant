@@ -90,7 +90,8 @@ session. See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md). Without this the rest i
 [feature](../workflows/feature.md) · [enhance](../workflows/enhance.md) ·
 [bug](../workflows/bug.md) · [refactor](../workflows/refactor.md) ·
 [triage](../workflows/triage.md) · [brainstorm](../workflows/brainstorm.md) ·
-[test gate](../workflows/test-gate.md) · [promote](../workflows/promote.md) ·
+[test gate](../workflows/test-gate.md) · [review](../workflows/review.md) ·
+[promote](../workflows/promote.md) ·
 [framework update](../workflows/framework-update.md)
 
 ### The point-of-use checks
@@ -132,6 +133,10 @@ first; nothing is blocked on day one that was not already broken.
 
 **Something went wrong** → [workflows/bug.md](../workflows/bug.md). If the *process* should have
 caught it, also [workflows/framework-update.md](../workflows/framework-update.md).
+
+**A build is finished and needs looking at** → [workflows/review.md](../workflows/review.md).
+Evidence before opinion; it ends in a framework change or in an explicit "nothing general was
+learned".
 
 **An app learned something general** → [workflows/promote.md](../workflows/promote.md)
 (`/promote`) — classify, park at n=1, promote at n=2 from a different app.

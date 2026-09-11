@@ -59,6 +59,114 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-011 — A concurrency guard written in React state let a single tap act twice
+
+**Date:** 11-Sep-2026  ·  **Severity:** S2  ·  **Modules:** jalsa `src/features/staff/PinSignIn.tsx`
+
+**Symptom** — four taps on a four-digit keypad sent TWO sign-in attempts. Nothing on screen
+showed it; it surfaced only when a functional spec counted the requests.
+
+**Root cause** — the submit call lived inside a `setState` updater. An updater must be pure, and
+React 19 deliberately invokes it twice under StrictMode. The same class covers every guard of the
+shape `if (busy) return` where `busy` is rendered state: two events in one tick both read the
+pre-update value, because state has not flushed.
+
+**Fix** — compute the next value outside the updater, call `setState` with it, then act. For
+re-entrancy, latch on a ref, never on rendered state.
+
+**Files** — `jalsa/src/features/staff/PinSignIn.tsx`, `jalsa/docs/registers/CANONICAL_PATTERNS.md`
+(JP-11).
+
+**How to verify** — `npx playwright test tests/functional/signin.functional.spec.ts -g "submits
+exactly once"`. It asserts the REQUEST COUNT, not the spinner.
+
+**Recurrence risk** — high, and invisible to every pointer-driven manual test. Searched
+`grep -rnE "setState|set[A-Z]\w+\(\(" jalsa/src` — 1 further site (`GuestApp.runBusy`,
+`if (busy) return` over state) which is mitigated by `disabled={busy}` but shares the class.
+
+**Prevention** — `rung: jalsa/tests/functional/signin.functional.spec.ts`. Framework rule FR-3
+below; no automated detector yet — an ESLint rule forbidding calls inside updaters is the
+candidate, parked as it needs a real AST check rather than a grep.
+
+**Process check** — **No.** No checklist item or audit would have found it; executing the journey
+did. This is the argument for the functional tier, not for another rule.
+
+---
+
+## RC-010 — The read that proves a write was droppable, so the screen denied what the user just did
+
+**Date:** 11-Sep-2026  ·  **Severity:** S2  ·  **Modules:** jalsa `src/hooks/useLiveData.ts`
+
+**Symptom** — none reported; found by reading. After a write, the screen could keep showing
+pre-write state for a full poll interval (6s, 8s on the owner console).
+
+**Root cause** — one boolean served two different jobs. `if (inFlight) return` correctly stops
+SCHEDULED polls stacking up, and `send()` reused the same `refresh()`. So a poll already awaiting
+the network silently swallowed the post-write read. A dropped tick costs nothing; a dropped
+confirmation costs a second order in the kitchen, because the obvious human response to "nothing
+happened" is to press the button again.
+
+**Fix** — `src/hooks/refresh-gate.ts`: a refresh a PERSON caused is remembered and re-run the
+moment the in-flight one finishes; a refresh a TIMER caused is still dropped freely. The hook also
+compares the payload as text and skips `setState` when nothing changed.
+
+**Files** — `jalsa/src/hooks/refresh-gate.ts` (new), `jalsa/src/hooks/useLiveData.ts`,
+`jalsa/tests/unit/refresh-gate.unit.spec.ts` (new, 6 cases).
+
+**How to verify** — `npx playwright test tests/unit/refresh-gate.unit.spec.ts`. The load-bearing
+case is "a refresh a person caused is never dropped".
+
+**Recurrence risk** — every application that polls. Searched `grep -rn "useLiveData" jalsa/src` —
+3 call sites, all fixed by the single hook.
+
+**Prevention** — `rung: jalsa/tests/unit/refresh-gate.unit.spec.ts`. Framework rule FR-4 below.
+
+**Process check** — **Yes.** `checklists/DEFINITION_OF_DONE.md` asks that a save is proved against
+the data rather than the toast, but says nothing about the READ that follows it. Strengthened in
+this run.
+
+---
+
+## RC-009 — A clean-gate verdict was cited as coverage of a directory the audit never opened
+
+**Date:** 11-Sep-2026  ·  **Severity:** S2  ·  **Modules:** `scripts/audits/check-dead-weight.mjs`,
+`scripts/lib/ratchet.mjs`, `checklists/DEFINITION_OF_DONE.md`
+
+**Symptom** — an application close-out recorded *"Dead weight deleted — gate: PASS
+(`audit:deadweight`)"* while 1,988 lines across 15 unreferenced components sat in
+`src/components/`. Evidence: `for f in $(find src/components -name '*.tsx'); do ...` — 15 files
+with zero references outside themselves.
+
+**Root cause** — NOT a lying detector. `check-dead-weight.mjs` declines application source
+deliberately, for a sound reason stated in its own header: dynamic imports and file-based routing
+make a reference scan confidently wrong. The defect is that its VERDICT did not carry that
+scope. `OK [DEAD WEIGHT] … CLEAN GATE` is the line a reader meets; the header is not. A verdict
+that cannot be read as narrow will be read as broad.
+
+**Fix** — `evaluateRatchet` gained a `scope` field printed with EVERY verdict — OK, BLOCKED and
+new-violation alike. The dead-weight audit now states the directories it audited, that application
+source is not audited, and *"Do not cite this verdict as coverage of src/."*
+
+**Files** — `scripts/lib/ratchet.mjs`, `scripts/audits/check-dead-weight.mjs`,
+`scripts/audit-scope.test.sh` (new, 6 cases), `package.json` (`guard:test`),
+`checklists/DEFINITION_OF_DONE.md`.
+
+**How to verify** — `bash scripts/audit-scope.test.sh`. It EXECUTES the audit and asserts the
+output carries the scope, rather than reading the source for the word.
+
+**Recurrence risk** — every ratchet audit shares `evaluateRatchet`, so all of them gained the
+field at once; each still has to pass a `scope`. Searched
+`grep -rn "evaluateRatchet({" scripts/audits` — 5 call sites, 1 now passes a scope. The other
+four are honest today (they do scan what their name implies) and are the paydown queue.
+
+**Prevention** — `rung: scripts/audit-scope.test.sh`. Framework rule FR-1 below.
+
+**Process check** — **Yes.** The Definition of Done let a gate name stand in for a claim about
+scope. Strengthened in this run: an item citing a gate must cite a gate whose scope covers the
+claim.
+
+---
+
 ## RC-008 — The stage-timing rule was prose-only, so the slow stage was diagnosed by feeling
 
 **Date:** 08-Sep-2026  ·  **Severity:** S3 (no defect shipped; the process could not see its own cost)  ·  **Modules:** process — the verification stage, the gate runner

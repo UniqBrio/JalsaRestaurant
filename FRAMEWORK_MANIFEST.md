@@ -55,6 +55,7 @@ light/dark · `13` contrast and accessibility · `14` assets · `15` test cases 
 | `brainstorm.md` | E — no clear next action |
 | `test-gate.md` | The merge gate |
 | `promote.md` | P — classify an app lesson: app-only, parked, or promoted |
+| `review.md` | R — post-generation review: find with evidence, name the cause, generalise or decline. The input side of the learning loop |
 | `framework-update.md` | F — the process learns |
 
 ## Point-of-use checks — `checklists/`
@@ -133,8 +134,9 @@ round N−1's file.
 | `review-plan.test.sh` | **Executes** the selector against built diffs in scratch repositories, including that the same diff twice yields a byte-identical plan |
 | `close-out.mjs` | Renders the release story **once** into the four places it must appear (upgrade notes, changelog, commit message, summary). Owns scaffolding and duplication; never the prose |
 | `close-out.test.sh` | **Executes** the generator — one record reaches every rendering, and `--apply` can never overwrite a prior entry |
+| `audit-scope.test.sh` | **Executes** the ratchet audits and proves every verdict carries its SCOPE — so a clean gate cannot be read as coverage it never had (RC-009) |
 | `hooks/tsc-baseline.sh` | Regenerates the type-error ratchet baseline |
-| `audits/check-dead-weight.mjs` | Scripts nothing references any more (review candidates) |
+| `audits/check-dead-weight.mjs` | Scripts nothing references any more (review candidates). **Declares in its verdict that application source is out of scope** |
 
 ## Evolution — versioning, lineage, promotion *(Half A)*
 | File | Role |

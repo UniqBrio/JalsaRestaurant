@@ -95,6 +95,14 @@ process.exit(
     baselineFile: BASELINE,
     regenerateCmd: CMD,
     parsedSomething: audited.length > 0,
+    // Say out loud what this audit did NOT look at. The exclusion below is deliberate and the
+    // header explains it - but a reader meets the verdict line, not the header, and "CLEAN
+    // GATE" over an unscanned directory is exactly how 1,988 lines of unreferenced application
+    // components were reported as swept in an application close-out (RC, 11-Sep-2026).
+    scope:
+      `${audited.length} file(s) under ${DIRS.map((d) => path.relative(ROOT, d) || '.').join(', ')}. ` +
+      'Application source is NOT audited - dynamic imports and file-based routing make a reference ' +
+      'scan confidently wrong there. Do not cite this verdict as coverage of src/.',
     remediation:
       'Either delete the script (a change deletes what it finished with), or reference it from\n' +
       '  package.json, CI, or the manifest so the next reader can tell it is live.',

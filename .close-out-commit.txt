@@ -1,71 +1,27 @@
-v1.28.0: CP-27 - the audit trail, as a reusable component
+v1.30.0: A verdict that did not carry its scope, a read that could be dropped, and the review step the intake had no row for
 
-Owner requirement: wherever RBAC is enabled, record it - a super admin
-creating an account, assigning a role, or customising which features a
-role can reach. An audit log is the record you reach for on the worst
-day, and it is worth exactly as much as its weakest row, so the four
-ways it goes quietly worthless are each closed by a rule with a spec
-behind it.
+A post-generation review of a freshly generated application found three
+causes worth generalising. First: audit:deadweight printed OK ... CLEAN
+GATE while 1,988 lines across 15 unreferenced components sat in the
+application's src/components/. The audit was not lying - it declines
+application source deliberately, for a sound reason in its own header -
+but the header is not what a reader meets. A verdict that cannot be read
+as narrow will be read as broad, and a close-out cited it as a sweep.
+evaluateRatchet now takes a scope and prints it beside EVERY verdict, OK
+and BLOCKED alike; the dead-weight audit states what it audited, that
+application source is not audited, and not to cite it as coverage of
+src/. Second: the one polling hook dropped the read that follows a write
+whenever a scheduled poll happened to be on the wire, so a screen could
+keep showing pre-write state for a full interval - and the obvious human
+response to 'nothing happened' is to press the button again, which in a
+restaurant is a second round in the kitchen. A refresh a person caused
+is now never dropped; one a timer caused still is. Third: the request
+intake had no row for 'review what was generated'. Forced into BUG it
+makes the run pick a defect before it has evidence for any; forced into
+FRAMEWORK it asserts a process failure nobody has established. Track R
+now exists, and its binding rule is that no finding ships without the
+command that produced it.
 
-Added:
-  -  starter/src/lib/audit.ts - the model and the rules. An entry with
-    no real actor is not an entry: a background job is System
-    (<process>) and names the process; a *user* action whose identity
-    did not resolve is Unknown (<id>) and is never dressed up as System
-    - RC-007 shipped exactly that, and a plausible wrong author is never
-    discovered while an ugly one gets fixed. A row never carries the
-    secret it audits: 'Password changed' is the record, the password is
-    not. A change that did not happen must not appear: arrays compare as
-    SETS, so re-serialising a role list in a different order is not a
-    role change, and null / undefined / empty string are one absence.
-    Append-only: the module exports no updater and no deleter, and a
-    spec asserts that it never grows one.
-  -  starter/src/components/AuditLogTable.tsx - the seven columns asked
-    for: what changed, screen/module, previous value, new value,
-    modified by, modified at, remarks. Search, module filter, date
-    presets and sorting come from CP-23; the column picker from CP-21,
-    which seven columns require. The component is read-only by
-    construction - no row menu, no edit, no delete, and nowhere to add
-    one without editing the file. It also counts unattributed entries on
-    screen, because an identity-resolution defect that shows as one
-    'Unknown' among hundreds never gets fixed.
-  -  Three RBAC event builders for the named cases: account created,
-    roles changed, feature access changed - the last recording the whole
-    enabled SET before and after, since 'granted Billing' alone cannot
-    answer 'what could they reach in March'.
-  -  CP-27, two COMPONENT_LIBRARY rows flipped straight to READY (a
-    baseline concern, contributed in this run), and cases
-    FW-AUDIT-001..005.
-
-Fixed:
-  -  A memo bug caught while composing, not after shipping.
-    useListControls memoises on its config BY IDENTITY, so the inline
-    object literal every other caller would write is a new object each
-    render - silently defeating the memo and re-filtering the whole log
-    on every keystroke. Invisible at ten rows; the reason a search box
-    feels heavy at ten thousand. The config is memoised, with the reason
-    recorded at the call site.
-
-Honest debt, recorded rather than disguised as coverage:
-  -  The component is built and registered; nothing mounts it. Where the
-    audit log appears, and which events an application records beyond
-    the three RBAC builders, is the application's call - this repository
-    holds no application.
-  -  Persistence is the application's too. The library produces entries;
-    storing them append-only, and keeping them readable only by those
-    who should see them, is a schema and policy decision per app.
-  -  The 19 assertions ran against the esbuild-compiled lib using a
-    local harness, because this repository has no node_modules - the
-    same route earlier component releases took. Two defects were
-    injected (unresolved-actor-becomes-System, and positional array
-    comparison) and both were observed failing before revert.
-
-audit:all clean (10/10) including the column-control and test-id gates
-the seven-column table had to satisfy; guard:test 9/9; audit:compat
-clean, no fixture green to red. The audit spec: 19/19 against the
-compiled library, with fail-first by two injected defects. Gate BLOCKED
-on G5-G8: pre-existing, no local tsc.
-
-App action: None required. To adopt: render AuditLogTable wherever roles or access can be changed, and call the three builders from those flows. If your app already logs RBAC changes, check two things against CP-27 - that an unresolved actor is not being written as 'System', and that role lists are compared as sets rather than positionally.
+App action: Nothing is required. Existing applications keep working unchanged: scope is optional on evaluateRatchet and an audit that passes none behaves exactly as before. Three things are worth doing. (1) Re-read any close-out that cited audit:deadweight as evidence of no dead components - it never audited src/; sweep that directory by hand and state the command. (2) If your application polls, check whether the read that follows a write can be dropped by a poll already in flight; the pattern is in the starter as refresh-gate.ts. (3) Use /review at the end of a build rather than declaring done - it ends in a framework change or in an explicit 'nothing general was learned', and there is no third ending.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

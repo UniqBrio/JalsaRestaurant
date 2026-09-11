@@ -5,6 +5,46 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Review run - Track R - 2026-09-11 - VERDICT: PASS
+
+Post-generation review of the generated Jalsa application. Framework `audit:all` 10/10,
+`guard:test` 10/10 (89 assertions, 6 new), fixtures green -> green, app gate PASS 11/11.
+
+FAIL-FIRST: jalsa/tests/unit/refresh-gate.unit.spec.ts - "a refresh a person caused is never
+dropped" was written against the behaviour `useLiveData` actually shipped with: a single
+`inFlight` boolean and an unconditional `if (inFlight.current) return;`. Modelled exactly, it
+fails - `begin(g)` true, `begin(g, true)` false, `end(g)` **false** where true is required, so
+nothing ever re-runs the read. `expected true, received false`. That is a captain's round sent,
+the screen refused its own confirmation for up to six seconds, and the obvious human response
+being to press Send again. Fixed by src/hooks/refresh-gate.ts; the same run turned green.
+
+NOT OBSERVED FAILING: jalsa/tests/unit/refresh-gate.unit.spec.ts ("a scheduled poll is dropped
+freely") - it is the behaviour the old code already had. It is asserted so the fix above cannot
+be implemented by making every refresh queue, which would rebuild the request pile-up the drop
+existed to prevent.
+
+FAIL-FIRST: scripts/audit-scope.test.sh - all six cases failed against the pre-scope audits,
+which printed the OK line and nothing else. The load-bearing one is "the scope travels WITH the
+verdict, whatever the verdict is": it was observed failing a second time mid-run, when adding
+the test file itself turned the dead-weight audit BLOCKED and the assertion was still pinned to
+the OK line. Both the audit (it caught its own new unreferenced script) and the test (it was
+over-specified) were doing their jobs; the assertion is now verdict-agnostic.
+
+FAILFIRST-NA: framework-upstream/** - every spec under this path is a READ-ONLY SNAPSHOT of
+UniqBrio/custom-web-app-development-framework v1.35.0 (commit 4cdc7b4), copied verbatim so this
+review could read the current canonical runbooks rather than this repository's v1.29.0 copy.
+Nothing under that directory is executed, maintained, or authoritative here, and re-deriving
+fail-first evidence for sixteen upstream specs would mean injecting sixteen defects into code
+this repository did not write and does not run. See framework-upstream/README-SNAPSHOT.md.
+
+> Guard G3 reads only the ROOT `TEST_SUMMARY.md`, so `jalsa/`'s own evidence is invisible to it
+> and has to be summarised here as well. That is CAND-002 in `docs/registers/CANDIDATES.md`,
+> parked at n=1 - and this run is its second sighting. It is now at n=2 and eligible for
+> promotion through `workflows/promote.md`.
+
+
+---
+
 ## Application run - jalsa - 2026-09-10 - VERDICT: PASS
 
 Gate 11/11, 0 blocked. 252 assertions across three tiers, 8/8 audits clean.

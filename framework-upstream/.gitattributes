@@ -1,0 +1,22 @@
+# Line endings are NORMALISED TO LF in the repository, and checked out as LF everywhere.
+#
+# This is not a style preference; two gates depend on it:
+#
+#   1. The commit guards and test harnesses are bash scripts. A .sh file checked out with CRLF
+#      fails on Linux and macOS with "bad interpreter: /bin/bash^M" - so a Windows clone would
+#      publish guards that cannot run for anyone else.
+#
+#   2. scripts/theme-build.mjs --check compares the generated theme files BYTE FOR BYTE against
+#      freshly generated content, which always uses \n. If git handed those files back with CRLF
+#      on checkout, gate G1 would report DRIFT on a clean tree, on every Windows machine, forever.
+#      (The same class of defect as the Windows path separators fixed in v1.2.0.)
+* text=auto eol=lf
+
+# Binary assets must never be touched by normalisation.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff  binary
+*.woff2 binary

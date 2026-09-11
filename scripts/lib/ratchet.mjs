@@ -78,7 +78,7 @@ export function writeBaseline(file, signatures, { name, regenerateCmd, note }) {
  *                    scan matching zero files looks identical to a clean codebase.
  */
 export function evaluateRatchet(o) {
-  const { name, signatures, baselineFile, regenerateCmd, remediation, parsedSomething = true } = o;
+  const { name, signatures, baselineFile, regenerateCmd, remediation, parsedSomething = true, scope = null } = o;
 
   if (!parsedSomething) {
     console.error(`BLOCKED [${name}]: the detector produced no readable input.`);
@@ -119,6 +119,14 @@ export function evaluateRatchet(o) {
   if (exit === RATCHET_OK) {
     console.log(`OK [${name}] ${now.size} known violation(s), none new.${now.size === 0 ? ' Backlog is zero - this is now a CLEAN GATE.' : ''}`);
   }
+  // EVERY verdict states what was looked at - green, blocked, or new-violation alike.
+  //
+  // "CLEAN GATE" is the most quoted line any of these audits produce, and on its own it says
+  // nothing about SCOPE. A detector that deliberately declines a directory - for good reasons,
+  // stated in its own header - still reports a clean backlog, and a close-out then cites that
+  // line as coverage of the very thing it never opened. That is not the detector lying; it is
+  // the reader having no way to tell. So the scope travels with the verdict, always.
+  if (scope) console.log(`   SCOPE [${name}] ${scope}`);
   return exit;
 }
 

@@ -4,6 +4,67 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-11 - VERDICT: PASS
+
+Steps: 11 pass, 0 fail, 0 blocked.
+Time: 2m 14s total - slowest G8 Functional / integration (1m 55s).
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (60ms)
+- **G4 No hard-coded colours** - PASS (73ms)
+- **G5 Types** - PASS (2.0s)
+- **G6 Lint** - PASS (8.3s)
+- **G7 Unit + pure specs** - PASS (4.9s)
+- **G8 Functional / integration** - PASS (1m 55s)
+- **G9 Automation addressability** - PASS (60ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (66ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-11 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
+Time: 2m 27s total - slowest G8 Functional / integration (2m 07s).
+
+- **G1 Theme artifacts in sync** - PASS (51ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (57ms)
+- **G3 Theme assets present per theme** - PASS (56ms)
+- **G4 No hard-coded colours** - PASS (76ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (9.1s)
+- **G7 Unit + pure specs** - PASS (5.3s)
+- **G8 Functional / integration** - FAIL (2m 07s)
+
+```
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/staff
+      34 |     return route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'Not tonight.' } } });
+    Error Context: test-results/keyboard-signin.functional-e6c7d-visual-order-top-left-first-desktop/error-context.md
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/staff
+      34 |     return route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'Not tonight.' } } });
+    Error Context: test-results/keyboard-signin.functional-ac40c-y-shows-a-VISIBLE-indicator-desktop/error-context.md
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/staff
+      34 |     return route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'Not tonight.' } } });
+    test-results/keyboard-signin.functional-c31a7-sed-key-registers-the-digit-desktop/test-failed-1.png
+    Error Context: test-results/keyboard-signin.functional-c31a7-sed-key-registers-the-digit-desktop/error-context.md
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/staff
+      34 |     return route.fulfill({ statu
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (58ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (58ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-10 - the first build
 
 A test never observed failing is not evidence that it CAN fail: it may be asserting exactly the

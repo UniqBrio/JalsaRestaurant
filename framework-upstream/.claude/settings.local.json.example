@@ -1,0 +1,14 @@
+{
+  "$comment": [
+    "Copy to .claude/settings.local.json for PERSONAL overrides. It is gitignored on purpose:",
+    "a local file cannot weaken a guard for anyone but you, and it leaves a trace in your own",
+    "working copy rather than silently disabling enforcement for the whole team.",
+    "",
+    "Disabling a guard here is a decision, not a workaround. Prefer the per-guard escape token",
+    "in the commit message - that one is auditable in git history, which is the point."
+  ],
+  "permissions": {
+    "allow": [],
+    "deny": []
+  }
+}

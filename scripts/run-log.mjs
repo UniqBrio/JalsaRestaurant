@@ -67,6 +67,7 @@ const TYPES = {
   REFACTOR: 'same behaviour, better structure',
   TRIAGE: 'a list of items, ordered and scored',
   BRAINSTORM: 'thinking it through - no code',
+  REVIEW: 'looking at a finished build and feeding the lessons back',
   FRAMEWORK: 'the process itself failed and was repaired',
 };
 const SCALES = ['micro', 'scoped', 'full-scale', 'n/a'];

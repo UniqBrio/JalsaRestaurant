@@ -1,0 +1,6 @@
+# CONTRAST BASELINE - accepted, temporary contrast debt.
+# Signature: <theme>|<fg-token>|<bg-token>   (values deliberately excluded: a re-tuned
+# shade must re-enter the gate rather than inherit an old exemption.)
+# A NEW failure blocks. A fixed pair still listed here ALSO blocks, so this file can only shrink.
+# Regenerate: node scripts/check-contrast.mjs --write-baseline
+# Generated: 2026-08-28 - 0 accepted failure(s)

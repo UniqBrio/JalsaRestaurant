@@ -1,0 +1,8 @@
+{
+  "comment": "The verdict each fixture is REQUIRED to produce. check-backward-compat.mjs diffs live conformance against this. Changing a PASS to anything weaker is a deliberate compatibility decision - it belongs in the same commit as the change that forced it, with a MAJOR entry in UPGRADES.md.",
+  "verdicts": {
+    "minimal": "PASS",
+    "with-debt": "PASS",
+    "diverged": "PASS"
+  }
+}
