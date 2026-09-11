@@ -7,6 +7,22 @@ name: e2e
 # to ignore; run on demand it is the check people read.
 on:
   workflow_dispatch:
+  # Also on pull requests into main - but only when something the suite could see has changed.
+  # A doc-only PR does not pay four minutes for a run whose inputs are byte-identical to the
+  # last one. The workflow file itself is in the filter because a change to THIS file is a
+  # change to what the suite does. Same-repo branches receive the secrets; a fork PR does not,
+  # and fails the preflight loudly rather than running against nothing.
+  pull_request:
+    branches: [main]
+    paths:
+      - 'jalsa/**'
+      - '.github/workflows/e2e.yml'
+
+# One run per PR at a time. Two runs of the same PR would both reset and write the one test
+# project and interfere with each other; a newer push supersedes the older run.
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
