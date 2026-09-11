@@ -7,12 +7,14 @@
 |---|---|---|---|---|---|
 | **development** | Local `npm run dev` | `localhost:3000` | Supabase project `yxgxmbyilpivbmeemqkp` | anyone with the secret key | yes |
 | **degraded** | Proves the outage screen is real | `127.0.0.1:3101` | `http://127.0.0.1:1` — refuses instantly, by design | nobody: it has no database | yes |
-| **test** | Automated tests | the dev server above | none — the browser boundary is mocked | CI + developers | **yes — the only automated target** |
+| **test** | Automated tests, and the ONLY target the suite may write to | the servers Playwright starts | Supabase project `uxmyomxtosjlkvjxnvpy` (`JalsaRestaurant-test`, ap-southeast-2) — created 11-Sep-2026, reset to its seed before every CI run by `scripts/reset-test-db.mjs` | CI + developers | **yes — the only automated target** |
 | **ci** | `.github/workflows/e2e.yml`, on demand | the two servers above, started by Playwright | the secrets named below | the workflow | yes |
 | **staging** | Pre-production verification | not provisioned | — | deploys only | no |
 | **production** | Real service at Jalsa, Hosur | not provisioned | — | **approved deploys only** | **NEVER** |
 
-**There is currently one Supabase project and it is doing development duty.** That is stated
+**There are now two Supabase projects.** `yxgxmbyilpivbmeemqkp` does development duty and will become production; `uxmyomxtosjlkvjxnvpy` exists so the suite has somewhere to write. The reset script refuses the first by ref. Staging is still not provisioned.
+
+~~**There is currently one Supabase project and it is doing development duty.**~~ That is stated
 plainly rather than dressed up: staging and production do not exist yet, and the first
 provisioning task is to create them so that development stops writing to the only copy of the
 menu. Until then, treat every migration as if it were production, because it is.
