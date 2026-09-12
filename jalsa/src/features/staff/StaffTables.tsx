@@ -554,6 +554,22 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
         <div className="flex flex-col gap-4">
           {bill.totals ? <TotalsBlock rows={bill.totals} testId="staff-close-totals" /> : null}
 
+          {/* The SAME control the owner's Record payment dialog uses. Two closure screens with
+              their own idea of what a discount is, is how one of them eventually takes it twice —
+              and they had already drifted: this one had a single box, that one had two. */}
+          {(data.grants.includes('bill.disc_pct') || data.grants.includes('bill.disc_flat')) &&
+          bill.subtotal !== null ? (
+            <DiscountFields
+              base={bill.subtotal}
+              taxRate={bill.taxRate}
+              tip={bill.tip}
+              entry={discount}
+              onChange={setDiscount}
+              disabled={busy}
+              testIdPrefix="staff-discount"
+            />
+          ) : null}
+
           <div>
             <SectionLabel>Paid by</SectionLabel>
             <div className="flex flex-wrap gap-2">
@@ -569,20 +585,6 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
               ))}
             </div>
           </div>
-
-          {/* The SAME control the owner's Record payment dialog uses. Two closure screens with
-              their own idea of what a discount is, is how one of them eventually takes it twice —
-              and they had already drifted: this one had a single box, that one had two. */}
-          {(data.grants.includes('bill.disc_pct') || data.grants.includes('bill.disc_flat')) &&
-          bill.subtotal !== null ? (
-            <DiscountFields
-              base={bill.subtotal}
-              entry={discount}
-              onChange={setDiscount}
-              disabled={busy}
-              testIdPrefix="staff-discount"
-            />
-          ) : null}
 
           <Field label="Reference" htmlFor="staff-reference" hint="Optional — a UPI reference or a receipt number.">
             <Input

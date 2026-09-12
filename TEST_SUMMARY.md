@@ -5,6 +5,27 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (eighth) - the after-discount figure
+
+FAIL-FIRST: jalsa/tests/unit/discount-both-ways.unit.spec.ts (appended) - modelled against what the
+screen actually showed before this change: the discount and the base ("Taken once: Rs100 off
+Rs1,300"), never the answer, using the naive `base - discount` a person reaches for without GST
+in mind. **1 failed**: "the after-discount payable recharges GST on the reduced amount" -
+`expected 1260, received 1200`.
+
+Neither figure on the screen was the one the cashier needed: 1200 is the food after the discount,
+1365 is the payable BEFORE it, and the guest hands over 1260.
+
+NOT OBSERVED FAILING: "the preview IS the closure figure" and "a tip is added after tax, so a
+discount never touches it". Both were already true of `totalBill`; they are asserted because the
+screen now CALLS that function rather than repeating the rule, and the whole value of that choice
+is that the two can never drift apart.
+
+NOT OBSERVED FAILING: the layout itself - two fields in one row, and the captain's discount block
+moving above Paid by. Owner-surface UI the functional tier cannot reach without a database.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (seventh) - a column name nothing was checking
 
 FAIL-FIRST: jalsa/tests/unit/schema-columns.unit.spec.ts - run against the mapping exactly as it

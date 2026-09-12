@@ -111,3 +111,59 @@ test('the owner holds it and no other role gets it by default', () => {
     );
   }
 });
+
+/* ── The after-discount figure shown at the till ───────────────────────── */
+
+/**
+ * FAIL-FIRST EVIDENCE (12-Sep-2026, round 3): modelled against what the screen actually showed
+ * before this change — the discount and the base ("₹100 off ₹1,300"), never the answer — using
+ * the naive `base - discount` a person reaches for without GST in mind:
+ *   OBSERVED FAILING — 1 failed: "the after-discount payable recharges GST on the reduced
+ *   amount" · `expected 1260, received 1200`. Neither 1200 nor the screen's own pre-discount
+ *   "To pay ₹1,365" is what the guest hands over.
+ */
+
+test('the after-discount payable recharges GST on the reduced amount', () => {
+  // The requester's own bill: ₹1,300 food, 5% GST, no tip. ₹100 off leaves ₹1,200 of food and
+  // ₹60 of GST — ₹1,260, not ₹1,265 and not ₹1,200.
+  const both = discountBothWays({ base: 1300, typed: 'amount', value: 100 });
+  const after = totalBill({
+    lines: [{ name: 'Food', unitPrice: 1300, qty: 1 }],
+    taxRate: 5,
+    discountAmount: both.amount,
+  });
+  expect(after.discount).toBe(100);
+  expect(after.taxable).toBe(1200);
+  expect(after.tax, 'GST follows the food down').toBe(60);
+  expect(after.payable).toBe(1260);
+});
+
+test('the preview IS the closure figure — the same function, not a second formula', () => {
+  // The whole reason the screen calls `totalBill` rather than repeating the rule: a preview that
+  // agreed today and diverged after the next tax change would be a screen lying at a till. Both
+  // routes through the same function must land on the same number.
+  const both = discountBothWays({ base: 1300, typed: 'percentage', value: 7.69 });
+  const viaPct = totalBill({
+    lines: [{ name: 'Food', unitPrice: 1300, qty: 1 }],
+    taxRate: 5,
+    discountPct: both.pct,
+  });
+  const viaAmount = totalBill({
+    lines: [{ name: 'Food', unitPrice: 1300, qty: 1 }],
+    taxRate: 5,
+    discountAmount: both.amount,
+  });
+  expect(viaPct.payable, 'the two representations of one discount agree').toBe(viaAmount.payable);
+  expect(viaPct.payable).toBe(1260);
+});
+
+test('a tip is added after tax, so a discount never touches it', () => {
+  const after = totalBill({
+    lines: [{ name: 'Food', unitPrice: 1300, qty: 1 }],
+    taxRate: 5,
+    tip: 20,
+    discountAmount: 100,
+  });
+  expect(after.tip).toBe(20);
+  expect(after.payable, '1200 + 60 + 20').toBe(1280);
+});

@@ -149,6 +149,8 @@ export function CloseBillSheet({
         {canDiscount ? (
           <DiscountFields
             base={bill.subtotal}
+            taxRate={bill.taxRate}
+            tip={bill.tip}
             entry={discount}
             onChange={setDiscount}
             disabled={busy}

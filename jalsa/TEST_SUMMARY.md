@@ -7,6 +7,41 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 10s total - slowest G8 Functional / integration (52.5s).
+
+- **G1 Theme artifacts in sync** - PASS (47ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (43ms)
+- **G3 Theme assets present per theme** - PASS (46ms)
+- **G4 No hard-coded colours** - PASS (56ms)
+- **G5 Types** - PASS (1.8s)
+- **G6 Lint** - PASS (6.8s)
+- **G7 Unit + pure specs** - PASS (6.1s)
+- **G8 Functional / integration** - FAIL (52.5s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (54ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.7s)
+- **G11 Wide tables are configurable** - PASS (46ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
 Time: 1m 09s total - slowest G8 Functional / integration (52.5s).
 
 - **G1 Theme artifacts in sync** - PASS (43ms)
@@ -211,6 +246,27 @@ Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 - **G11 Wide tables are configurable** - PASS (60ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (eighth) - the after-discount figure
+
+FAIL-FIRST: tests/unit/discount-both-ways.unit.spec.ts (appended) - modelled against what the
+screen actually showed before this change: the discount and the base ("Taken once: Rs100 off
+Rs1,300"), never the answer, using the naive `base - discount` a person reaches for without GST
+in mind. **1 failed**: "the after-discount payable recharges GST on the reduced amount" -
+`expected 1260, received 1200`.
+
+Neither figure on the screen was the one the cashier needed: 1200 is the food after the discount,
+1365 is the payable BEFORE it, and the guest hands over 1260.
+
+NOT OBSERVED FAILING: "the preview IS the closure figure" and "a tip is added after tax, so a
+discount never touches it". Both were already true of `totalBill`; they are asserted because the
+screen now CALLS that function rather than repeating the rule, and the whole value of that choice
+is that the two can never drift apart.
+
+NOT OBSERVED FAILING: the layout itself - two fields in one row, and the captain's discount block
+moving above Paid by. Owner-surface UI the functional tier cannot reach without a database.
 
 ---
 

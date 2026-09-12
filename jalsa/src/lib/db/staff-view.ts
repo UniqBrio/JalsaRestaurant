@@ -65,6 +65,9 @@ export interface StaffBillView {
   /** Before any discount and before tax — the base a discount is actually taken from.
    *  Null where this person may not see money at all (a waiter). */
   subtotal: number | null;
+  /** Enough for the Close sheet to call `totalBill` itself — same reason as the owner's view. */
+  taxRate: number;
+  tip: number;
 }
 
 export interface StaffPayload {
@@ -180,6 +183,8 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       totals: canSeeMoney ? totalsRows(totals, { taxRate, tipTo: b.captain }) : null,
       payableLabel: canSeeMoney ? rupees(totals.payable) : null,
       subtotal: canSeeMoney ? totals.subtotal : null,
+      taxRate,
+      tip: totals.tip,
     };
   });
 

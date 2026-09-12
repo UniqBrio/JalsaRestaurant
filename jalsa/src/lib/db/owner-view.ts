@@ -54,6 +54,10 @@ export interface OwnerBillView {
   payableLabel: string;
   /** Before any discount and before tax — the base a discount is actually taken from. */
   subtotal: number;
+  /** Enough for the closure screen to call `totalBill` itself, so its preview of the payable
+   *  after a discount IS the figure the server will charge rather than a second formula. */
+  taxRate: number;
+  tip: number;
   totals: TotalsRow[];
   /** Per-table breakdown, so a host can see who ate what without splitting the bill. */
   perTable: Array<{ table: string; amountLabel: string }>;
@@ -202,6 +206,8 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     payable: totals.payable,
     payableLabel: rupees(totals.payable),
     subtotal: totals.subtotal,
+    taxRate,
+    tip: totals.tip,
     totals: totalsRows(totals, { taxRate, tipTo: b.captain }),
     perTable: b.tables.length > 1 ? perTable : [],
     kots: b.kots.map((k) => ({
