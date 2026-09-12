@@ -4,6 +4,71 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 - the guest's order total, the footer, the categories
+
+FAIL-FIRST: tests/unit/guest-features.unit.spec.ts - run against the PRE-change tree's own
+rules, modelled exactly (the owner panel's `checked={values[key] !== false}` and a
+DEFAULT_FEATURES literal with no `orderTotal` in it). **3 failed**:
+  - "an unsaved feature resolves to its own default, not to 'on'" - expected false, received
+    true. The panel drew every unsaved key as ON, unconditionally.
+  - "the owner switch and the guest phone agree about an unsaved feature" - expected false,
+    received true. The switch said the guest could see their total while the phone showed none.
+    This is the defect the shared module exists to make impossible.
+  - "the order total is off until someone turns it on" - expected false, received undefined.
+    There was no such default to read.
+
+FAIL-FIRST: tests/functional/guest-total-visibility.functional.spec.ts - on this build
+container, where the database is unreachable (curl to the project's REST endpoint returns 000),
+the first assertion fails with `unreachable-guest` rendered instead of the welcome screen. That
+proves the file goes RED rather than silent where it cannot run, which is the property that
+matters for a spec whose real execution is in CI.
+
+NOT OBSERVED FAILING: tests/functional/guest-total-visibility.functional.spec.ts (every
+behavioural assertion - default hidden, tick reveals, choice survives navigation, nothing under
+the bar, every category reachable in one tap, the thumbnail holds its space) - they cannot be
+executed here at all, for the reason above. The first CI run against the test project is their
+first execution, and its log is the evidence to record here in the change that proves it green.
+Two of them are nonetheless known red on the pre-change tree by inspection of the diff: there
+was no `guest-menu-total-toggle` element to find, and the bar overlapped its own totals card.
+That is a weaker claim than a recorded run, which is why it is written here as one.
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 24s total - slowest G8 Functional / integration (58.8s).
+
+- **G1 Theme artifacts in sync** - PASS (52ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (54ms)
+- **G3 Theme assets present per theme** - PASS (57ms)
+- **G4 No hard-coded colours** - PASS (65ms)
+- **G5 Types** - PASS (6.7s)
+- **G6 Lint** - PASS (8.2s)
+- **G7 Unit + pure specs** - PASS (7.7s)
+- **G8 Functional / integration** - FAIL (58.8s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-91076-nd-on-the-database-being-up-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (56ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.8s)
+- **G11 Wide tables are configurable** - PASS (57ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.

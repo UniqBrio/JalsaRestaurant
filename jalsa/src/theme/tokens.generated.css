@@ -50,6 +50,7 @@
   --layout-min-touch-target: 44px;
   --layout-bottom-chrome-height: 58px;
   --layout-bottom-chrome-clearance: 74px;
+  --layout-guest-header-height: 68px;
 
   /* --- LIGHT (default, always fully defined) --- */
   --background: #EDE7E4;

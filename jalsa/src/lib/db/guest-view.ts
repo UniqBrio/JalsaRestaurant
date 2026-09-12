@@ -4,7 +4,12 @@ import { KOT_STATUS, type FoodType, type KotStatus } from '@/lib/status';
 import { billTotals, chargeableLines, listMenu, readAllSettings } from './queries';
 import { readCart } from './mutations';
 import { resolveGuest, type GuestContext } from './guest';
+import { resolveFeatures, type GuestFeatures } from '@/lib/guest-features';
 import type { Bill } from './types';
+
+/* The feature flags and their defaults live outside the server boundary so the owner's
+ * Settings panel can read the same defaults this payload fills gaps with. */
+export type { GuestFeatures };
 
 /**
  * guest-view - the single payload a guest's phone is given, assembled on the server.
@@ -42,31 +47,6 @@ export interface GuestRound {
   items: Array<{ id: string; name: string; qty: number; foodType: FoodType; servable: boolean }>;
 }
 
-export interface GuestFeatures {
-  captainName: boolean;
-  waiterName: boolean;
-  askForPerson: boolean;
-  water: boolean;
-  callCaptain: boolean;
-  plates: boolean;
-  parcelRest: boolean;
-  waterBottle: boolean;
-  askBill: boolean;
-  special: boolean;
-  combos: boolean;
-  festival: boolean;
-  favourites: boolean;
-  hoursBtn: boolean;
-  occasion: boolean;
-  heart: boolean;
-  upsell: boolean;
-  takeaway: boolean;
-  tip: boolean;
-  whatsapp: boolean;
-  suggestion: boolean;
-  review: boolean;
-}
-
 export interface GuestPayload {
   phase: GuestContext['phase'];
   table: { name: string; zone: string };
@@ -97,31 +77,6 @@ export interface GuestPayload {
   rescanMinutes: number;
 }
 
-const DEFAULT_FEATURES: GuestFeatures = {
-  captainName: true,
-  waiterName: false,
-  askForPerson: true,
-  water: true,
-  callCaptain: true,
-  plates: true,
-  parcelRest: true,
-  waterBottle: true,
-  askBill: false,
-  special: true,
-  combos: true,
-  festival: true,
-  favourites: true,
-  hoursBtn: true,
-  occasion: true,
-  heart: true,
-  upsell: true,
-  takeaway: true,
-  tip: true,
-  whatsapp: true,
-  suggestion: true,
-  review: true,
-};
-
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
 const timeLabel = (iso: string): string =>
@@ -136,7 +91,7 @@ export async function buildGuestPayload(tableName: string): Promise<GuestPayload
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));
 
   const copy = (settings.copy ?? {}) as Record<string, string>;
-  const features = { ...DEFAULT_FEATURES, ...((settings.customerFeatures ?? {}) as Partial<GuestFeatures>) };
+  const features = resolveFeatures(settings.customerFeatures);
   const tax = (settings.tax ?? {}) as { rate?: number };
   const taxRate = typeof tax.rate === 'number' ? tax.rate : 5;
   const tips = (settings.tips ?? {}) as { options?: number[] };

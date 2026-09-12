@@ -25,7 +25,8 @@ import { ActionBar, type GuestScreenProps } from './GuestApp';
 
 /* ── 9. Dessert and beverage upsell ────────────────────────────────────── */
 
-export function UpsellScreen({ data, go, send, runBusy, busy }: GuestScreenProps) {
+export function UpsellScreen(props: GuestScreenProps) {
+  const { data, go, send, runBusy, busy } = props;
   const toast = useToast();
 
   const offers = React.useMemo(
@@ -36,7 +37,7 @@ export function UpsellScreen({ data, go, send, runBusy, busy }: GuestScreenProps
   if (!data.features.upsell || offers.length === 0) {
     // Nothing to offer is not a screen. Standard 5.6: withhold the step rather than showing an
     // empty version of it.
-    return <TipScreen data={data} go={go} openSheet={() => {}} send={send} busy={busy} runBusy={runBusy} />;
+    return <TipScreen {...props} openSheet={() => {}} />;
   }
 
   const add = (id: string, name: string) =>
@@ -96,7 +97,8 @@ export function UpsellScreen({ data, go, send, runBusy, busy }: GuestScreenProps
 
 /* ── 10. Tip ───────────────────────────────────────────────────────────── */
 
-export function TipScreen({ data, go, send, runBusy, busy }: GuestScreenProps) {
+export function TipScreen(props: GuestScreenProps) {
+  const { data, go, send, runBusy, busy } = props;
   const [chosen, setChosen] = React.useState<number>(data.tipChosen);
 
   const choose = (amount: number) => {
@@ -107,7 +109,7 @@ export function TipScreen({ data, go, send, runBusy, busy }: GuestScreenProps) {
   };
 
   if (!data.features.tip) {
-    return <PayingGate data={data} go={go} send={send} runBusy={runBusy} busy={busy} />;
+    return <PayingGate {...props} />;
   }
 
   return (

@@ -9,6 +9,7 @@ import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
+import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -686,6 +687,16 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
 const FEATURE_GROUPS: Array<{ name: string; items: Array<[string, string, string]> }> = [
   {
+    name: 'What the bill shows them',
+    items: [
+      [
+        'orderTotal',
+        'Show the order total on the guest’s phone',
+        'The running total before GST. Off means they start without it and tick a box in the bottom bar when they want it — per-dish prices are shown either way.',
+      ],
+    ],
+  },
+  {
     name: 'Who is serving them',
     items: [
       ['captainName', "Show the captain's name", 'The welcome screen names them.'],
@@ -728,7 +739,11 @@ const FEATURE_GROUPS: Array<{ name: string; items: Array<[string, string, string
 function FeaturesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const stored = (data.settings.customerFeatures ?? {}) as Record<string, boolean>;
-  const [values, setValues] = React.useState<Record<string, boolean>>(stored);
+  /* Every switch starts from the SAME defaults the guest's phone fills its gaps with. This panel
+     used to read an unsaved key as "on", which is right for twenty-two of these and wrong for
+     the twenty-third: a feature that is off by default would have drawn itself on here while
+     every phone drew it off, and the owner would have had no way to tell. */
+  const [values, setValues] = React.useState<Record<string, boolean>>(() => ({ ...resolveFeatures(stored) }));
 
   const onCount = Object.values(values).filter(Boolean).length;
 
@@ -748,7 +763,7 @@ function FeaturesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
             {g.items.map(([key, label, consequence]) => (
               <Toggle
                 key={key}
-                checked={values[key] !== false}
+                checked={values[key] ?? DEFAULT_FEATURES[key as keyof typeof DEFAULT_FEATURES]}
                 onCheckedChange={(v) => setValues({ ...values, [key]: v })}
                 label={label}
                 {...(consequence ? { consequence } : {})}

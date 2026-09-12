@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { cn } from '@/lib/cn';
 import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,9 @@ export interface GuestScreenProps {
   send: <T>(path: string, payload: unknown) => Promise<T>;
   busy: boolean;
   runBusy: (fn: () => Promise<void>) => void;
+  /** Whether this phone is currently showing the order total. See TotalReveal. */
+  showTotal: boolean;
+  setShowTotal: (v: boolean) => void;
 }
 
 export function GuestApp({ table, initial }: { table: string; initial: GuestPayload }) {
@@ -51,6 +55,17 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
   const [phase, setPhase] = React.useState<Phase>(() => startingPhase(factsOf(initial)));
   const [sheet, setSheet] = React.useState<{ kind: SheetKind; arg?: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
+
+  /**
+   * Whether the running total is on screen — the guest's own choice, seeded from the owner's.
+   *
+   * The owner's switch is a DEFAULT, not a lock: `features.orderTotal` decides what the phone
+   * shows before anyone touches anything, and the tick box in the bottom bar decides it after.
+   * A guest is never refused the figure they are about to be charged; they are only spared it
+   * until they ask. Held here rather than in each screen so walking menu -> order -> menu does
+   * not silently re-hide a total the guest switched on.
+   */
+  const [showTotal, setShowTotal] = React.useState(() => initial.features.orderTotal);
 
   /**
    * The server decides the phase whenever it knows better than the phone does.
@@ -91,6 +106,8 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     send,
     busy,
     runBusy,
+    showTotal,
+    setShowTotal,
   };
 
   if (data.phase === 'table_inactive') {
@@ -117,7 +134,7 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
         />
       ) : null}
 
-      <main className="flex-1 px-4 pb-[var(--layout-bottom-chrome-clearance)] pt-3">
+      <main className="flex-1 px-4 pb-4 pt-3">
         {staleReason ? (
           <PartialNotice testId="guest-stale">
             {staleReason} What you can see below is the last thing we heard — your order is safe on our side.
@@ -265,16 +282,124 @@ export function ActionBar({
   className?: string;
   testId: string;
 }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [height, setHeight] = React.useState<number | null>(null);
+
+  /**
+   * THE SPACER IS THE POINT, AND IT IS MEASURED RATHER THAN GUESSED.
+   *
+   * The bar is fixed, so it occupies no space in the flow, so whatever the page ends with sits
+   * UNDERNEATH it. A constant clearance token used to stand in for the bar's height — and the
+   * day a bar grew a second row (Send to the kitchen, then Add something else under it) the
+   * constant was fifty pixels short and the order totals vanished behind the button. Reported
+   * from a real phone on 12-Sep-2026.
+   *
+   * A guessed clearance is only ever right for the bar it was measured against; every bar
+   * added afterwards is a new chance for it to be wrong, silently, on someone else's screen.
+   * The bar's own height cannot be wrong. The token stays as the pre-measurement fallback for
+   * the first paint and for anything without a ResizeObserver.
+   */
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof ResizeObserver === 'undefined') {
+      setHeight(el.offsetHeight);
+      return;
+    }
+    const ro = new ResizeObserver(() => setHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div
-      data-testid={testId}
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-30 mx-auto flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3',
-        className
-      )}
-      style={{ maxWidth: 'var(--layout-guest-max-width)' }}
-    >
-      {children}
+    <>
+      <div
+        aria-hidden
+        data-testid={`${testId}-spacer`}
+        style={{ height: height ?? 'var(--layout-bottom-chrome-clearance)' }}
+      />
+      <div
+        ref={ref}
+        data-testid={testId}
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-30 mx-auto flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3',
+          className
+        )}
+        style={{ maxWidth: 'var(--layout-guest-max-width)' }}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
+/**
+ * TotalReveal — the tick box that decides whether this phone shows the order total, and the
+ * total itself when it does.
+ *
+ * WHY A TICK BOX AND NOT JUST A NUMBER
+ *   A table watching a running total climb orders differently from a table reading a menu, and
+ *   the restaurant asked for the quieter default. But a guest who wants to know what they are
+ *   spending must never have to ask a waiter for it, so the control is in the bottom bar on
+ *   every screen that has a total — always in the same corner, never behind a menu.
+ *
+ *   Per-dish prices are NOT governed by this. Ordering without prices is ordering blind; this
+ *   hides the sum, not the menu.
+ *
+ * The label is the touch target, at the 44px floor, so a thumb does not have to find an 18px
+ * square in a moving car of a restaurant.
+ */
+export function TotalReveal({
+  checked,
+  onCheckedChange,
+  rows,
+  testId,
+}: {
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
+  rows: Array<{ label: string; value: string }>;
+  testId: string;
+}) {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col">
+      <label
+        htmlFor={id}
+        className="flex min-h-11 cursor-pointer select-none items-center gap-2 self-start text-[12px] font-semibold text-[var(--text-muted)]"
+      >
+        <CheckboxPrimitive.Root
+          id={id}
+          checked={checked}
+          onCheckedChange={(v) => onCheckedChange(v === true)}
+          data-testid={testId}
+          className={cn(
+            'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors',
+            'border-[var(--border-strong)] bg-[var(--surface)]',
+            'data-[state=checked]:border-[var(--primary)] data-[state=checked]:bg-[var(--primary)]',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]'
+          )}
+        >
+          <CheckboxPrimitive.Indicator className="text-[11px] leading-none text-[var(--on-primary)]">
+            ✓
+          </CheckboxPrimitive.Indicator>
+        </CheckboxPrimitive.Root>
+        Show total
+      </label>
+
+      {checked ? (
+        <div data-testid={`${testId}-amount`} className="flex flex-col gap-0.5 pb-1">
+          {rows.map((r) => (
+            <div
+              key={r.label}
+              className="flex items-baseline justify-between gap-4 text-[12.5px] text-[var(--text-muted)]"
+            >
+              <span>{r.label}</span>
+              <span className="font-semibold tabular-nums text-[var(--text-body)]">{r.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

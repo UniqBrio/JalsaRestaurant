@@ -5,6 +5,40 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 - the guest's order total, the footer, the categories
+
+Two new specs in the app (`jalsa/`). The app's own ledger, `jalsa/TEST_SUMMARY.md`, carries the
+same entries alongside the gate run they belong to; they are repeated here because this is the
+ledger the pre-commit guard at this repository root reads.
+
+FAIL-FIRST: jalsa/tests/unit/guest-features.unit.spec.ts - run against the PRE-change tree's
+own rules, modelled exactly (the owner panel's `checked={values[key] !== false}` and a
+DEFAULT_FEATURES literal with no `orderTotal` in it). **3 failed**:
+  - "an unsaved feature resolves to its own default, not to 'on'" - expected false, received
+    true. The panel drew every unsaved key as ON, unconditionally.
+  - "the owner switch and the guest phone agree about an unsaved feature" - expected false,
+    received true. The switch said the guest could see their total while the phone showed none.
+    That disagreement across the server boundary is what the shared module exists to prevent.
+  - "the order total is off until someone turns it on" - expected false, received undefined.
+    There was no such default to read.
+
+FAIL-FIRST: jalsa/tests/functional/guest-total-visibility.functional.spec.ts - on this build
+container, where the database is unreachable (curl to the project's REST endpoint returns 000),
+the first assertion fails with `unreachable-guest` rendered instead of the welcome screen. The
+file goes RED rather than silent where it cannot run, which is the property that matters for a
+spec whose real execution is in CI.
+
+NOT OBSERVED FAILING: jalsa/tests/functional/guest-total-visibility.functional.spec.ts (every
+behavioural assertion - default hidden, tick reveals, choice survives navigation, nothing under
+the bar, every category reachable in one tap, the thumbnail holds its space) - they cannot be
+executed here at all, for the reason above. The first CI run against the test project is their
+first execution, and its log is the evidence to record in the change that proves it green. Two
+of them are known red on the pre-change tree by inspection of the diff - there was no
+`guest-menu-total-toggle` element to find, and the bar overlapped its own totals card - but
+inspection is a weaker claim than a recorded run, which is why it is written here as one.
+
+---
+
 ## Test project seeded and the reset interlocks proven - 2026-09-11
 
 Supabase project uxmyomxtosjlkvjxnvpy (JalsaRestaurant-test, ap-southeast-2) created on the

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { useToast } from '@/components/ui/toast';
 import type { Tone } from '@/lib/status';
-import { ActionBar, type GuestScreenProps } from './GuestApp';
+import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /**
  * Screens 6 and 7 — the round just placed, and every round on this bill.
@@ -63,7 +63,16 @@ export function PlacedScreen({ data, go }: GuestScreenProps) {
   );
 }
 
-export function StatusScreen({ data, go, openSheet, send, runBusy, busy }: GuestScreenProps) {
+export function StatusScreen({
+  data,
+  go,
+  openSheet,
+  send,
+  runBusy,
+  busy,
+  showTotal,
+  setShowTotal,
+}: GuestScreenProps) {
   const toast = useToast();
   const [loved, setLoved] = React.useState<Record<string, boolean>>({});
   const anyServed = data.rounds.some((r) => r.status === 'served');
@@ -147,12 +156,16 @@ export function StatusScreen({ data, go, openSheet, send, runBusy, busy }: Guest
         ))}
       </ul>
 
-      <Card className="flex items-baseline justify-between bg-[var(--surface-sunken)]">
-        <SectionLabel className="mb-0">So far</SectionLabel>
-        <span className="text-[15px] font-bold tabular-nums">{data.runningTotalLabel}</span>
-      </Card>
-
+      {/* "So far" moved into the bar behind the same tick box the ordering screens use. One
+          control for the total, in one place, on every screen that has one — a guest who
+          switched it on while ordering does not have to find a different switch here. */}
       <ActionBar testId="guest-status-bar">
+        <TotalReveal
+          checked={showTotal}
+          onCheckedChange={setShowTotal}
+          rows={[{ label: 'So far', value: data.runningTotalLabel }]}
+          testId="guest-status-total-toggle"
+        />
         {data.billStatus === 'payment_requested' ? (
           <>
             <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-3 py-2 text-center text-[12.5px] font-semibold text-[var(--on-primary-surface)]">
