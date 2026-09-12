@@ -131,17 +131,53 @@ export function ChoosePin({ name }: { name: string }) {
         <p className="m-0 mt-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{note}</p>
       </div>
 
-      <div className="flex justify-center gap-3" aria-hidden>
+      {/* The real control. This screen shipped with the keypad and NOTHING else, so a phone's
+          own numeric keyboard could not be used on it at all - three PINs to enter, every digit
+          by tapping. It is sr-only rather than hidden so it stays focusable and in the
+          accessibility tree, exactly as the sign-in screen does it. */}
+      <label className="sr-only" htmlFor="staff-choose-pin-input">
+        {step === 'current' ? 'The PIN you were given' : step === 'next' ? 'Your new PIN' : 'Your new PIN again'}
+      </label>
+      <input
+        data-testid="staff-choose-pin-input"
+        id="staff-choose-pin-input"
+        /* Entering a PIN is the only thing this screen does. */
+        autoFocus
+        className="sr-only"
+        type="password"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={4}
+        disabled={busy}
+        value={value}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+          setError(null);
+          setValue(digits);
+          if (digits.length === 4) advance(digits);
+        }}
+      />
+
+      <label
+        htmlFor="staff-choose-pin-input"
+        data-testid="staff-choose-pin-dots"
+        className="flex cursor-text justify-center gap-3 py-1"
+        aria-label="Enter four digits"
+      >
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
             className={cn(
               'h-3.5 w-3.5 rounded-full transition-colors',
-              value.length > i ? 'bg-[var(--primary)]' : 'bg-[var(--border-strong)]/35'
+              value.length > i
+                ? 'bg-[var(--primary)]'
+                : value.length === i
+                  ? 'animate-pulse bg-[var(--primary)]/45 ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--background)]'
+                  : 'bg-[var(--border-strong)]/35'
             )}
           />
         ))}
-      </div>
+      </label>
 
       {error ? <ErrorState title="Not quite" message={error} testId="staff-choose-pin-error" /> : null}
 
@@ -168,6 +204,29 @@ export function ChoosePin({ name }: { name: string }) {
       <p className="m-0 text-center text-[11.5px] leading-relaxed text-[var(--text-muted)]">
         {busy ? 'Saving…' : 'Nobody can see this, including Javeed. If you forget it, he issues a new one.'}
       </p>
+
+      {/* Per-session only, and that distinction is the whole point: it rewrites THIS cookie so
+          the floor opens now, and leaves `staff.pin_provisional` alone in the database. Sign in
+          again tomorrow and the screen returns. A skip that cleared the database flag would turn
+          a published four-digit code into this account's permanent credential, which is exactly
+          what KL-4 says makes the shared 1234 safe only while it is provisional. */}
+      <Button
+        data-testid="staff-choose-pin-skip"
+        variant="secondary"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void fetch('/api/staff/pin', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ skip: true }),
+          })
+            .then(() => router.refresh())
+            .finally(() => setBusy(false));
+        }}
+      >
+        Skip for now
+      </Button>
 
       <Button
         data-testid="staff-choose-pin-signout"

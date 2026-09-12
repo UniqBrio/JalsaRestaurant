@@ -38,6 +38,23 @@ export interface GuestContext {
  * not occupy the table on the captain's floor - the bill starts at the first round, which is
  * also the first moment anything is owed.
  */
+/**
+ * Persist a freshly minted token, where the runtime allows it.
+ *
+ * `cookies().set()` is legal in a Route Handler and forbidden during a server render. This is
+ * called only for a token this request invented, which on the guest page cannot happen -
+ * middleware always got there first. If it ever does, a failure to persist is not worth failing
+ * the guest's whole screen over: they get a working session for this request, and the next one
+ * mints again. The throw is swallowed deliberately and narrowly, and nothing else is.
+ */
+async function persistGuestToken(token: string): Promise<void> {
+  try {
+    await writeGuestToken(token);
+  } catch {
+    // Server render: middleware owns the cookie here. Nothing to do.
+  }
+}
+
 export async function resolveGuest(tableName: string): Promise<GuestContext | null> {
   const table = await findTableByName(tableName);
   if (!table) return null;
@@ -50,7 +67,12 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
     return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes };
   }
 
-  const token = (await readGuestToken()) ?? newGuestToken();
+  // The cookie is minted by `src/middleware.ts` before this render begins, so on the guest page
+  // it is always already here. The fallback covers a direct hit on /api/guest/state, which
+  // middleware does not match.
+  const carried = await readGuestToken();
+  const token = carried ?? newGuestToken();
+
   const { data: existing } = await db()
     .from('guest_session')
     .select('id,table_id,bill_id')
@@ -62,19 +84,25 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
     sessionId = existing.id as string;
     await db().from('guest_session').update({ last_seen_at: new Date().toISOString() }).eq('id', sessionId);
   } else {
-    // A phone that walks to a different table gets a different session. Reusing the row would
-    // carry the old table's cart onto the new table's bill.
-    const fresh = existing ? newGuestToken() : token;
+    // A phone that walks to a different table gets a different SESSION - reusing the row would
+    // carry the old table's cart onto the new table's bill. It keeps the same TOKEN, though:
+    // rotating the token would mean writing a cookie, and this function runs inside a server
+    // component where Next.js forbids that. Dropping the old row frees the token (it is unique)
+    // and takes its cart with it, which is the whole point of the rotation.
+    if (existing) await db().from('guest_session').delete().eq('id', existing.id);
+
     const { data: created, error } = await db()
       .from('guest_session')
-      .insert({ restaurant_id: restaurantId, token: fresh, table_id: table.id })
+      .insert({ restaurant_id: restaurantId, token, table_id: table.id })
       .select('id')
       .single();
     if (error) throw error;
     sessionId = created.id as string;
-    await writeGuestToken(fresh);
   }
-  if (!existing) await writeGuestToken(token);
+
+  // Only ever for a token this request invented, and only where writing is legal. On the page
+  // `carried` is set, so nothing is attempted; in a route handler it persists the new key.
+  if (!carried) await persistGuestToken(token);
 
   const open = await openBillForTable(table.id);
   if (open) {

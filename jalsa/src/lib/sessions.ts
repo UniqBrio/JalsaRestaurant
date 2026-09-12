@@ -2,6 +2,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { serverConfig } from '@/lib/config';
+import { COOKIE_NAMES } from '@/lib/cookie-names';
 
 /**
  * sessions - the two kinds of session this application has, and nothing else.
@@ -23,8 +24,8 @@ import { serverConfig } from '@/lib/config';
  *   name and role, which they can already see on screen.
  */
 
-const STAFF_COOKIE = 'jalsa_staff';
-const GUEST_COOKIE = 'jalsa_guest';
+const STAFF_COOKIE = COOKIE_NAMES.staff;
+const GUEST_COOKIE = COOKIE_NAMES.guest;
 
 /** A shift, not a week. Long enough to survive a phone locking; short enough that a handset
  *  left on a counter overnight is signed out by morning. */
@@ -132,4 +133,4 @@ export async function clearGuestToken(): Promise<void> {
   jar.delete(GUEST_COOKIE);
 }
 
-export const COOKIE_NAMES = { staff: STAFF_COOKIE, guest: GUEST_COOKIE } as const;
+export { COOKIE_NAMES };

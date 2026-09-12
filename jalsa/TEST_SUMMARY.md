@@ -4,6 +4,75 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
+Time: 3m 32s total - slowest G8 Functional / integration (2m 53s).
+
+- **G1 Theme artifacts in sync** - PASS (68ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (73ms)
+- **G3 Theme assets present per theme** - PASS (70ms)
+- **G4 No hard-coded colours** - PASS (83ms)
+- **G5 Types** - PASS (9.3s)
+- **G6 Lint** - PASS (10.5s)
+- **G7 Unit + pure specs** - PASS (15.2s)
+- **G8 Functional / integration** - FAIL (2m 53s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/reachability.functional-th-66ce5--it-—-without-writing-a-row-desktop/test-failed-1.png
+    Error Context: test-results/reachability.functional-th-66ce5--it-—-without-writing-a-row-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop-wide/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop-wide/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (80ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (71ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Production defect - 2026-09-12 - the guest page could never open a session
+
+Found by the user on the live Vercel deployment, not by the suite.
+
+SYMPTOM: /t/A5 rendered "We cannot reach the till just now" while /staff and /owner both loaded
+and greeted the signed-in owner by name - so the database was reachable and the secret key valid
+the whole time.
+
+ROOT CAUSE: `resolveGuest` called `writeGuestToken` -> `cookies().set()`. Next.js permits that
+only in a Server Action or a Route Handler; `/t/[table]/page.tsx` is a server component, so it
+threw, `attempt()` caught it, and the guest was shown the outage screen. The `guest_session` row
+was INSERTED before the throw, so every scan also left an orphan row behind.
+
+WHY THE SUITE MISSED IT: `reachability.functional.spec.ts` uses a table name that does not exist,
+which returns before the insert AND before the cookie write - by design, so the suite writes
+nothing. A read-only probe proves the database answers and nothing about the path that writes.
+`guest-journey.functional.spec.ts` does cover it and has still never run (its only CI attempt
+died at the reset step on dev-project secrets).
+
+FIX: `src/middleware.ts` mints the guest cookie before the render (Edge-safe Web Crypto);
+`resolveGuest` no longer writes cookies at all, and a table change now drops the old session row
+to free its unique token instead of rotating the token.
+
+NOT OBSERVED FAILING: no new spec. The existing guest-journey spec is the rung for this class and
+needs no change; what it needs is a CI run. Recorded rather than papered over with a fresh test
+that would assert the same thing in a file that also does not run.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-11 - the guest journey (issue #3, row 1)
 
 FAIL-FIRST: tests/functional/guest-journey.functional.spec.ts - first run on the build

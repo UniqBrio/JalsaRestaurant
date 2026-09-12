@@ -94,6 +94,9 @@ export function PinSignIn() {
       <input
         data-testid="staff-pin-input"
         id="staff-pin"
+        /* The keypad IS the screen: there is nothing else to focus, and a captain should be
+           able to type the moment it opens. */
+        autoFocus
         className="sr-only"
         type="password"
         inputMode="numeric"
@@ -107,17 +110,30 @@ export function PinSignIn() {
         }}
       />
 
-      <div className="flex justify-center gap-3" aria-hidden>
+      {/* Tapping the dots focuses the real field, which is what opens the phone's own numeric
+          keypad. Without a label bound to it, the input is unreachable by touch and the keypad
+          below is the ONLY way in - fine on a desktop with a mouse, useless to a captain who
+          wants to type. The caret marks the digit about to be entered. */}
+      <label
+        htmlFor="staff-pin"
+        data-testid="staff-pin-dots"
+        className="flex cursor-text justify-center gap-3 py-1"
+        aria-label="Enter your four-digit PIN"
+      >
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
             className={cn(
               'h-3.5 w-3.5 rounded-full transition-colors',
-              pin.length > i ? 'bg-[var(--primary)]' : 'bg-[var(--border-strong)]/35'
+              pin.length > i
+                ? 'bg-[var(--primary)]'
+                : pin.length === i
+                  ? 'animate-pulse bg-[var(--primary)]/45 ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--background)]'
+                  : 'bg-[var(--border-strong)]/35'
             )}
           />
         ))}
-      </div>
+      </label>
 
       {error ? <ErrorState title="Not tonight" message={error} testId="staff-pin-error" /> : null}
 

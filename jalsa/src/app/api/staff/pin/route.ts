@@ -11,6 +11,11 @@ import { writeStaffSession } from '@/lib/sessions';
  *   prompt on their very next request having just completed it — which reads as "it did not
  *   save", and the second attempt would fail because the current PIN has changed.
  *
+ * WHY "SKIP FOR NOW" EXISTS AND WHAT IT COSTS
+ *   Requested so a shared setup PIN does not block testing. It is scoped to the session on
+ *   purpose: the database keeps saying this credential was issued, not chosen, so the prompt
+ *   comes back on the next sign-in and the honest state is never lost.
+ *
  * WHY A FAILURE HERE IS NOT A 500
  *   "Wrong current PIN" and "that new one is too easy to guess" are both ANSWERS, not faults.
  *   They come back as 400 with the sentence the screen prints, because a stack trace on this
@@ -22,7 +27,20 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     return fail(401, { code: 'unauthenticated', message: 'Sign in first.' });
   }
 
-  const input = await body<{ current?: string; next?: string }>(req);
+  const input = await body<{ current?: string; next?: string; skip?: boolean }>(req);
+
+  // "Skip for now" - this SESSION proceeds; the stored credential is untouched.
+  //
+  // The cookie carries `provisional`, and the surfaces gate on the cookie, so clearing it here
+  // opens the floor for as long as this session lasts. `staff.pin_provisional` in the database
+  // is deliberately NOT cleared: the next sign-in reads it again and the screen returns. That is
+  // the difference between "let me in, I am testing" and "1234 is now this account's password
+  // forever" - and on a public URL the second one is the whole risk KL-4 exists to bound.
+  if (input.skip === true) {
+    await writeStaffSession({ ...staff, provisional: false, issuedAt: Math.floor(Date.now() / 1000) });
+    return ok({ skipped: true });
+  }
+
   const current = (input.current ?? '').trim();
   const next = (input.next ?? '').trim();
 

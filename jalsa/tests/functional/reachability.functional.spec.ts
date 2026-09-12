@@ -11,6 +11,16 @@
  *   on it would have been exactly the defect RC-009 describes: a verdict cited as coverage of
  *   something it never opened. This is the rung that makes the claim true.
  *
+ * WHAT THIS FILE DOES NOT COVER, LEARNED THE HARD WAY (12-Sep-2026)
+ *   Returning before the insert also returns before the COOKIE WRITE - and that write was the
+ *   defect. `resolveGuest` called `cookies().set()`, which Next.js forbids during a server
+ *   render, so the first scan of a REAL table threw and showed "We cannot reach the till just
+ *   now": a message about the database, for a failure that had nothing to do with it. This spec
+ *   passed throughout, honestly, because the branch it takes never reaches that line.
+ *   The lesson is not that this file is wrong - it is that a read-only probe proves the database
+ *   answers, and nothing whatsoever about the path that writes. `guest-journey.functional.spec.ts`
+ *   is the file that covers it; it had never run.
+ *
  * WHY AN UNKNOWN TABLE, NOT A REAL ONE
  *   Visiting a real table INSERTS a guest_session row (src/lib/db/guest.ts). The functional suite
  *   writes nothing to any database — ENVIRONMENTS.md, binding rule 4 — and the only project that
