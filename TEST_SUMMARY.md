@@ -5,6 +5,33 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (second batch) - closure path, tip, dashboard, discount
+
+Repeated from `jalsa/TEST_SUMMARY.md` because this is the ledger the pre-commit guard at this
+repository root reads.
+
+FAIL-FIRST: jalsa/tests/unit/write-echo.unit.spec.ts - against the pre-change rules (`send`
+posting then calling `refreshNow()` unconditionally; four fixed tip presets; the upsell screen
+navigating away on the first add). **3 failed**: `expected ["POST"], received ["POST","GET"]`;
+`expected "upsell", received "tip"`; `expected true, received false`.
+
+FAIL-FIRST: jalsa/tests/unit/discount-mirror.unit.spec.ts - against the pre-change rules (two
+independent boxes; preview = the sum of both). **3 failed**: `expected {pct:"10",flat:"166"},
+received {pct:"",flat:""}`; the same the other way round; and `expected 166, received 332` — the
+double-discount that is the reason one of the two boxes had to become a readout.
+
+FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts - the database is
+unreachable on this container (curl to the project's REST endpoint returns 000) and the first
+assertion fails with `unreachable-guest`. The file goes RED rather than silent.
+
+NOT OBSERVED FAILING: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts (every
+behavioural assertion) - not executable here at all; the first CI run is their first execution.
+
+NOT OBSERVED FAILING: the owner Dashboard move - placement only, no rung added, recorded rather
+than left silent.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 - the guest's order total, the footer, the categories
 
 Two new specs in the app (`jalsa/`). The app's own ledger, `jalsa/TEST_SUMMARY.md`, carries the

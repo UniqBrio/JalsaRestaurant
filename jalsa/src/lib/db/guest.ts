@@ -149,3 +149,16 @@ export async function currentGuestSession(): Promise<{ id: string; tableId: stri
     billId: (data.bill_id as string) ?? null,
   };
 }
+
+/**
+ * The table a session is sitting at, by name.
+ *
+ * Exists so a WRITE route can rebuild the guest's payload and return it with its answer. The
+ * alternative — answering `{ ok: true }` and letting the phone go and fetch the new state — is
+ * two more round trips to another region for every tap, and the guest watches a frozen screen
+ * for all of them. Reported 12-Sep-2026 as "adding or removing a tip takes too long".
+ */
+export async function tableNameForSession(tableId: string): Promise<string | null> {
+  const { data } = await db().from('dining_table').select('name').eq('id', tableId).maybeSingle();
+  return (data?.name as string | undefined) ?? null;
+}

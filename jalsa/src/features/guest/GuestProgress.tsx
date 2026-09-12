@@ -86,6 +86,23 @@ export function StatusScreen({
       go('upsell');
     });
 
+  /** Withdraw the request and go straight back to the menu. One tap, two jobs. */
+  const continueOrdering = () =>
+    runBusy(async () => {
+      await send('/api/guest/bill', { action: 'resume-ordering' });
+      toast.show('Payment request paused. Order away.', { tone: 'success' });
+      go('menu');
+    });
+
+  /* Withdraw and STAY. The difference between this and Continue Ordering is only where the
+     guest ends up, and that difference is the whole reason both exist: one is for "actually,
+     dinner is not finished", the other for "we asked too early". */
+  const cancelRequest = () =>
+    runBusy(async () => {
+      await send('/api/guest/bill', { action: 'resume-ordering' });
+      toast.show('Payment request paused.', { tone: 'success' });
+    });
+
   if (data.rounds.length === 0) {
     return (
       <div className="flex flex-col gap-4 pt-8" data-testid="guest-status-empty">
@@ -172,12 +189,36 @@ export function StatusScreen({
               {data.captain ? `${data.captain} is bringing your bill` : 'Your bill is on its way'} ·{' '}
               {data.payableLabel}
             </p>
-            <Button data-testid="guest-continue-closure" size="lg" onClick={() => go('upsell')}>
+            {/* THE BIG ONE, and deliberately above "Carry on to pay".
+                A table that decides on one more round after asking for the bill should not have
+                to work out that the way to order is to CANCEL something first. The mental model
+                is "I want to add something → Continue Ordering"; the payment request is the
+                application's problem, not theirs, and it is withdrawn quietly on the way past. */}
+            <Button data-testid="guest-continue-ordering" size="lg" onClick={continueOrdering} disabled={busy}>
+              ＋ Continue Ordering
+            </Button>
+            <Button data-testid="guest-continue-closure" variant="secondary" onClick={() => go('upsell')}>
               Carry on to pay
+            </Button>
+            <Button
+              data-testid="guest-cancel-payment-request"
+              variant="ghost"
+              onClick={cancelRequest}
+              disabled={busy}
+            >
+              Cancel payment request
             </Button>
           </>
         ) : (
           <>
+            {data.paymentPaused ? (
+              <p
+                data-testid="guest-payment-paused"
+                className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 text-center text-[12.5px] font-semibold text-[var(--text-muted)]"
+              >
+                Payment request paused. You can continue ordering.
+              </p>
+            ) : null}
             <Button data-testid="guest-request-payment" size="lg" onClick={requestPayment} disabled={busy}>
               {data.copy.payBtn ?? 'Request payment'}
             </Button>

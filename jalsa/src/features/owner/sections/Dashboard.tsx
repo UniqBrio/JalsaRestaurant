@@ -91,39 +91,12 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         </section>
       ) : null}
 
-      <section>
-        <SectionLabel>Floor right now</SectionLabel>
-        <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-4 lg:grid-cols-6">
-          {data.floor.map((t) => (
-            <li key={t.id}>
-              <button
-                data-testid={`owner-floor-${t.name}`}
-                type="button"
-                disabled={!t.billId}
-                onClick={() => t.billId && go('orders', t.billId)}
-
-                className={cn(
-                  'w-full rounded-[var(--radius-md)] p-3 text-left shadow-[var(--shadow-card)] transition-colors',
-                  'disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
-                  t.tone === 'success'
-                    ? 'bg-[var(--success-surface)] text-[var(--on-success-surface)]'
-                    : t.tone === 'warning'
-                      ? 'bg-[var(--warning-surface)] text-[var(--on-warning-surface)]'
-                      : t.tone === 'primary'
-                        ? 'bg-[var(--primary)] text-[var(--on-primary)]'
-                        : 'bg-[var(--surface)]'
-                )}
-              >
-                <span className="block text-[14px] font-bold">{t.name}</span>
-                <span className="block text-[10.5px] font-semibold">{t.stateLabel}</span>
-                <span className="block text-[10.5px] opacity-75">{t.line}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
+      {/* FIRST on this screen, above the floor grid.
+          A table request is the only thing on the Dashboard with a clock running on it — it
+          turns red after five minutes — and it used to sit underneath twenty-two table cards,
+          off the bottom of the screen. The most time-critical thing on a page belongs where the
+          eye lands, not where the layout happened to leave room. */}
+      <section data-testid="owner-requests">
         <SectionLabel>Table requests</SectionLabel>
         {data.requests.length === 0 ? (
           <Card>
@@ -132,7 +105,16 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
             </p>
           </Card>
         ) : (
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          /* Three rows tall, and the rest scroll INSIDE this box rather than pushing the
+             floor grid down the page. A "show more" button would be a tap between the owner and
+             something with a clock running on it; letting the page grow is what this section was
+             moved to the top to stop. `--layout-owner-requests-max-height` is three rows plus a
+             sliver of the fourth, so there is always something visibly cut off when there is
+             more — a scroll box that ends flush looks finished. */
+          <ul
+            data-testid="owner-requests-list"
+            className="m-0 flex max-h-[var(--layout-owner-requests-max-height)] list-none flex-col gap-2 overflow-y-auto p-0"
+          >
             {data.requests.map((r) => (
               <li key={r.id}>
                 <Card
@@ -169,6 +151,38 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
           Captains see the same list — either of you can clear it, and it clears for both.
         </p>
+      </section>
+
+      <section>
+        <SectionLabel>Floor right now</SectionLabel>
+        <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-4 lg:grid-cols-6">
+          {data.floor.map((t) => (
+            <li key={t.id}>
+              <button
+                data-testid={`owner-floor-${t.name}`}
+                type="button"
+                disabled={!t.billId}
+                onClick={() => t.billId && go('orders', t.billId)}
+
+                className={cn(
+                  'w-full rounded-[var(--radius-md)] p-3 text-left shadow-[var(--shadow-card)] transition-colors',
+                  'disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
+                  t.tone === 'success'
+                    ? 'bg-[var(--success-surface)] text-[var(--on-success-surface)]'
+                    : t.tone === 'warning'
+                      ? 'bg-[var(--warning-surface)] text-[var(--on-warning-surface)]'
+                      : t.tone === 'primary'
+                        ? 'bg-[var(--primary)] text-[var(--on-primary)]'
+                        : 'bg-[var(--surface)]'
+                )}
+              >
+                <span className="block text-[14px] font-bold">{t.name}</span>
+                <span className="block text-[10.5px] font-semibold">{t.stateLabel}</span>
+                <span className="block text-[10.5px] opacity-75">{t.line}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section>

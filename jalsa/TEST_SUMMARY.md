@@ -4,6 +4,80 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
+
+- **G1 Theme artifacts in sync** - PASS (49ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (50ms)
+- **G3 Theme assets present per theme** - PASS (51ms)
+- **G4 No hard-coded colours** - PASS (65ms)
+- **G5 Types** - PASS (2.0s)
+- **G6 Lint** - PASS (8.2s)
+- **G7 Unit + pure specs** - PASS (6.8s)
+- **G8 Functional / integration** - FAIL (1m 00s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (59ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.8s)
+- **G11 Wide tables are configurable** - PASS (60ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (second batch) - closure path, tip, dashboard, discount
+
+FAIL-FIRST: tests/unit/write-echo.unit.spec.ts - run against the pre-change tree's own rules,
+modelled exactly (`send` posting then calling `refreshNow()` unconditionally; a tip row of four
+fixed presets with no custom option; `UpsellScreen.add` navigating to the tip step). **3 failed**:
+  - "a write that answers with the new state costs one round trip, not two" -
+    `expected ["POST"], received ["POST","GET"]`.
+  - "adding from the upsell screen leaves the guest on the upsell screen" -
+    `expected "upsell", received "tip"`.
+  - "the tip row offers a custom amount as well as the presets" - `expected true, received false`.
+
+FAIL-FIRST: tests/unit/discount-mirror.unit.spec.ts - run against the pre-change rules (two
+independent boxes, neither computing the other, preview = the SUM of both). **3 failed**:
+  - "typing a percentage fills in what it comes to in rupees" -
+    `expected {pct:"10",flat:"166"}, received {pct:"",flat:""}`.
+  - "typing an amount fills in the percentage it represents" - same, the other way round.
+  - "one discount is taken, not two" - `expected 166, received 332`. This is why the boxes could
+    not simply mirror each other: `discountOf` applies the percentage and THEN the flat amount,
+    so two live mirrored inputs would discount every bill twice.
+
+FAIL-FIRST: tests/functional/closure-upsell-tip.functional.spec.ts - on this build container,
+where the database is unreachable (curl to the project's REST endpoint returns 000), the first
+assertion fails with `unreachable-guest` rendered instead of the welcome screen. The file goes
+RED rather than silent where it cannot run.
+
+NOT OBSERVED FAILING: tests/functional/closure-upsell-tip.functional.spec.ts (every behavioural
+assertion - three tabs visible at once, adding without navigating away, the live payable, the
+five-option tip row, the custom amount, Continue Ordering pausing the request and keeping the
+bill) - they cannot be executed here at all, for the reason above. The first CI run against the
+test project is their first execution. The PURE halves of the same changes are covered by the two
+recorded red-then-green runs above.
+
+NOT OBSERVED FAILING: the owner Dashboard move (Table requests above the floor grid, capped at
+three rows with the rest scrolling inside the section). No rung was added: it is placement, and
+the existing owner specs assert the section's content, which is unchanged. Recorded as the
+honest negative rather than left silent.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 - the guest's order total, the footer, the categories
 
 FAIL-FIRST: tests/unit/guest-features.unit.spec.ts - run against the PRE-change tree's own

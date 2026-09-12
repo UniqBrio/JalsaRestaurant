@@ -62,6 +62,8 @@ export interface GuestPayload {
   rounds: GuestRound[];
   billCode: string | null;
   billStatus: Bill['status'] | null;
+  /** Asked for once, then withdrawn: the bill is open again and the phone says so. */
+  paymentPaused: boolean;
   runningTotalLabel: string;
   totals: TotalsRow[];
   payableLabel: string;
@@ -162,6 +164,8 @@ export async function buildGuestPayload(tableName: string): Promise<GuestPayload
     rounds,
     billCode: bill?.code ?? null,
     billStatus: bill?.status ?? null,
+    // Open, but asked for once already. The pair is the paused state — see withdrawPaymentRequest.
+    paymentPaused: bill?.status === 'open' && bill.paymentRequestedAt !== null,
     runningTotalLabel: `${rupees(running)} before tax`,
     totals: totalsRows(totals, { taxRate, ...(bill?.captain ? { tipTo: bill.captain } : {}) }),
     payableLabel: rupees(totals.payable),

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { billForSession, currentGuestSession } from '@/lib/db/guest';
-import { addTip, audit, GUEST_ACTOR, requestPayment } from '@/lib/db/mutations';
+import { freshState } from '@/lib/db/guest-echo';
+import { addTip, audit, GUEST_ACTOR, requestPayment, withdrawPaymentRequest } from '@/lib/db/mutations';
 import { db } from '@/lib/supabase/server';
 import { billTotals } from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
 
-type Action = 'request-payment' | 'tip' | 'pay' | 'occasion';
+type Action = 'request-payment' | 'resume-ordering' | 'tip' | 'pay' | 'occasion';
 
 /**
  * The guest's half of closure — and it is only ever a half.
@@ -57,7 +58,13 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   switch (input.action) {
     case 'request-payment': {
       await requestPayment(bill.id);
-      return ok({ status: 'payment_requested' });
+      return ok({ status: 'payment_requested', state: await freshState() });
+    }
+
+    case 'resume-ordering': {
+      // Pausing, not cancelling. See withdrawPaymentRequest.
+      await withdrawPaymentRequest(bill.id);
+      return ok({ status: 'open', state: await freshState() });
     }
 
     case 'tip': {
@@ -65,7 +72,8 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       // The tip is attributed to the CAPTAIN on the bill, so the ledger has an owner even when
       // several people served the table. Standard 7.3: it is their money, tracked apart.
       await addTip({ billId: bill.id, amount, staffId: bill.captainId });
-      return ok({ tip: amount });
+      // The new totals travel back WITH the answer. See src/lib/db/guest-echo.ts.
+      return ok({ tip: amount, state: await freshState() });
     }
 
     case 'pay': {

@@ -164,7 +164,7 @@ export const scales = {
   spacing: {"0":"0px","1":"4px","2":"8px","3":"12px","4":"16px","5":"22px","6":"30px","7":"44px","8":"64px"},
   typography: {"fontFamilyBase":"var(--font-body), 'Noto Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif","fontFamilyMono":"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace","size":{"caption":"11.5px","body":"13px","bodyLg":"15px","h3":"17px","h2":"21px","h1":"26px","hero":"34px"},"lineHeight":{"caption":"16px","body":"19px","bodyLg":"22px","h3":"23px","h2":"27px","h1":"32px","hero":"40px"},"weight":{"body":"400","medium":"500","subheading":"600","heading":"700"}},
   motion: {"duration":{"instant":"90ms","fast":"160ms","base":"260ms","slow":"420ms"},"easing":{"out":"cubic-bezier(0.16,1,0.3,1)","inOut":"cubic-bezier(0.65,0,0.35,1)","in":"cubic-bezier(0.55,0,1,0.45)"},"note":"Every animation must collapse to its END STATE under prefers-reduced-motion. Motion never gates interactivity."},
-  layout: {"minSupportedWidth":"320px","contentMaxWidth":"1240px","guestMaxWidth":"430px","minTouchTarget":"44px","bottomChromeHeight":"58px","bottomChromeClearance":"74px","guestHeaderHeight":"68px"},
+  layout: {"minSupportedWidth":"320px","contentMaxWidth":"1240px","guestMaxWidth":"430px","minTouchTarget":"44px","bottomChromeHeight":"58px","bottomChromeClearance":"74px","guestHeaderHeight":"68px","ownerRequestsMaxHeight":"14.5rem"},
 } as const;
 
 /** Declared theme-aware assets, rendered by <ThemedImage />. */

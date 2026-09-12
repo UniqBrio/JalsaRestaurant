@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
+import { freshState } from '@/lib/db/guest-echo';
 import { currentGuestSession } from '@/lib/db/guest';
 import { setCartLine } from '@/lib/db/mutations';
 
@@ -25,5 +26,5 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
 
   await setCartLine({ sessionId: session.id, menuItemId: input.itemId, qty: Math.max(0, Math.floor(input.qty)) });
-  return ok({ done: true });
+  return ok({ done: true, state: await freshState() });
 });

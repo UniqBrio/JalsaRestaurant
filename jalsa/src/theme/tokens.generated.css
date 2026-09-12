@@ -51,6 +51,7 @@
   --layout-bottom-chrome-height: 58px;
   --layout-bottom-chrome-clearance: 74px;
   --layout-guest-header-height: 68px;
+  --layout-owner-requests-max-height: 14.5rem;
 
   /* --- LIGHT (default, always fully defined) --- */
   --background: #EDE7E4;

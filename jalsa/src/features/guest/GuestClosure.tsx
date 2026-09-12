@@ -2,11 +2,15 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, Chip, FoodMark, SectionLabel, Skeleton } from '@/components/ui/atoms';
+import { cn } from '@/lib/cn';
+import { Card, Chip, FoodMark, Pill, SectionLabel, Skeleton } from '@/components/ui/atoms';
+import { Input } from '@/components/ui/field';
 import { TotalsBlock } from '@/components/ui/bill';
 import { SuccessNotice } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
+import { parseCustomTip } from '@/lib/write-echo';
+import type { GuestMenuItem } from '@/lib/db/guest-view';
 import { ActionBar, type GuestScreenProps } from './GuestApp';
 
 /**
@@ -23,30 +27,117 @@ import { ActionBar, type GuestScreenProps } from './GuestApp';
  * in a sentence rather than leaving it to be inferred (7.3).
  */
 
-/* ── 9. Dessert and beverage upsell ────────────────────────────────────── */
+type UpsellTab = 'desserts' | 'beverages' | 'share';
+
+/** What each tab offers, drawn from the LIVE menu by category — never a typed list of dishes. */
+const UPSELL_TABS: Array<{
+  key: UpsellTab;
+  emoji: string;
+  label: string;
+  heading: string;
+  sub: string;
+  /** Categories in the order they should be drawn from. */
+  from: string[];
+  /** Whether these are meant to leave the building. */
+  packed: boolean;
+}> = [
+  {
+    key: 'desserts',
+    emoji: '🍰',
+    label: 'Desserts',
+    heading: 'Something sweet?',
+    sub: 'Straight from the kitchen, while you settle up.',
+    from: ['Desserts'],
+    packed: false,
+  },
+  {
+    key: 'beverages',
+    emoji: '🥤',
+    label: 'Beverages',
+    heading: 'Something refreshing?',
+    // "Beverages" is this screen's word for the menu's "Drinks" category. A label, not a rename.
+    sub: 'Cold, quick, and on the same bill.',
+    from: ['Drinks'],
+    packed: false,
+  },
+  {
+    key: 'share',
+    emoji: '❤️',
+    label: 'Share the Love',
+    heading: 'Share the Love ❤️',
+    sub: 'Let them enjoy what you loved.',
+    // Curated, not the whole menu: the things worth carrying home, in the order they are worth it.
+    from: ['Biryani', 'Combo', 'Indian Curry', 'Desserts'],
+    packed: true,
+  },
+];
+
+const OFFERS_PER_TAB = 4;
+
+/* ── 9. One last thing — the three-way upsell ──────────────────────────── */
 
 export function UpsellScreen(props: GuestScreenProps) {
-  const { data, go, send, runBusy, busy } = props;
+  const { data, go, send, busy } = props;
   const toast = useToast();
+  const [tab, setTab] = React.useState<UpsellTab>('desserts');
+  const [adding, setAdding] = React.useState<string | null>(null);
 
-  const offers = React.useMemo(
-    () => data.menu.filter((m) => m.available && (m.category === 'Desserts' || m.category === 'Drinks')).slice(0, 3),
+  /* "Share the Love" is an offer to parcel food, so it is shown only where the owner has that
+     switch on. A tab that cannot be honoured is worse than a missing one (Standard 2.4). */
+  const tabs = React.useMemo(
+    () => UPSELL_TABS.filter((t) => t.key !== 'share' || data.features.takeaway),
+    [data.features.takeaway]
+  );
+
+  const offersFor = React.useCallback(
+    (key: UpsellTab): GuestMenuItem[] => {
+      const spec = UPSELL_TABS.find((t) => t.key === key);
+      if (!spec) return [];
+      const picked: GuestMenuItem[] = [];
+      for (const category of spec.from) {
+        for (const m of data.menu) {
+          if (picked.length >= OFFERS_PER_TAB) break;
+          if (m.available && m.category === category) picked.push(m);
+        }
+      }
+      return picked;
+    },
     [data.menu]
   );
 
-  if (!data.features.upsell || offers.length === 0) {
+  const anything = tabs.some((t) => offersFor(t.key).length > 0);
+  if (!data.features.upsell || !anything) {
     // Nothing to offer is not a screen. Standard 5.6: withhold the step rather than showing an
     // empty version of it.
     return <TipScreen {...props} openSheet={() => {}} />;
   }
 
-  const add = (id: string, name: string) =>
-    runBusy(async () => {
-      await send('/api/guest/cart', { itemId: id, qty: 1 });
-      const res = await send<{ kotCode: string }>('/api/guest/round', {});
-      toast.show(`${name} added as ${res.kotCode} — the kitchen still has time`, { tone: 'success' });
-      go('tip');
-    });
+  const active = tabs.find((t) => t.key === tab) ?? tabs[0];
+  if (!active) return <TipScreen {...props} openSheet={() => {}} />;
+  const offers = offersFor(active.key);
+
+  /**
+   * Add, and STAY.
+   *
+   * The screen this replaced sent the guest to the tip step the instant they added one thing,
+   * so "a dessert, then a drink, then something for home" was impossible — there was no second
+   * tap to be had. Now the round is placed, the total moves, and the guest is still here.
+   * `runBusy` is not used: it freezes every + on the screen, and the one thing this screen must
+   * not do is make the next add wait for the last one.
+   */
+  const add = (item: GuestMenuItem) => {
+    if (adding) return;
+    setAdding(item.id);
+    void send('/api/guest/cart', { itemId: item.id, qty: 1 })
+      .then(() => send<{ kotCode: string }>('/api/guest/round', {}))
+      .then(() => {
+        toast.show(`${item.name} — added ✓`, { tone: 'success' });
+      })
+      .catch((err: unknown) => {
+        toast.show(err instanceof Error ? err.message : 'That did not go through.', { tone: 'error' });
+      })
+      .finally(() => setAdding(null));
+  };
 
   return (
     <div className="flex flex-col gap-4 pt-2" data-testid="guest-upsell">
@@ -58,38 +149,132 @@ export function UpsellScreen(props: GuestScreenProps) {
       <div>
         <h2 className="text-[19px]">One last thing?</h2>
         <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">
-          Added as a fresh round — the kitchen still has time.
+          Your bill is ready. Add a little something before you pay.
         </p>
       </div>
 
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {offers.map((o) => (
-          <li key={o.id}>
-            <Card className="flex items-center gap-3 p-3">
-              <FoodMark type={o.foodType} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-semibold">{o.name}</span>
-                <span className="block text-[11.5px] text-[var(--text-muted)]">{o.description}</span>
+      {/* Three at once, on one row, in one grid. Not a scrolling strip and not a carousel: an
+          option a guest has to swipe to discover is an option most of them never see, and the
+          third one here is the one the restaurant most wants seen. */}
+      <div
+        role="tablist"
+        aria-label="What else?"
+        data-testid="guest-upsell-tabs"
+        className="grid gap-1.5 rounded-[var(--radius-lg)] bg-[var(--surface-sunken)] p-1.5"
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      >
+        {tabs.map((t) => {
+          const on = t.key === active.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              data-testid={`guest-upsell-tab-${t.key}`}
+              onClick={() => setTab(t.key)}
+              className={cn(
+                'flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-[11.5px] font-semibold leading-tight transition-colors',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
+                on
+                  ? 'bg-[var(--primary)] text-[var(--on-primary)]'
+                  : 'text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text-body)]'
+              )}
+            >
+              <span aria-hidden className="text-[16px] leading-none">
+                {t.emoji}
               </span>
-              <span className="text-[13px] font-bold tabular-nums">{o.priceLabel}</span>
-              <Button
-                data-testid={`guest-upsell-add-${o.id}`}
-                size="icon"
-                onClick={() => add(o.id, o.name)}
-                disabled={busy}
-                aria-label={`Add ${o.name}`}
-              >
-                +
-              </Button>
-            </Card>
-          </li>
-        ))}
-      </ul>
+              <span className="text-center">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div>
+        <h3 className="m-0 text-[15px] font-semibold">{active.heading}</h3>
+        <p className="m-0 mt-0.5 text-[12px] text-[var(--text-muted)]">{active.sub}</p>
+      </div>
+
+      {offers.length === 0 ? (
+        <p data-testid="guest-upsell-empty" className="m-0 text-[12.5px] text-[var(--text-muted)]">
+          Nothing here tonight — try the other {tabs.length === 3 ? 'two' : 'one'}.
+        </p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0" data-testid={`guest-upsell-list-${active.key}`}>
+          {offers.map((o) => (
+            <li key={o.id}>
+              <Card className="flex items-center gap-3 p-3">
+                {/* The space a photograph will occupy — the same tile the menu rows hold open. */}
+                <span
+                  aria-hidden
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--text-disabled)]"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                    <circle cx="8.5" cy="9.5" r="1.6" />
+                    <path d="M3.5 17l4.8-4.8a1.6 1.6 0 0 1 2.3 0L15 16.5l1.9-1.9a1.6 1.6 0 0 1 2.3 0l1.3 1.3" />
+                  </svg>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <FoodMark type={o.foodType} />
+                    <span className="min-w-0 truncate text-[13px] font-semibold">{o.name}</span>
+                  </span>
+                  <span className="mt-0.5 block text-[11.5px] leading-snug text-[var(--text-muted)]">
+                    {o.description}
+                  </span>
+                  {active.packed ? (
+                    <span className="mt-1 inline-block">
+                      <Pill tone="neutral">Packed for home</Pill>
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[13px] font-bold tabular-nums">{o.priceLabel}</span>
+                <Button
+                  data-testid={`guest-upsell-add-${o.id}`}
+                  size="icon"
+                  onClick={() => add(o)}
+                  disabled={adding !== null}
+                  aria-label={`Add ${o.name}`}
+                >
+                  {adding === o.id ? '·' : '+'}
+                </Button>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <ActionBar testId="guest-upsell-bar">
-        <Button data-testid="guest-upsell-skip" size="lg" onClick={() => go('tip')}>
-          No thanks, carry on
+        {/* The amount is live: every add re-renders this label from the payload the write
+            answered with, so the guest watches the number they are agreeing to move. */}
+        <Button data-testid="guest-upsell-pay" size="lg" onClick={() => go('tip')} disabled={busy}>
+          Pay {data.payableLabel}
         </Button>
+        <div className="flex items-center gap-2">
+          {/* The tabs above are the curated shortcut; this is "show me everything". It pauses
+              the payment request on the way past — the guest never has to cancel anything to
+              order again. */}
+          <Button
+            data-testid="guest-upsell-continue-ordering"
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            disabled={busy}
+            onClick={() =>
+              props.runBusy(async () => {
+                await send('/api/guest/bill', { action: 'resume-ordering' });
+                toast.show('Payment request paused. Order away.', { tone: 'success' });
+                go('menu');
+              })
+            }
+          >
+            ＋ Continue Ordering
+          </Button>
+          <Button data-testid="guest-upsell-skip" variant="ghost" size="md" onClick={() => go('tip')}>
+            No thanks, continue to payment
+          </Button>
+        </div>
       </ActionBar>
     </div>
   );
@@ -98,14 +283,54 @@ export function UpsellScreen(props: GuestScreenProps) {
 /* ── 10. Tip ───────────────────────────────────────────────────────────── */
 
 export function TipScreen(props: GuestScreenProps) {
-  const { data, go, send, runBusy, busy } = props;
+  const { data, go, send, busy } = props;
+  const toast = useToast();
   const [chosen, setChosen] = React.useState<number>(data.tipChosen);
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const [problem, setProblem] = React.useState<string | null>(null);
 
+  const presets = data.tipOptions;
+  /* A tip that is not one of the presets is a custom one — including one the guest set on an
+     earlier visit to this screen. Derived from the DATA rather than remembered in a flag, so
+     leaving the screen and coming back shows the same thing the bill says. */
+  const custom = chosen > 0 && !presets.includes(chosen) ? chosen : null;
+
+  /**
+   * Writing the tip, WITHOUT freezing the screen.
+   *
+   * Deliberately not `runBusy`. Setting a tip is idempotent and last-write-wins: tapping +₹10
+   * then +₹20 must leave ₹20 on the bill, and it does, because each tap sends the absolute
+   * amount rather than a delta. Blocking the row until the write lands bought nothing and cost
+   * the guest a frozen screen for the whole round trip — which, with the route now answering
+   * with the new state, is one trip rather than three.
+   */
   const choose = (amount: number) => {
     setChosen(amount);
-    runBusy(async () => {
-      await send('/api/guest/bill', { action: 'tip', amount });
+    setProblem(null);
+    void send('/api/guest/bill', { action: 'tip', amount }).catch((err: unknown) => {
+      toast.show(err instanceof Error ? err.message : 'That tip did not go through.', { tone: 'error' });
+      setChosen(data.tipChosen);
     });
+  };
+
+  const openCustom = () => {
+    setDraft(custom ? String(custom) : '');
+    setProblem(null);
+    setEditing(true);
+  };
+
+  const applyCustom = () => {
+    // The reading of the field lives in src/lib/write-echo.ts, where it can be tested without a
+    // browser. This function does what the reading says, and nothing else.
+    const entry = parseCustomTip(draft);
+    if (!entry.ok) {
+      setProblem(entry.problem);
+      return;
+    }
+    setEditing(false);
+    setProblem(null);
+    choose(entry.amount);
   };
 
   if (!data.features.tip) {
@@ -124,13 +349,80 @@ export function TipScreen(props: GuestScreenProps) {
         </p>
       </div>
 
+      {/* Five options on one row, and the fifth is a door rather than an amount. A permanent
+          input would put a keyboard between the guest and the bill for the 90% who tap a preset;
+          five more preset buttons would be five more decisions for the 10% who do not. One tap
+          for a common tip, one tap and a number for any other. */}
       <div className="flex gap-2">
-        {data.tipOptions.map((t) => (
-          <Chip key={t} on={chosen === t} className="flex-1" onClick={() => choose(t)} data-testid={`guest-tip-${t}`}>
+        {presets.map((t) => (
+          <Chip
+            key={t}
+            on={chosen === t}
+            className="flex-1"
+            onClick={() => {
+              setEditing(false);
+              choose(t);
+            }}
+            data-testid={`guest-tip-${t}`}
+          >
             {t === 0 ? 'No tip' : `+ ${rupees(t)}`}
           </Chip>
         ))}
+        <Chip on={custom !== null} className="flex-1" onClick={openCustom} data-testid="guest-tip-custom">
+          {custom !== null ? `✓ ${rupees(custom)}` : 'Custom'}
+        </Chip>
       </div>
+
+      {editing ? (
+        <div data-testid="guest-tip-custom-panel" className="flex flex-col gap-1.5">
+          <label htmlFor="guest-tip-custom-input" className="text-[12px] font-semibold">
+            Custom tip
+          </label>
+          <div className="flex items-start gap-2">
+            <div className="relative flex-1">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[14px] font-semibold text-[var(--text-muted)]"
+              >
+                ₹
+              </span>
+              <Input
+                id="guest-tip-custom-input"
+                data-testid="guest-tip-custom-input"
+                // A phone keyboard with letters on it is a keyboard the guest has to get past.
+                inputMode="numeric"
+                type="text"
+                autoFocus
+                value={draft}
+                maxLength={6}
+                aria-label="Custom tip amount in rupees"
+                {...(problem ? { 'aria-invalid': true } : {})}
+                onChange={(e) => {
+                  // Filtered at the keystroke, not judged at Apply: a character that can never
+                  // be valid should never appear in the field in the first place.
+                  setDraft(e.target.value.replace(/\D/g, ''));
+                  setProblem(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyCustom();
+                  }
+                }}
+                className="pl-8"
+              />
+            </div>
+            <Button data-testid="guest-tip-custom-apply" onClick={applyCustom} className="shrink-0">
+              Apply
+            </Button>
+          </div>
+          {problem ? (
+            <p data-testid="guest-tip-custom-problem" className="m-0 text-[11.5px] text-[var(--error)]" role="alert">
+              {problem}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <Card>
         <TotalsBlock rows={data.totals} testId="guest-tip-totals" />

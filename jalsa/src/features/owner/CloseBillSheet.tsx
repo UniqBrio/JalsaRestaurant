@@ -7,7 +7,7 @@ import { Chip, SectionLabel } from '@/components/ui/atoms';
 import { TotalsBlock } from '@/components/ui/bill';
 import { Field, Input } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
-import { rupees } from '@/lib/money';
+import { mirrorDiscount, rupees } from '@/lib/money';
 import type { OwnerBillView } from '@/lib/db/owner-view';
 
 /**
@@ -52,6 +52,9 @@ export function CloseBillSheet({
   const [reference, setReference] = React.useState('');
   const [pct, setPct] = React.useState('');
   const [flat, setFlat] = React.useState('');
+  /* WHICH box the cashier typed in. It decides which figure is sent: the other one is a readout
+     of the same discount, and sending both would take it off twice. See mirrorDiscount. */
+  const [typed, setTyped] = React.useState<'pct' | 'flat' | null>(null);
 
   // Opening the dialog on a DIFFERENT bill clears the form, during render rather than in an
   // effect. A discount typed for one table must never be sitting in the box when the next one
@@ -64,6 +67,7 @@ export function CloseBillSheet({
     setReference('');
     setPct('');
     setFlat('');
+    setTyped(null);
   }
 
   if (!bill) return null;
@@ -72,9 +76,15 @@ export function CloseBillSheet({
   const flatNum = Number(flat);
   // The derived value, shown as it is typed (Standard 3.4). A percentage nobody can convert in
   // their head is a percentage somebody eventually applies twice.
-  const discountPreview =
-    (Number.isFinite(pctNum) && pctNum > 0 ? Math.round((bill.payable * pctNum) / 100) : 0) +
-    (Number.isFinite(flatNum) && flatNum > 0 ? Math.round(flatNum) : 0);
+  /* ONE discount, shown two ways. Not the sum of two boxes any more — see mirrorDiscount. */
+  const discountPreview = Number.isFinite(flatNum) && flatNum > 0 ? Math.round(flatNum) : 0;
+
+  const enter = (which: 'pct' | 'flat', value: string) => {
+    const next = mirrorDiscount({ payable: bill.payable, typed: which, value });
+    setPct(next.pct);
+    setFlat(next.flat);
+    setTyped(next.pct === '' && next.flat === '' ? null : which);
+  };
 
   return (
     <Sheet
@@ -99,8 +109,10 @@ export function CloseBillSheet({
                   billId: bill.id,
                   mode,
                   reference,
-                  ...(Number.isFinite(pctNum) && pctNum > 0 ? { discountPct: pctNum } : {}),
-                  ...(Number.isFinite(flatNum) && flatNum > 0 ? { discountAmount: flatNum } : {}),
+                  // Only the box that was typed in. The other is the same discount, written
+                  // the other way round, and sending both would apply it twice.
+                  ...(typed === 'pct' && Number.isFinite(pctNum) && pctNum > 0 ? { discountPct: pctNum } : {}),
+                  ...(typed === 'flat' && Number.isFinite(flatNum) && flatNum > 0 ? { discountAmount: flatNum } : {}),
                 });
                 toast.show(
                   `${bill.code} closed as ${mode.toLowerCase()} — ${rupees(res.payable)}. ${
@@ -148,25 +160,25 @@ export function CloseBillSheet({
                 min={0}
                 max={100}
                 value={pct}
-                onChange={(e) => setPct(e.target.value)}
+                onChange={(e) => enter('pct', e.target.value)}
                 data-testid="owner-discount-pct"
               />
             </Field>
-            <Field label="or flat ₹" htmlFor="owner-disc-flat" className="min-w-[8rem] flex-1">
+            <Field label="Discount in ₹" htmlFor="owner-disc-flat" className="min-w-[8rem] flex-1">
               <Input
                 id="owner-disc-flat"
                 type="number"
                 inputMode="numeric"
                 min={0}
                 value={flat}
-                onChange={(e) => setFlat(e.target.value)}
+                onChange={(e) => enter('flat', e.target.value)}
                 data-testid="owner-discount-flat"
               />
             </Field>
             <p className="basis-full text-[11.5px] leading-relaxed text-[var(--text-muted)]">
               {discountPreview > 0
                 ? `Takes ${rupees(discountPreview)} off — the payable becomes about ${rupees(Math.max(0, bill.payable - discountPreview))}. Recorded against your name.`
-                : 'Both are optional. A percentage is applied first, then any flat amount.'}
+                : 'Type a percentage or an amount — the other fills itself in. Only one discount is taken.'}
             </p>
           </div>
         ) : null}

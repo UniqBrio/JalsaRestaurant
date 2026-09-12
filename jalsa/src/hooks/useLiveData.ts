@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { handleError } from '@/lib/errors';
 import { newGate, begin, end } from './refresh-gate';
+import { echoedState } from '@/lib/write-echo';
 
 /**
  * useLiveData — the ONE way this application keeps a screen current (Standard 10.4).
@@ -128,10 +129,29 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const parsed = (await res.json()) as R & { message?: string };
+      const parsed = (await res.json()) as R & { message?: string; state?: unknown };
       if (!res.ok) throw new Error(parsed.message ?? 'That did not go through.');
-      // Never `refresh()`. The whole point of this hook is that what you just did appears on
-      // the screen, and a poll already on the wire must not be allowed to swallow that.
+
+      /* If the write ANSWERED with the new state, that is the answer — apply it and stop.
+         The server had just written it and was sitting next to the database; going back to
+         fetch what it already handed us costs one round trip to another region, and can cost
+         two, because a read a person caused is never dropped and a poll may already be out.
+         Three serial trips with the screen frozen is what "adding or removing a tip takes too
+         long" was (12-Sep-2026). See src/lib/db/guest-echo.ts for the server half. */
+      const echoed = echoedState<T>(parsed);
+      if (echoed !== null) {
+        const text = JSON.stringify(echoed);
+        if (text !== lastText.current) {
+          lastText.current = text;
+          setData(echoed);
+        }
+        setStaleReason(null);
+        return parsed;
+      }
+
+      // No echo — fall back to reading it. Never `refresh()`: the whole point of this hook is
+      // that what you just did appears on the screen, and a poll already on the wire must not
+      // be allowed to swallow that.
       await refreshNow();
       return parsed;
     },

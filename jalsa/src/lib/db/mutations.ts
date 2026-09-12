@@ -520,6 +520,35 @@ export async function requestPayment(billId: string): Promise<void> {
   });
 }
 
+/**
+ * The guest changes their mind and orders more.
+ *
+ * WHY THIS IS NOT "CANCEL" IN THE DATABASE
+ *   The bill returns to `open`, which is exactly the state it was in a minute ago, and
+ *   `payment_requested_at` is DELIBERATELY LEFT SET. That pair — open, but asked for once — is
+ *   how the phone knows to say "Payment request paused" rather than nothing, and how the next
+ *   request knows it is not the first. Clearing the timestamp would erase the only evidence the
+ *   request ever happened, and a request that appeared on a captain's screen and then vanished
+ *   without a trace is the kind of thing that gets blamed on the software.
+ *
+ *   The architecture rule is untouched: a guest may withdraw their OWN request; only a named
+ *   member of staff can record a closure, and the database still refuses anything else.
+ */
+export async function withdrawPaymentRequest(billId: string): Promise<void> {
+  const bill = await getBill(billId);
+  if (!bill) throw new Error('No such bill.');
+  if (bill.status !== 'payment_requested') return; // nothing to withdraw; asking again changes nothing
+
+  await db().from('bill').update({ status: 'open' }).eq('id', billId).eq('status', 'payment_requested');
+
+  await audit({
+    action: 'Payment request paused',
+    detail: `${bill.code} left the closure queue — the table is ordering again`,
+    actor: GUEST_ACTOR,
+    billId,
+  });
+}
+
 export async function addTip(input: { billId: string; amount: number; staffId: string | null }): Promise<void> {
   if (input.amount <= 0) return;
   const restaurantId = await currentRestaurantId();

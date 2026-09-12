@@ -139,3 +139,48 @@ export function totalsRows(t: BillTotals, opts: { taxRate: number; tipTo?: strin
 export function countOf(n: number, singular: string, plural?: string): string {
   return `${n} ${n === 1 ? singular : (plural ?? `${singular}s`)}`;
 }
+
+/**
+ * The two discount boxes, kept as two views of ONE number.
+ *
+ * WHY THIS IS NOT SIMPLY "FILL IN THE OTHER FIELD"
+ *   The boxes used to be alternatives — the label said "or flat ₹" — and `discountOf` applies a
+ *   percentage FIRST and then a flat amount on top. Make them mirror each other and leave both
+ *   as inputs, and the moment both boxes have a figure in them the guest is discounted twice.
+ *   So exactly one of them is the input: the one the cashier typed in. The other is a readout
+ *   of what that comes to, and only the typed one is ever sent.
+ *
+ *   The typed box is NEVER rewritten. A cashier who types 10 sees 10, even where the rupee
+ *   round trip would come back as 9.9 — a figure that changes under someone's fingers at a till
+ *   is a figure they stop trusting.
+ *
+ * Clearing the typed box clears both: a stale computed figure beside an empty field is the most
+ * misleading state either box can show.
+ */
+export function mirrorDiscount(input: { payable: number; typed: 'pct' | 'flat'; value: string }): {
+  pct: string;
+  flat: string;
+} {
+  const text = input.value.trim();
+  if (text === '') return { pct: '', flat: '' };
+
+  const n = Number(text);
+  if (!Number.isFinite(n) || n <= 0) {
+    // Keep what they typed — deleting a character mid-entry is how a "0." becomes unfixable —
+    // but show nothing opposite it, because there is nothing yet to show.
+    return input.typed === 'pct' ? { pct: input.value, flat: '' } : { pct: '', flat: input.value };
+  }
+
+  if (input.typed === 'pct') {
+    const capped = Math.min(n, 100);
+    // Whole rupees, because that is what the bill is actually discounted by.
+    return { pct: input.value, flat: String(Math.round((input.payable * capped) / 100)) };
+  }
+
+  const capped = Math.min(n, input.payable);
+  if (input.payable <= 0) return { pct: '', flat: input.value };
+  // One decimal place: enough that nobody is told 10% and charged 9.7%, few enough that the
+  // box does not fill with digits nobody reads.
+  const pct = Math.round((capped / input.payable) * 1000) / 10;
+  return { pct: String(pct), flat: input.value };
+}

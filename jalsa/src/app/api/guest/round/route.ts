@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
+import { freshState } from '@/lib/db/guest-echo';
 import { attachBillToSession, currentGuestSession } from '@/lib/db/guest';
 import { clearCart, ensureOpenBill, GUEST_ACTOR, placeRound, readCart } from '@/lib/db/mutations';
 
@@ -56,5 +57,5 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
 
   await clearCart(session.id);
-  return ok({ kotCode: result.kotCode, refused: result.refused });
+  return ok({ kotCode: result.kotCode, refused: result.refused, state: await freshState() });
 });
