@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { OfflineBanner, PartialNotice } from '@/components/ui/states';
 import type { GuestPayload } from '@/lib/db/guest-view';
 import { useLiveData } from '@/hooks/useLiveData';
+import { draftedCount, effectiveQty, withDraft, withoutDraft, type CartDraft } from '@/lib/cart-draft';
 import { WelcomeScreen, MenuScreen, CartScreen } from './GuestOrdering';
 import { PlacedScreen, StatusScreen } from './GuestProgress';
 import { UpsellScreen, TipScreen, PayingScreen, FailedScreen, PaidScreen, InvoiceScreen } from './GuestClosure';
@@ -43,6 +44,14 @@ export interface GuestScreenProps {
   /** Whether this phone is currently showing the order total. See TotalReveal. */
   showTotal: boolean;
   setShowTotal: (v: boolean) => void;
+  /** What to show for one row right now — the phone's own intention until the server confirms. */
+  qtyOf: (item: { id: string; inCart: number }) => number;
+  /** Change a quantity. Returns immediately; the write follows. */
+  setCartQty: (itemId: string, qty: number) => void;
+  /** Items in the cart, counting anything not yet confirmed. */
+  cartCount: number;
+  /** Await before anything that reads the STORED cart — Send to the kitchen, above all. */
+  flushCart: () => Promise<void>;
 }
 
 export function GuestApp({ table, initial }: { table: string; initial: GuestPayload }) {
@@ -66,6 +75,30 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
    * not silently re-hide a total the guest switched on.
    */
   const [showTotal, setShowTotal] = React.useState(() => initial.features.orderTotal);
+
+  /**
+   * WHAT THE PHONE BELIEVES IS IN THE CART, before the server has confirmed it.
+   *
+   * The menu screen used to be a pure function of the server payload, so a tap changed nothing
+   * on screen until a round trip to another region completed — and `runBusy` disabled all
+   * fifty-seven rows while it waited, SILENTLY DROPPING any tap made in the meantime. That is
+   * the whole of "for adding an item, it is taking time" (12-Sep-2026): the number under the
+   * guest's thumb was the last thing to move, and some of their taps were never anywhere.
+   *
+   * The draft is an overlay, never a source. It is dropped the moment the write answers — on
+   * failure too, so a row that could not be saved snaps back to the truth rather than leaving
+   * a phantom item on someone's bill.
+   */
+  const [draft, setDraft] = React.useState<CartDraft>({});
+  const timers = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  React.useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const t of pending.values()) clearTimeout(t);
+      pending.clear();
+    };
+  }, []);
 
   /**
    * The server decides the phase whenever it knows better than the phone does.
@@ -99,6 +132,82 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     [busy, toast]
   );
 
+  /** Writes that have left, so anything needing the server to be up to date can wait for them. */
+  const inFlight = React.useRef(new Set<Promise<void>>());
+  /** Quantities chosen but not yet sent, keyed by item — one entry per row, the latest wins. */
+  const unsent = React.useRef(new Map<string, number>());
+
+  const commit = React.useCallback(
+    (itemId: string, qty: number): Promise<void> => {
+      const p = send('/api/guest/cart', { itemId, qty })
+        .catch((err: unknown) => {
+          // Back to what the server says, and say why. A draft that outlived its failed write is
+          // an item the guest never ordered sitting on their bill.
+          toast.show(err instanceof Error ? err.message : 'That did not go through.', { tone: 'error' });
+        })
+        .then(() => {
+          setDraft((d) => withoutDraft(d, itemId));
+          inFlight.current.delete(p);
+        });
+      inFlight.current.add(p);
+      return p;
+    },
+    [send, toast]
+  );
+
+  /**
+   * One tap: the screen moves now, the write goes a moment later.
+   *
+   * The short delay is not a throttle, it is a COLLAPSE — three taps of + become one request for
+   * three rather than three requests racing each other to decide the same row. Deliberately not
+   * `runBusy`: blocking the screen for the duration is the defect, and each write carries the
+   * absolute quantity, so the last one to arrive is simply right.
+   */
+  const setCartQty = React.useCallback(
+    (itemId: string, qty: number) => {
+      const next = Math.max(0, Math.floor(qty));
+      setDraft((d) => withDraft(d, itemId, next));
+      unsent.current.set(itemId, next);
+
+      const running = timers.current.get(itemId);
+      if (running) clearTimeout(running);
+      timers.current.set(
+        itemId,
+        setTimeout(() => {
+          timers.current.delete(itemId);
+          unsent.current.delete(itemId);
+          void commit(itemId, next);
+        }, 200)
+      );
+    },
+    [commit]
+  );
+
+  /**
+   * Everything the phone has decided, on the server, before we go on.
+   *
+   * The collapse above buys responsiveness at the cost of a window where the screen is ahead of
+   * the database — and "Send to the kitchen" reads the CART FROM THE SERVER. Without this, the
+   * dish tapped a moment before Send would not be in the round: the guest would watch it vanish
+   * and be right to be angry. Awaited before anything that acts on the stored cart.
+   */
+  const flushCart = React.useCallback(async (): Promise<void> => {
+    const sending: Array<Promise<void>> = [];
+    for (const [itemId, qty] of unsent.current) {
+      const running = timers.current.get(itemId);
+      if (running) clearTimeout(running);
+      timers.current.delete(itemId);
+      sending.push(commit(itemId, qty));
+    }
+    unsent.current.clear();
+    await Promise.all([...inFlight.current, ...sending]);
+  }, [commit]);
+
+  const qtyOf = React.useCallback(
+    (item: { id: string; inCart: number }) => effectiveQty(draft, item.id, item.inCart),
+    [draft]
+  );
+
   const shared: GuestScreenProps = {
     data,
     go: setPhase,
@@ -108,6 +217,10 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     runBusy,
     showTotal,
     setShowTotal,
+    qtyOf,
+    setCartQty,
+    cartCount: draftedCount(draft, data.menu),
+    flushCart,
   };
 
   if (data.phase === 'table_inactive') {

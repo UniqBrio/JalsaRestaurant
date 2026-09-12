@@ -9,6 +9,41 @@ _Newest run first. Append-only: never overwrite a prior run._
 Steps: 10 pass, 1 fail, 0 blocked.
 Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (60ms)
+- **G4 No hard-coded colours** - PASS (68ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (8.4s)
+- **G7 Unit + pure specs** - PASS (7.0s)
+- **G8 Functional / integration** - FAIL (1m 00s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (55ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.8s)
+- **G11 Wide tables are configurable** - PASS (55ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
+
 - **G1 Theme artifacts in sync** - PASS (49ms)
 - **G2 Contrast (all tokens, both themes)** - PASS (50ms)
 - **G3 Theme assets present per theme** - PASS (51ms)
@@ -36,6 +71,28 @@ Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 - **G11 Wide tables are configurable** - PASS (60ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (third) - adding an item was never immediate
+
+FAIL-FIRST: tests/unit/cart-draft.unit.spec.ts - run against the pre-change tree's own
+rules, modelled exactly (a row's quantity was `item.inCart` and nothing else, no overlay existed,
+and `runBusy` opened with `if (busy) return`). **3 failed**:
+  - "a tap shows on the row before the server has confirmed it" - `expected 2, received 0`. The
+    number under the guest's thumb was the last thing on the screen to move.
+  - "the bar appears on the first add, not a round trip later" - `expected 1, received 0`. The
+    Review order bar is gated on the count, so the first add left the screen looking inert.
+  - "a second tap during a write is never silently dropped" - `expected "ran", received
+    "dropped"`. This is the half that made it look erratic rather than merely slow.
+
+NOT OBSERVED FAILING: tests/functional/guest-total-visibility.functional.spec.ts, the
+appended rung "a tap lands on the row at once, and a run of taps all count" - it cannot execute
+here (no database egress; curl to the project REST endpoint returns 000). Its timeouts are
+deliberately tight (400ms) so that it could not pass on the old write-then-wait behaviour, and
+its last assertion covers the risk this fix INTRODUCES: the 200ms collapse window means the
+screen can be ahead of the stored cart, and Send reads the stored cart, so a tap made just
+before Send must still be in the round. First execution is the next CI run.
 
 ---
 

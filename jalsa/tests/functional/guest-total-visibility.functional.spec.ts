@@ -194,3 +194,54 @@ test('every dish row holds the space a photograph will occupy', async ({ page })
   // Decorative: it must not reach the accessibility tree between the mark and the name.
   await expect(tiles.first()).toHaveAttribute('aria-hidden', 'true');
 });
+
+test('a tap lands on the row at once, and a run of taps all count', async ({ page }) => {
+  await page.goto(`/t/${TABLE}`);
+  await expect(page.getByTestId('guest-welcome')).toBeVisible();
+  await page.getByTestId('guest-start-ordering').click();
+  await expect(page.getByTestId('guest-menu')).toBeVisible();
+
+  const firstAdd = page.locator('[data-testid^="guest-add-"]').first();
+  const id = (await firstAdd.getAttribute('data-testid'))!.replace('guest-add-', '');
+
+  // IMMEDIATELY: no waiting on the network. The stepper replaces the + on the same frame, so a
+  // tight timeout is the assertion — a generous one would pass on the old behaviour too.
+  await firstAdd.click();
+  await expect(page.getByTestId(`guest-qty-${id}-qty`), 'the row shows the tap at once').toHaveText('1', {
+    timeout: 400,
+  });
+  await expect(page.getByTestId('guest-cart-bar'), 'and so does the bar').toBeVisible({ timeout: 400 });
+
+  // A run of taps: every one counts. Under the old code the second and third were dropped
+  // outright, because every control was disabled until the first write came back.
+  const plus = page.getByTestId(`guest-qty-${id}-increase`);
+  await plus.click();
+  await plus.click();
+  await expect(page.getByTestId(`guest-qty-${id}-qty`)).toHaveText('3', { timeout: 600 });
+
+  // And the server agrees once the collapse window closes — the screen was ahead, not wrong.
+  await expect
+    .poll(
+      async () => {
+        const s = (await (await page.request.get(`/api/guest/state?table=${TABLE}`)).json()) as {
+          menu: Array<{ id: string; inCart: number }>;
+        };
+        return s.menu.find((m) => m.id === id)?.inCart;
+      },
+      { message: 'the stored cart catches up with the screen' }
+    )
+    .toBe(3);
+
+  // Send must not lose a tap made a moment before it: the round is placed from the STORED cart.
+  await page.getByTestId('guest-review-order').click();
+  await expect(page.getByTestId('guest-cart')).toBeVisible();
+  await page.getByTestId(`guest-cart-qty-${id}-increase`).click();
+  await page.getByTestId('guest-send-to-kitchen').click();
+  await expect(page.getByTestId('guest-placed')).toBeVisible();
+
+  const state = (await (await page.request.get(`/api/guest/state?table=${TABLE}`)).json()) as {
+    rounds: Array<{ items: Array<{ qty: number }> }>;
+  };
+  const sent = state.rounds.at(-1)?.items.reduce((n, i) => n + i.qty, 0) ?? 0;
+  expect(sent, 'the tap just before Send is in the round, not lost to the debounce').toBe(4);
+});

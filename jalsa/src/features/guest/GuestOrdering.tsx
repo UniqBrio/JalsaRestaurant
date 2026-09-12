@@ -118,7 +118,17 @@ const DIETS: Array<{ key: FoodType; label: string }> = [
   { key: 'egg', label: 'Egg' },
 ];
 
-export function MenuScreen({ data, go, openSheet, send, runBusy, busy, showTotal, setShowTotal }: GuestScreenProps) {
+export function MenuScreen({
+  data,
+  go,
+  openSheet,
+  busy,
+  showTotal,
+  setShowTotal,
+  qtyOf,
+  setCartQty,
+  cartCount,
+}: GuestScreenProps) {
   const toast = useToast();
   const [query, setQuery] = React.useState('');
   const [diets, setDiets] = React.useState<FoodType[]>([]);
@@ -139,17 +149,18 @@ export function MenuScreen({ data, go, openSheet, send, runBusy, busy, showTotal
     });
   }, [dietPool, category, query]);
 
-  const setQty = (item: GuestMenuItem, qty: number) =>
-    runBusy(async () => {
-      await send('/api/guest/cart', { itemId: item.id, qty });
-      if (qty === 0) {
-        toast.show(`${item.name} removed`, {
-          undo: () => runBusy(async () => void (await send('/api/guest/cart', { itemId: item.id, qty: 1 }))),
-        });
-      } else if (item.inCart === 0) {
-        toast.show(`${item.name} added`);
-      }
-    });
+  /* The screen moves on the tap; the write follows. See GuestApp's setCartQty — and note that
+     the toast is decided from what the phone KNOWS it just did, not from what comes back, or the
+     confirmation arrives a round trip after the thing it is confirming. */
+  const setQty = (item: GuestMenuItem, qty: number) => {
+    const before = qtyOf(item);
+    setCartQty(item.id, qty);
+    if (qty === 0) {
+      toast.show(`${item.name} removed`, { undo: () => setCartQty(item.id, 1) });
+    } else if (before === 0) {
+      toast.show(`${item.name} added`);
+    }
+  };
 
   const dietPhrase = diets.map((d) => FOOD_TYPE[d].label).join(' and ');
   /* Built from the LIVE category list, not a list typed here: a category the owner adds tonight
@@ -303,17 +314,18 @@ export function MenuScreen({ data, go, openSheet, send, runBusy, busy, showTotal
             <li key={item.id}>
               <MenuRow
                 item={item}
+                qty={qtyOf(item)}
                 busy={busy}
                 onOpen={() => openSheet('item', item.id)}
-                onAdd={() => setQty(item, item.inCart + 1)}
-                onRemove={() => setQty(item, item.inCart - 1)}
+                onAdd={() => setQty(item, qtyOf(item) + 1)}
+                onRemove={() => setQty(item, qtyOf(item) - 1)}
               />
             </li>
           ))}
         </ul>
       )}
 
-      {data.cartCount > 0 ? (
+      {cartCount > 0 ? (
         <ActionBar testId="guest-cart-bar">
           <TotalReveal
             checked={showTotal}
@@ -325,7 +337,7 @@ export function MenuScreen({ data, go, openSheet, send, runBusy, busy, showTotal
             <span className="flex w-full items-center justify-between gap-3">
               <span>Review order</span>
               <span className="text-[12.5px] font-normal opacity-90">
-                {data.cartCount === 1 ? '1 item' : `${data.cartCount} items`}
+                {cartCount === 1 ? '1 item' : `${cartCount} items`}
               </span>
             </span>
           </Button>
@@ -337,12 +349,15 @@ export function MenuScreen({ data, go, openSheet, send, runBusy, busy, showTotal
 
 function MenuRow({
   item,
+  qty,
   onOpen,
   onAdd,
   onRemove,
   busy,
 }: {
   item: GuestMenuItem;
+  /** What to show right now — the phone's own count until the server confirms it. */
+  qty: number;
   onOpen: () => void;
   onAdd: () => void;
   onRemove: () => void;
@@ -392,23 +407,19 @@ function MenuRow({
           // Standard 5.6: show the capability, withhold the action. A disabled + that does
           // nothing is worse than no + at all.
           <Pill tone="neutral">Sold out</Pill>
-        ) : item.inCart > 0 ? (
+        ) : qty > 0 ? (
           <Stepper
-            qty={item.inCart}
+            qty={qty}
             onDecrease={onRemove}
             onIncrease={onAdd}
             testIdPrefix={`guest-qty-${item.id}`}
             label={item.name}
-            disabled={busy}
+            // NOT disabled while a write is in flight. Switching every row off for the length of
+            // a round trip is the defect this screen was reported for, and `runBusy` dropped the
+            // taps made during it rather than queueing them.
           />
         ) : (
-          <Button
-            data-testid={`guest-add-${item.id}`}
-            size="icon"
-            onClick={onAdd}
-            disabled={busy}
-            aria-label={`Add ${item.name}`}
-          >
+          <Button data-testid={`guest-add-${item.id}`} size="icon" onClick={onAdd} aria-label={`Add ${item.name}`}>
             +
           </Button>
         )}
@@ -419,20 +430,36 @@ function MenuRow({
 
 /* ── 5. Order review ───────────────────────────────────────────────────── */
 
-export function CartScreen({ data, go, send, runBusy, busy, showTotal, setShowTotal }: GuestScreenProps) {
+export function CartScreen({
+  data,
+  go,
+  send,
+  runBusy,
+  busy,
+  showTotal,
+  setShowTotal,
+  qtyOf,
+  setCartQty,
+  cartCount,
+  flushCart,
+}: GuestScreenProps) {
   const toast = useToast();
   const [note, setNote] = React.useState('');
 
-  const lines = data.menu.filter((m) => m.inCart > 0);
-  const subtotal = lines.reduce((a, l) => a + l.price * l.inCart, 0);
+  /* The phone's own view of the cart, so a tap here moves the row and the two totals at once.
+     This screen already did its own per-line arithmetic from server prices; what changes is that
+     the QUANTITY it multiplies is now the one the guest just chose rather than the one the
+     server last confirmed. No price is decided here — those are still the server's. */
+  const lines = data.menu.filter((m) => qtyOf(m) > 0);
+  const subtotal = lines.reduce((a, l) => a + l.price * qtyOf(l), 0);
 
-  const setQty = (item: GuestMenuItem, qty: number) =>
-    runBusy(async () => {
-      await send('/api/guest/cart', { itemId: item.id, qty });
-    });
+  const setQty = (item: GuestMenuItem, qty: number) => setCartQty(item.id, qty);
 
   const place = () =>
     runBusy(async () => {
+      // The kitchen reads the STORED cart, and the screen may be a moment ahead of it. Anything
+      // tapped just before Send has to land first or it silently would not be in the round.
+      await flushCart();
       const res = await send<{ kotCode: string; refused: string[] }>('/api/guest/round', { note });
       setNote('');
       if (res.refused.length) {
@@ -465,7 +492,7 @@ export function CartScreen({ data, go, send, runBusy, busy, showTotal, setShowTo
       <div>
         <h2 className="text-[19px]">Check your order</h2>
         <p className="m-0 mt-0.5 text-[12px] text-[var(--text-muted)]">
-          {data.cartCount === 1 ? '1 item' : `${data.cartCount} items`} · nothing sent to the kitchen yet
+          {cartCount === 1 ? '1 item' : `${cartCount} items`} · nothing sent to the kitchen yet
         </p>
       </div>
 
@@ -479,15 +506,14 @@ export function CartScreen({ data, go, send, runBusy, busy, showTotal, setShowTo
                 <span className="block text-[11.5px] text-[var(--text-muted)]">{rupees(l.price)} each</span>
               </span>
               <Stepper
-                qty={l.inCart}
-                onDecrease={() => setQty(l, l.inCart - 1)}
-                onIncrease={() => setQty(l, l.inCart + 1)}
+                qty={qtyOf(l)}
+                onDecrease={() => setQty(l, qtyOf(l) - 1)}
+                onIncrease={() => setQty(l, qtyOf(l) + 1)}
                 testIdPrefix={`guest-cart-qty-${l.id}`}
                 label={l.name}
-                disabled={busy}
               />
               <span className="w-16 shrink-0 text-right text-[13px] font-bold tabular-nums">
-                {rupees(l.price * l.inCart)}
+                {rupees(l.price * qtyOf(l))}
               </span>
             </Card>
           </li>

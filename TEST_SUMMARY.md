@@ -5,6 +5,28 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (third) - adding an item was never immediate
+
+FAIL-FIRST: jalsa/tests/unit/cart-draft.unit.spec.ts - run against the pre-change tree's own
+rules, modelled exactly (a row's quantity was `item.inCart` and nothing else, no overlay existed,
+and `runBusy` opened with `if (busy) return`). **3 failed**:
+  - "a tap shows on the row before the server has confirmed it" - `expected 2, received 0`. The
+    number under the guest's thumb was the last thing on the screen to move.
+  - "the bar appears on the first add, not a round trip later" - `expected 1, received 0`. The
+    Review order bar is gated on the count, so the first add left the screen looking inert.
+  - "a second tap during a write is never silently dropped" - `expected "ran", received
+    "dropped"`. This is the half that made it look erratic rather than merely slow.
+
+NOT OBSERVED FAILING: jalsa/tests/functional/guest-total-visibility.functional.spec.ts, the
+appended rung "a tap lands on the row at once, and a run of taps all count" - it cannot execute
+here (no database egress; curl to the project REST endpoint returns 000). Its timeouts are
+deliberately tight (400ms) so that it could not pass on the old write-then-wait behaviour, and
+its last assertion covers the risk this fix INTRODUCES: the 200ms collapse window means the
+screen can be ahead of the stored cart, and Send reads the stored cart, so a tap made just
+before Send must still be in the round. First execution is the next CI run.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (second batch) - closure path, tip, dashboard, discount
 
 Repeated from `jalsa/TEST_SUMMARY.md` because this is the ledger the pre-commit guard at this
