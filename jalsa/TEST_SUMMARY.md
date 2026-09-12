@@ -7,6 +7,41 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 15s total - slowest G8 Functional / integration (55.1s).
+
+- **G1 Theme artifacts in sync** - PASS (51ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (48ms)
+- **G3 Theme assets present per theme** - PASS (55ms)
+- **G4 No hard-coded colours** - PASS (64ms)
+- **G5 Types** - PASS (1.9s)
+- **G6 Lint** - PASS (8.3s)
+- **G7 Unit + pure specs** - PASS (6.4s)
+- **G8 Functional / integration** - FAIL (55.1s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (57ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.7s)
+- **G11 Wide tables are configurable** - PASS (51ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
 Time: 1m 23s total - slowest G8 Functional / integration (1m 01s).
 
 - **G1 Theme artifacts in sync** - PASS (51ms)
@@ -106,6 +141,35 @@ Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 - **G11 Wide tables are configurable** - PASS (60ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (fifth) - one discount on both closure screens, and the captain's name
+
+FAIL-FIRST: tests/unit/discount-both-ways.unit.spec.ts - run against the pre-change tree,
+modelled exactly (no shared both-ways helper existed at all: the owner's dialog had a
+string-returning `mirrorDiscount`, the captain's sheet had a single percentage box, and there was
+no `bill.reassign_staff` key). **3 failed**:
+  - "a percentage becomes the rupees it comes to" - `expected {pct:10,amount:10}, received
+    {pct:0,amount:0}`.
+  - "an amount becomes the percentage it represents" - the same, the other way round.
+  - "there is a permission for changing the captain on a bill" - `expected [..] to contain
+    "bill.reassign_staff"`.
+
+NOT OBSERVED FAILING: nothing in that file; every assertion was run red first, including the
+requester's own ten cases.
+
+DELIBERATE DEVIATION, recorded rather than fudged: the requester's case 3 asks for "Bill ₹1,030 →
+5% → ₹51.50". The spec asserts **₹52**. This application holds money in integer rupees (JP-5,
+CLAUDE.md, enforced by money.unit.spec.ts), and ₹52 is what the bill is actually discounted by,
+what GST is then charged on, and what the ledger records. A box reading ₹51.50 beside a bill
+discounted by ₹52 would be worse than no box. Moving the application to paise is a real option and
+a separate piece of work.
+
+NOT OBSERVED FAILING: the cancel-dialog string change ("Order status needs to be verified before
+cancelling...") - a visible string with no behaviour behind it. The permission rule that decides
+whether a captain may cancel or must escalate is untouched, and its rungs are unchanged. No new
+rung was added; recorded here rather than left silent.
 
 ---
 

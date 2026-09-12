@@ -157,6 +157,37 @@ export function countOf(n: number, singular: string, plural?: string): string {
  * Clearing the typed box clears both: a stale computed figure beside an empty field is the most
  * misleading state either box can show.
  */
+/**
+ * One discount, stated the other way round.
+ *
+ * The closure screens show a percentage and an amount, and they are the SAME discount — so
+ * whichever the cashier typed is the one that binds, and this is how the other is derived. The
+ * base is the subtotal BEFORE any discount and before GST, which is what `totalBill` discounts
+ * against; using the payable would compound the discount into its own base.
+ *
+ * Rupees come back WHOLE, and that is not a rounding convenience: whole rupees are what
+ * `totalBill` will actually take off, what GST is then charged on, and what the ledger records.
+ * A box reading ₹51.50 beside a bill discounted by ₹52 would be worse than no box. The
+ * percentage keeps two decimals, because the column does and nothing downstream rounds it.
+ */
+export function discountBothWays(input: {
+  /** The subtotal before any discount and before tax. */
+  base: number;
+  typed: 'percentage' | 'amount';
+  value: number;
+}): { pct: number; amount: number } {
+  const base = Math.max(0, asInt(input.base));
+  if (base <= 0 || !Number.isFinite(input.value) || input.value <= 0) return { pct: 0, amount: 0 };
+
+  if (input.typed === 'percentage') {
+    const pct = clamp(input.value, 0, 100);
+    return { pct: Math.round(pct * 100) / 100, amount: asInt((base * pct) / 100) };
+  }
+
+  const amount = Math.min(asInt(input.value), base);
+  return { pct: Math.round((amount / base) * 10000) / 100, amount };
+}
+
 export function mirrorDiscount(input: { payable: number; typed: 'pct' | 'flat'; value: string }): {
   pct: string;
   flat: string;

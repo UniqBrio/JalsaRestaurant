@@ -7,6 +7,7 @@ import {
   closeBill,
   completeRequest,
   freeTable,
+  reassignBillStaff,
   joinTableToBill,
   replyToSuggestion,
   reprintKot,
@@ -34,8 +35,11 @@ type Action =
       billId: string;
       mode: string;
       reference?: string;
-      discountPct?: number;
-      discountAmount?: number;
+      /* ONE discount, two views. The screen sends which box was typed and its value; the
+         other figure is derived on the server, so the two can never disagree and the
+         discount can never be taken twice. */
+      discountType?: 'percentage' | 'amount';
+      discountValue?: number;
     }
   | { action: 'change-qty'; kotItemId: string; qty: number }
   | { action: 'cancel-item'; kotItemId: string; reason: string }
@@ -43,6 +47,7 @@ type Action =
   | { action: 'complete-request'; requestId: string }
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'free-table'; tableId: string }
+  | { action: 'reassign-bill-staff'; billId: string; role: 'captain' | 'waiter'; staffId: string | null }
   | { action: 'reply-suggestion'; suggestionId: string; reply: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
   | {
@@ -95,8 +100,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           billId: input.billId,
           mode: input.mode,
           ...(input.reference ? { reference: input.reference } : {}),
-          ...(input.discountPct ? { discountPct: input.discountPct } : {}),
-          ...(input.discountAmount ? { discountAmount: input.discountAmount } : {}),
+          ...(input.discountType && input.discountValue
+            ? { discountType: input.discountType, discountValue: input.discountValue }
+            : {}),
           actor,
         })
       );
@@ -119,6 +125,16 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     case 'join-table':
       await joinTableToBill({ billId: input.billId, tableId: input.tableId, actor });
       return ok({ done: true });
+
+    case 'reassign-bill-staff': {
+      const res = await reassignBillStaff({
+        billId: input.billId,
+        role: input.role,
+        staffId: input.staffId,
+        actor,
+      });
+      return ok({ done: true, tipMoved: res.tipMoved });
+    }
 
     case 'free-table':
       // Guarded in freeTable, not here: the permission and the "nothing with the kitchen" rule

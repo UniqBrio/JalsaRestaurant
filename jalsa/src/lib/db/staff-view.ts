@@ -62,6 +62,9 @@ export interface StaffBillView {
   /** Absent for a waiter. The absence is the point. */
   totals: TotalsRow[] | null;
   payableLabel: string | null;
+  /** Before any discount and before tax — the base a discount is actually taken from.
+   *  Null where this person may not see money at all (a waiter). */
+  subtotal: number | null;
 }
 
 export interface StaffPayload {
@@ -176,6 +179,7 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       kots: b.kots.map((k) => shapeKot(b, k)),
       totals: canSeeMoney ? totalsRows(totals, { taxRate, tipTo: b.captain }) : null,
       payableLabel: canSeeMoney ? rupees(totals.payable) : null,
+      subtotal: canSeeMoney ? totals.subtotal : null,
     };
   });
 

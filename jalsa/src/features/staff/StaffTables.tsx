@@ -11,6 +11,13 @@ import { Field, Input, SearchField } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { tableIsFreeable } from '@/lib/status';
+import {
+  DiscountFields,
+  NO_DISCOUNT,
+  discountPayload,
+  discountProblem,
+  type DiscountEntry,
+} from '@/components/ui/discount-fields';
 import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
 
@@ -211,7 +218,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
   const [closing, setClosing] = React.useState(false);
   const [mode, setMode] = React.useState<string>(PAYMENT_MODES[1]);
   const [reference, setReference] = React.useState('');
-  const [discountPct, setDiscountPct] = React.useState('');
+  const [discount, setDiscount] = React.useState<DiscountEntry>(NO_DISCOUNT);
 
   if (!bill) {
     return (
@@ -466,12 +473,21 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                   'm-0 mt-2 rounded-[var(--radius-md)] px-3 py-2.5 text-[12.5px] leading-relaxed',
                   cancelTarget.started
                     ? 'bg-[var(--warning-surface)] text-[var(--on-warning-surface)]'
-                    : 'bg-[var(--success-surface)] text-[var(--on-success-surface)]'
+                    : // Neutral, not green. Green is this application's word for "this is fine",
+                      // and the sentence below has just stopped claiming that.
+                      'bg-[var(--surface-sunken)] text-[var(--text-body)]'
                 )}
               >
                 {cancelTarget.started
                   ? 'Cooking has started. You do not have permission to cancel now — this sends a request to Javeed and he decides.'
-                  : 'The kitchen has not started this dish. You can cancel it yourself, and it comes off the bill immediately.'}
+                  : /* This used to read "The kitchen has not started this dish", in green, as a
+                       fact. It was not one. `started` is the KOT's STATUS COLUMN — what the
+                       kitchen last told the app — and a ticket still reading `new` because nobody
+                       has touched the screen for four minutes looks identical, from here, to a
+                       dish nobody has picked up. On a busy pass those are different things, and
+                       the one time they differ is the one time it matters. The permission rule is
+                       unchanged; only the claim is. */
+                    'Order status needs to be verified before cancelling. Please check with the kitchen to confirm whether preparation has started.'}
               </p>
             </>
           ) : null
@@ -509,16 +525,17 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             </Button>
             <Button
               data-testid="staff-close-confirm"
-              disabled={busy}
+              disabled={busy || (bill.subtotal !== null && discountProblem(discount, bill.subtotal) !== null)}
               onClick={() =>
                 runBusy(async () => {
-                  const pct = Number(discountPct);
+                  // Only the box that was typed in, and which one it was. The server derives the
+                  // other from the subtotal and takes the discount once.
                   const res = await send<{ payable: number }>('/api/staff/action', {
                     action: 'close-bill',
                     billId: bill.id,
                     mode,
                     reference,
-                    ...(Number.isFinite(pct) && pct > 0 ? { discountPct: pct } : {}),
+                    ...(discountPayload(discount) ?? {}),
                   });
                   toast.show(
                     `${bill.code} closed · ${rupees(res.payable)} ${mode.toLowerCase()} · ${bill.tables.length > 1 ? `${bill.tables.length} tables` : `Table ${bill.tables[0]}`} to be cleared`,
@@ -553,19 +570,18 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             </div>
           </div>
 
-          {data.grants.includes('bill.disc_pct') ? (
-            <Field label="Discount %" htmlFor="staff-discount" hint="Recorded with your name and the time.">
-              <Input
-                id="staff-discount"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={100}
-                value={discountPct}
-                onChange={(e) => setDiscountPct(e.target.value)}
-                data-testid="staff-discount"
-              />
-            </Field>
+          {/* The SAME control the owner's Record payment dialog uses. Two closure screens with
+              their own idea of what a discount is, is how one of them eventually takes it twice —
+              and they had already drifted: this one had a single box, that one had two. */}
+          {(data.grants.includes('bill.disc_pct') || data.grants.includes('bill.disc_flat')) &&
+          bill.subtotal !== null ? (
+            <DiscountFields
+              base={bill.subtotal}
+              entry={discount}
+              onChange={setDiscount}
+              disabled={busy}
+              testIdPrefix="staff-discount"
+            />
           ) : null}
 
           <Field label="Reference" htmlFor="staff-reference" hint="Optional — a UPI reference or a receipt number.">

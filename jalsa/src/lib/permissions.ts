@@ -67,6 +67,12 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         approval: true,
         confidential: true,
       },
+      {
+        key: 'bill.reassign_staff',
+        label: 'Change the captain or waiter on a bill',
+        approval: true,
+        confidential: true,
+      },
     ],
   },
   {

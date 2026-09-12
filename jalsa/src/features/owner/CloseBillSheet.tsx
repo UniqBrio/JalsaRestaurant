@@ -7,7 +7,14 @@ import { Chip, SectionLabel } from '@/components/ui/atoms';
 import { TotalsBlock } from '@/components/ui/bill';
 import { Field, Input } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
-import { mirrorDiscount, rupees } from '@/lib/money';
+import { discountBothWays, rupees } from '@/lib/money';
+import {
+  DiscountFields,
+  NO_DISCOUNT,
+  discountPayload,
+  discountProblem,
+  type DiscountEntry,
+} from '@/components/ui/discount-fields';
 import type { OwnerBillView } from '@/lib/db/owner-view';
 
 /**
@@ -50,11 +57,9 @@ export function CloseBillSheet({
   const toast = useToast();
   const [mode, setMode] = React.useState<string>(MODES[1]);
   const [reference, setReference] = React.useState('');
-  const [pct, setPct] = React.useState('');
-  const [flat, setFlat] = React.useState('');
-  /* WHICH box the cashier typed in. It decides which figure is sent: the other one is a readout
-     of the same discount, and sending both would take it off twice. See mirrorDiscount. */
-  const [typed, setTyped] = React.useState<'pct' | 'flat' | null>(null);
+  /* ONE discount, two views, and which box was typed in. The pair is the same control the
+     captain's Close sheet uses — see src/components/ui/discount-fields.tsx. */
+  const [discount, setDiscount] = React.useState<DiscountEntry>(NO_DISCOUNT);
 
   // Opening the dialog on a DIFFERENT bill clears the form, during render rather than in an
   // effect. A discount typed for one table must never be sitting in the box when the next one
@@ -65,26 +70,18 @@ export function CloseBillSheet({
     setLastOpenKey(openKey);
     setMode(MODES[1]);
     setReference('');
-    setPct('');
-    setFlat('');
-    setTyped(null);
+    setDiscount(NO_DISCOUNT);
   }
 
   if (!bill) return null;
 
-  const pctNum = Number(pct);
-  const flatNum = Number(flat);
-  // The derived value, shown as it is typed (Standard 3.4). A percentage nobody can convert in
-  // their head is a percentage somebody eventually applies twice.
-  /* ONE discount, shown two ways. Not the sum of two boxes any more — see mirrorDiscount. */
-  const discountPreview = Number.isFinite(flatNum) && flatNum > 0 ? Math.round(flatNum) : 0;
-
-  const enter = (which: 'pct' | 'flat', value: string) => {
-    const next = mirrorDiscount({ payable: bill.payable, typed: which, value });
-    setPct(next.pct);
-    setFlat(next.flat);
-    setTyped(next.pct === '' && next.flat === '' ? null : which);
-  };
+  const payload = discountPayload(discount);
+  const problem = discountProblem(discount, bill.subtotal);
+  // The derived value, shown as it is typed (Standard 3.4). ONE discount — not the sum of two
+  // boxes — because the two boxes are two views of the same figure.
+  const discountPreview = payload
+    ? discountBothWays({ base: bill.subtotal, typed: payload.discountType, value: payload.discountValue }).amount
+    : 0;
 
   return (
     <Sheet
@@ -101,7 +98,7 @@ export function CloseBillSheet({
           </Button>
           <Button
             data-testid="owner-close-confirm"
-            disabled={busy}
+            disabled={busy || problem !== null}
             onClick={() =>
               runBusy(async () => {
                 const res = await send<{ payable: number }>('/api/owner/action', {
@@ -109,10 +106,9 @@ export function CloseBillSheet({
                   billId: bill.id,
                   mode,
                   reference,
-                  // Only the box that was typed in. The other is the same discount, written
-                  // the other way round, and sending both would apply it twice.
-                  ...(typed === 'pct' && Number.isFinite(pctNum) && pctNum > 0 ? { discountPct: pctNum } : {}),
-                  ...(typed === 'flat' && Number.isFinite(flatNum) && flatNum > 0 ? { discountAmount: flatNum } : {}),
+                  // Only the box that was typed in, and which one it was. The server derives
+                  // the other from the subtotal and takes the discount once.
+                  ...(payload ?? {}),
                 });
                 toast.show(
                   `${bill.code} closed as ${mode.toLowerCase()} — ${rupees(res.payable)}. ${
@@ -151,36 +147,13 @@ export function CloseBillSheet({
         ) : null}
 
         {canDiscount ? (
-          <div className="flex flex-wrap gap-3">
-            <Field label="Discount %" htmlFor="owner-disc-pct" className="min-w-[8rem] flex-1">
-              <Input
-                id="owner-disc-pct"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={100}
-                value={pct}
-                onChange={(e) => enter('pct', e.target.value)}
-                data-testid="owner-discount-pct"
-              />
-            </Field>
-            <Field label="Discount in ₹" htmlFor="owner-disc-flat" className="min-w-[8rem] flex-1">
-              <Input
-                id="owner-disc-flat"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={flat}
-                onChange={(e) => enter('flat', e.target.value)}
-                data-testid="owner-discount-flat"
-              />
-            </Field>
-            <p className="basis-full text-[11.5px] leading-relaxed text-[var(--text-muted)]">
-              {discountPreview > 0
-                ? `Takes ${rupees(discountPreview)} off — the payable becomes about ${rupees(Math.max(0, bill.payable - discountPreview))}. Recorded against your name.`
-                : 'Type a percentage or an amount — the other fills itself in. Only one discount is taken.'}
-            </p>
-          </div>
+          <DiscountFields
+            base={bill.subtotal}
+            entry={discount}
+            onChange={setDiscount}
+            disabled={busy}
+            testIdPrefix="owner-discount"
+          />
         ) : null}
 
         <div>

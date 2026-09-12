@@ -24,13 +24,13 @@ the same `Grants.can`.
 
 ## The five questions, answered for this build
 
-1. **New capabilities?** 45, in nine groups: orders, queue, tables, menu, bills, tips, reports,
+1. **New capabilities?** 46, in nine groups: orders, queue, tables, menu, bills, tips, reports,
    staff, settings. All appear in the owner's permissions UI except where noted below.
 2. **Existing permissions changed meaning?** None — this is the first build.
 3. **Which roles, and why?** See the presets below. Each is a job on the floor, not a tier.
 4. **Default enabled or disabled, per role?** Every preset is an explicit allow-list. A key absent
    from a preset is denied; there is no inherit and no wildcard except `Owner / Admin`.
-5. **Owner-configurable, or hidden?** All 45 are owner-configurable per person. Fifteen are marked
+5. **Owner-configurable, or hidden?** All 46 are owner-configurable per person. Sixteen are marked
    `confidential`, which changes how they are PRESENTED (grouped and warned about), never who may
    grant them.
 
@@ -52,6 +52,27 @@ Enforced in `src/lib/db/mutations.ts` (`freeTable` → `demand(actor, 'tables.fr
 `src/features/owner/sections/Dashboard.tsx` and `src/features/staff/StaffTables.tsx`, granted to
 the owner by `supabase/migrations/20260912100000_jalsa_free_a_table.sql`.
 rung: `tests/unit/free-a-table.unit.spec.ts`
+
+
+### `bill.reassign_staff` — why a name change is a money permission
+
+The captain on a bill is not a label. `addTip` attributes the tip to `bill.captain_id`, and the
+tips ledger and the settle-up screen read from that attribution — so changing the captain on a
+**closed** bill moves money that has already been counted.
+
+Requested 12-Sep-2026 as "allow owner to modify the Captain or Waiter name in any bill while it is
+running or after it is closed". Built with an unsettled tip following the name and a **settled**
+one staying put, because re-crediting a payout nobody can reverse would be the one genuinely
+dangerous version of this. The audit line carries the old name, the new name, the amount that
+moved and who moved it — that, not a time limit, is what makes it safe.
+
+Not in any role preset. A captain who could reassign a bill to themselves could reassign a tip to
+themselves.
+
+Enforced in `src/lib/db/mutations.ts` (`reassignBillStaff`), offered in
+`src/features/owner/sections/LiveOrders.tsx`, granted by
+`supabase/migrations/20260912120000_jalsa_reassign_bill_staff.sql`.
+rung: `tests/unit/discount-both-ways.unit.spec.ts`
 
 ---
 
@@ -77,6 +98,7 @@ rung: `tests/unit/free-a-table.unit.spec.ts`
 | Bills — record payment, reprint | ✅ | ❌ | ❌ | ✅ | ✅ |
 | Bills — discounts | ❌ | ❌ | ❌ | percentage only | ✅ |
 | Bills — void a closed bill | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Bills — **change the captain or waiter on a bill** (`bill.reassign_staff`, added 12-Sep-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Tips — own | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Tips — everyone's, settlement | ❌ | ❌ | ❌ | settle only | ✅ |
 | Reports — products | ✅ | ❌ | ❌ | ❌ | ✅ |

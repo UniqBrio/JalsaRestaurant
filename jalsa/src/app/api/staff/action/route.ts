@@ -49,8 +49,11 @@ type Action =
       billId: string;
       mode: string;
       reference?: string;
-      discountPct?: number;
-      discountAmount?: number;
+      /* ONE discount, two views. The screen sends which box was typed and its value; the
+         other figure is derived on the server, so the two can never disagree and the
+         discount can never be taken twice. */
+      discountType?: 'percentage' | 'amount';
+      discountValue?: number;
     }
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'free-table'; tableId: string }
@@ -113,8 +116,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         billId: input.billId,
         mode: input.mode,
         ...(input.reference ? { reference: input.reference } : {}),
-        ...(input.discountPct ? { discountPct: input.discountPct } : {}),
-        ...(input.discountAmount ? { discountAmount: input.discountAmount } : {}),
+        ...(input.discountType && input.discountValue
+          ? { discountType: input.discountType, discountValue: input.discountValue }
+          : {}),
         actor,
       });
       return ok(result);

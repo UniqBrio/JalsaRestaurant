@@ -1,7 +1,7 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { kitchenHasStarted, type KotStatus } from '@/lib/status';
-import { rupees } from '@/lib/money';
+import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { billTotals, chargeableLines, getBill, openBillForTable } from './queries';
 import type { Bill } from './types';
@@ -586,8 +586,9 @@ export async function closeBill(input: {
   billId: string;
   mode: string;
   reference?: string;
-  discountPct?: number;
-  discountAmount?: number;
+  /** Which box the person typed in. The other figure is derived from it, never sent. */
+  discountType?: 'percentage' | 'amount';
+  discountValue?: number;
   actor: Actor;
 }): Promise<{ payable: number }> {
   demand(input.actor, 'bill.record_payment');
@@ -601,9 +602,24 @@ export async function closeBill(input: {
     return { payable: billTotals(bill).payable };
   }
 
-  const wantsDiscount = (input.discountPct ?? 0) > 0 || (input.discountAmount ?? 0) > 0;
+  /* ONE discount, stored both ways plus the way it was entered.
+     The two boxes on the closure screens are two views of the same figure, so exactly one of
+     them arrives here and the other is derived from the SUBTOTAL — the base `totalBill` itself
+     discounts against. Sending both would take it off twice, which is the one thing the
+     requester underlined. */
+  const wantsDiscount = (input.discountValue ?? 0) > 0 && input.discountType !== undefined;
+  const both = wantsDiscount
+    ? discountBothWays({
+        base: billTotals(bill).subtotal,
+        typed: input.discountType ?? 'percentage',
+        value: input.discountValue ?? 0,
+      })
+    : { pct: bill.discountPct, amount: bill.discountAmount };
+
   if (wantsDiscount) {
-    demand(input.actor, (input.discountPct ?? 0) > 0 ? 'bill.disc_pct' : 'bill.disc_flat');
+    // The grant follows what the person TYPED, not what was derived from it. Someone who may
+    // give a percentage has not thereby been given the flat-amount grant, and vice versa.
+    demand(input.actor, input.discountType === 'percentage' ? 'bill.disc_pct' : 'bill.disc_flat');
   }
 
   const now = new Date().toISOString();
@@ -615,8 +631,13 @@ export async function closeBill(input: {
       closed_by_staff_id: input.actor.staffId,
       payment_mode: input.mode,
       payment_reference: input.reference ?? '',
-      discount_pct: input.discountPct ?? bill.discountPct,
-      discount_amount: input.discountAmount ?? bill.discountAmount,
+      /* Both representations are stored so no reader has to recompute either, and
+         `discount_type` says which one a person actually chose. Only ONE of them was entered;
+         `totalBill` is given the pair and takes the discount once, from the pct when that is
+         what was typed and from the amount otherwise. */
+      discount_pct: wantsDiscount && input.discountType === 'percentage' ? both.pct : 0,
+      discount_amount: wantsDiscount && input.discountType === 'amount' ? both.amount : 0,
+      discount_type: wantsDiscount ? input.discountType : null,
       discount_by_staff_id: wantsDiscount ? input.actor.staffId : null,
       discount_at: wantsDiscount ? now : null,
     })
@@ -630,7 +651,9 @@ export async function closeBill(input: {
   if (wantsDiscount) {
     await audit({
       action: 'Discount',
-      detail: `${input.discountPct ? `${input.discountPct}% applied` : 'Flat discount'} — ${rupees(totals.discount)}`,
+      // Both figures in the line, and which one was typed, so the ledger never leaves anyone
+      // recomputing a discount from a percentage that was not the thing entered.
+      detail: `${both.pct}% = ${rupees(both.amount)} — entered as ${input.discountType === 'percentage' ? 'a percentage' : 'an amount'}, taken once (${rupees(totals.discount)} off)`,
       actor: input.actor,
       billId: input.billId,
     });
@@ -737,6 +760,80 @@ export async function freeTable(input: { tableId: string; actor: Actor }): Promi
   });
 
   return { freed: true };
+}
+
+/**
+ * Correct the captain or the waiter named on a bill — running or already closed.
+ *
+ * WHY THE CLOSED CASE IS THE WHOLE OF THE DIFFICULTY
+ *   The captain on a bill is not a label. `addTip` attributes the tip to `bill.captain_id`, and
+ *   the tips ledger and the settle-up screen read from that attribution. So changing the captain
+ *   on a closed bill moves money that has already been counted.
+ *
+ *   Three options were on the table, and the request named none of them:
+ *     1. Change the name, leave the tip where it posted — the bill then names one person and
+ *        pays another, which is worse than the wrong name.
+ *     2. Change the name and move the tip with it.
+ *     3. Refuse on a closed bill — which the request explicitly asks for.
+ *
+ *   Built as (2), and the reason it is safe is the audit line rather than any rule about when:
+ *   the old name, the new name, the amount that moved and who moved it all go into the log. An
+ *   UNSETTLED tip follows the name. A SETTLED one does not — that money has left the building,
+ *   and silently re-crediting a payout nobody can reverse would be the one genuinely dangerous
+ *   version of this feature. The audit line says which happened.
+ */
+export async function reassignBillStaff(input: {
+  billId: string;
+  role: 'captain' | 'waiter';
+  staffId: string | null;
+  actor: Actor;
+}): Promise<{ tipMoved: number }> {
+  demand(input.actor, 'bill.reassign_staff');
+
+  const bill = await getBill(input.billId);
+  if (!bill) throw new Error('No such bill.');
+
+  const wasName = input.role === 'captain' ? bill.captain : bill.waiter;
+  const column = input.role === 'captain' ? 'captain_id' : 'waiter_id';
+
+  const { error } = await db()
+    .from('bill')
+    .update({ [column]: input.staffId })
+    .eq('id', input.billId);
+  if (error) throw error;
+
+  let tipMoved = 0;
+  if (input.role === 'captain') {
+    // Only an unsettled tip. A settled one has been paid out, and re-crediting a payout nobody
+    // can reverse would be worse than the wrong name it is correcting.
+    const { data: moved } = await db()
+      .from('tip')
+      .update({ staff_id: input.staffId })
+      .eq('bill_id', input.billId)
+      .is('settled_at', null)
+      .select('amount');
+    tipMoved = (moved ?? []).reduce((n, t) => n + Number(t.amount ?? 0), 0);
+  }
+
+  const { data: now } = await db()
+    .from('staff')
+    .select('name')
+    .eq('id', input.staffId ?? '')
+    .maybeSingle();
+  const isName = (now?.name as string | undefined) ?? 'nobody';
+
+  await audit({
+    action: input.role === 'captain' ? 'Captain changed' : 'Waiter changed',
+    detail:
+      `${bill.code}: ${wasName || 'nobody'} → ${isName}` +
+      (bill.status === 'closed' ? ' (on a CLOSED bill)' : '') +
+      (tipMoved > 0 ? ` — ${rupees(tipMoved)} of unsettled tip moved with it` : '') +
+      (input.role === 'captain' && tipMoved === 0 ? ' — no unsettled tip to move' : ''),
+    actor: input.actor,
+    billId: input.billId,
+  });
+
+  return { tipMoved };
 }
 
 /* ── Requests and suggestions ──────────────────────────────────────────── */

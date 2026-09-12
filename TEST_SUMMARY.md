@@ -5,6 +5,35 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (fifth) - one discount on both closure screens, and the captain's name
+
+FAIL-FIRST: jalsa/tests/unit/discount-both-ways.unit.spec.ts - run against the pre-change tree,
+modelled exactly (no shared both-ways helper existed at all: the owner's dialog had a
+string-returning `mirrorDiscount`, the captain's sheet had a single percentage box, and there was
+no `bill.reassign_staff` key). **3 failed**:
+  - "a percentage becomes the rupees it comes to" - `expected {pct:10,amount:10}, received
+    {pct:0,amount:0}`.
+  - "an amount becomes the percentage it represents" - the same, the other way round.
+  - "there is a permission for changing the captain on a bill" - `expected [..] to contain
+    "bill.reassign_staff"`.
+
+NOT OBSERVED FAILING: nothing in that file; every assertion was run red first, including the
+requester's own ten cases.
+
+DELIBERATE DEVIATION, recorded rather than fudged: the requester's case 3 asks for "Bill ₹1,030 →
+5% → ₹51.50". The spec asserts **₹52**. This application holds money in integer rupees (JP-5,
+CLAUDE.md, enforced by money.unit.spec.ts), and ₹52 is what the bill is actually discounted by,
+what GST is then charged on, and what the ledger records. A box reading ₹51.50 beside a bill
+discounted by ₹52 would be worse than no box. Moving the application to paise is a real option and
+a separate piece of work.
+
+NOT OBSERVED FAILING: the cancel-dialog string change ("Order status needs to be verified before
+cancelling...") - a visible string with no behaviour behind it. The permission rule that decides
+whether a captain may cancel or must escalate is untouched, and its rungs are unchanged. No new
+rung was added; recorded here rather than left silent.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (fourth) - the stale banner, and freeing a table
 
 FAIL-FIRST: jalsa/tests/unit/stale-notice.unit.spec.ts - run against the pre-change rule, modelled

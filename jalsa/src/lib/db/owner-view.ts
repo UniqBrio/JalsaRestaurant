@@ -52,6 +52,8 @@ export interface OwnerBillView {
   occasion: string | null;
   payable: number;
   payableLabel: string;
+  /** Before any discount and before tax — the base a discount is actually taken from. */
+  subtotal: number;
   totals: TotalsRow[];
   /** Per-table breakdown, so a host can see who ate what without splitting the bill. */
   perTable: Array<{ table: string; amountLabel: string }>;
@@ -199,6 +201,7 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       : null,
     payable: totals.payable,
     payableLabel: rupees(totals.payable),
+    subtotal: totals.subtotal,
     totals: totalsRows(totals, { taxRate, tipTo: b.captain }),
     perTable: b.tables.length > 1 ? perTable : [],
     kots: b.kots.map((k) => ({

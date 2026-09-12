@@ -5,9 +5,10 @@ import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
-import { ConfirmDialog } from '@/components/ui/sheet';
+import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
+import { rupees } from '@/lib/money';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { CloseBillSheet } from '../CloseBillSheet';
 
@@ -37,6 +38,10 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
   const [closing, setClosing] = React.useState(false);
   const [cancelTarget, setCancelTarget] = React.useState<{ id: string; name: string; qty: number } | null>(null);
   const [cancelReason, setCancelReason] = React.useState<string>(CANCEL_REASONS[0]);
+  /* Correcting the captain or waiter on a bill — running or closed. Behind a grant, because on a
+     closed bill it moves an unsettled tip with the name. See reassignBillStaff. */
+  const [reassign, setReassign] = React.useState<'captain' | 'waiter' | null>(null);
+  const canReassign = data.grants.includes('bill.reassign_staff');
 
   // A dashboard tile that names a bill selects that bill. Adjusted during render so the panel
   // opens on the right one immediately rather than on the previous selection for a frame.
@@ -120,6 +125,79 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
       {selected ? (
         <div className="flex flex-col gap-3">
           <IdentitySpine fields={selected.spine} />
+
+          {canReassign ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                data-testid="owner-reassign-captain"
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => setReassign('captain')}
+              >
+                Change captain
+              </Button>
+              <Button
+                data-testid="owner-reassign-waiter"
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => setReassign('waiter')}
+              >
+                Change waiter
+              </Button>
+            </div>
+          ) : null}
+
+          <Sheet
+            open={reassign !== null}
+            onOpenChange={(v) => !v && setReassign(null)}
+            posture="modal"
+            title={reassign === 'waiter' ? `Waiter on ${selected.code}` : `Captain on ${selected.code}`}
+            description={
+              selected.status === 'closed'
+                ? 'This bill is closed. An unsettled tip moves with the name; a settled one does not.'
+                : 'Recorded against your name, with the name it was before.'
+            }
+            testId="owner-reassign-sheet"
+          >
+            <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+              {data.staff
+                .filter((p) => p.active)
+                .map((p) => (
+                  <li key={p.id}>
+                    <Button
+                      data-testid={`owner-reassign-to-${p.id}`}
+                      variant="quiet"
+                      disabled={busy}
+                      className="w-full justify-between"
+                      onClick={() => {
+                        const role = reassign;
+                        if (!role) return;
+                        runBusy(async () => {
+                          const res = await send<{ tipMoved: number }>('/api/owner/action', {
+                            action: 'reassign-bill-staff',
+                            billId: selected.id,
+                            role,
+                            staffId: p.id,
+                          });
+                          toast.show(
+                            res.tipMoved > 0
+                              ? `${selected.code}: ${role} is now ${p.name} — ${rupees(res.tipMoved)} of unsettled tip moved with it`
+                              : `${selected.code}: ${role} is now ${p.name}`,
+                            { tone: 'success' }
+                          );
+                          setReassign(null);
+                        });
+                      }}
+                    >
+                      <span>{p.name}</span>
+                      <span className="text-[11.5px] font-normal opacity-70">{p.role}</span>
+                    </Button>
+                  </li>
+                ))}
+            </ul>
+          </Sheet>
 
           {selected.groupCode ? (
             <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 text-[12px] text-[var(--on-info-surface)]">
