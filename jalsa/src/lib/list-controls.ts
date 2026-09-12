@@ -249,3 +249,94 @@ export function applyListControls<T extends Row>(
   if (state.sort) out = sortRows(out, state.sort.key, state.sort.dir);
   return { rows: out, matching: out.length, total: rows.length };
 }
+
+// ---------------------------------------------------------------------------------------
+// Column filters — one filter per column, independent and combinable
+// ---------------------------------------------------------------------------------------
+
+/**
+ * WHY THESE LIVE HERE RATHER THAN IN THE TABLE COMPONENT
+ *   The rules above are already the one place this application decides what "matching" means.
+ *   Column filters are the same question asked per column, and a second set of matching rules
+ *   living inside a React component is a set nobody can test without a browser — and one that
+ *   will disagree with these the first time either is touched.
+ *
+ * THREE KINDS, BECAUSE THE DATA HAS THREE SHAPES
+ *   `text` for a name, `options` for a closed list (category, food type, availability), `range`
+ *   for a number. Anything else — a date — already has `DateFilterState` above and should use it
+ *   rather than becoming a fourth kind here.
+ */
+export type ColumnFilter =
+  | { kind: 'text'; text: string }
+  | { kind: 'options'; values: readonly string[] }
+  | { kind: 'range'; min?: number; max?: number };
+
+export type ColumnFilters = Readonly<Record<string, ColumnFilter>>;
+
+/**
+ * Whether a filter is doing anything.
+ *
+ * An EMPTY filter is not an active one, and the difference matters twice: it decides the badge
+ * count the requester asked for, and it decides whether a column is marked as filtered. A
+ * dropdown someone opened and closed again must not leave a column looking narrowed.
+ */
+export function isColumnFilterActive(filter: ColumnFilter | undefined): boolean {
+  if (!filter) return false;
+  if (filter.kind === 'text') return filter.text.trim() !== '';
+  if (filter.kind === 'options') return filter.values.length > 0;
+  return filter.min !== undefined || filter.max !== undefined;
+}
+
+/** The number in the badge: how many COLUMNS are currently narrowing the list. */
+export function activeColumnFilterCount(filters: ColumnFilters): number {
+  return Object.values(filters).filter(isColumnFilterActive).length;
+}
+
+/** One column's verdict on one cell. An inactive filter admits everything. */
+export function columnFilterMatches(filter: ColumnFilter | undefined, value: string | number | undefined): boolean {
+  if (!isColumnFilterActive(filter) || !filter) return true;
+
+  if (filter.kind === 'text') {
+    return String(value ?? '')
+      .toLowerCase()
+      .includes(filter.text.trim().toLowerCase());
+  }
+
+  if (filter.kind === 'options') {
+    // Several chosen values within ONE column are an OR — "Biryani or Rice" — while separate
+    // columns are an AND. That is what "independent and combinable" means in practice, and
+    // getting it the other way round makes every multi-select return nothing.
+    return filter.values.includes(String(value ?? ''));
+  }
+
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return false;
+  if (filter.min !== undefined && n < filter.min) return false;
+  if (filter.max !== undefined && n > filter.max) return false;
+  return true;
+}
+
+/**
+ * Every active column filter, applied together.
+ *
+ * Columns are ANDed: Category = Biryani AND Type = Non-veg AND Available = yes, which is the
+ * requester's own worked example. `valueOf` is how the table reads a cell, so this stays free
+ * of any knowledge of rows, columns or React.
+ */
+export function applyColumnFilters<T>(
+  rows: readonly T[],
+  filters: ColumnFilters,
+  valueOf: (row: T, key: string) => string | number | undefined
+): T[] {
+  const active = Object.entries(filters).filter(([, f]) => isColumnFilterActive(f));
+  if (active.length === 0) return [...rows];
+  return rows.filter((row) => active.every(([key, f]) => columnFilterMatches(f, valueOf(row, key))));
+}
+
+/** Drop one column's filter, leaving the others exactly as they were. */
+export function clearColumnFilter(filters: ColumnFilters, key: string): ColumnFilters {
+  if (!(key in filters)) return filters;
+  const next: Record<string, ColumnFilter> = { ...filters };
+  delete next[key];
+  return next;
+}

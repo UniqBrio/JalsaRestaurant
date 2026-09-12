@@ -7,6 +7,41 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 09s total - slowest G8 Functional / integration (52.6s).
+
+- **G1 Theme artifacts in sync** - PASS (41ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (42ms)
+- **G3 Theme assets present per theme** - PASS (40ms)
+- **G4 No hard-coded colours** - PASS (57ms)
+- **G5 Types** - PASS (1.6s)
+- **G6 Lint** - PASS (6.5s)
+- **G7 Unit + pure specs** - PASS (6.1s)
+- **G8 Functional / integration** - FAIL (52.6s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (47ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.4s)
+- **G11 Wide tables are configurable** - PASS (48ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
 Time: 1m 15s total - slowest G8 Functional / integration (55.1s).
 
 - **G1 Theme artifacts in sync** - PASS (51ms)
@@ -141,6 +176,29 @@ Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 - **G11 Wide tables are configurable** - PASS (60ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (sixth) - column filters on the owner's tables
+
+FAIL-FIRST: tests/unit/column-filters.unit.spec.ts - run against the pre-change tree, modelled
+exactly (`list-controls.ts` held SET-MEMBERSHIP filters only: no text kind, no range kind, no
+notion of a per-column filter being "active", nothing counting columns for a badge). **4 failed**:
+  - "a text filter narrows by what the cell contains" - `expected false, received true`. There was
+    no text kind, so everything matched.
+  - "a range filter keeps only what falls between its ends" - the same.
+  - "the badge counts the columns actually narrowing the list" - `expected 2, received 0`.
+  - "an emptied filter is not an active one" - `expected true, received false`: nothing could be
+    active, so nothing could be counted or marked.
+
+NOT OBSERVED FAILING: nothing in that file. The assertion worth naming is "a filter that matches
+nothing returns nothing, rather than quietly returning everything" - a bad match rule that falls
+back to `true` looks exactly like a working filter on a list where most rows happen to match, and
+it was run red first with the rest.
+
+NOT OBSERVED FAILING: the control itself (the header popover, the badge, Clear all). It is UI on
+an owner screen the functional tier cannot reach without a database, and this container has no
+egress. The pure rules underneath it are the ones carrying the evidence above.
 
 ---
 

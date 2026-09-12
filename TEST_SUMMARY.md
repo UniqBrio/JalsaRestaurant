@@ -5,6 +5,29 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (sixth) - column filters on the owner's tables
+
+FAIL-FIRST: jalsa/tests/unit/column-filters.unit.spec.ts - run against the pre-change tree, modelled
+exactly (`list-controls.ts` held SET-MEMBERSHIP filters only: no text kind, no range kind, no
+notion of a per-column filter being "active", nothing counting columns for a badge). **4 failed**:
+  - "a text filter narrows by what the cell contains" - `expected false, received true`. There was
+    no text kind, so everything matched.
+  - "a range filter keeps only what falls between its ends" - the same.
+  - "the badge counts the columns actually narrowing the list" - `expected 2, received 0`.
+  - "an emptied filter is not an active one" - `expected true, received false`: nothing could be
+    active, so nothing could be counted or marked.
+
+NOT OBSERVED FAILING: nothing in that file. The assertion worth naming is "a filter that matches
+nothing returns nothing, rather than quietly returning everything" - a bad match rule that falls
+back to `true` looks exactly like a working filter on a list where most rows happen to match, and
+it was run red first with the rest.
+
+NOT OBSERVED FAILING: the control itself (the header popover, the badge, Clear all). It is UI on
+an owner screen the functional tier cannot reach without a database, and this container has no
+egress. The pure rules underneath it are the ones carrying the evidence above.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (fifth) - one discount on both closure screens, and the captain's name
 
 FAIL-FIRST: jalsa/tests/unit/discount-both-ways.unit.spec.ts - run against the pre-change tree,

@@ -5,6 +5,14 @@ import { cn } from '@/lib/cn';
 import { SearchField } from './field';
 import { Button } from './button';
 import { NoMatchesState, FirstRunState } from './states';
+import { ColumnFilterControl, OptionsFilterBody, RangeFilterBody, TextFilterBody } from './column-filter';
+import {
+  activeColumnFilterCount,
+  applyColumnFilters,
+  clearColumnFilter,
+  type ColumnFilter,
+  type ColumnFilters,
+} from '@/lib/list-controls';
 
 /**
  * data-table — the ONE table on the owner's surface (Standard 10.4).
@@ -35,6 +43,19 @@ export interface Column<Row> {
   align?: 'left' | 'right';
   /** Hidden below `sm`. Use for columns that are useful but never the answer someone came for. */
   secondary?: boolean;
+  /**
+   * A filter control in THIS column's header. Absent means the column does not filter.
+   *
+   * Declared per column rather than switched on for the whole table, because the useful filter
+   * differs by what the column holds: a name wants "contains", a category wants a closed list, a
+   * price wants two ends. A table that filtered every column the same way would offer a text box
+   * for Available, which is worse than offering nothing.
+   *
+   * `options` is derived from the rows on screen, so a category with nothing in it never offers
+   * a filter that returns an empty table.
+   */
+  filter?:
+    { kind: 'text'; placeholder?: string } | { kind: 'options'; order?: readonly string[] } | { kind: 'range' };
 }
 
 export interface DataTableProps<Row> {
@@ -68,6 +89,9 @@ export function DataTable<Row>({
 }: DataTableProps<Row>) {
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<{ key: string; direction: 'asc' | 'desc' } | null>(defaultSort ?? null);
+  /* One entry per narrowed column. Independent of each other and of the sort — the two are
+     deliberately different mechanisms on the same header. */
+  const [colFilters, setColFilters] = React.useState<ColumnFilters>({});
 
   const searchable = React.useMemo(() => columns.filter((c) => c.value), [columns]);
 
@@ -83,7 +107,28 @@ export function DataTable<Row>({
     );
   }, [rows, query, searchable]);
 
+  /* Search first, then the columns, then sort. Columns are ANDed with each other and with the
+     search box: "biryani" + Type = Non-veg narrows twice, which is what combinable means. */
+  const narrowed = React.useMemo(
+    () =>
+      applyColumnFilters<Row>(filtered, colFilters, (row: Row, key: string) => {
+        const col = columns.find((c) => c.key === key);
+        return col?.value?.(row);
+      }),
+    [filtered, colFilters, columns]
+  );
+
+  const activeFilters = activeColumnFilterCount(colFilters);
+
+  const clearEverything = () => {
+    // "Restore the full Menu list" — so the search box goes too. A box still holding text while
+    // the list ignores it is worse than either half on its own.
+    setColFilters({});
+    setQuery('');
+  };
+
   const sorted = React.useMemo(() => {
+    const filtered = narrowed;
     if (!sort) return filtered;
     const col = columns.find((c) => c.key === sort.key);
     if (!col?.value) return filtered;
@@ -94,7 +139,58 @@ export function DataTable<Row>({
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
       return String(av).localeCompare(String(bv), 'en') * dir;
     });
-  }, [filtered, sort, columns]);
+  }, [narrowed, sort, columns]);
+
+  /** The right dropdown for the shape of the column. See Column.filter for why it varies. */
+  const filterBody = (c: Column<Row>): React.ReactNode => {
+    if (!c.filter) return null;
+    const current = colFilters[c.key];
+    const set = (next: ColumnFilter) => setColFilters((cur) => ({ ...cur, [c.key]: next }));
+    const bodyTestId = `${testId}-filter-${c.key}`;
+
+    if (c.filter.kind === 'text') {
+      return (
+        <TextFilterBody
+          value={current?.kind === 'text' ? current.text : ''}
+          placeholder={c.filter.placeholder ?? `Filter ${c.header.toLowerCase()}`}
+          onChange={(text) => set({ kind: 'text', text })}
+          testId={bodyTestId}
+        />
+      );
+    }
+
+    if (c.filter.kind === 'range') {
+      const r = current?.kind === 'range' ? current : undefined;
+      return (
+        <RangeFilterBody
+          min={r?.min}
+          max={r?.max}
+          onChange={(next) => set({ kind: 'range', ...next })}
+          testId={bodyTestId}
+        />
+      );
+    }
+
+    /* Built from the rows ACTUALLY in the table — not a list typed at the call site. A category
+       the owner adds tonight is in the dropdown tonight, and one with nothing in it never offers
+       a filter that returns an empty screen. */
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const v = c.value?.(row);
+      if (v !== undefined && String(v) !== '') seen.add(String(v));
+    }
+    const order = c.filter.order;
+    const options = order ? order.filter((o) => seen.has(o)) : [...seen].sort((a, b) => a.localeCompare(b, 'en'));
+
+    return (
+      <OptionsFilterBody
+        options={options}
+        chosen={current?.kind === 'options' ? current.values : []}
+        onChange={(values) => set({ kind: 'options', values })}
+        testId={bodyTestId}
+      />
+    );
+  };
 
   const toggleSort = (key: string) => {
     setSort((cur) =>
@@ -128,6 +224,33 @@ export function DataTable<Row>({
           testId={`${testId}-search`}
           className="min-w-[14rem] flex-1"
         />
+        {/* Only when something is actually narrowed. A permanent "Clear all" on an unfiltered
+            table is a control that does nothing, sitting where the eye goes first. */}
+        {activeFilters > 0 ? (
+          <span className="flex items-center gap-2">
+            <span
+              data-testid={`${testId}-filter-count`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary-surface)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--on-primary-surface)]"
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                aria-hidden
+              >
+                <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+              </svg>
+              {activeFilters}
+              <span className="sr-only">{activeFilters === 1 ? 'column filtered' : 'columns filtered'}</span>
+            </span>
+            <Button data-testid={`${testId}-clear-filters`} variant="ghost" size="sm" onClick={clearEverything}>
+              Clear all
+            </Button>
+          </span>
+        ) : null}
         {toolbarExtra}
         {exportName ? (
           <Button data-testid={`${testId}-export`} variant="secondary" size="sm" onClick={exportCsv}>
@@ -139,7 +262,9 @@ export function DataTable<Row>({
       {rows.length === 0 ? (
         <FirstRunState title={emptyTitle} note={emptyNote} testId={`${testId}-empty`} />
       ) : sorted.length === 0 ? (
-        <NoMatchesState query={query} onClear={() => setQuery('')} testId={`${testId}-nomatch`} />
+        // Clearing from here drops the column filters as well. Offering "clear the search" on a
+        // table that is empty because of a COLUMN filter is a button that does not fix it.
+        <NoMatchesState query={query} onClear={clearEverything} testId={`${testId}-nomatch`} />
       ) : (
         // Only the TABLE scrolls sideways, never the page (Standard 10.1).
         <div className="j-scroll-x rounded-[var(--radius-lg)] bg-[var(--surface)] shadow-[var(--shadow-card)]">
@@ -175,6 +300,17 @@ export function DataTable<Row>({
                       ) : (
                         c.header
                       )}
+                      {c.filter ? (
+                        <ColumnFilterControl
+                          label={c.header}
+                          filter={colFilters[c.key]}
+                          onChange={(next) => setColFilters((cur) => ({ ...cur, [c.key]: next }))}
+                          onClear={() => setColFilters((cur) => clearColumnFilter(cur, c.key))}
+                          testId={`${testId}-filter-${c.key}`}
+                        >
+                          {filterBody(c)}
+                        </ColumnFilterControl>
+                      ) : null}
                     </th>
                   );
                 })}

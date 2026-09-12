@@ -122,14 +122,27 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                 </span>
               ),
               value: (m) => m.name,
+              // Contains, not equals. Nobody types "Chilli Paneer" in full to find Chilli Paneer.
+              filter: { kind: 'text', placeholder: 'Item name contains…' },
             },
-            { key: 'category', header: 'Category', cell: (m) => m.category, value: (m) => m.category },
+            {
+              key: 'category',
+              header: 'Category',
+              cell: (m) => m.category,
+              value: (m) => m.category,
+              // Built from the rows on screen, so a category with nothing in it never offers a
+              // filter that returns an empty table.
+              filter: { kind: 'options' },
+            },
             {
               key: 'type',
               header: 'Type',
               cell: (m) => FOOD_TYPE[m.foodType].label,
               value: (m) => FOOD_TYPE[m.foodType].label,
               secondary: true,
+              // Veg · Non-veg · Egg, in the menu's own order rather than alphabetically — it is
+              // the order every other screen in this application lists them in.
+              filter: { kind: 'options', order: FOOD_TYPES.map((t) => FOOD_TYPE[t].label) },
             },
             {
               key: 'price',
@@ -137,6 +150,10 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
               cell: (m) => <span className="font-semibold">{m.priceLabel}</span>,
               value: (m) => m.price,
               align: 'right',
+              /* RANGE ONLY. Low → High and High → Low are sorting, and sorting stays on the
+                 header where it already was — the requester's own brief put all three in this
+                 dropdown and then chose to keep them apart when asked. */
+              filter: { kind: 'range' },
             },
             {
               key: 'available',
@@ -168,7 +185,11 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                 ) : (
                   <Pill tone={m.available ? 'success' : 'warning'}>{m.available ? 'On' : 'Off'}</Pill>
                 ),
-              value: (m) => (m.available ? 'on' : 'off'),
+              value: (m) => (m.available ? 'On' : 'Off'),
+              // "On" and "Off" are the words already on the pills in this column. A dropdown
+              // offering "Available / Unavailable" beside a row reading "On" is two vocabularies
+              // for one fact (the freeze rule).
+              filter: { kind: 'options', order: ['On', 'Off'] },
             },
             {
               key: 'edit',
