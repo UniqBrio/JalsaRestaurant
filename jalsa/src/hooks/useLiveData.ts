@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { handleError } from '@/lib/errors';
 import { newGate, begin, end } from './refresh-gate';
 import { echoedState } from '@/lib/write-echo';
+import { staleNotice } from '@/lib/stale-notice';
 
 /**
  * useLiveData — the ONE way this application keeps a screen current (Standard 10.4).
@@ -49,6 +50,9 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
   const [refreshing, setRefreshing] = useState(false);
   const [staleReason, setStaleReason] = useState<string | null>(null);
   const gate = useRef(newGate());
+  /* Consecutive failed reads. One is a blip on a phone in a restaurant, not an outage — see
+     src/lib/stale-notice.ts for why this counts rather than reacting to the first. */
+  const failures = useRef(0);
   /** The last payload as sent by the server. Compared as text so an identical poll changes no
    *  state at all — on the owner console that is one large tree not re-rendering every 8
    *  seconds for a screen that did not change. */
@@ -66,10 +70,14 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
           lastText.current = text;
           setData(JSON.parse(text) as T);
         }
+        failures.current = 0;
         setStaleReason(null);
       } catch (err) {
-        const handled = handleError(err, 'live.refresh');
-        setStaleReason(handled.message ?? 'This screen is not live at the moment.');
+        // The engineer's copy still goes to the log every time, on the first failure as on the
+        // tenth. What changes is only what the GUEST is told, and when.
+        handleError(err, 'live.refresh');
+        failures.current += 1;
+        setStaleReason(staleNotice(failures.current));
       }
       // Deliberately NOT a `finally { return ... }`: a return inside finally discards any
       // exception the block was unwinding. Everything above is caught, so this line is reached
@@ -145,6 +153,7 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
           lastText.current = text;
           setData(echoed);
         }
+        failures.current = 0;
         setStaleReason(null);
         return parsed;
       }

@@ -61,6 +61,12 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       { key: 'tables.assign', label: 'Assign a table to a captain', approval: true },
       { key: 'tables.qr', label: 'View or download a table QR' },
       { key: 'tables.transfer', label: 'Move a bill to another table', approval: true, confidential: true },
+      {
+        key: 'tables.free',
+        label: 'Mark a table free by hand',
+        approval: true,
+        confidential: true,
+      },
     ],
   },
   {

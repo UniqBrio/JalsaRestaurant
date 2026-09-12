@@ -302,7 +302,7 @@ export async function listClosedBillsToday(): Promise<Bill[]> {
  */
 export async function listFloor(): Promise<FloorTable[]> {
   const restaurantId = await currentRestaurantId();
-  const [tablesRes, bills, requests] = await Promise.all([
+  const [tablesRes, bills, requests, phonesRes] = await Promise.all([
     db()
       .from('dining_table')
       .select('id,name,zone,seats,active,sort')
@@ -310,8 +310,19 @@ export async function listFloor(): Promise<FloorTable[]> {
       .order('sort', { ascending: true }),
     listOpenBills(),
     listOpenRequests(),
+    /* Phones still attached to a table. Not occupancy in the billing sense — a party that
+       scanned, filled a cart and walked out leaves one of these and no bill — but it IS stale
+       data sitting on a table the restaurant considers free, and the only thing that can see it
+       is this query. It is what `tables.free` clears. */
+    db().from('guest_session').select('table_id').eq('restaurant_id', restaurantId),
   ]);
   if (tablesRes.error) throw tablesRes.error;
+
+  const phones = new Map<string, number>();
+  for (const row of phonesRes.data ?? []) {
+    const id = row.table_id as string;
+    phones.set(id, (phones.get(id) ?? 0) + 1);
+  }
 
   const billByTable = new Map<string, Bill>();
   for (const b of bills) for (const t of b.tables) billByTable.set(t, b);
@@ -346,6 +357,7 @@ export async function listFloor(): Promise<FloorTable[]> {
       openRequests: requestsByTable.get(name) ?? 0,
       hasOccasion: !!bill?.occasion,
       total: totals?.payable ?? 0,
+      phonesAttached: phones.get(t.id as string) ?? 0,
     };
   });
 }

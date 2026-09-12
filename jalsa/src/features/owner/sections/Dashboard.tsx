@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Textarea } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
+import { Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
@@ -26,6 +27,12 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
   const toast = useToast();
   const [replyTo, setReplyTo] = React.useState<string | null>(null);
   const [reply, setReply] = React.useState('');
+  /* Freeing a table by hand is irreversible from the floor's point of view — the phone attached
+     to it loses its cart — so it asks first, and the sheet names the table it is about to act on.
+     `tables.free` is a GRANT, not a role: the owner holds it and hands it to whoever they trust
+     with it, which is the whole of what was asked for. */
+  const [freeing, setFreeing] = React.useState<(typeof data.floor)[number] | null>(null);
+  const canFree = data.grants.includes('tables.free');
 
   const replies = ((data.settings.replies ?? {}) as { items?: Array<{ name: string; text: string }> }).items ?? [];
   const unanswered = data.suggestions.filter((s) => !s.repliedAt);
@@ -180,10 +187,65 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                 <span className="block text-[10.5px] font-semibold">{t.stateLabel}</span>
                 <span className="block text-[10.5px] opacity-75">{t.line}</span>
               </button>
+
+              {/* Only where the person holds the grant, and only on a table that is actually
+                  holding something. The rule that decides whether it can be DONE lives in
+                  freeTable, on the server; this only decides whether to offer it, because a
+                  control that is offered and then refused is worse than one that was never
+                  there (Standard 5.6). */}
+              {canFree && t.freeable ? (
+                <Button
+                  data-testid={`owner-free-table-${t.name}`}
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  className="mt-1 w-full"
+                  onClick={() => setFreeing(t)}
+                >
+                  Mark free
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
       </section>
+
+      <Sheet
+        open={freeing !== null}
+        onOpenChange={(v) => !v && setFreeing(null)}
+        posture="modal"
+        title={freeing ? `Mark table ${freeing.name} free?` : 'Mark this table free?'}
+        description="For a table the party has left without ordering — a wrong table, a change of mind, a phone that walked out with a cart on it."
+        testId="owner-free-table-sheet"
+        footer={
+          <>
+            <Button data-testid="owner-free-table-cancel" variant="ghost" onClick={() => setFreeing(null)}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="owner-free-table-confirm"
+              disabled={busy}
+              onClick={() => {
+                const t = freeing;
+                if (!t) return;
+                runBusy(async () => {
+                  await send('/api/owner/action', { action: 'free-table', tableId: t.id });
+                  toast.show(`Table ${t.name} is free — recorded against your name`, { tone: 'success' });
+                  setFreeing(null);
+                });
+              }}
+            >
+              Mark it free
+            </Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          Anything that phone had chosen and not sent is discarded, and the next scan of this table starts fresh. If a
+          round has already gone to the kitchen this will be refused — that is a payment or a void, not a floor
+          operation.
+        </p>
+      </Sheet>
 
       <section>
         <SectionLabel>Suggestions from guests</SectionLabel>

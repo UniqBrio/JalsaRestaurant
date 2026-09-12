@@ -24,15 +24,34 @@ the same `Grants.can`.
 
 ## The five questions, answered for this build
 
-1. **New capabilities?** 44, in nine groups: orders, queue, tables, menu, bills, tips, reports,
+1. **New capabilities?** 45, in nine groups: orders, queue, tables, menu, bills, tips, reports,
    staff, settings. All appear in the owner's permissions UI except where noted below.
 2. **Existing permissions changed meaning?** None — this is the first build.
 3. **Which roles, and why?** See the presets below. Each is a job on the floor, not a tier.
 4. **Default enabled or disabled, per role?** Every preset is an explicit allow-list. A key absent
    from a preset is denied; there is no inherit and no wildcard except `Owner / Admin`.
-5. **Owner-configurable, or hidden?** All 44 are owner-configurable per person. Fourteen are marked
+5. **Owner-configurable, or hidden?** All 45 are owner-configurable per person. Fifteen are marked
    `confidential`, which changes how they are PRESENTED (grouped and warned about), never who may
    grant them.
+
+
+### `tables.free` — why it is a grant and not a role
+
+Requested 12-Sep-2026: "allow owner to mark the table free manually. Owner can mark this feature
+to someone else in RBAC like captains." That sentence is the design. It is **not** in the Captain
+preset, deliberately — a captain who has it was given it by name, which is exactly what was asked
+for, and a preset would hand it to every captain the restaurant ever hires.
+
+It is marked `confidential` because of what it discards: the phone attached to that table loses a
+cart it never sent, and an empty bill is voided. The permission cannot reach a bill with food on
+it — `tableIsFreeable` and `freeTable` both refuse the moment a round exists, because a tile on a
+floor grid must never be able to write off a bill. That refusal is the boundary; the permission
+only decides who may do the safe half.
+
+Enforced in `src/lib/db/mutations.ts` (`freeTable` → `demand(actor, 'tables.free')`), offered in
+`src/features/owner/sections/Dashboard.tsx` and `src/features/staff/StaffTables.tsx`, granted to
+the owner by `supabase/migrations/20260912100000_jalsa_free_a_table.sql`.
+rung: `tests/unit/free-a-table.unit.spec.ts`
 
 ---
 
@@ -51,6 +70,7 @@ the same `Grants.can`.
 | Tables — view | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Tables — assign, QR | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Tables — transfer a bill | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Tables — **mark a table free by hand** (`tables.free`, added 12-Sep-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Menu — view, mark sold out | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Menu — edit items, prices, categories | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Bills — see a bill and its total** | ✅ | **❌** | ❌ | ✅ | ✅ |

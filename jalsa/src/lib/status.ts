@@ -91,6 +91,29 @@ export function tableStateFrom(input: {
   return 'served';
 }
 
+/**
+ * Whether a table is holding something a hand-made release could let go of.
+ *
+ * ONE rule, read by three places: the owner's floor grid, the captain's floor, and `freeTable`
+ * on the server, which is the one that actually refuses. A screen offering an action the server
+ * is about to refuse is worse than a screen that never offered it (Standard 5.6) — and two
+ * copies of "is this safe to free" would eventually disagree about a table with food on it.
+ *
+ * `roundCount === 0` is the whole of the safety rule. The moment a round exists the table is
+ * held by something real and the answer is a payment or a void, never a floor operation: a tile
+ * on a grid must not be able to write off a bill.
+ */
+export function tableIsFreeable(input: {
+  roundCount: number;
+  billId: string | null;
+  phonesAttached: number;
+}): boolean {
+  if (input.roundCount > 0) return false;
+  // Something has to be there to let go of. An untouched table is already free, and offering
+  // "Mark free" on twenty of them is noise on the screen that matters most during service.
+  return input.billId !== null || input.phonesAttached > 0;
+}
+
 export const FOOD_TYPE: Record<FoodType, { label: string; short: string }> = {
   veg: { label: 'Veg', short: 'V' },
   non_veg: { label: 'Non-veg', short: 'N' },

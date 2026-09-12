@@ -124,6 +124,8 @@ export interface FloorTable {
   openRequests: number;
   hasOccasion: boolean;
   total: number;
+  /** Phones still attached to this table. A cart nobody sent still counts as one. */
+  phonesAttached: number;
 }
 
 export interface StaffMember {

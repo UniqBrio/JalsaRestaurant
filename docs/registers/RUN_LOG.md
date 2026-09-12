@@ -66,6 +66,7 @@ should start by reading this table rather than by guessing which part felt slow.
 
 | ID | Action | Type | Scale | Started | Ended | Total | Stages | Gate | Verdict | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
+| R-011 | allow owner to mark the table free manually; owner can grant it to someone else in RBAC like captains. Sometimes 'something went wrong' error appears, fix it permanently. | CHANGE | scoped | 2026-09-12 09:56 | 2026-09-12 10:07 | 11m | - | 4.3s | FAIL | free-a-table + stale banner; gate 10/11, G8 the known no-egress limitation |
 | R-010 | For adding an item, it is taking time. Find the root cause and fix it. The order should be added immediately. | BUG | scoped | 2026-09-12 09:45 | 2026-09-12 09:54 | 9m | - | 4.3s | FAIL | cart latency; gate 10/11, G8 the known no-egress limitation |
 | R-009 | Enable a checkbox at the bottom left to show price(Total only). By default, disable it, let the customer click on it to see it. The default setting can be done in Settings screen by the owner to show/hide total order value(without GST). | CHANGE | scoped | 2026-09-12 08:24 | 2026-09-12 08:49 | 25m | - | 4.3s | - | - |
 | R-008 | SDL post-generation quality review of the generated Jalsa application, and feed the learnings back into the framework | REVIEW | full-scale | 2026-09-11 07:18 | 2026-09-11 07:26 | 8m | - | 4.3s | PASS | - |

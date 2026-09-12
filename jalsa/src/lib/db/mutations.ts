@@ -686,6 +686,59 @@ export async function joinTableToBill(input: { billId: string; tableId: string; 
   });
 }
 
+/**
+ * Let go of a table nobody is sitting at.
+ *
+ * WHY THIS EXISTS AT ALL
+ *   Occupancy here is derived, not stored: a table is taken while an open bill holds an
+ *   unreleased `bill_table` row on it, and a partial unique index enforces one open bill per
+ *   table. That rule is right, and it is also why a party that left with a bill open and nothing
+ *   ordered leaves a table the next party's first round CANNOT be created on, with no screen
+ *   anywhere able to release it. Reported 12-Sep-2026: "there is no way we can free the table."
+ *
+ * WHY IT REFUSES THE MOMENT FOOD EXISTS
+ *   A tile on a floor grid must never be able to write off a bill. Once a round has gone to the
+ *   kitchen the table is held by something real, and the honest routes are a payment or a void —
+ *   both of which name a person and leave a figure. This one names a person too, but it is only
+ *   ever allowed to discard NOTHING.
+ *
+ *   Closing the bill instead was the alternative, and it is worse: a closure carries a payment
+ *   mode and an amount, and there was no payment. It would be a lie in the ledger to save a tap.
+ */
+export async function freeTable(input: { tableId: string; actor: Actor }): Promise<{ freed: boolean }> {
+  demand(input.actor, 'tables.free');
+
+  const bill = await openBillForTable(input.tableId);
+  if (bill && bill.kots.length > 0) {
+    throw new Error(
+      `${bill.code} has ${bill.kots.length === 1 ? 'a round' : `${bill.kots.length} rounds`} with the kitchen. Record the payment or void the bill — a table cannot be freed out from under food.`
+    );
+  }
+
+  if (bill) {
+    // An empty bill is a bill that never happened. Voided rather than deleted: the code was
+    // issued, it may be on a docket, and a number that vanishes is a number someone hunts for.
+    await db().from('bill_table').update({ released_at: new Date().toISOString() }).eq('bill_id', bill.id);
+    await db().from('bill').update({ status: 'void', closed_at: new Date().toISOString() }).eq('id', bill.id);
+  }
+
+  // The departed party's phone, and the cart they never sent. Dropping the session is what makes
+  // the next scan of this table a fresh welcome rather than someone else's order.
+  await db().from('guest_session').delete().eq('table_id', input.tableId);
+
+  await audit({
+    action: 'Table freed by hand',
+    detail: bill
+      ? `${bill.code} had nothing with the kitchen — voided and the table released`
+      : 'No open bill; the table was cleared of any phone still attached to it',
+    actor: input.actor,
+    ...(bill ? { billId: bill.id } : {}),
+    tableId: input.tableId,
+  });
+
+  return { freed: true };
+}
+
 /* ── Requests and suggestions ──────────────────────────────────────────── */
 
 export async function raiseRequest(input: {

@@ -7,6 +7,41 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 23s total - slowest G8 Functional / integration (1m 01s).
+
+- **G1 Theme artifacts in sync** - PASS (51ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (49ms)
+- **G3 Theme assets present per theme** - PASS (50ms)
+- **G4 No hard-coded colours** - PASS (68ms)
+- **G5 Types** - PASS (2.0s)
+- **G6 Lint** - PASS (9.2s)
+- **G7 Unit + pure specs** - PASS (7.2s)
+- **G8 Functional / integration** - FAIL (1m 01s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (56ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.8s)
+- **G11 Wide tables are configurable** - PASS (56ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
 Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 
 - **G1 Theme artifacts in sync** - PASS (54ms)
@@ -71,6 +106,37 @@ Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 - **G11 Wide tables are configurable** - PASS (60ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (fourth) - the stale banner, and freeing a table
+
+FAIL-FIRST: tests/unit/stale-notice.unit.spec.ts - run against the pre-change rule, modelled
+exactly (the FIRST failed poll set `staleReason` from `handleError`'s generic fallback).
+**2 failed**:
+  - "one failed read says nothing" - `expected null, received "Something went wrong. Please try
+    again."` That is the reported defect in one line: the screen was correct, the order was safe,
+    and the application raised an alarm about neither.
+  - "what it does say is the restaurant's sentence, not the runtime's" - the taxonomy fallback,
+    which names nothing and asks a guest to retry something they did not do.
+
+NOT OBSERVED FAILING: "a success resets the count" - the counter did not exist to reset, so there
+was no pre-change behaviour to run it against. Asserted because the threshold is worthless if a
+run of blips separated by successes ever accumulates into an alarm.
+
+FAIL-FIRST: tests/unit/free-a-table.unit.spec.ts - run against the pre-change tree (the Tables
+permission group ended at `tables.transfer`; no floor view carried any notion of a releasable
+table). **2 failed of 3**:
+  - "there is a permission for freeing a table by hand" - `expected [..] to contain
+    "tables.free"`. There was no such key, which is the whole of "there is no way we can free the
+    table".
+  - "a table held by an empty bill can be released" - `expected true, received false`.
+
+NOT OBSERVED FAILING: "a table with food in the kitchen cannot be freed". It PASSED against the
+pre-change rule, because that rule was `false` for every table — nothing could be freed, so
+nothing unsafe could be freed either. Recorded honestly, and it is the assertion that matters most
+in the file: it is the only thing between a tile on a floor grid and writing off a bill, and the
+fix that made the other two pass is exactly the fix that could have broken it.
 
 ---
 

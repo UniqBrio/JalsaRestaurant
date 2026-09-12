@@ -5,6 +5,37 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (fourth) - the stale banner, and freeing a table
+
+FAIL-FIRST: jalsa/tests/unit/stale-notice.unit.spec.ts - run against the pre-change rule, modelled
+exactly (the FIRST failed poll set `staleReason` from `handleError`'s generic fallback).
+**2 failed**:
+  - "one failed read says nothing" - `expected null, received "Something went wrong. Please try
+    again."` That is the reported defect in one line: the screen was correct, the order was safe,
+    and the application raised an alarm about neither.
+  - "what it does say is the restaurant's sentence, not the runtime's" - the taxonomy fallback,
+    which names nothing and asks a guest to retry something they did not do.
+
+NOT OBSERVED FAILING: "a success resets the count" - the counter did not exist to reset, so there
+was no pre-change behaviour to run it against. Asserted because the threshold is worthless if a
+run of blips separated by successes ever accumulates into an alarm.
+
+FAIL-FIRST: jalsa/tests/unit/free-a-table.unit.spec.ts - run against the pre-change tree (the Tables
+permission group ended at `tables.transfer`; no floor view carried any notion of a releasable
+table). **2 failed of 3**:
+  - "there is a permission for freeing a table by hand" - `expected [..] to contain
+    "tables.free"`. There was no such key, which is the whole of "there is no way we can free the
+    table".
+  - "a table held by an empty bill can be released" - `expected true, received false`.
+
+NOT OBSERVED FAILING: "a table with food in the kitchen cannot be freed". It PASSED against the
+pre-change rule, because that rule was `false` for every table — nothing could be freed, so
+nothing unsafe could be freed either. Recorded honestly, and it is the assertion that matters most
+in the file: it is the only thing between a tile on a floor grid and writing off a bill, and the
+fix that made the other two pass is exactly the fix that could have broken it.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (third) - adding an item was never immediate
 
 FAIL-FIRST: jalsa/tests/unit/cart-draft.unit.spec.ts - run against the pre-change tree's own

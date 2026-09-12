@@ -1,6 +1,6 @@
 import 'server-only';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
-import { KOT_STATUS, TABLE_STATE, type Tone } from '@/lib/status';
+import { KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
   billTotals,
@@ -110,6 +110,10 @@ export interface OwnerPayload {
     billId: string | null;
     line: string;
     totalLabel: string;
+    /** Whether this table is holding something that a hand-made release could let go of.
+     *  Decided HERE, from the same rule freeTable enforces, so the screen never offers an
+     *  action the server is about to refuse (Standard 5.6). */
+    freeable: boolean;
   }>;
   openBills: OwnerBillView[];
   closedToday: OwnerBillView[];
@@ -336,6 +340,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
           ? `Seats ${t.seats} · ready for the next party`
           : 'Off the floor',
       totalLabel: t.total > 0 ? rupees(t.total) : '—',
+      freeable: tableIsFreeable(t),
     })),
 
     openBills: openViews,

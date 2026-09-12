@@ -10,6 +10,7 @@ import { FirstRunState } from '@/components/ui/states';
 import { Field, Input, SearchField } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
+import { tableIsFreeable } from '@/lib/status';
 import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
 
@@ -37,9 +38,18 @@ const PAYMENT_MODES = ['Cash', 'Digital / UPI', 'Card'] as const;
 
 /* ── 15. The floor ─────────────────────────────────────────────────────── */
 
-export function FloorScreen({ data, go }: StaffScreenProps) {
+export function FloorScreen({ data, go, send, runBusy, busy }: StaffScreenProps) {
+  const toast = useToast();
   const live = data.tables.filter((t) => t.billId !== null);
   const free = data.tables.filter((t) => t.billId === null && t.active);
+
+  /* The same grant the owner holds, doing the same thing on the captain's floor. `tables.free`
+     is not a role — the owner hands it to whoever they trust with it, and this screen simply
+     asks whether this person has it. A table is offered only where the server would allow it
+     (no rounds, something actually attached): offering an action that is then refused is worse
+     than never offering it (Standard 5.6). */
+  const canFree = data.grants.includes('tables.free');
+  const [freeing, setFreeing] = React.useState<(typeof data.tables)[number] | null>(null);
 
   return (
     <div className="flex flex-col gap-4" data-testid="staff-floor">
@@ -84,10 +94,58 @@ export function FloorScreen({ data, go }: StaffScreenProps) {
                     : (t.totalLabel ?? '—')}
                 </span>
               </button>
+
+              {canFree && tableIsFreeable(t) ? (
+                <Button
+                  data-testid={`staff-free-table-${t.name}`}
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  className="mt-1 w-full"
+                  onClick={() => setFreeing(t)}
+                >
+                  Mark free
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
       )}
+
+      <Sheet
+        open={freeing !== null}
+        onOpenChange={(v) => !v && setFreeing(null)}
+        title={freeing ? `Mark table ${freeing.name} free?` : 'Mark this table free?'}
+        description="For a party that left without ordering — a wrong table, a change of mind, a phone that walked out with a cart on it."
+        testId="staff-free-table-sheet"
+        footer={
+          <>
+            <Button data-testid="staff-free-table-cancel" variant="ghost" onClick={() => setFreeing(null)}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="staff-free-table-confirm"
+              disabled={busy}
+              onClick={() => {
+                const t = freeing;
+                if (!t) return;
+                runBusy(async () => {
+                  await send('/api/staff/action', { action: 'free-table', tableId: t.id });
+                  toast.show(`Table ${t.name} is free — recorded against your name`, { tone: 'success' });
+                  setFreeing(null);
+                });
+              }}
+            >
+              Mark it free
+            </Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          Anything that phone had chosen and not sent is discarded, and the next scan starts fresh. If a round has
+          already gone to the kitchen this will be refused — that is a payment or a void, not a floor operation.
+        </p>
+      </Sheet>
 
       <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
         Amber means the kitchen has work, green means a round is ready. A bell is an unanswered request, ◆ a grouped

@@ -6,6 +6,7 @@ import {
   changeQty,
   closeBill,
   completeRequest,
+  freeTable,
   joinTableToBill,
   replyToSuggestion,
   reprintKot,
@@ -41,6 +42,7 @@ type Action =
   | { action: 'reprint'; kotId: string }
   | { action: 'complete-request'; requestId: string }
   | { action: 'join-table'; billId: string; tableId: string }
+  | { action: 'free-table'; tableId: string }
   | { action: 'reply-suggestion'; suggestionId: string; reply: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
   | {
@@ -116,6 +118,13 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'join-table':
       await joinTableToBill({ billId: input.billId, tableId: input.tableId, actor });
+      return ok({ done: true });
+
+    case 'free-table':
+      // Guarded in freeTable, not here: the permission and the "nothing with the kitchen" rule
+      // are properties of the operation, and a second copy at a second entry point is how the
+      // two eventually disagree.
+      await freeTable({ tableId: input.tableId, actor });
       return ok({ done: true });
 
     case 'reply-suggestion':
