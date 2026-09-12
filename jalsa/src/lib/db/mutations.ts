@@ -4,7 +4,7 @@ import { kitchenHasStarted, type KotStatus } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { billTotals, chargeableLines, getBill, openBillForTable } from './queries';
-import type { Bill } from './types';
+import { BILL_STAFF_COLUMN, type Bill } from './types';
 
 /**
  * mutations - every WRITE the application makes, and the rules that guard them.
@@ -766,7 +766,7 @@ export async function freeTable(input: { tableId: string; actor: Actor }): Promi
  * Correct the captain or the waiter named on a bill — running or already closed.
  *
  * WHY THE CLOSED CASE IS THE WHOLE OF THE DIFFICULTY
- *   The captain on a bill is not a label. `addTip` attributes the tip to `bill.captain_id`, and
+ *   The captain on a bill is not a label. `addTip` attributes the tip to `bill.captain_staff_id`, and
  *   the tips ledger and the settle-up screen read from that attribution. So changing the captain
  *   on a closed bill moves money that has already been counted.
  *
@@ -794,7 +794,7 @@ export async function reassignBillStaff(input: {
   if (!bill) throw new Error('No such bill.');
 
   const wasName = input.role === 'captain' ? bill.captain : bill.waiter;
-  const column = input.role === 'captain' ? 'captain_id' : 'waiter_id';
+  const column = BILL_STAFF_COLUMN[input.role];
 
   const { error } = await db()
     .from('bill')

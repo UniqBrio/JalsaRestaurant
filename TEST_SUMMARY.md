@@ -5,6 +5,38 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-12 (seventh) - a column name nothing was checking
+
+FAIL-FIRST: jalsa/tests/unit/schema-columns.unit.spec.ts - run against the mapping exactly as it
+shipped (`{ captain: 'captain_id', waiter: 'waiter_id' }`): **1 failed** -
+`bill.captain_id must be declared in the core schema - expected true, received false`.
+
+THE INCIDENT, recorded because it happened twice in one afternoon:
+  1. `closeBill` shipped writing `discount_type` before its migration was applied. PostgREST
+     rejected the update and bill closure broke in production.
+  2. `reassignBillStaff` shipped writing `captain_id` / `waiter_id`. The real columns are
+     `captain_staff_id` / `waiter_staff_id`, so "Change captain" would have thrown on every use.
+
+Both are the same class: **application code naming a database column, with nothing checking the
+column exists.** A column name is a string by the time PostgREST sees it, so tsc, the build, lint
+and every existing spec are blind to it. The second was found BY ACCIDENT - a snapshot query
+failed while applying the first one's migration - which is not a detection mechanism.
+
+The rung reads the migration files rather than a live connection: the gate must run where there is
+no database, and a rung that needs one is a rung that skips, and a skip reads as a pass. It carries
+its own parsed-something assertion (binding rule 3) so a glob matching zero files cannot make every
+other assertion vacuously true.
+
+NOT OBSERVED FAILING: "the two roles map to two different columns" and "the other columns this run
+added writes for are all real" - both were correct before the fix, and are asserted to pin a
+hand-sweep of the live schema so it need not be repeated from memory.
+
+WHAT THE RUNG STILL CANNOT SEE: whether a migration has been APPLIED to a given database. That is
+a deployment question, and it is the half that broke production. Recorded rather than pretended
+away.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (sixth) - column filters on the owner's tables
 
 FAIL-FIRST: jalsa/tests/unit/column-filters.unit.spec.ts - run against the pre-change tree, modelled

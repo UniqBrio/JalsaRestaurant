@@ -7,6 +7,41 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.
+Time: 1m 09s total - slowest G8 Functional / integration (52.5s).
+
+- **G1 Theme artifacts in sync** - PASS (43ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (43ms)
+- **G3 Theme assets present per theme** - PASS (44ms)
+- **G4 No hard-coded colours** - PASS (61ms)
+- **G5 Types** - PASS (1.7s)
+- **G6 Lint** - PASS (6.6s)
+- **G7 Unit + pure specs** - PASS (5.9s)
+- **G8 Functional / integration** - FAIL (52.5s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (48ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.3s)
+- **G11 Wide tables are configurable** - PASS (50ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: FAIL
+
+Steps: 10 pass, 1 fail, 0 blocked.
 Time: 1m 09s total - slowest G8 Functional / integration (52.6s).
 
 - **G1 Theme artifacts in sync** - PASS (41ms)
@@ -176,6 +211,38 @@ Time: 1m 21s total - slowest G8 Functional / integration (1m 00s).
 - **G11 Wide tables are configurable** - PASS (60ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-12 (seventh) - a column name nothing was checking
+
+FAIL-FIRST: tests/unit/schema-columns.unit.spec.ts - run against the mapping exactly as it
+shipped (`{ captain: 'captain_id', waiter: 'waiter_id' }`): **1 failed** -
+`bill.captain_id must be declared in the core schema - expected true, received false`.
+
+THE INCIDENT, recorded because it happened twice in one afternoon:
+  1. `closeBill` shipped writing `discount_type` before its migration was applied. PostgREST
+     rejected the update and bill closure broke in production.
+  2. `reassignBillStaff` shipped writing `captain_id` / `waiter_id`. The real columns are
+     `captain_staff_id` / `waiter_staff_id`, so "Change captain" would have thrown on every use.
+
+Both are the same class: **application code naming a database column, with nothing checking the
+column exists.** A column name is a string by the time PostgREST sees it, so tsc, the build, lint
+and every existing spec are blind to it. The second was found BY ACCIDENT - a snapshot query
+failed while applying the first one's migration - which is not a detection mechanism.
+
+The rung reads the migration files rather than a live connection: the gate must run where there is
+no database, and a rung that needs one is a rung that skips, and a skip reads as a pass. It carries
+its own parsed-something assertion (binding rule 3) so a glob matching zero files cannot make every
+other assertion vacuously true.
+
+NOT OBSERVED FAILING: "the two roles map to two different columns" and "the other columns this run
+added writes for are all real" - both were correct before the fix, and are asserted to pin a
+hand-sweep of the live schema so it need not be repeated from memory.
+
+WHAT THE RUNG STILL CANNOT SEE: whether a migration has been APPLIED to a given database. That is
+a deployment question, and it is the half that broke production. Recorded rather than pretended
+away.
 
 ---
 

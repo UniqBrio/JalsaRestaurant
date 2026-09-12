@@ -215,3 +215,18 @@ export interface GuestView {
 }
 
 export type { BillStatus, FoodType, KotStatus, TableState };
+
+/**
+ * The two columns on `bill` that name a person — by their REAL names.
+ *
+ * Exported, and named as data rather than written inline, for one reason: the first version of
+ * this guessed `captain_id` / `waiter_id` and would have thrown on every single use. A column
+ * name is a string by the time PostgREST sees it, so `tsc` cannot check it, the build cannot
+ * check it, and lint cannot check it — nothing in the pipeline was ever going to catch it.
+ * Pulled out here so `tests/unit/schema-columns.unit.spec.ts` can check it against the schema
+ * migration, which is the only thing that actually knows.
+ */
+export const BILL_STAFF_COLUMN = {
+  captain: 'captain_staff_id',
+  waiter: 'waiter_staff_id',
+} as const;
