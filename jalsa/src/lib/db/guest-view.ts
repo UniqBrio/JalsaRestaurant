@@ -84,10 +84,32 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const timeLabel = (iso: string): string =>
   new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
 
+/**
+ * The payload for a table, resolving the guest session from scratch.
+ *
+ * This is the entry point for the two callers that genuinely have nothing but a table name: the
+ * first render of `/t/[table]`, and the poll at `/api/guest/state`. Both may need a session
+ * CREATED, so both must go through `resolveGuest`.
+ */
 export async function buildGuestPayload(tableName: string): Promise<GuestPayload | null> {
   const ctx = await resolveGuest(tableName);
   if (!ctx) return null;
+  return assembleGuestPayload(ctx);
+}
 
+/**
+ * The payload, from a context that is already resolved.
+ *
+ * SPLIT OUT, NEVER COPIED. A write route answering with the new state (`db/guest-echo.ts`) knows
+ * its session already — the route looked it up to authorise the write — and re-resolving it cost
+ * eight round trips to a database in another region, of which six re-read rows the route was
+ * holding. The fix is for that path to build the CONTEXT differently, not to assemble the payload
+ * differently: a second assembler would be a second answer to "what does this guest see", and the
+ * two would drift with the first field either one forgot.
+ *
+ * So there is exactly one body below, and both entry points end here.
+ */
+export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayload> {
   const [{ items, categories }, settings] = await Promise.all([listMenu(), readAllSettings()]);
   const cart = ctx.sessionId ? await readCart(ctx.sessionId) : [];
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));

@@ -121,6 +121,85 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
   return { phase: 'welcome', sessionId, table, bill: null, rescanMinutes };
 }
 
+/**
+ * The same context, for a session this request has ALREADY resolved.
+ *
+ * WHY THIS EXISTS
+ *   A write route looks the session up to authorise the write, then answers with the new state
+ *   (`guest-echo.ts`) — and `resolveGuest` then re-derived, from a table NAME, everything the
+ *   route was already holding: the session row read a second time by token, the table row read a
+ *   second time (once by id to get its name, once by name to get the row), and the session's
+ *   `bill_id` written again moments after `attachBillToSession` wrote it. Measured on the CI
+ *   runner at ~590ms a round trip, that redundancy was most of four seconds between a guest
+ *   tapping Send and their confirmation appearing.
+ *
+ * WHAT IT DELIBERATELY STILL DOES
+ *   - Reads the bill FRESH, from the table, exactly as `resolveGuest` does. The caller's bill
+ *     object predates the round it just placed; handing that back would show a confirmation
+ *     screen with no round on it.
+ *   - Derives the bill from `bill_table`, NOT from `guest_session.bill_id` — the table is the
+ *     source of truth (JP-4), which is how a second phone at the same table joins the first
+ *     phone's bill rather than opening a rival one.
+ *   - Computes `phase` the same way, `recently_paid` and the rescan window included. Assuming
+ *     `live` would be wrong the moment a member of staff closes the bill, which is precisely
+ *     when the guest is looking at the screen.
+ *   - Keeps `guest_session.bill_id` current, because `/api/guest/bill` uses `billForSession()`
+ *     to decide which bill this phone may act on at all. The write is skipped only when the
+ *     pointer is already correct, which after `attachBillToSession` it is.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO
+ *   - It does not create or rotate a session: it is only ever called where the caller already
+ *     holds one, so the creating branch of `resolveGuest` is unreachable from here.
+ *   - It does not stamp `last_seen_at`. Nothing in this application or its migrations READS that
+ *     column — it is written in exactly one place and consumed nowhere — and the 6-second poll
+ *     goes through `resolveGuest` and stamps it regardless, so session liveness is unchanged.
+ *     If a consumer is ever added, this is the second place that has to stamp it.
+ */
+export async function contextForSession(session: {
+  id: string;
+  tableId: string;
+  billId: string | null;
+}): Promise<GuestContext | null> {
+  // The table row and the rescan window need nothing from each other.
+  const [{ data: row }, { minutes }] = await Promise.all([
+    db().from('dining_table').select('id,name,zone,seats,active').eq('id', session.tableId).maybeSingle(),
+    readSettings('rescan', { minutes: 15 }),
+  ]);
+  if (!row) return null;
+
+  const table = {
+    id: row.id as string,
+    name: row.name as string,
+    zone: row.zone as string,
+    seats: row.seats as number,
+  };
+  const rescanMinutes = typeof minutes === 'number' ? minutes : 15;
+
+  if (!row.active) {
+    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes };
+  }
+
+  const open = await openBillForTable(table.id);
+  if (open) {
+    // Only when it is actually wrong. After `attachBillToSession` it is already right, so the
+    // common path costs nothing.
+    if (session.billId !== open.id) {
+      await db().from('guest_session').update({ bill_id: open.id }).eq('id', session.id);
+    }
+    return { phase: 'live', sessionId: session.id, table, bill: open, rescanMinutes };
+  }
+
+  const closed = await lastClosedBillForTable(table.id);
+  if (closed?.closedAt) {
+    const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
+    if (ageMinutes <= rescanMinutes) {
+      return { phase: 'recently_paid', sessionId: session.id, table, bill: closed, rescanMinutes };
+    }
+  }
+
+  return { phase: 'welcome', sessionId: session.id, table, bill: null, rescanMinutes };
+}
+
 /** The bill a guest session is allowed to act on - and no other. */
 export async function billForSession(sessionId: string): Promise<Bill | null> {
   const { data } = await db().from('guest_session').select('bill_id').eq('id', sessionId).maybeSingle();
@@ -150,15 +229,9 @@ export async function currentGuestSession(): Promise<{ id: string; tableId: stri
   };
 }
 
-/**
- * The table a session is sitting at, by name.
- *
- * Exists so a WRITE route can rebuild the guest's payload and return it with its answer. The
- * alternative — answering `{ ok: true }` and letting the phone go and fetch the new state — is
- * two more round trips to another region for every tap, and the guest watches a frozen screen
- * for all of them. Reported 12-Sep-2026 as "adding or removing a tip takes too long".
+/*
+ * `tableNameForSession` was here. It existed for one caller — `freshState()` — which turned a
+ * table id into a NAME so that `buildGuestPayload` could turn the name back into the same row.
+ * `contextForSession` reads that row once, by id, so the round trip and the function are both
+ * gone. Removed rather than left exported: an export nobody calls is a rule nobody applies.
  */
-export async function tableNameForSession(tableId: string): Promise<string | null> {
-  const { data } = await db().from('dining_table').select('name').eq('id', tableId).maybeSingle();
-  return (data?.name as string | undefined) ?? null;
-}

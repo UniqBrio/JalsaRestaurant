@@ -88,14 +88,28 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
   if (existing) return existing;
 
   const restaurantId = await currentRestaurantId();
-  const tax = await currentTaxRate();
 
-  // The table's standing captain and waiter open the bill. Reassignment is a later, audited
-  // action - but a bill with nobody's name on it can never be attributed retrospectively.
-  const { data: assigned } = await db()
-    .from('staff_table')
-    .select('staff:staff_id(id,role,on_duty)')
-    .eq('table_id', tableId);
+  /**
+   * THREE READS THAT DO NOT NEED EACH OTHER, ISSUED AT ONCE.
+   *
+   * The tax rate, the table's standing staff, and the next bill number are independent: none of
+   * them reads a row another one writes, and the insert below is the first thing that needs any
+   * of their results. Run serially they were three round trips to a database in another region —
+   * measured at ~590ms each on the CI runner, which is most of a second and a half on the path
+   * between a guest tapping Send and their confirmation appearing.
+   *
+   * `nextNumber` is in here rather than left behind because it already ran before the insert;
+   * moving it earlier in wall-clock time changes nothing about when its number is allocated
+   * relative to a failure, so it burns a bill number in exactly the cases it burnt one before.
+   *
+   * The table's standing captain and waiter open the bill. Reassignment is a later, audited
+   * action - but a bill with nobody's name on it can never be attributed retrospectively.
+   */
+  const [tax, { data: assigned }, code] = await Promise.all([
+    currentTaxRate(),
+    db().from('staff_table').select('staff:staff_id(id,role,on_duty)').eq('table_id', tableId),
+    nextNumber('bill'),
+  ]);
   type Assigned = { staff: { id: string; role: string; on_duty: boolean } | null };
   const people = ((assigned ?? []) as unknown as Assigned[])
     .map((a) => a.staff)
@@ -103,7 +117,6 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
   const captain = people.find((p) => p.role === 'Captain') ?? null;
   const waiter = people.find((p) => p.role === 'Waiter') ?? null;
 
-  const code = await nextNumber('bill');
   const { data: billRow, error: billErr } = await db()
     .from('bill')
     .insert({
@@ -254,19 +267,27 @@ export async function placeRound(input: {
     );
   if (lineErr) throw lineErr;
 
-  // Rule 1: the round is saved. Only now is a printer asked for anything, and a refusal
-  // changes a badge on the record rather than losing the order.
-  await queuePrint({ kind: 'KOT', kotId: kot.id as string, billId: input.billId, actor: input.actor });
-
-  await audit({
-    action: 'Order placed',
-    detail: `${code} created — ${accepted.length === 1 ? '1 item' : `${accepted.length} items`}${
-      refused.length ? ` (${refused.length} unavailable and not sent)` : ''
-    }`,
-    actor: input.actor,
-    billId: input.billId,
-    tableId: input.tableId,
-  });
+  /**
+   * Rule 1: the round is saved. Only now is a printer asked for anything, and a refusal
+   * changes a badge on the record rather than losing the order.
+   *
+   * The print job and the audit entry are two inserts into two different tables, neither of
+   * which reads the other, and nothing below reads either. They were serial only because they
+   * were written on consecutive lines. Both are still awaited, so the round is not reported
+   * placed until both have landed.
+   */
+  await Promise.all([
+    queuePrint({ kind: 'KOT', kotId: kot.id as string, billId: input.billId, actor: input.actor }),
+    audit({
+      action: 'Order placed',
+      detail: `${code} created — ${accepted.length === 1 ? '1 item' : `${accepted.length} items`}${
+        refused.length ? ` (${refused.length} unavailable and not sent)` : ''
+      }`,
+      actor: input.actor,
+      billId: input.billId,
+      tableId: input.tableId,
+    }),
+  ]);
 
   return { kotCode: code, kotId: kot.id as string, refused };
 }

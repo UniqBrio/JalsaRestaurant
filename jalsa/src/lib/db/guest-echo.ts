@@ -1,6 +1,6 @@
 import 'server-only';
-import { currentGuestSession, tableNameForSession } from './guest';
-import { buildGuestPayload, type GuestPayload } from './guest-view';
+import { contextForSession, currentGuestSession } from './guest';
+import { assembleGuestPayload, type GuestPayload } from './guest-view';
 
 /**
  * The fresh guest payload, attached to the answer of the write that changed it.
@@ -21,14 +21,21 @@ import { buildGuestPayload, type GuestPayload } from './guest-view';
  *   would tell the guest their tip did not go through when it did — the worst possible lie for
  *   this screen to tell. On a null, the phone falls back to fetching, which is exactly what it
  *   did before this existed.
+ *
+ * WHY IT BUILDS THE CONTEXT RATHER THAN RE-RESOLVING IT
+ *   It used to look the session up, turn the table id into a NAME, and hand that name to
+ *   `buildGuestPayload`, which resolved the session all over again from scratch — thirteen serial
+ *   round trips, six of them re-reading rows this request was already holding. It now builds the
+ *   context from the session directly (`contextForSession`) and runs the SAME assembler. The
+ *   payload is identical; what is gone is the second lookup of things already known.
  */
 export async function freshState(): Promise<GuestPayload | null> {
   try {
     const session = await currentGuestSession();
     if (!session) return null;
-    const table = await tableNameForSession(session.tableId);
-    if (!table) return null;
-    return await buildGuestPayload(table);
+    const ctx = await contextForSession(session);
+    if (!ctx) return null;
+    return await assembleGuestPayload(ctx);
   } catch {
     return null;
   }

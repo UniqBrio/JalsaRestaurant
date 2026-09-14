@@ -33,16 +33,31 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
 
   const bill = await ensureOpenBill(session.tableId);
-  await attachBillToSession(session.id, bill.id);
 
-  const result = await placeRound({
-    billId: bill.id,
-    tableId: session.tableId,
-    lines: lines.map((l) => ({ menuItemId: l.menuItemId, qty: l.qty })),
-    source: 'guest',
-    actor: GUEST_ACTOR,
-    ...(input.note ? { note: input.note.slice(0, 400) } : {}),
-  });
+  /**
+   * TWO WRITES THAT DO NOT READ EACH OTHER.
+   *
+   * `attachBillToSession` updates one column on `guest_session`. `placeRound` reads `menu_item`
+   * and inserts `kot`, `kot_item`, `print_job` and `audit_entry` — it takes the bill id and the
+   * table id as ARGUMENTS, both already in hand, and never reads the session row. Neither
+   * observes the other's write, so serialising them bought nothing but a round trip.
+   *
+   * Both are still awaited before the response: the round is never reported placed until the
+   * bill, its table link, the KOT, its items and the session's attachment have all landed.
+   * A throw from either still fails the request, exactly as before — and if `placeRound` throws,
+   * the attachment is already written, which is the same end state the serial version produced.
+   */
+  const [, result] = await Promise.all([
+    attachBillToSession(session.id, bill.id),
+    placeRound({
+      billId: bill.id,
+      tableId: session.tableId,
+      lines: lines.map((l) => ({ menuItemId: l.menuItemId, qty: l.qty })),
+      source: 'guest',
+      actor: GUEST_ACTOR,
+      ...(input.note ? { note: input.note.slice(0, 400) } : {}),
+    }),
+  ]);
 
   if (!result.kotId) {
     // Everything in the cart had gone. The cart is deliberately NOT cleared: the guest still
