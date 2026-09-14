@@ -5,6 +5,39 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-14 (first) - presence is not ownership
+
+FAIL-FIRST: jalsa/tests/unit/schema-columns.unit.spec.ts (table-aware assertions appended) - the
+new `declaresColumnOn(table, column)` was deliberately replaced with the old table-blind
+`declaresColumn(column)` in a temporary copy of the spec, and the injected defect was observed:
+the assertion accepted `audit_entry.created_at`, a column that does not exist. **2 failed, 8
+passed**:
+  - "audit_entry timestamps with `at`, and has no `created_at` - the CI reset defect" -
+    `audit_entry.created_at must NOT be declared - expected false, received true`
+  - "no table in the reset list may be filtered on a column it does not have" -
+    `audit_entry.created_at - expected false, received true`
+The temporary spec was removed after the run; nothing from it remains in the tree.
+
+THE DEFECT IT ANSWERS: `jalsa/scripts/reset-test-db.mjs` filtered six tables on `created_at`.
+`audit_entry` timestamps with `at`, so CI on main @ 91004d1 emptied the other five and then
+refused - `column audit_entry.created_at does not exist`. The existing rung could not see it:
+`declaresColumn('created_at')` asks whether the NAME appears anywhere in the migrations, and
+fifteen tables have one. Ownership is the question that can fail.
+
+NOT OBSERVED FAILING: "the table-aware parse actually parsed", "every bill column the app writes
+by name exists ON THE BILL TABLE", and "the hand-swept columns are on the tables the application
+writes them to". All three were already true of this tree; they are asserted so the new parser
+carries its own parsed-something assertion (binding rule 3) and so the 12-Sep sweep is pinned with
+its owning table rather than by name alone.
+
+NOT OBSERVED FAILING: the reset script's own fix. `uxmyomxtosjlkvjxnvpy` is unreachable from the
+build container (no secret key, and the host is not in its egress allowlist), so the corrected
+delete loop has not been executed end to end. The predicate was verified against that database
+read-only instead: `where id is not null` parses on all six tables; `where created_at >=
+'1970-01-01'` still fails on `audit_entry` with 42703. The end-to-end proof is the next CI run.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (eighth) - the after-discount figure
 
 FAIL-FIRST: jalsa/tests/unit/discount-both-ways.unit.spec.ts (appended) - modelled against what the
