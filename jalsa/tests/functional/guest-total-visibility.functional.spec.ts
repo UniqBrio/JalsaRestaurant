@@ -6,7 +6,8 @@
  * WHAT IT RUNS AGAINST
  *   The same dedicated TEST project the guest journey uses, reset before the suite by
  *   `scripts/reset-test-db.mjs` — never the development/production project, which that script
- *   refuses by ref. This file WRITES: a guest_session and cart lines on table A5. It does not
+ *   refuses by ref. This file WRITES: a guest_session and cart lines, on the table this spec is
+ *   allocated in this browser project (tests/support/tables.ts). It does not
  *   clean up, for the reason the journey spec gives — the reset before the next run is what
  *   makes the state known, and a failed run that left its evidence is worth more than a tidy one.
  *
@@ -29,8 +30,15 @@
  *   that is a weaker claim than a recorded run, which is why it is written here as one.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { tableFor } from '../support/tables';
 
-const TABLE = 'A5';
+/**
+ * The table this spec owns. Allocated per (spec file x browser project) so the six projects that
+ * run this file never write to one another's table - see tests/support/tables.ts. Called inside
+ * each test rather than assigned at module scope, because the project name is only knowable once
+ * a test is running.
+ */
+const table = () => tableFor('guest-total-visibility');
 
 /** The gap between the bottom of the page's own content and the top of the fixed bar. */
 async function clearance(page: Page, barTestId: string): Promise<number> {
@@ -45,7 +53,7 @@ async function clearance(page: Page, barTestId: string): Promise<number> {
 test.describe.configure({ mode: 'serial' });
 
 test('the total is hidden until the guest asks for it, and stays asked for', async ({ page }) => {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await expect(page.getByTestId('unreachable-guest')).toHaveCount(0);
 
@@ -77,7 +85,7 @@ test('the total is hidden until the guest asks for it, and stays asked for', asy
 });
 
 test('nothing on the order screen sits underneath the bottom bar', async ({ page }) => {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await page.getByTestId('guest-start-ordering').click();
   const adds = page.locator('[data-testid^="guest-add-"]');
@@ -102,7 +110,7 @@ test('nothing on the order screen sits underneath the bottom bar', async ({ page
 });
 
 test('search and the filters stay reachable however far down the menu the guest is', async ({ page }) => {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await page.getByTestId('guest-start-ordering').click();
   await expect(page.getByTestId('guest-menu')).toBeVisible();
@@ -125,7 +133,7 @@ test('search and the filters stay reachable however far down the menu the guest 
 });
 
 test('every category is reachable in one tap, with no sideways scrolling', async ({ page }) => {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await page.getByTestId('guest-start-ordering').click();
   await expect(page.getByTestId('guest-menu')).toBeVisible();
@@ -170,7 +178,7 @@ test('every category is reachable in one tap, with no sideways scrolling', async
 });
 
 test('every dish row holds the space a photograph will occupy', async ({ page }) => {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await page.getByTestId('guest-start-ordering').click();
   await expect(page.getByTestId('guest-menu')).toBeVisible();
@@ -196,7 +204,7 @@ test('every dish row holds the space a photograph will occupy', async ({ page })
 });
 
 test('a tap lands on the row at once, and a run of taps all count', async ({ page }) => {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await page.getByTestId('guest-start-ordering').click();
   await expect(page.getByTestId('guest-menu')).toBeVisible();
@@ -223,7 +231,7 @@ test('a tap lands on the row at once, and a run of taps all count', async ({ pag
   await expect
     .poll(
       async () => {
-        const s = (await (await page.request.get(`/api/guest/state?table=${TABLE}`)).json()) as {
+        const s = (await (await page.request.get(`/api/guest/state?table=${table()}`)).json()) as {
           menu: Array<{ id: string; inCart: number }>;
         };
         return s.menu.find((m) => m.id === id)?.inCart;
@@ -239,7 +247,7 @@ test('a tap lands on the row at once, and a run of taps all count', async ({ pag
   await page.getByTestId('guest-send-to-kitchen').click();
   await expect(page.getByTestId('guest-placed')).toBeVisible();
 
-  const state = (await (await page.request.get(`/api/guest/state?table=${TABLE}`)).json()) as {
+  const state = (await (await page.request.get(`/api/guest/state?table=${table()}`)).json()) as {
     rounds: Array<{ items: Array<{ qty: number }> }>;
   };
   const sent = state.rounds.at(-1)?.items.reduce((n, i) => n + i.qty, 0) ?? 0;

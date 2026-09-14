@@ -6,7 +6,8 @@
  * WHAT IT RUNS AGAINST
  *   The dedicated TEST project, reset before the suite by `scripts/reset-test-db.mjs`, which
  *   refuses the development/production project by ref. This file WRITES — a session, cart lines,
- *   rounds on table A5, a bill, a tip — and does not clean up: the reset before the next run is
+ *   rounds, a bill, a tip — on the table this spec is allocated in this browser project
+ *   (tests/support/tables.ts) — and does not clean up: the reset before the next run is
  *   what makes the state known.
  *
  * WHY THE ASSERTIONS ARE ABOUT STAYING PUT
@@ -25,11 +26,18 @@
  *   tests/unit/write-echo.unit.spec.ts.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { tableFor } from '../support/tables';
 
-const TABLE = 'A5';
+/**
+ * The table this spec owns. Allocated per (spec file x browser project) so the six projects that
+ * run this file never write to one another's table - see tests/support/tables.ts. Called inside
+ * each test rather than assigned at module scope, because the project name is only knowable once
+ * a test is running.
+ */
+const table = () => tableFor('closure-upsell-tip');
 
 async function orderAndAskForTheBill(page: Page) {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await expect(page.getByTestId('unreachable-guest')).toHaveCount(0);
   await page.getByTestId('guest-start-ordering').click();
@@ -124,7 +132,7 @@ test('a table that decides on one more round never has to cancel anything first'
   await expect(page.getByTestId('guest-upsell')).toBeVisible();
 
   // Back to the order list, where the request is waiting.
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-status')).toBeVisible();
   const go = page.getByTestId('guest-continue-ordering');
   await expect(go, 'the way back to the menu is on the screen, not implied').toBeVisible();
@@ -134,7 +142,7 @@ test('a table that decides on one more round never has to cancel anything first'
 
   // The state is stated rather than left to be inferred, and the bill is open again.
   await expect
-    .poll(async () => (await page.request.get(`/api/guest/state?table=${TABLE}`)).json())
+    .poll(async () => (await page.request.get(`/api/guest/state?table=${table()}`)).json())
     .toMatchObject({ billStatus: 'open', paymentPaused: true });
 
   // Same bill, same table: another round joins what is already there.
@@ -144,7 +152,7 @@ test('a table that decides on one more round never has to cancel anything first'
   await page.getByTestId('guest-send-to-kitchen').click();
   await expect(page.getByTestId('guest-placed')).toBeVisible();
 
-  const state = (await (await page.request.get(`/api/guest/state?table=${TABLE}`)).json()) as {
+  const state = (await (await page.request.get(`/api/guest/state?table=${table()}`)).json()) as {
     rounds: unknown[];
     billStatus: string;
   };

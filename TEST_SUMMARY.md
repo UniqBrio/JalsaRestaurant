@@ -5,6 +5,61 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-14 (second) - eighteen executions, one table
+
+FAIL-FIRST: jalsa/tests/unit/table-allocation.unit.spec.ts (new) - `allocateTable` replaced with
+the behaviour it replaces, `() => 'A5'`, in a temporary copy of the spec: **5 failed, 6 passed**.
+The failures name the collision:
+  - "different specs in the SAME project never share a table" - `desktop: A5, A5, A5`
+  - "the same spec in DIFFERENT projects never shares a table" -
+    `guest-journey: A5, A5, A5, A5, A5, A5`
+  - "all 18 combinations are distinct" - `distinct tables among A5, A5, ...` (18 allocations,
+    1 distinct)
+  - "running out of tables throws loudly" - a constant never throws, so it would wrap silently
+  - "an unknown spec or project is refused by name" - likewise silent
+The temporary copy was removed after the run; nothing from it remains in the tree.
+
+THE DEFECT IT ANSWERS: `guest-journey`, `guest-total-visibility` and `closure-upsell-tip` all
+wrote to table A5, and six browser projects run all three - eighteen executions against one table.
+None cleans up (each says so deliberately in its header) and the reset runs ONCE before the whole
+suite, so the first execution to open a bill occupied A5 for the other seventeen. CI run
+34834299122 on 3a43532: **18 failed, 48 did not run, 375 passed**, every failure on the same first
+assertion - `guest-welcome` not visible, because a table with an open bill shows that bill's order
+list instead (JP-4). Bill B-1041 was opened at 10:41:45 and never closed or released.
+
+It is NOT primarily a race, and that is why serialising was rejected: the bill persists for the
+rest of the run, so the collision happens at one worker as surely as at two. The six passing
+assertions above are the ones a hard-coded 'A5' satisfies by luck - it IS seeded, it IS active, it
+IS stable - which is exactly why nothing in the suite could have caught this.
+
+NOT OBSERVED FAILING: "the allocator and the seed still agree", "the project list matches
+playwright.config.ts", "the matrix is the size the seed has to cover" and "the registry the specs
+actually use is the seeded one". All four were already true of this tree; they are asserted so the
+hand-kept lists cannot drift from the seed or the config without a red test, and so a registry
+that parsed to nothing cannot make the rest vacuous (binding rule 3).
+
+RUNTIME EVIDENCE, not only unit: a temporary probe spec run across the four Chromium-backed
+projects printed the live allocation - desktop `A1/A7/N3`, desktop-wide `A2/A8/N4`, mobile
+`A4/A10/N6`, mobile-short `A6/N2/N8`. Twelve distinct tables, matching the allocator exactly.
+tablet and mobile-ios were dropped by the container's Chromium override (KL-3), so their six
+allocations are proven by the unit rung only. The probe was removed after the run.
+
+NOT OBSERVED: the three functional specs passing. They cannot run here - the local environment
+points at the development/production project, which they must never write to, and the test project
+is unreachable from this container. They were run against a deliberately unreachable database to
+prove the wiring loads and the specs go red rather than error on import: **2 failed** on
+`guest-welcome` not visible, which is the documented pre-existing state on this container. The
+end-to-end proof is the next CI run.
+
+KNOWN, DELIBERATELY NOT FIXED HERE: two pre-existing defects in `closure-upsell-tip`, which this
+change makes reachable for the first time. Test 2 (line 88) never navigates before using
+`guest-upsell-skip`, and Playwright's `page` fixture is per-test, so `describe.serial` does not
+carry a page into it. Test 3 (line 122) expects `guest-welcome` on a table test 1 deliberately
+left at `payment_requested`. Isolation was never going to fix either; they are recorded so the
+next CI run's failures are expected rather than surprising.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-14 (first) - presence is not ownership
 
 FAIL-FIRST: jalsa/tests/unit/schema-columns.unit.spec.ts (table-aware assertions appended) - the
