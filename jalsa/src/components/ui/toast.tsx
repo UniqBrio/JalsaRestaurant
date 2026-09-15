@@ -17,6 +17,18 @@ import { cn } from '@/lib/cn';
  * WHY THE TIMER PAUSES ON HOVER AND FOCUS
  *   An Undo that disappears while someone is reaching for it is worse than no Undo, because
  *   they were promised one.
+ *
+ * WHY THE PILL ITSELF TAKES NO CLICKS
+ *   It sits over the bottom action bar. A guest who sends a round and immediately taps "See my
+ *   order" is tapping through the confirmation that their tap worked — and for six seconds the
+ *   whole pill swallowed that tap, because the row carried `pointer-events-auto` while only its
+ *   two buttons need it. CI run 34866569730 caught it on `guest-see-my-order`: the button
+ *   "visible, enabled and stable", the click retried until the test gave up, and Playwright
+ *   naming `<div data-testid="toast">` as the element that would receive it.
+ *
+ *   So the pill is inert and the CONTROLS are live. Nothing about how it looks, animates, reads
+ *   out or expires changes; what changes is that a message about what just happened no longer
+ *   blocks the next thing the guest wants to do.
  */
 
 export interface ToastMessage {
@@ -88,41 +100,47 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
 
   return (
     <div
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
       data-testid="toast"
       className={cn(
-        'pointer-events-auto flex w-full max-w-[30rem] items-center gap-3 rounded-full px-4 py-3 text-[12.5px] font-semibold shadow-[var(--shadow-raised)]',
+        'pointer-events-none flex w-full max-w-[30rem] items-center gap-3 rounded-full px-4 py-3 text-[12.5px] font-semibold shadow-[var(--shadow-raised)]',
         tone
       )}
     >
       <span className="min-w-0 flex-1">{toast.text}</span>
-      {toast.undo ? (
-        <button
-          data-testid="toast-undo"
-          type="button"
-
-          onClick={() => {
-            toast.undo?.();
-            onDismiss();
-          }}
-          className="shrink-0 rounded-full px-3 py-1 text-[12px] font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-        >
-          Undo
-        </button>
-      ) : null}
-      <button
-        data-testid="toast-dismiss"
-        type="button"
-        aria-label="Dismiss"
-
-        onClick={onDismiss}
-        className="shrink-0 rounded-full px-1.5 text-[15px] leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      {/* The only live part. It hugs the right edge, so what it covers is the end of the bar
+          rather than the middle of whatever is under the message. The pause handlers live here
+          rather than on the pill because this is the thing a person reaches FOR: `onFocus`
+          bubbles, so tabbing to Undo pauses the timer too. */}
+      <div
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocus={() => setPaused(true)}
+        onBlur={() => setPaused(false)}
+        className="pointer-events-auto flex shrink-0 items-center gap-3"
       >
-        ×
-      </button>
+        {toast.undo ? (
+          <button
+            data-testid="toast-undo"
+            type="button"
+            onClick={() => {
+              toast.undo?.();
+              onDismiss();
+            }}
+            className="shrink-0 rounded-full px-3 py-1 text-[12px] font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            Undo
+          </button>
+        ) : null}
+        <button
+          data-testid="toast-dismiss"
+          type="button"
+          aria-label="Dismiss"
+          onClick={onDismiss}
+          className="shrink-0 rounded-full px-1.5 text-[15px] leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }
