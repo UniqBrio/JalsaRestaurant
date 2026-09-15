@@ -5,6 +5,55 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-15 (first) - a test that opened on about:blank
+
+FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts, test 2 ("the tip row
+takes a preset in one tap and any other amount in one tap and a number"). OBSERVED FAILING in CI
+run 34936577339 on cab1349, in four projects - desktop-wide, mobile, mobile-ios, mobile-short:
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for getByTestId('guest-upsell-skip')
+    >  97 |   await page.getByTestId('guest-upsell-skip').click();
+
+Nothing on screen to wait for. Playwright's `page` fixture is per-TEST; `describe.serial` orders
+the tests and keeps them in one worker but does NOT hand a page from one to the next, so this test
+opened by clicking into `about:blank`. It was predicted from the code on 14-Sep and recorded then;
+run 34936577339 is the first run that ever got far enough to execute it and prove it.
+
+THE FIX: `reachTheUpsell(page)`, called at the top of test 2. It navigates to the spec's own table
+and drives to the upsell along whichever route the application actually offers from where that
+table is:
+  - no rounds yet            -> welcome screen -> `orderAndAskForTheBill` (the existing helper)
+  - a bill already requested -> order list -> "Carry on to pay" (`guest-continue-closure`, the
+    payment_requested branch of the status action bar in GuestProgress.tsx)
+  - rounds but no request     -> order list -> "Request payment"
+Every one is a control a guest has; none is a test-only path. It branches rather than always
+ordering because the table is shared by this file's tests BY DESIGN - one table per spec per
+browser project - so assuming a fresh table would reintroduce the same ordering dependence in the
+other direction. `expect(a.or(b)).toBeVisible()` waits for whichever screen the table opens on
+before anything is probed: no sleep, no retry, no guess.
+
+Test 2's assertions and intent are untouched; only the setup in front of them is new. Tests 1 and
+3 are unchanged.
+
+AFTER, OBSERVED LOCALLY: the same test, run alone against a deliberately unreachable database,
+now fails at `unreachable-guest` toHaveCount(0) (line 82, inside the new helper) instead of timing
+out on `guest-upsell-skip`. It navigates, renders the outage screen and goes RED honestly - the
+property this file's header already claims for itself. That is the before/after in one line: a
+10-second timeout on an empty tab becomes an 8-second assertion against a real rendered screen.
+
+NOT OBSERVED: the test passing. It needs the seeded test project, which is unreachable from this
+container (its host is not in the egress allowlist) and production must never be a target. CI is
+where the fix meets a real database.
+
+VALIDATION RUN: 247 unit tests pass · tsc clean · eslint clean (whole app) · `next build` green ·
+pre-commit guard exit 0 · `playwright test --list` resolves 12 tests in the file across the four
+Chromium-backed projects. `audit:all` is 7/8 - `theme-sync` drift, pre-existing from the framework
+v1.35.0 sync and untouched by this change.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-14 (second) - eighteen executions, one table
 
 FAIL-FIRST: jalsa/tests/unit/table-allocation.unit.spec.ts (new) - `allocateTable` replaced with

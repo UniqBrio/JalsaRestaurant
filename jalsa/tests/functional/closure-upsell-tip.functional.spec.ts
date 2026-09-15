@@ -52,6 +52,51 @@ async function orderAndAskForTheBill(page: Page) {
   await page.getByTestId('guest-request-payment').click();
 }
 
+/**
+ * Put THIS page on the upsell screen, from wherever the table already is.
+ *
+ * WHY A TEST NEEDS THIS AT ALL
+ *   Playwright's `page` fixture is per-TEST. `describe.serial` orders the tests and keeps them in
+ *   one worker, but it does not hand a page from one to the next — so a test that opens by
+ *   clicking something is clicking on `about:blank`. That is what CI run 34936577339 found on
+ *   four projects: `locator.click: Timeout 10000ms exceeded · waiting for
+ *   getByTestId('guest-upsell-skip')`, with nothing on screen to wait for.
+ *
+ * WHY IT BRANCHES RATHER THAN ALWAYS ORDERING
+ *   The table is shared by this file's tests by design (one table per spec per browser project,
+ *   `tests/support/tables.ts`), so its bill persists between them. A test that assumed a fresh
+ *   table would fail whenever it did not run first — the same ordering dependence in the other
+ *   direction. So this reads what the table IS and takes the route the application provides:
+ *     - no rounds yet        -> the welcome screen -> order and ask for the bill
+ *     - a bill already asked -> the order list -> "Carry on to pay", which is
+ *       `guest-continue-closure` in the payment_requested branch of the status action bar
+ *     - rounds but no request -> the order list -> "Request payment"
+ *   Every one of those is a control a guest has; none is a test-only path.
+ *
+ * WHY THE BRANCH IS NOT A RACE
+ *   `expect(a.or(b)).toBeVisible()` waits for whichever screen this table actually opens on
+ *   before anything is probed. Nothing here sleeps or retries on a guess.
+ */
+async function reachTheUpsell(page: Page) {
+  await page.goto(`/t/${table()}`);
+  await expect(page.getByTestId('unreachable-guest')).toHaveCount(0);
+
+  const welcome = page.getByTestId('guest-welcome');
+  const status = page.getByTestId('guest-status');
+  await expect(welcome.or(status), 'the table opens on the welcome screen or the order list').toBeVisible();
+
+  if (await status.isVisible()) {
+    const carryOn = page.getByTestId('guest-continue-closure');
+    const ask = page.getByTestId('guest-request-payment');
+    await expect(carryOn.or(ask), 'the order list offers a way on to the closure steps').toBeVisible();
+    await ((await carryOn.isVisible()) ? carryOn : ask).click();
+  } else {
+    await orderAndAskForTheBill(page);
+  }
+
+  await expect(page.getByTestId('guest-upsell')).toBeVisible();
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('all three upsell options are on screen at once, and adding never moves the guest', async ({ page }) => {
@@ -94,6 +139,9 @@ test('all three upsell options are on screen at once, and adding never moves the
 });
 
 test('the tip row takes a preset in one tap and any other amount in one tap and a number', async ({ page }) => {
+  // This test's own page, on this test's own terms — see `reachTheUpsell`. It used to open on
+  // the line below, with no page and no navigation behind it.
+  await reachTheUpsell(page);
   await page.getByTestId('guest-upsell-skip').click();
   await expect(page.getByTestId('guest-tip')).toBeVisible();
 
