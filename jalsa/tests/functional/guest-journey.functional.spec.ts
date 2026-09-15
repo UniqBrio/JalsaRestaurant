@@ -115,9 +115,30 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
   // 6. Tip. Skip the upsell if it appears, then choose ₹20 — the seed's tip options are
   //    [0, 10, 20, 30] and the seed IS the fixture, so the value is deterministic. Not "the first
   //    chip": that is 0, addTip returns early on a zero, and the read-back would prove nothing.
-  const skip = page.getByTestId('guest-upsell-skip');
-  if (await skip.isVisible().catch(() => false)) await skip.click();
-  await expect(page.getByTestId('guest-tip')).toBeVisible();
+  //
+  //    WAIT FOR THE SCREEN BEFORE PROBING IT. `guest-request-payment` above moves the phase only
+  //    after its POST resolves — `requestPayment` in GuestProgress.tsx awaits the write, then
+  //    calls `go('upsell')` — while the `state()` read on line 112 needs only the row to have
+  //    landed, so it can return `payment_requested` seconds before the phone has left the order
+  //    list. The probe here used to be `skip.isVisible()`, which does NOT wait: it asked a
+  //    three-state question (status / upsell / tip) as if it were two, answered "no upsell" while
+  //    the phone was still on the status screen, and so never clicked Skip. The phone then landed
+  //    on the upsell and this line waited for a tip screen it would never reach on its own. That
+  //    is the line-120 failure on five projects in CI run 34957008824.
+  //
+  //    `expect(a.or(b)).toBeVisible()` waits for whichever closure screen the application
+  //    actually produces, and only then is `isVisible()` a meaningful two-way question. The
+  //    branch is still needed: UpsellScreen renders TipScreen directly when the owner's upsell
+  //    switch is off or no tab has an available item, so "skip if it appears" is the real
+  //    contract. Same pattern as `reachTheUpsell` in closure-upsell-tip, which CI has validated.
+  //    No sleep, no retry, no arbitrary wait.
+  const upsell = page.getByTestId('guest-upsell');
+  const tip = page.getByTestId('guest-tip');
+  await expect(upsell.or(tip), 'the request lands on the upsell or straight on the tip row').toBeVisible();
+  if (await upsell.isVisible()) {
+    await page.getByTestId('guest-upsell-skip').click();
+  }
+  await expect(tip).toBeVisible();
   await page.getByTestId('guest-tip-20').click();
   s = await state(page);
   expect(s.tipChosen, 'the ₹20 tip is on the bill, read back through the state route').toBe(20);

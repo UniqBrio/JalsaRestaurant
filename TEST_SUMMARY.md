@@ -5,6 +5,82 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-15 (fourth) - a probe that asked before the screen existed
+
+FAIL-FIRST: jalsa/tests/functional/guest-journey.functional.spec.ts:120. OBSERVED FAILING in CI
+run 34957008824 on 08b5e91, on five of six projects - desktop-wide, tablet, mobile, mobile-ios,
+mobile-short:
+
+    Test timeout of 30000ms exceeded.
+    Error: expect(locator).toBeVisible() failed
+    Locator: getByTestId('guest-tip')
+    Call log:
+      - Expect \"toBeVisible\" getByTestId('guest-tip') with timeout 8000ms
+      - waiting for getByTestId('guest-tip')
+    > 120 |   await expect(page.getByTestId('guest-tip')).toBeVisible();
+
+(The sixth project, desktop, fails earlier at :82 on `guest-placed` - the residual send-to-kitchen
+latency case, 1/12 slots since faf47f8. Unrelated, and not touched here.)
+
+THE SYNCHRONIZATION DEFECT. `guest-tip` has no server contract at all: `guest-upsell-skip` is
+`onClick={() => go('tip')}` (GuestClosure.tsx:274) and `phase === 'tip'` renders TipScreen
+(GuestApp.tsx:263), so the tip row appears one React commit after the click - no API call, no
+mutation, no poll ('upsell' and 'tip' are both PHONE_OWNED, so reconcilePhase cannot move them).
+The transition works: closure-upsell-tip test 2 clicks the same control and reaches `guest-tip` on
+four projects in the same run.
+
+What failed is the step BEFORE it. Line 111 clicks `guest-request-payment`, and `requestPayment`
+(GuestProgress.tsx:80-87) awaits its POST and only THEN calls `go('upsell')`. Playwright's click
+returns as soon as the click dispatches. The `state()` read on line 112 is an independent request
+that needs only the row to have landed, so line 113 can observe `payment_requested` seconds before
+the phone has left the order list.
+
+WHY `isVisible()` WAS INSUFFICIENT. The old probe was:
+
+    const skip = page.getByTestId('guest-upsell-skip');
+    if (await skip.isVisible().catch(() => false)) await skip.click();
+
+`isVisible()` is a point-in-time check - it does NOT wait. At that instant the phone is still on
+the STATUS screen, so there are three possible screens (status / upsell / tip) and the probe asks
+a two-state question. It answered "no upsell", never clicked Skip, and the phone then landed on
+the upsell - where line 120 waited for a tip screen it could never reach on its own. Deterministic,
+not a race that sometimes wins.
+
+THE FIX - the wait-then-branch pattern already validated by `reachTheUpsell` in
+closure-upsell-tip:
+
+    const upsell = page.getByTestId('guest-upsell');
+    const tip = page.getByTestId('guest-tip');
+    await expect(upsell.or(tip), '...').toBeVisible();
+    if (await upsell.isVisible()) {
+      await page.getByTestId('guest-upsell-skip').click();
+    }
+    await expect(tip).toBeVisible();
+
+`expect(a.or(b)).toBeVisible()` waits for whichever closure screen the application actually
+produces; only then is `isVisible()` a meaningful two-way question. The branch is still required -
+UpsellScreen returns TipScreen directly when the owner's upsell switch is off or no tab has an
+available item - so "skip the upsell IF it appears" remains the real contract, unchanged. No
+sleep, no retry, no arbitrary wait, no timeout touched. The `guest-tip` assertion is not weakened;
+it is the same line, now reachable. Every surrounding assertion is untouched: the tip-20 click,
+`tipChosen === 20`, `billStatus === 'payment_requested'`, pay-at-table and `guest-status`.
+
+AFTER: NOT OBSERVED PASSING. The seeded Supabase test project is unreachable from this container
+(CONNECT tunnel 403) and .env.local points at yxgxmbyilpivbmeemqkp, the development/production
+project, which is never an automated target - so no DB-backed functional spec can run here and
+none was run. CI is the first execution. Observed locally: `playwright test --list` resolves the
+file across all six projects, 247/247 unit, tsc and eslint clean, `next build` clean, guard:test
+14/14, pre-commit guard exit 0.
+
+HONEST CAVEAT, RECORDED RATHER THAN HIDDEN. All five failures hit the 30 000ms TEST cap while the
+8 000ms expect was still waiting, which proves lines 62-119 already consume MORE than 22.6s of the
+30s budget. The remaining steps after line 120 (the tip POST, the state read, pay-at-table) will
+add roughly 5-8s, so this test may still land near or over the cap. This fix is necessary and
+correct either way - it removes a probe that could never succeed - but it is not claimed to be
+sufficient to turn the test green. The remainder is critical-path latency, not a budget to raise.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-15 (third) - the same isolation defect, one test along
 
 FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts, test 3 ("a table that
