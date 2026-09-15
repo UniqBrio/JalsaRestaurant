@@ -55,6 +55,14 @@ async function orderAndAskForTheBill(page: Page) {
 /**
  * Put THIS page on the upsell screen, from wherever the table already is.
  *
+ * WHAT IT GUARANTEES ON RETURN, and why both callers want it
+ *   - a bill on this table with at least one round
+ *   - that bill in `payment_requested` — either it already was, or `guest-request-payment` was
+ *     tapped, which is what `requestPayment` in GuestProgress.tsx posts before `go('upsell')`
+ *   - this page on the upsell screen
+ *   Test 2 needs the third. Test 3 needs the first two, because `guest-continue-ordering` is
+ *   rendered only in the payment_requested branch of the status action bar.
+ *
  * WHY A TEST NEEDS THIS AT ALL
  *   Playwright's `page` fixture is per-TEST. `describe.serial` orders the tests and keeps them in
  *   one worker, but it does not hand a page from one to the next — so a test that opens by
@@ -176,8 +184,22 @@ test('the tip row takes a preset in one tap and any other amount in one tap and 
 });
 
 test('a table that decides on one more round never has to cancel anything first', async ({ page }) => {
-  await orderAndAskForTheBill(page);
-  await expect(page.getByTestId('guest-upsell')).toBeVisible();
+  // What this test needs before it can begin: a bill on this table with at least one round, in
+  // `payment_requested` — because `guest-continue-ordering` exists ONLY in the payment_requested
+  // branch of the status action bar, and that button is the whole subject of the test.
+  //
+  // It used to open on `orderAndAskForTheBill`, which produces that state but only from a FRESH
+  // welcome screen — so it held solely while this test ran first. Run 34949294483 is the first
+  // that ever reached it, with tests 1 and 2 having already opened the bill, and it failed on
+  // five projects at the helper's own first line:
+  //     Locator: getByTestId('guest-welcome') · Timeout: 8000ms · element(s) not found
+  //         at orderAndAskForTheBill (...:41:51)
+  // The same per-test isolation defect `reachTheUpsell` was written for, one test along.
+  //
+  // `reachTheUpsell` already establishes exactly this state, by whichever route the table's
+  // actual state offers, and ends on the assertion this test had on its second line. So it is
+  // called rather than reimplemented — a second way to reach one screen is how the two drift.
+  await reachTheUpsell(page);
 
   // Back to the order list, where the request is waiting.
   await page.goto(`/t/${table()}`);

@@ -5,6 +5,73 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-15 (third) - the same isolation defect, one test along
+
+FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts, test 3 ("a table that
+decides on one more round never has to cancel anything first"). OBSERVED FAILING in CI run
+34949294483 on faf47f8, on all five projects where the file got that far - desktop, desktop-wide,
+mobile, mobile-ios, mobile-short:
+
+    Error: expect(locator).toBeVisible() failed
+    Locator: getByTestId('guest-welcome')
+    Timeout: 8000ms
+    Error: element(s) not found
+    >  41 |   await expect(page.getByTestId('guest-welcome')).toBeVisible();
+      at orderAndAskForTheBill (...closure-upsell-tip.functional.spec.ts:41:51)   <- called from :179
+
+That run is the FIRST that ever executed test 3: before faf47f8 the file died at `guest-placed` in
+test 1, and before that at `guest-upsell-skip` in test 2. Each fix moved the frontier one test on,
+and this is the frontier.
+
+ROOT CAUSE - the same class as the test 2 defect, not a new one. Test 3 opened on
+`orderAndAskForTheBill`, whose first act is to assert the WELCOME screen. That holds only on a
+table with no bill. The table is shared by this file's tests BY DESIGN - one table per spec per
+browser project, tests/support/tables.ts - so by the time test 3 runs, tests 1 and 2 have opened a
+bill on it and the phone lands on the order list instead. The helper is not wrong; the assumption
+that test 3 runs first is.
+
+WHAT TEST 3 ACTUALLY REQUIRES, which is narrower than "a fresh table":
+  1. a bill on this table with at least one round - otherwise StatusScreen renders
+     `guest-status-empty` (rounds.length === 0), not `guest-status`;
+  2. that bill in `payment_requested` - because `guest-continue-ordering` is rendered ONLY in the
+     payment_requested branch of the status action bar (src/features/guest/GuestProgress.tsx:197),
+     and that button is the whole subject of the test.
+
+THE FIX - two lines, and no new helper. `reachTheUpsell`, added for test 2 and validated by run
+34949294483 (test 2 passed on all five projects, 5.7-7.0s), already guarantees exactly those two
+things and ends on the very assertion test 3 carried on its second line:
+
+    - welcome            -> orderAndAskForTheBill: orders, requests payment, lands on the upsell
+    - `guest-continue-closure` visible -> the bill is ALREADY payment_requested; tap it -> upsell
+    - `guest-request-payment` visible  -> tap it; `requestPayment` posts request-payment and then
+                                          go('upsell') (GuestProgress.tsx:80-87)
+    - then: await expect(page.getByTestId('guest-upsell')).toBeVisible();
+
+So `await orderAndAskForTheBill(page); await expect(guest-upsell).toBeVisible();` becomes
+`await reachTheUpsell(page);`. Every branch is a control a guest has; none is a test-only path; no
+sleep, no retry, no arbitrary wait. Test 3's own assertions - the `guest-continue-ordering`
+control, `{billStatus: 'open', paymentPaused: true}`, `rounds.length > 1`, `billStatus === 'open'`,
+`guest-payment-paused` and `guest-request-payment` - are untouched, and so are tests 1 and 2. Test
+1 still calls `orderAndAskForTheBill` directly, which is correct: it runs first, on a reset table.
+
+Writing a second helper for test 3 was rejected. Two ways to reach one screen is how the two
+drift, and the second is always the one that rots.
+
+AFTER: NOT OBSERVED PASSING. The seeded Supabase test project is unreachable from this container
+(CONNECT tunnel 403) and .env.local points at yxgxmbyilpivbmeemqkp, the development/production
+project, which is never an automated target - so no DB-backed functional spec can run here. CI is
+the first execution. What IS observed locally: `playwright test --list` resolves all 18 tests in
+the file across the six projects at their new lines (110/149/186), 247/247 unit, tsc clean, eslint
+clean, `next build` clean, guard:test 14/14, pre-commit guard exit 0.
+
+KNOWN AND NOT ADDRESSED HERE: the serial-group retry structure. When a later test in the group
+fails, Playwright re-runs the whole group, and test 1 then fails at `guest-welcome` because its own
+first attempt opened the bill - which is why run 34949294483 reported test 1 as "flaky" on five
+projects although it passed first time. Retries cannot help this file. That is a separate decision,
+not a workaround to be smuggled in here.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-15 (second) - an 8s budget and a 22-trip path
 
 FAIL-FIRST: no new spec file. This is an APPLICATION LATENCY change; the rung that fails against
