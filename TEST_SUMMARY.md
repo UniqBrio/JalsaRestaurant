@@ -5,6 +5,82 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-15 (second) - an 8s budget and a 22-trip path
+
+FAIL-FIRST: no new spec file. This is an APPLICATION LATENCY change; the rung that fails against
+the pre-fix tree already exists and is unchanged -
+jalsa/tests/functional/guest-journey.functional.spec.ts:82 and the same assertion reached through
+`orderAndAskForTheBill` in closure-upsell-tip.functional.spec.ts:49.
+
+    Error: expect(locator).toBeVisible() failed
+    Locator: getByTestId('guest-placed')
+    Expected: visible
+    Timeout: 8000ms
+    Error: element(s) not found
+
+OBSERVED FAILING in CI run 34940426793 (c2ba09a), 12 of 12 spec x project slots. ALSO OBSERVED
+FAILING in run 34936577339 (cab1349), 2 of 12 - closure-upsell-tip on desktop and guest-journey on
+mobile-short, byte-identical message. The defect is not new; its hit rate went from ~17% to 100%.
+
+NOT A c2ba09a REGRESSION. `git diff --stat cab1349 c2ba09a` is two files: TEST_SUMMARY.md and
+closure-upsell-tip.functional.spec.ts. No application code changed, so no test file can have
+slowed a route. The two failing specs own disjoint tables (guest-journey A1-A6,
+closure-upsell-tip N3-N8, tests/support/tables.ts), so neither can write into the other's state.
+Both runs reset from the same seed - the reset step reported `bill=12 guest_session=72` and
+`counters -> bill 1041, kot 105, group 7` in BOTH. And run 34940426793 was on the FASTER machine:
+across the 380 tests that passed in both runs the total fell 375s -> 333s, and `reachability:53`,
+which measures app-to-Supabase health directly, fell 855/776/1200ms -> 763/734/1000ms. A faster
+runner against an equally reachable database still failed 12/12, which leaves only the budget.
+
+ROOT CAUSE. `guest-placed` has NO polling contract. `place()` in GuestOrdering.tsx awaits
+`flushCart()`, awaits `POST /api/guest/round`, then calls `go('placed')`; `PlacedScreen` renders
+the testid unconditionally and `reconcilePhase` preserves `'placed'`. So the 8000ms expect is a
+hard budget on ONE request - and that request performed ~22 serial PostgREST round trips to
+Sydney on a fresh table.
+
+THE OPTIMISATION - four independent reads taken off the serial path, no write reordered across
+the response:
+  1. queries.ts `listMenu`: the `menu_category` read is keyed by restaurant_id alone and never
+     reads a menu item; it now issues alongside the `menu_item` read. -1 trip on EVERY payload
+     build (first render, 6s poll, and every echo).
+  2. guest-view.ts `assembleGuestPayload`: `readCart(ctx.sessionId)` depends on the context only,
+     not on the menu or the settings; it joins the existing Promise.all. -1 trip. With (1) a
+     payload build is now one wave instead of three.
+  3. guest-echo.ts `freshState(session?)`: every echoing route has ALREADY read the session row to
+     authorise the write. The round, cart and bill routes now hand it in instead of having it
+     re-read by token. The round route passes the `bill_id` `attachBillToSession` just wrote, so
+     `contextForSession` still finds the pointer correct and still skips its corrective write.
+     -1 trip on four write paths, the tip among them.
+  4. mutations.ts `ensureOpenBill`: the audit entry only ever needed the bill for its table NAMES,
+     and a bill one line old has exactly one membership. That name is now read in the parallel
+     wave already being awaited at the top, so `audit` overlaps `getBill` instead of following it.
+     BOTH ARE STILL AWAITED BEFORE THE FUNCTION RETURNS - no response can observe an open bill
+     whose audit entry has not landed. -1 trip.
+
+~22 -> ~18 serial trips on the round critical path, about 18%. STATED PLAINLY: this is very
+unlikely on its own to bring the path under 8s. It removes waste that is provably waste; it does
+not claim to close the budget.
+
+DELIBERATELY NOT DONE: `clearCart()` was NOT parallelised with the echo. `assembleGuestPayload`
+READS the cart (guest-view.ts) to build `inCart`, `cartCount` and `cartSubtotalLabel`, so racing
+them would echo the round just sent as though it were still in the cart. It also cannot be folded
+into the earlier Promise.all, because the sold-out branch deliberately does not clear the cart.
+
+VALIDATION: tsc --noEmit clean; eslint clean on all eight files; 247/247 unit; 5/5
+degraded.functional against the real no-database instance on :3101 (the changed `resolveGuest` ->
+`buildGuestPayload` path, rendered by a real server); `npm run build` clean; `npm run guard:test`
+14/14; pre-commit guard exit 0 over the eight staged files (G7 SKIPPED at the repo root - covered
+by the jalsa tsc run above).
+
+LIMITATION - LOCAL E2E CANNOT PROVE THE FIX. The seeded Supabase TEST project is unreachable from
+this container (CONNECT tunnel 403) and `.env.local` points at yxgxmbyilpivbmeemqkp, the
+development/production project, which is never an automated target. So the render tier and every
+DB-backed functional spec were NOT run here, and no local measurement of the round trip exists.
+The trip counts above are read off the source, not measured. CI against the test project is the
+first execution that can confirm or refute the reduction.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-15 (first) - a test that opened on about:blank
 
 FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts, test 2 ("the tip row

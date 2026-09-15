@@ -105,10 +105,13 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
    * The table's standing captain and waiter open the bill. Reassignment is a later, audited
    * action - but a bill with nobody's name on it can never be attributed retrospectively.
    */
-  const [tax, { data: assigned }, code] = await Promise.all([
+  const [tax, { data: assigned }, code, { data: tableRow }] = await Promise.all([
     currentTaxRate(),
     db().from('staff_table').select('staff:staff_id(id,role,on_duty)').eq('table_id', tableId),
     nextNumber('bill'),
+    // The name this bill is being opened on. Read HERE, in a wave that was already being waited
+    // for, so that the audit entry below no longer has to wait for `getBill` to learn it.
+    db().from('dining_table').select('name').eq('id', tableId).maybeSingle(),
   ]);
   type Assigned = { staff: { id: string; role: string; on_duty: boolean } | null };
   const people = ((assigned ?? []) as unknown as Assigned[])
@@ -148,15 +151,32 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
     throw linkErr;
   }
 
-  const bill = await getBill(billRow.id as string);
+  /**
+   * THE READ-BACK AND THE AUDIT ENTRY DO NOT NEED EACH OTHER.
+   *
+   * The entry only ever needed the bill for its table NAMES, and a bill one line old has exactly
+   * one membership — the `bill_table` row inserted above. That name is read in the parallel wave
+   * at the top of this function, so the entry can be written while the full bill is being read
+   * back rather than after it. `bill.tables.join(', ')` and this are the same string here, and
+   * `dining_table.name` is the very column `shapeBill` maps into `tables`.
+   *
+   * BOTH ARE STILL AWAITED BEFORE THIS FUNCTION RETURNS, so nothing downstream — and no response
+   * built on it — can observe an open bill whose audit entry has not landed. Rule 2 of this
+   * module is about the entry existing in the same call, not about the order of two writes
+   * neither of which reads the other.
+   */
+  const tableName = (tableRow?.name as string | undefined) ?? '';
+  const [bill] = await Promise.all([
+    getBill(billRow.id as string),
+    audit({
+      action: 'Bill opened',
+      detail: `${code} opened on ${tableName}`,
+      actor: GUEST_ACTOR,
+      billId: billRow.id as string,
+      tableId,
+    }),
+  ]);
   if (!bill) throw new Error('Bill vanished immediately after being created.');
-  await audit({
-    action: 'Bill opened',
-    detail: `${code} opened on ${bill.tables.join(', ')}`,
-    actor: GUEST_ACTOR,
-    billId: bill.id,
-    tableId,
-  });
   return bill;
 }
 

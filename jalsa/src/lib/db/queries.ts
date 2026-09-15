@@ -38,13 +38,30 @@ const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now()
 
 export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuCategory[] }> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('menu_item')
-    .select(
-      'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
-    )
-    .eq('restaurant_id', restaurantId)
-    .order('sort', { ascending: true });
+
+  /**
+   * TWO READS THAT DO NOT NEED EACH OTHER, ISSUED AT ONCE.
+   *
+   * The category list is keyed by `restaurant_id` alone — it never reads a menu item, and the
+   * counting below is in-memory arithmetic over `items` done after both have landed. They were
+   * serial only because the counting sits between them in the source. That put a second
+   * cross-region round trip on the guest's critical path, and `listMenu` is on EVERY guest
+   * payload build: the first page render, the six-second poll, and the write-echo that decides
+   * when `guest-placed` appears.
+   */
+  const [
+    { data, error },
+    { data: cats },
+  ] = await Promise.all([
+    db()
+      .from('menu_item')
+      .select(
+        'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+      )
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
+    db().from('menu_category').select('id,name,sort').eq('restaurant_id', restaurantId).order('sort', { ascending: true }),
+  ]);
   if (error) throw error;
 
   const now = Date.now();
@@ -77,11 +94,6 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
     if (seen) seen.count += 1;
     else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1 });
   }
-  const { data: cats } = await db()
-    .from('menu_category')
-    .select('id,name,sort')
-    .eq('restaurant_id', restaurantId)
-    .order('sort', { ascending: true });
   const categories: MenuCategory[] = (cats ?? []).map((c) => ({
     id: c.id as string,
     name: c.name as string,

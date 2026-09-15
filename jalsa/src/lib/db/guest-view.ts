@@ -110,8 +110,19 @@ export async function buildGuestPayload(tableName: string): Promise<GuestPayload
  * So there is exactly one body below, and both entry points end here.
  */
 export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayload> {
-  const [{ items, categories }, settings] = await Promise.all([listMenu(), readAllSettings()]);
-  const cart = ctx.sessionId ? await readCart(ctx.sessionId) : [];
+  /**
+   * THE CART IS NOT DOWNSTREAM OF THE MENU.
+   *
+   * `readCart` needs `ctx.sessionId` and nothing else — it was serialised after the menu and the
+   * settings only because it is written on the next line. Everything that joins them (`cartQty`,
+   * `cartLines`) is in-memory work below. So all three are issued together, and a payload build
+   * costs one wave rather than two.
+   */
+  const [{ items, categories }, settings, cart] = await Promise.all([
+    listMenu(),
+    readAllSettings(),
+    ctx.sessionId ? readCart(ctx.sessionId) : Promise.resolve([]),
+  ]);
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));
 
   const copy = (settings.copy ?? {}) as Record<string, string>;

@@ -72,5 +72,14 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
 
   await clearCart(session.id);
-  return ok({ kotCode: result.kotCode, refused: result.refused, state: await freshState() });
+  // The echo is handed the session this request already read, with the `bill_id` that
+  // `attachBillToSession` has just written — so it neither re-reads the row nor re-writes the
+  // pointer. `clearCart` stays AHEAD of it deliberately: the payload reports `inCart` and the
+  // cart badge, so an echo racing the clear would show the round that was just sent still
+  // sitting in the cart.
+  return ok({
+    kotCode: result.kotCode,
+    refused: result.refused,
+    state: await freshState({ ...session, billId: bill.id }),
+  });
 });

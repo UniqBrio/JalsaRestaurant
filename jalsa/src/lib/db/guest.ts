@@ -22,6 +22,19 @@ import type { Bill } from './types';
 
 export type GuestPhase = 'welcome' | 'live' | 'recently_paid' | 'table_inactive';
 
+/**
+ * The session row a request is holding, once it has read it.
+ *
+ * Named rather than repeated inline because it is now passed BETWEEN modules: a write route reads
+ * it to authorise the write and hands the same value to `freshState`, so the echo does not read
+ * it again. A shape spelled out in three places is a shape that grows a fourth field in two.
+ */
+export interface GuestSession {
+  id: string;
+  tableId: string;
+  billId: string | null;
+}
+
 export interface GuestContext {
   phase: GuestPhase;
   sessionId: string | null;
@@ -155,11 +168,7 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
  *     goes through `resolveGuest` and stamps it regardless, so session liveness is unchanged.
  *     If a consumer is ever added, this is the second place that has to stamp it.
  */
-export async function contextForSession(session: {
-  id: string;
-  tableId: string;
-  billId: string | null;
-}): Promise<GuestContext | null> {
+export async function contextForSession(session: GuestSession): Promise<GuestContext | null> {
   // The table row and the rescan window need nothing from each other.
   const [{ data: row }, { minutes }] = await Promise.all([
     db().from('dining_table').select('id,name,zone,seats,active').eq('id', session.tableId).maybeSingle(),
@@ -217,7 +226,7 @@ export async function attachBillToSession(sessionId: string, billId: string): Pr
  * Every guest write goes through this rather than trusting a table name in the request body -
  * otherwise a phone could order onto a table it never scanned.
  */
-export async function currentGuestSession(): Promise<{ id: string; tableId: string; billId: string | null } | null> {
+export async function currentGuestSession(): Promise<GuestSession | null> {
   const token = await readGuestToken();
   if (!token) return null;
   const { data } = await db().from('guest_session').select('id,table_id,bill_id').eq('token', token).maybeSingle();
