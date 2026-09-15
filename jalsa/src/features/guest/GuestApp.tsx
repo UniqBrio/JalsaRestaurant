@@ -65,6 +65,9 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
   const [sheet, setSheet] = React.useState<{ kind: SheetKind; arg?: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
 
+  /** The measured height of whichever fixed bar is on screen. See `BottomBarSpace`. */
+  const [barSpace, setBarSpace] = React.useState<number | null>(null);
+
   /**
    * Whether the running total is on screen — the guest's own choice, seeded from the owner's.
    *
@@ -230,6 +233,7 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
   const back = backTarget(phase);
 
   return (
+    <BottomBarSpace.Provider value={setBarSpace}>
     <div
       className="mx-auto flex min-h-dvh w-full flex-col"
       style={{ maxWidth: 'var(--layout-guest-max-width)' }}
@@ -267,6 +271,15 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
         {phase === 'invoice' ? <InvoiceScreen {...shared} /> : null}
       </main>
 
+      {/* The room the fixed bar needs, held open OUTSIDE `main` so that `main` ends where the
+          guest's content ends. `barSpace` is the bar's own measured height; the token is the
+          first-paint fallback, and 0 is a screen that has no bar. */}
+      <div
+        aria-hidden
+        data-testid="guest-bottom-bar-space"
+        style={{ height: barSpace ?? 'var(--layout-bottom-chrome-clearance)' }}
+      />
+
       <GuestSheets
         sheet={sheet}
         onClose={() => setSheet(null)}
@@ -277,6 +290,7 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
         busy={busy}
       />
     </div>
+    </BottomBarSpace.Provider>
   );
 }
 
@@ -425,27 +439,51 @@ export function ActionBar({
     return () => ro.disconnect();
   }, []);
 
+  /**
+   * THE SPACER IS PUBLISHED, NOT RENDERED HERE — AND THAT IS THE WHOLE FIX.
+   *
+   * It used to be this component's own first child, which put it INSIDE `<main>`, because every
+   * bar is called from within a screen. A spacer inside `main` stretches `main`'s box down to
+   * the end of the document, so at full scroll `main`'s bottom edge IS the bottom of the
+   * viewport — and the fixed bar, by definition, starts one bar-height above that. The content
+   * the spacer was meant to protect was therefore still underneath the bar, and the measurement
+   * that proves it (`bar.top - main.bottom`) could never come out right, however tall the spacer
+   * grew. Making the spacer taller moved both edges together.
+   *
+   * So the height goes up to the shell, which renders the spacer AFTER `</main>`. `main` now ends
+   * where the guest's content ends, the spacer holds open exactly the strip the bar covers, and
+   * nothing real is ever behind it — on the runner and on a phone alike.
+   */
+  const publish = React.useContext(BottomBarSpace);
+  React.useEffect(() => {
+    publish(height);
+    return () => publish(0);
+  }, [publish, height]);
+
   return (
-    <>
-      <div
-        aria-hidden
-        data-testid={`${testId}-spacer`}
-        style={{ height: height ?? 'var(--layout-bottom-chrome-clearance)' }}
-      />
-      <div
-        ref={ref}
-        data-testid={testId}
-        className={cn(
-          'fixed inset-x-0 bottom-0 z-30 mx-auto flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3',
-          className
-        )}
-        style={{ maxWidth: 'var(--layout-guest-max-width)' }}
-      >
-        {children}
-      </div>
-    </>
+    <div
+      ref={ref}
+      data-testid={testId}
+      className={cn(
+        'fixed inset-x-0 bottom-0 z-30 mx-auto flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3',
+        className
+      )}
+      style={{ maxWidth: 'var(--layout-guest-max-width)' }}
+    >
+      {children}
+    </div>
   );
 }
+
+/**
+ * How much room the screen must leave below `<main>` for whatever fixed bar is on it.
+ *
+ * `null` means "no bar has measured itself yet" — the shell falls back to the clearance token for
+ * that first paint. `0` means a screen with no bar at all, which must not keep the last screen's
+ * gap. The default is a no-op so an ActionBar rendered outside the shell (a test harness, a
+ * future surface) still works, it simply reserves nothing.
+ */
+const BottomBarSpace = React.createContext<(height: number | null) => void>(() => {});
 
 /**
  * TotalReveal — the tick box that decides whether this phone shows the order total, and the
