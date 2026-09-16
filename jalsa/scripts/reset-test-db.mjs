@@ -36,7 +36,7 @@ const DENY_PROJECT_REFS = new Set([
   'yxgxmbyilpivbmeemqkp',
 ]);
 
-const SEED_COUNTERS = { bill: 1041, kot: 105, group: 7 };
+const SEED_COUNTERS = { bill: 1041, kot: 105, group: 7, waitlist: 1 };
 
 /**
  * What the delete loop below has already emptied. Declared HERE, above refuse(), because refuse()
@@ -85,7 +85,9 @@ const db = createClient(url, key, { auth: { persistSession: false, autoRefreshTo
  */
 const everything = (table) => db.from(table).delete({ count: 'exact' }).not('id', 'is', null);
 
-for (const table of ['bill', 'guest_session', 'table_request', 'suggestion', 'print_job', 'audit_entry']) {
+// waitlist_entry is transactional like the rest: a party left waiting by a failed run is a
+// party the next run's queue counts, and the seed contains no waiting parties.
+for (const table of ['bill', 'guest_session', 'table_request', 'suggestion', 'print_job', 'audit_entry', 'waitlist_entry']) {
   const { count, error } = await everything(table);
   if (error) refuse(`deleting ${table}: ${error.message}`);
   deleted[table] = count ?? 0;
@@ -99,5 +101,5 @@ for (const [kind, next] of Object.entries(SEED_COUNTERS)) {
   if (error) refuse(`resetting number_series.${kind}: ${error.message}`);
 }
 
-console.log(`OK [reset-test-db] project ${ref}: ${Object.entries(deleted).map(([t, n]) => `${t}=${n}`).join(' ')}; counters -> bill ${SEED_COUNTERS.bill}, kot ${SEED_COUNTERS.kot}, group ${SEED_COUNTERS.group}`);
+console.log(`OK [reset-test-db] project ${ref}: ${Object.entries(deleted).map(([t, n]) => `${t}=${n}`).join(' ')}; counters -> bill ${SEED_COUNTERS.bill}, kot ${SEED_COUNTERS.kot}, group ${SEED_COUNTERS.group}, waitlist ${SEED_COUNTERS.waitlist}`);
 console.log('   SCOPE [reset-test-db] transactional tables only; the seed (restaurant, settings, tables, menu, staff, permissions, printers, expenses) was not touched.');

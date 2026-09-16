@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { OfflineBanner, PartialNotice } from '@/components/ui/states';
 import type { StaffPayload } from '@/lib/db/staff-view';
 import { FloorScreen, TableScreen, AddItemsScreen } from './StaffTables';
-import { ReadyScreen, KotsScreen, RequestsScreen, MeScreen } from './StaffLists';
+import { ReadyScreen, KotsScreen, ClearScreen, RequestsScreen, MeScreen } from './StaffLists';
 
 /**
  * StaffApp — the captain's and the waiter's phone.
@@ -25,7 +25,7 @@ import { ReadyScreen, KotsScreen, RequestsScreen, MeScreen } from './StaffLists'
  *   the tab bar on the one handset nobody tested on.
  */
 
-export type StaffTab = 'floor' | 'table' | 'menu' | 'ready' | 'kots' | 'requests' | 'me';
+export type StaffTab = 'floor' | 'table' | 'menu' | 'ready' | 'kots' | 'clean' | 'requests' | 'me';
 
 export interface StaffScreenProps {
   data: StaffPayload;
@@ -66,11 +66,17 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
   const shared: StaffScreenProps = { data, go, selectedBillId, send, busy, runBusy };
 
   const unclearedRequests = data.requests.length;
+  // Tables the party has left that nobody has reset. The waiter's second job, and until the
+  // clearing columns existed there was no way to count it.
+  const needsClearing = data.tables.filter((t) => t.clearing !== null).length;
   const readyCount = data.ready.filter((r) => r.kot.status === 'ready').length;
 
   const tabs: Array<{ key: StaffTab; label: string; icon: string; badge: number }> = data.isWaiter
     ? [
+        // The design set's waiter bar, in its order: what is ready to carry, what is ready to
+        // wipe, then the room. A waiter's shift is those two queues and the floor behind them.
         { key: 'ready', label: 'To serve', icon: '▲', badge: readyCount },
+        { key: 'clean', label: 'Clear', icon: '◇', badge: needsClearing },
         { key: 'floor', label: 'Tables', icon: '▦', badge: 0 },
         { key: 'requests', label: 'Requests', icon: '!', badge: unclearedRequests },
         { key: 'me', label: 'Me', icon: '●', badge: 0 },
@@ -149,6 +155,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
         {tab === 'menu' ? <AddItemsScreen {...shared} /> : null}
         {tab === 'ready' ? <ReadyScreen {...shared} /> : null}
         {tab === 'kots' ? <KotsScreen {...shared} /> : null}
+        {tab === 'clean' ? <ClearScreen {...shared} /> : null}
         {tab === 'requests' ? <RequestsScreen {...shared} /> : null}
         {tab === 'me' ? <MeScreen {...shared} onSignOut={signOut} /> : null}
       </main>
@@ -219,6 +226,8 @@ function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null): str
       return data.isWaiter ? 'Ready to run' : 'Ready to collect';
     case 'kots':
       return 'Kitchen tickets';
+    case 'clean':
+      return 'Clear these tables';
     case 'requests':
       return 'Table requests';
     case 'me':
@@ -239,6 +248,10 @@ function subtitleFor(tab: StaffTab, data: StaffPayload, billId: string | null): 
       return data.ready.length === 1 ? '1 round waiting' : `${data.ready.length} rounds waiting`;
     case 'kots':
       return `${data.bills.reduce((a, b) => a + b.kots.length, 0)} tonight · newest first`;
+    case 'clean': {
+      const n = data.tables.filter((t) => t.clearing !== null).length;
+      return n ? `${n} waiting · guests have left` : 'Everything is reset';
+    }
     case 'requests':
       return data.requests.length
         ? `${data.requests.length} waiting · oldest ${Math.max(...data.requests.map((r) => r.ageMinutes))} min`

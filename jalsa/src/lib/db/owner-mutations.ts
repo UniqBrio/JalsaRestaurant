@@ -2,7 +2,7 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
-import { audit, type Actor } from './mutations';
+import { audit, nextNumber, type Actor } from './mutations';
 
 /**
  * owner-mutations — the configuration writes, kept apart from the operational ones.
@@ -475,4 +475,135 @@ export async function settleTips(input: { staffId: string; actor: Actor }): Prom
     actor: input.actor,
   });
   return { settled: total };
+}
+
+/* ── The entrance queue ────────────────────────────────────────────────── */
+
+/**
+ * A party joins the queue.
+ *
+ * THE TOKEN COMES FROM THE DATABASE, NOT FROM HERE
+ *   `nextNumber('waitlist')` takes a row lock inside `next_number`, so two hosts adding a
+ *   walk-in at the same moment cannot be handed the same W-. Generating it in TypeScript — a
+ *   count, a timestamp, a max()+1 — is the version that works until the evening it matters.
+ *
+ * THE CODE IS FOUR DIGITS AND IT IS NOT A SECRET
+ *   It exists so a party can claim their turn without spelling a surname across a busy room.
+ *   Anyone standing at the door can hear it, which is fine: it buys nothing on its own. It is
+ *   deliberately NOT derived from the id, so it cannot be guessed from a URL, and it is stored
+ *   rather than recomputed, so the digits a guest was told are the digits they read back.
+ */
+export async function joinWaitlist(input: {
+  partySize: number;
+  pair: string;
+  phone?: string;
+  source?: 'scanned' | 'walk_in';
+  actor: Actor;
+}): Promise<{ token: string; code: string }> {
+  demand(input.actor, 'queue.walkin');
+  if (!Number.isInteger(input.partySize) || input.partySize < 1) {
+    throw new Error('A party has at least one person in it.');
+  }
+  const restaurantId = await currentRestaurantId();
+  const token = await nextNumber('waitlist');
+  const code = String(Math.floor(1000 + Math.random() * 9000));
+
+  const { error } = await db().from('waitlist_entry').insert({
+    restaurant_id: restaurantId,
+    token,
+    code,
+    pair: input.pair,
+    party_size: input.partySize,
+    phone: input.phone ?? '',
+    source: input.source ?? 'walk_in',
+    actor_label: input.actor.label,
+  });
+  if (error) throw error;
+
+  await audit({
+    action: 'Waitlist',
+    detail: `${token} joined — ${input.partySize} ${input.partySize === 1 ? 'guest' : 'guests'}${
+      input.pair ? ` · ${input.pair}` : ''
+    }`,
+    actor: input.actor,
+  });
+  return { token, code };
+}
+
+/**
+ * The party has been called. Recorded rather than assumed: "we told them" is the fact a dispute
+ * at the door turns on, and it is also what stops a second person calling them again.
+ */
+export async function notifyWaitlist(input: { id: string; actor: Actor }): Promise<void> {
+  demand(input.actor, 'queue.notify');
+  const { data: row } = await db()
+    .from('waitlist_entry')
+    .select('token,party_size')
+    .eq('id', input.id)
+    .maybeSingle();
+
+  const { error } = await db()
+    .from('waitlist_entry')
+    .update({ notified_at: new Date().toISOString(), actor_label: input.actor.label })
+    .eq('id', input.id)
+    .is('seated_at', null)
+    .is('removed_at', null);
+  if (error) throw error;
+
+  await audit({
+    action: 'Waitlist',
+    detail: `${(row?.token as string) ?? 'A party'} called to the door`,
+    actor: input.actor,
+  });
+}
+
+/**
+ * Seated. This stamps the queue row and NOTHING ELSE — it opens no bill and touches no table.
+ *
+ * Seating and opening a bill are two acts by two people at two moments: the host walks them to
+ * a table, the captain takes the first order. There is exactly one way a bill is opened
+ * (`ensureOpenBill`, which owns the one-open-bill-per-table rule), and a queue that could open
+ * a second would eventually disagree with it about a table that already has a party on it.
+ */
+export async function seatWaitlist(input: { id: string; actor: Actor }): Promise<void> {
+  demand(input.actor, 'queue.seat');
+  const { data: row } = await db().from('waitlist_entry').select('token').eq('id', input.id).maybeSingle();
+
+  const { error } = await db()
+    .from('waitlist_entry')
+    .update({ seated_at: new Date().toISOString(), actor_label: input.actor.label })
+    .eq('id', input.id)
+    .is('seated_at', null)
+    .is('removed_at', null);
+  if (error) throw error;
+
+  await audit({
+    action: 'Waitlist',
+    detail: `${(row?.token as string) ?? 'A party'} seated by ${input.actor.label}`,
+    actor: input.actor,
+  });
+}
+
+/** They left, or they were a duplicate. Kept and marked, never deleted — see the register rule. */
+export async function removeFromWaitlist(input: { id: string; reason: string; actor: Actor }): Promise<void> {
+  demand(input.actor, 'queue.clear');
+  const { data: row } = await db().from('waitlist_entry').select('token').eq('id', input.id).maybeSingle();
+
+  const { error } = await db()
+    .from('waitlist_entry')
+    .update({
+      removed_at: new Date().toISOString(),
+      removed_reason: input.reason,
+      actor_label: input.actor.label,
+    })
+    .eq('id', input.id)
+    .is('seated_at', null)
+    .is('removed_at', null);
+  if (error) throw error;
+
+  await audit({
+    action: 'Waitlist',
+    detail: `${(row?.token as string) ?? 'A party'} left the queue — ${input.reason}`,
+    actor: input.actor,
+  });
 }

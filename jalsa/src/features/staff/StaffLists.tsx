@@ -326,3 +326,84 @@ export function MeScreen({ data, onSignOut }: StaffScreenProps & { onSignOut: ()
     </div>
   );
 }
+
+/* ── Clear — the waiter's reset queue ──────────────────────────────────── */
+
+/**
+ * Tables the party has left and nobody has wiped yet.
+ *
+ * WHY THE WAITER HAS THIS TAB AND THE CAPTAIN DOES NOT
+ *   It is the second half of what a waiter's shift actually is. The captain runs bills; the
+ *   waiter runs the room — what is ready to carry out, and what is ready to sit down at. The
+ *   design set gives the two roles different tab bars for exactly this reason, and this is the
+ *   tab that was missing from ours.
+ *
+ * THE AGE IS THE WHOLE POINT
+ *   A table three minutes cold is housekeeping. A table twelve minutes cold with a queue at the
+ *   door is lost revenue and a party being told "just a few more minutes" for the third time.
+ *   The row says which it is rather than leaving every table looking equally urgent.
+ */
+export function ClearScreen({ data, send, busy, runBusy }: StaffScreenProps) {
+  const toast = useToast();
+  const waiting = data.tables.filter((t) => t.clearing !== null);
+
+  if (waiting.length === 0) {
+    return (
+      <FirstRunState
+        title="Everything is reset"
+        note="A table appears here the moment its bill is closed, and leaves it when somebody marks it clear. Nothing waiting means the room is ready for the next party."
+        testId="staff-clear-empty"
+      />
+    );
+  }
+
+  return (
+    <ul className="m-0 flex list-none flex-col gap-2 p-0" data-testid="staff-clear">
+      {waiting.map((t) => {
+        const since = t.clearing!.releasedAtIso;
+        const minutes = t.clearing!.waitedMinutes;
+        const urgent = minutes >= 4;
+        return (
+          <li key={t.id}>
+            <Card className={cn('flex flex-wrap items-center gap-3', urgent && 'bg-[var(--warning-surface)]')}>
+              <span className="min-w-[9rem] flex-1">
+                <span className="block type-body font-semibold">Table {t.name}</span>
+                <span className="block type-caption text-[var(--text-muted)]">
+                  Closed{' '}
+                  {new Date(since).toLocaleTimeString('en-IN', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  })}
+                  {t.clearing!.billCode ? ` · ${t.clearing!.billCode}` : ''}
+                  {t.clearing!.guests ? ` · ${t.clearing!.guests} guests` : ''}
+                </span>
+                <span className="block type-caption">
+                  {urgent ? 'Someone is waiting for this table' : 'Clear and reset for the next party'}
+                </span>
+              </span>
+
+              <span className="shrink-0 type-caption tabular-nums text-[var(--text-muted)]">
+                {minutes === 0 ? 'just now' : `${minutes} min ago`}
+              </span>
+
+              <Button
+                data-testid={`staff-clear-done-${t.id}`}
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  runBusy(async () => {
+                    await send('/api/staff/action', { action: 'clear-table', tableId: t.id });
+                    toast.show(`Table ${t.name} ready for the next party`, { tone: 'success' });
+                  })
+                }
+              >
+                Mark it clear
+              </Button>
+            </Card>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

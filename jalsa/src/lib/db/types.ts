@@ -126,6 +126,8 @@ export interface FloorTable {
   total: number;
   /** Phones still attached to this table. A cart nobody sent still counts as one. */
   phonesAttached: number;
+  /** Released by a closure and not yet reset. Null once somebody marks it cleared. */
+  clearing: { releasedAtIso: string; billCode: string; guests: number; waitedMinutes: number } | null;
 }
 
 export interface StaffMember {
@@ -230,3 +232,25 @@ export const BILL_STAFF_COLUMN = {
   captain: 'captain_staff_id',
   waiter: 'waiter_staff_id',
 } as const;
+
+/**
+ * A party in the entrance queue. Only the WAITING ones are ever returned by `listWaitlist`;
+ * seated and removed rows stay in the table for the wait-time report.
+ */
+export interface WaitlistRow {
+  id: string;
+  /** The token called across the room — W-18. */
+  token: string;
+  /** The spoken handle, because 4821 and 4831 sound identical over a full dining room. */
+  pair: string;
+  /** Four digits the guest reads back. Not a secret, and not derived from the id. */
+  code: string;
+  partySize: number;
+  phone: string;
+  /** How they joined. Recorded at insert; it cannot be reconstructed later. */
+  source: 'scanned' | 'walk_in';
+  joinedAtIso: string;
+  /** Computed on the SERVER so every surface agrees how long this party has been standing. */
+  waitedMinutes: number;
+  notified: boolean;
+}

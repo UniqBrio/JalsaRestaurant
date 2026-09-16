@@ -60,6 +60,10 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       { key: 'tables.view', label: 'See the floor' },
       { key: 'tables.assign', label: 'Assign a table to a captain', approval: true },
       { key: 'tables.qr', label: 'View or download a table QR' },
+      // Not an approval grant, unlike tables.free. Clearing takes nothing away that cannot be
+      // put back: it closes no bill and releases no table that is still held — it records that
+      // a table somebody has already left has been reset for the next party.
+      { key: 'tables.clear', label: 'Mark a table cleared for the next party' },
       { key: 'tables.transfer', label: 'Move a bill to another table', approval: true, confidential: true },
       {
         key: 'tables.free',
@@ -187,6 +191,7 @@ export const ROLE_PRESETS: Record<string, readonly string[]> = {
     'tables.view',
     'tables.assign',
     'tables.qr',
+    'tables.clear',
     'menu.view',
     'menu.availability',
     'bill.view',
@@ -195,7 +200,10 @@ export const ROLE_PRESETS: Record<string, readonly string[]> = {
     'tips.own',
     'rep.products',
   ],
-  Waiter: ['queue.view', 'orders.view', 'orders.status', 'tables.view', 'menu.view', 'menu.availability', 'tips.own'],
+  Waiter: [
+    'queue.view', 'orders.view', 'orders.status', 'tables.view', 'tables.clear',
+    'menu.view', 'menu.availability', 'tips.own',
+  ],
   Chef: ['orders.view', 'orders.status', 'orders.reprint', 'menu.view', 'menu.availability'],
   Cashier: [
     'queue.view',

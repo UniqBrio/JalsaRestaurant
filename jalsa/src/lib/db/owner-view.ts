@@ -15,12 +15,15 @@ import {
   listStaff,
   listSuggestions,
   listTips,
+  listWaitlist,
   readAllSettings,
   readRestaurant,
 } from './queries';
 import type { SignedInStaff } from './auth';
 import { db } from '@/lib/supabase/server';
-import type { AuditRow, Bill, ExpenseRow, PrinterRow, StaffMember, Suggestion, TipRow } from './types';
+import type {
+  AuditRow, Bill, ExpenseRow, PrinterRow, StaffMember, Suggestion, TipRow, WaitlistRow,
+} from './types';
 
 /**
  * owner-view — the whole console, assembled once per read.
@@ -150,6 +153,8 @@ export interface OwnerPayload {
   /** Each person's ACTUAL grants, so the access panel edits what is true rather than a preset. */
   staffGrants: Record<string, string[]>;
   tips: TipRow[];
+  /** The entrance queue: everyone still waiting, oldest first. */
+  waitlist: Array<WaitlistRow & { joinedAt: string; position: number }>;
   tipsTotalLabel: string;
   expenses: ExpenseRow[];
   expensesTotalLabel: string;
@@ -248,6 +253,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     expenses,
     printers,
     audit,
+    waitlist,
   ] = await Promise.all([
     readRestaurant(),
     readAllSettings(),
@@ -262,6 +268,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     listExpenses(),
     listPrinters(),
     listAudit(),
+    listWaitlist(),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -389,6 +396,10 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     expensesTotalLabel: rupees(expenses.reduce((a, e) => a + e.amount, 0)),
     printers,
     audit,
+    // Position is 1-based and computed HERE, from the order the query already guarantees
+    // (oldest first). A screen that numbered its own rows would renumber them every time one
+    // was seated, and two screens doing it would eventually disagree about who is next.
+    waitlist: waitlist.map((w, i) => ({ ...w, joinedAt: timeLabel(w.joinedAtIso), position: i + 1 })),
     qrOrigin,
   };
 }

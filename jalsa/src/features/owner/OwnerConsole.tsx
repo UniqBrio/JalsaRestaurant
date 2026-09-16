@@ -14,6 +14,8 @@ import { Payments } from './sections/Payments';
 import { MenuSection } from './sections/MenuSection';
 import { StaffSection } from './sections/StaffSection';
 import { TipsSection, ExpensesSection } from './sections/LedgersSection';
+import { DaySetupSection } from './sections/DaySetupSection';
+import { WaitlistSection } from './sections/WaitlistSection';
 import { ReportsSection } from './sections/ReportsSection';
 import { SettingsSection } from './sections/SettingsSection';
 import { AuditSection } from './sections/AuditSection';
@@ -33,7 +35,8 @@ import { AuditSection } from './sections/AuditSection';
  */
 
 export type OwnerSection =
-  'dashboard' | 'orders' | 'payments' | 'menu' | 'staff' | 'tips' | 'expenses' | 'reports' | 'settings' | 'audit';
+  'dashboard' | 'day' | 'queue' | 'orders' | 'payments' | 'menu' | 'staff' | 'tips' | 'expenses' | 'reports'
+  | 'settings' | 'audit';
 
 export interface OwnerSectionProps {
   data: OwnerPayload;
@@ -46,7 +49,9 @@ export interface OwnerSectionProps {
 
 const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> = [
   { key: 'dashboard', label: 'Dashboard', permission: 'orders.view' },
+  { key: 'day', label: 'Day setup', permission: 'day.setup' },
   { key: 'orders', label: 'Live orders', permission: 'orders.view' },
+  { key: 'queue', label: 'Waitlist', permission: 'queue.view' },
   { key: 'payments', label: 'Payments', permission: 'bill.view' },
   { key: 'menu', label: 'Menu', permission: 'menu.view' },
   { key: 'staff', label: 'Staff', permission: 'staff.view' },
@@ -182,6 +187,8 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
         ) : (
           <>
             {section === 'dashboard' ? <Dashboard {...shared} /> : null}
+            {section === 'day' ? <DaySetupSection {...shared} /> : null}
+            {section === 'queue' ? <WaitlistSection {...shared} /> : null}
             {section === 'orders' ? <LiveOrders {...shared} /> : null}
             {section === 'payments' ? <Payments {...shared} /> : null}
             {section === 'menu' ? <MenuSection {...shared} /> : null}

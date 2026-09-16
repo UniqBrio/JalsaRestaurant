@@ -65,7 +65,7 @@ export async function audit(entry: {
   if (error) throw error;
 }
 
-async function nextNumber(kind: 'bill' | 'kot' | 'group'): Promise<string> {
+async function nextNumber(kind: 'bill' | 'kot' | 'group' | 'waitlist'): Promise<string> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db().rpc('next_number', { p_restaurant: restaurantId, p_kind: kind });
   if (error) throw error;
@@ -1025,4 +1025,36 @@ export async function readCart(sessionId: string): Promise<Array<{ menuItemId: s
   return (data ?? []).map((r) => ({ menuItemId: r.menu_item_id as string, qty: r.qty as number }));
 }
 
-export { chargeableLines, billTotals };
+export { chargeableLines, billTotals, nextNumber };
+
+/**
+ * The table has been wiped down and is ready for the next party.
+ *
+ * WHAT IT DOES AND WHAT IT CANNOT
+ *   It stamps `cleared_at` on the released `bill_table` rows for this table and nothing else.
+ *   It closes no bill, releases nothing that is still held, and cannot touch a table whose
+ *   party has not left — `released_at is not null` is in the predicate, so a table still in
+ *   service simply matches no rows. That is why `tables.clear` is an ordinary grant rather than
+ *   an approval one, and why a waiter has it by role: the worst case is a table marked clean
+ *   that is not, which the next person to walk past corrects.
+ */
+export async function clearTable(input: { tableId: string; actor: Actor }): Promise<void> {
+  demand(input.actor, 'tables.clear');
+
+  const { data: table } = await db().from('dining_table').select('name').eq('id', input.tableId).maybeSingle();
+
+  const { error } = await db()
+    .from('bill_table')
+    .update({ cleared_at: new Date().toISOString(), cleared_by: input.actor.label })
+    .eq('table_id', input.tableId)
+    .not('released_at', 'is', null)
+    .is('cleared_at', null);
+  if (error) throw error;
+
+  await audit({
+    action: 'Table cleared',
+    detail: `${(table?.name as string) ?? 'A table'} reset for the next party`,
+    actor: input.actor,
+    tableId: input.tableId,
+  });
+}
