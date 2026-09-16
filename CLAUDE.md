@@ -52,13 +52,19 @@ no guards at all, and that is what a global bypass becomes within a month. Every
 in git history.
 
 ### 3. Fail open on tooling; block only on evidence — and never go quietly dead
-A missing interpreter, dependency or baseline prints a loud `SKIPPED` on stderr and passes.
-**A dead gate must be audible.**
+A missing interpreter or dependency prints a loud `SKIPPED` on stderr and passes — in the
+**commit guard**, which must never block a commit for a container's shortcomings.
+A missing **baseline** is different: the check did not run, and in a **gate** the word for that
+is BLOCKED — exit 3, never 0. **A dead gate must be audible**, and an exit code is the only
+thing every caller hears: a ratchet that said "INERT" on stderr and exited 0 was recorded as
+PASS by the gate runner for as long as it existed (RC-010). `upgrade.mjs` baselines every new
+ratchet on apply, so an app that upgrades never meets that exit.
 
 Its corollary: **a detector that parsed nothing reports BLOCKED, never success.** A scan matching
 zero files looks exactly like a clean codebase.
-**Honoured in:** `scripts/lib/ratchet.mjs` (`parsedSomething`), `scripts/gate-runner.mjs`
-(`unavailable()`).
+**Honoured in:** `scripts/lib/ratchet.mjs` (`RATCHET_SKIP = 3`, `parsedSomething`),
+`scripts/par.mjs` (BLKD), `scripts/gate-runner.mjs` (`unavailable()`); proven by
+`scripts/ratchet.test.sh`.
 
 ### 4. Three verdicts, and BLOCKED is never a pass
 PASS · FAIL · **BLOCKED**. There is deliberately no fourth value for "absent". A step that did

@@ -116,7 +116,7 @@ export function loadingStage(elapsedMs: number, config: LoadingConfig = {}): Loa
   return {
     tone,
     headline,
-    detail,
+    ...(detail !== undefined ? { detail } : {}),
     showEscape: tone === 'stalled',
     waitedSeconds: Math.floor(elapsed / 1000),
   };

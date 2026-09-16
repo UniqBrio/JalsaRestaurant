@@ -75,6 +75,8 @@ export function Dialog({
       if (!focusable?.length) return;
       const firstEl = focusable[0];
       const lastEl = focusable[focusable.length - 1];
+      // An empty focusable list has no ends to wrap between. (noUncheckedIndexedAccess)
+      if (!firstEl || !lastEl) return;
       if (e.shiftKey && document.activeElement === firstEl) { e.preventDefault(); lastEl.focus(); }
       else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); firstEl.focus(); }
     };

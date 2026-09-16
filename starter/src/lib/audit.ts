@@ -266,9 +266,10 @@ export function auditFeatureAccessChanged(
     added.length ? `enabled ${added.join(', ')}` : '',
     removed.length ? `disabled ${removed.join(', ')}` : '',
   ].filter(Boolean).join('; ');
+  const remarks = ctx.remarks ?? (summary ? summary.charAt(0).toUpperCase() + summary.slice(1) : undefined);
   return auditEntry('Feature access changed', [...previousFeatures], [...newFeatures], {
     ...ctx,
-    remarks: ctx.remarks ?? (summary ? summary.charAt(0).toUpperCase() + summary.slice(1) : undefined),
+    ...(remarks !== undefined ? { remarks } : {}),
   });
 }
 

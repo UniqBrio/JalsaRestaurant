@@ -19,7 +19,7 @@ import { test, expect, type Page } from '@playwright/test';
 const THEMES = ['light', 'dark'] as const;
 
 function srgb(c: number) { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }
-function lum([r, g, b]: number[]) { return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b); }
+function lum([r = 0, g = 0, b = 0]: number[]) { return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b); }
 function ratio(fg: number[], bg: number[]) {
   const [hi, lo] = lum(fg) > lum(bg) ? [lum(fg), lum(bg)] : [lum(bg), lum(fg)];
   return (hi + 0.05) / (lo + 0.05);

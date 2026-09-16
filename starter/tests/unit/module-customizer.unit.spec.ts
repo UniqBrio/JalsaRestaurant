@@ -20,8 +20,8 @@ const items: ModuleItem[] = [
 ];
 
 test('alwaysOn locks the toggle, not the position', () => {
-  expect(setEnabled(items, 'core', false)[2].enabled).toBe(true);
-  expect(moveItem(items, 'core', 'up')[1].id).toBe('core');
+  expect(setEnabled(items, 'core', false)[2]!.enabled).toBe(true);
+  expect(moveItem(items, 'core', 'up')[1]!.id).toBe('core');
 });
 
 test('edge and missing moves are no-ops returning the SAME reference', () => {
@@ -34,14 +34,14 @@ test('edge and missing moves are no-ops returning the SAME reference', () => {
 
 test('a child moves within its own siblings only, untouched branches keep identity', () => {
   const t = moveItem(items, 'two-b', 'up');
-  expect(t[1].children![0].id).toBe('two-b');
+  expect(t[1]!.children![0]!.id).toBe('two-b');
   expect(t[0]).toBe(items[0]);
 });
 
 test('disabling a parent keeps the children flags for its return', () => {
   const t = setEnabled(items, 'two', false);
-  expect(t[1].enabled).toBe(false);
-  expect(t[1].children![0].enabled).toBe(true); // restored exactly on re-enable
+  expect(t[1]!.enabled).toBe(false);
+  expect(t[1]!.children![0]!.enabled).toBe(true); // restored exactly on re-enable
 });
 
 test('position badges count ENABLED items only', () => {

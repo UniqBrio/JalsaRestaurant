@@ -47,7 +47,12 @@ function emit(level: LogLevel, message: string, data?: Record<string, unknown>, 
   if (recent.size > 500) recent.clear();
 
   try {
-    sink({ level, message, data, context, timestamp: new Date().toISOString() });
+    sink({
+      level, message,
+      ...(data !== undefined ? { data } : {}),
+      ...(context !== undefined ? { context } : {}),
+      timestamp: new Date().toISOString(),
+    });
   } catch {
     /* A logger that throws turns a handled error into an unhandled one. Never let it. */
   }

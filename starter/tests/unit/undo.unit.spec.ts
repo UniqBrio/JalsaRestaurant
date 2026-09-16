@@ -22,10 +22,10 @@ const entry = (id: string, committed: string[]): UndoableEntry => ({
 
 test('a plain message has no Undo, and a reversible action does', () => {
   const s = pushToast(createUndoState(), { id: 'm', message: 'Saved.' }, T0).state;
-  expect(s.toasts[0].undo).toBeUndefined();
+  expect(s.toasts[0]!.undo).toBeUndefined();
   const r = pushToast(createUndoState(), entry('a', []), T0).state;
-  expect(r.toasts[0].undo).toBeTruthy();
-  expect(r.toasts[0].expiresAt).toBe(T0 + DEFAULT_UNDO_WINDOW_MS);
+  expect(r.toasts[0]!.undo).toBeTruthy();
+  expect(r.toasts[0]!.expiresAt).toBe(T0 + DEFAULT_UNDO_WINDOW_MS);
 });
 
 test('THE WRITE IS DEFERRED: nothing commits while the window is open', () => {
@@ -71,7 +71,7 @@ test('a second Undo on the same toast is a no-op with an honest name', () => {
 test('AN OVERFLOWING QUEUE COMMITS THE OLDEST — it never drops a pending action', () => {
   const committed: string[] = [];
   let s = createUndoState();
-  let forced: string[] = [];
+  const forced: string[] = [];
   for (const id of ['a', 'b', 'c', 'd']) {
     const r = pushToast(s, entry(id, committed), T0, 3);
     s = r.state;

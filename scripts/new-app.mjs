@@ -31,7 +31,14 @@ if (fs.existsSync(DEST) && fs.readdirSync(DEST).length) {
   process.exit(1);
 }
 
-const SKIP = new Set(['node_modules', '.next', 'dist', 'test-results', 'playwright-report', '.gate-logs']);
+// `package-lock.json` is here for a different reason from the rest. The others are build
+// output; this one is a real file that simply must not be SEEDED. The starter declares ranges
+// and ships no lockfile on purpose, but a local `npm install` leaves one, and copying it makes
+// every new app inherit one machine's dependency resolution from one afternoon - silently, and
+// permanently, because an app commits its lockfile. The app generates its own on first install.
+// Only the starter copy is affected: HALF_A is a list of directories, and the framework's own
+// root lockfile is above all of them.
+const SKIP = new Set(['node_modules', '.next', 'dist', 'test-results', 'playwright-report', '.gate-logs', 'package-lock.json']);
 function copy(from, to) {
   fs.mkdirSync(to, { recursive: true });
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
@@ -92,8 +99,29 @@ if (STANDALONE) {
 }
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
+/**
+ * The app's identity, written once into the token file - which is where identity lives, for
+ * exactly the reason colour does. `theme-build` below then renders it into the web app
+ * manifest, the offline page, the launcher icons and the typed theme module, so the name in
+ * the browser tab, the name under the home-screen icon and the name in the install dialog are
+ * one string that cannot drift apart.
+ *
+ * A human-readable title is derived from the kebab-case directory name so a fresh scaffold is
+ * installable and correctly labelled with no follow-up edit. `shortName` is what a launcher
+ * shows under an icon and is truncated hard by every platform, so it takes the first word
+ * rather than a squeezed version of the whole thing.
+ */
+const title = NAME.split('-').filter(Boolean)
+  .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+const seedTokens = JSON.parse(fs.readFileSync(path.join(SRC, 'design', 'tokens.json'), 'utf8'));
+seedTokens.meta.name = `${NAME} palette`;
+if (seedTokens.app) {
+  seedTokens.app.name = title;
+  seedTokens.app.shortName = title.split(' ')[0];
+  seedTokens.app.description = `${title} - built with the custom web app development framework.`;
+}
 fs.writeFileSync(path.join(DEST, 'design', 'tokens.json'),
-  fs.readFileSync(path.join(SRC, 'design', 'tokens.json'), 'utf8').replace('"Default Framework Palette"', JSON.stringify(`${NAME} palette`)), 'utf8');
+  JSON.stringify(seedTokens, null, 2) + '\n', 'utf8');
 
 fs.writeFileSync(path.join(DEST, 'README.md'), `# ${NAME}
 
@@ -148,6 +176,10 @@ fs.writeFileSync(path.join(DEST, '.gitignore'),
    '#   TEST_SUMMARY.md         the append-only gate log the commit guard greps.',
    ''].join('\n'), 'utf8');
 
+// This is what makes the new app INSTALLABLE with no manual step: the same run that compiles
+// the theme writes public/manifest.webmanifest, public/offline.html and the launcher icons,
+// all from the tokens above. --public is not passed because it defaults to the directory
+// beside those tokens, which is this app's.
 try {
   execFileSync(process.execPath, [path.join(ROOT, 'scripts/theme-build.mjs'), '--tokens', 'design/tokens.json', '--out', 'src/theme'],
     { cwd: DEST, stdio: 'inherit' });

@@ -8,7 +8,10 @@
  *      in every test makes the auth screen the most-tested and slowest part of your suite.
  *   3. Assert the DATA, not the toast. A success message is what the app CLAIMS happened.
  *      Several classic data-loss bugs are the app cheerfully reporting a save that never
- *      landed - the test must read the effect back.
+ *      landed - the test must read the effect back. And WAIT for it: `expect.poll` on the
+ *      captured writes, never a bare `expect` the instant a click or keypress resolves. The
+ *      write is dispatched inside the event; its interception arrives a moment later, and a
+ *      bare expect there failed one run in four for no defect at all (first run of gate G8).
  *   4. Geometry is a bounding-box assertion, and a click is never forced. `{ force: true }`
  *      succeeds on an element covered by a sticky bar; the unforced failure IS the assertion.
  */
@@ -56,7 +59,7 @@ test.describe('reference journey', () => {
 
     await expect(page.getByTestId('toast-success')).toBeVisible();
     // The assertion that actually matters:
-    expect(written, 'the toast appeared but no write reached the API').toHaveLength(1);
+    await expect.poll(() => written.length, 'the toast appeared but no write reached the API').toBe(1);
     expect(written[0]).toMatchObject({ name: 'New item' });
   });
 
@@ -132,7 +135,7 @@ test.describe('reference journey', () => {
     // The dangerous case: a field the form never loaded is sent back as empty and the stored
     // value is destroyed. Silent, irreversible, and invisible to a test that only checks the
     // fields it typed into. Assert the whole payload, not the field you were thinking about.
-    expect(written, 'an unchanged save must still round-trip every field').toHaveLength(1);
+    await expect.poll(() => written.length, 'an unchanged save must still round-trip every field').toBe(1);
     expect(written[0]).toMatchObject({ name: 'Existing item', schedule: ['mon', 'thu'] });
   });
 
@@ -187,7 +190,7 @@ test.describe('reference journey', () => {
     await page.getByTestId('item-name').fill('Doomed item');
     await page.getByTestId('item-save').click();
 
-    expect(written, 'the name of an archived record must be reusable').toHaveLength(1);
+    await expect.poll(() => written.length, 'the name of an archived record must be reusable').toBe(1);
     expect(written[0]).toMatchObject({ name: 'Doomed item' });
   });
 

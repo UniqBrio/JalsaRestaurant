@@ -394,3 +394,129 @@
 }
 
 .select-all__box:disabled { cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+ * PWA affordances (CP-30) — the install offer and the update offer.
+ *
+ * Fixed to the bottom rather than the top: the top of a screen is where the app's own
+ * navigation lives, and a banner that pushes it down moves every target on the page the moment
+ * the browser decides the app is installable. Semantic tokens only, so both offers are
+ * contrast-asserted in both themes by the same gate as everything else.
+ * ------------------------------------------------------------------------- */
+.pwa-bar {
+  position: fixed;
+  inset-inline: var(--spacing-4);
+  bottom: var(--spacing-4);
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+  max-width: 40rem;
+  margin-inline: auto;
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-body);
+  box-shadow: var(--shadow-raised);
+}
+
+.pwa-bar--update { border-color: var(--border-strong); }
+
+.pwa-bar__text { flex: 1 1 14rem; margin: 0; font-size: var(--font-size-body); }
+
+.pwa-bar__action {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pwa-bar__action:hover { background: var(--primary-hover); }
+.pwa-bar__action:active { background: var(--primary-pressed); }
+
+.pwa-bar__dismiss {
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pwa-bar__dismiss:hover { color: var(--text-body); border-color: var(--border-strong); }
+
+/* Motion is a preference, not a decision this file gets to make for everyone. */
+@media (prefers-reduced-motion: no-preference) {
+  .pwa-bar { animation: pwa-bar-in var(--duration-base) var(--easing-out); }
+  @keyframes pwa-bar-in { from { transform: translateY(0.5rem); opacity: 0; } }
+}
+
+/* ---------------------------------------------------------------------------
+ * Dialog (CP-14, CP-16) and confirmation (ConfirmDialog)
+ * The backdrop is FIXED and full-bleed so a stray tap lands on it - and does nothing, because
+ * dismissOnBackdrop is false by default. Both components rendered these class names for as
+ * long as they existed and no stylesheet defined them; the first run of gate G8 was the first
+ * time anyone saw the dialog drawn.
+ * ------------------------------------------------------------------------- */
+.dialog__backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  padding: var(--spacing-4);
+  background: var(--overlay);
+}
+.dialog__panel {
+  width: min(100%, 32rem);
+  max-height: calc(100dvh - 2 * var(--spacing-4));
+  overflow: auto;
+  background: var(--surface-raised);
+  color: var(--text-body);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  padding: var(--spacing-5);
+}
+.dialog__title { margin: 0 0 var(--spacing-3); color: var(--text-heading); font-size: var(--font-size-h3, 1.25rem); }
+.dialog__body { display: grid; gap: var(--spacing-3); }
+.dialog__footer { display: flex; justify-content: flex-end; gap: var(--spacing-2); margin-top: var(--spacing-4); }
+.confirm__message { margin: 0; }
+.confirm__actions { display: flex; justify-content: flex-end; gap: var(--spacing-2); margin-top: var(--spacing-4); }
+.confirm__cancel, .confirm__ok, .btn, .btn--primary, .btn--quiet, .btn--danger {
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
+  font: inherit; cursor: pointer;
+}
+.btn--primary, .confirm__ok--default { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.btn--primary:hover, .confirm__ok--default:hover { background: var(--primary-hover); }
+.btn--danger, .confirm__ok--destructive { background: var(--error); color: var(--on-error); border-color: transparent; }
+.btn--quiet { background: transparent; }
+.btn:disabled, .btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+ * The reference list (src/features/items)
+ * `padding-bottom` is the CP-8 clearance token, never a hand-picked value: it is what keeps
+ * the footer action reachable under any fixed chrome (the PWA offer bar included) at a SHORT
+ * viewport - the case tests/functional/reference.functional.spec.ts asserts at 360x640.
+ * ------------------------------------------------------------------------- */
+.items { max-width: 48rem; margin: 0 auto; padding: var(--spacing-4) var(--spacing-4) calc(var(--spacing-6) + var(--layout-bottom-chrome-clearance)); color: var(--text-body); }
+.items__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-3); margin: var(--spacing-4) 0; }
+.items__title { margin: 0; color: var(--text-heading); }
+.items__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--spacing-2); }
+.items__row { display: flex; align-items: center; gap: var(--spacing-3); padding: var(--spacing-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.items__name { flex: 1 1 auto; }
+.items__status { color: var(--text-muted); font-size: var(--font-size-caption); }
+.items__empty { padding: var(--spacing-6); text-align: center; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); color: var(--text-muted); }
+.items__footer { margin-top: var(--spacing-5); display: flex; justify-content: center; }
+.field { display: grid; gap: var(--spacing-1); }
+.field__label { color: var(--text-muted); font-size: var(--font-size-caption); }
+.field__input { padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background); color: var(--text-body); font: inherit; }
+.field__group { display: flex; gap: var(--spacing-3); }
+.field__mode { color: var(--text-muted); font-size: var(--font-size-caption); }

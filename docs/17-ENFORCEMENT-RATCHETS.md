@@ -67,8 +67,17 @@ dark|text.muted|surface
 
 ## 4. Fail open on tooling, block only on evidence
 
-Missing interpreter, missing dependency, missing baseline → **print a loud SKIP on stderr and
-pass.**
+Missing interpreter, missing dependency → **print a loud SKIP on stderr and pass** — in the
+commit guard, which may never block a commit for what a container lacks.
+
+Missing **baseline** → **BLOCKED, exit 3.** The check did not run, and the gate has a word for
+that. It used to be "SKIP and pass" here too, and the ratchet said so on stderr while exiting 0 —
+so the gate runner, which reads exit codes, recorded every baseline-less ratchet as **PASS**.
+Observed: an app with no service worker and no PWA baseline, G12 PASS. `par.mjs` reports 3 as
+`BLKD` and exits 3 unless something genuinely failed; `upgrade.mjs` writes the baseline for every
+new ratchet on apply, so an app that upgrades never meets this exit. A detector that **parsed
+nothing** is BLOCKED the same way — it always said so, and now the exit code agrees.
+(`scripts/ratchet.test.sh` executes all of this.)
 
 Never block for a tooling gap: a gate that fails the build when a container lacks a binary gets
 disabled within a day. But never go *quietly* dead either — a dead gate must be audible, because
@@ -148,9 +157,19 @@ ratchets the count downward.
 | No hard-coded colours | `audits/check-hardcoded-colors.mjs` | Ratchet |
 | Automation addressability | `audits/check-testid-coverage.mjs` | Ratchet |
 | Rules have an enforcement point | `audits/check-rule-coverage.mjs` | Ratchet |
+| Wide tables are configurable | `audits/check-column-control.mjs` | Ratchet |
+| No placeholder data in shipped source | `audits/check-fixture-leak.mjs` | Ratchet |
+| Nothing references this script any more | `audits/check-dead-weight.mjs` | Ratchet (review candidates) |
+| Installable as an application | `audits/check-pwa-baseline.mjs` | Ratchet (currently clean) |
+| Existing apps do not go green → red | `audits/check-backward-compat.mjs` | Fixture conformance |
 | Commit obligations | `hooks/pre-commit-guard.sh` | Guards + escape tokens |
 | Guards are reachable | `hooks/guard-reachability.test.sh` | Executable proof |
 | The whole gate | `gate-runner.mjs` | Ordered, three-valued |
+
+> This table lists the gates; `npm run audit:all` RUNS them, and CI calls that script rather
+> than restating it. Four rows above were missing until 10-Sep-2026 for the ordinary reason a
+> second list drifts: nothing compared the two. Adding a gate means adding it to `audit:all`
+> and adding a row here — the script is what executes, so it is the one that decides.
 
 ---
 

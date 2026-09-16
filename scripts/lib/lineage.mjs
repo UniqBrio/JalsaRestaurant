@@ -25,9 +25,30 @@ export const LINEAGE_PATH = '.framework/lineage.json';
 export const HALF_A = ['scripts', 'docs', 'checklists', 'workflows', 'templates', 'ci', '.claude'];
 
 /* Files that are SUPPOSED to diverge. An upgrade that even mentions them is noise, and noise
- * is how upgrade reports stop being read. */
+ * is how upgrade reports stop being read.
+ *
+ * THE RULE THIS LIST ENCODES, stated so the next entry is obvious:
+ *   An artifact GENERATED FROM an app-owned source is app-owned too.
+ *
+ * The list named `design/tokens.json` and stopped there, as though ownership ended at the
+ * source file. It does not. Everything `theme-build` renders from those tokens carries the
+ * app's palette and, since the manifest, the app's NAME - so an upgrade classified them
+ * "pristine, and the framework changed them" and auto-applied the framework's defaults over
+ * them. Reproduced end to end before this was fixed: scaffolding `acme-invoices` and running
+ * one upgrade renamed the installed application back to "Default Framework App", and reset a
+ * rebranded app's compiled stylesheet to the framework palette. Both silent, and the manifest
+ * one visible only to somebody who had already installed it.
+ *
+ * A framework change to the GENERATOR still reaches every app - it is `theme-build.mjs` that
+ * gets upgraded, and the app re-renders its own artifacts from its own tokens by running it.
+ * That is the correct delivery path for a generated file; overwriting the output is not. */
 export const EXPECTED_DIVERGENT = [
   'design/tokens.json',
+  // ...and everything generated from it:
+  'src/theme/tokens.generated.css',
+  'src/theme/tokens.generated.ts',
+  'public/manifest.webmanifest',
+  'public/offline.html',
   'CLAUDE.md',
   'AGENTS.md',
   'README.md',

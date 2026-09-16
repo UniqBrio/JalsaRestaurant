@@ -82,7 +82,7 @@ export function selectRange(
   if (a < 0 || b < 0) return clone(selected);
   const [from, to] = a <= b ? [a, b] : [b, a];
   const next = clone(selected);
-  for (let i = from; i <= to; i++) next.add(visibleIds[i]);
+  for (let i = from; i <= to; i++) { const id = visibleIds[i]; if (id !== undefined) next.add(id); }
   return next;
 }
 

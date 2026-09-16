@@ -21,17 +21,28 @@
  *   disabled. Include the file and the rule; exclude line and column numbers - inserting a
  *   blank line above a known violation is not a new violation.
  *
- * FAIL OPEN ON TOOLING, BLOCK ONLY ON EVIDENCE
- *   A missing interpreter, dependency or baseline is a loud SKIP on stderr, never a silent
- *   pass and never a block. A dead gate must be AUDIBLE - the failure mode to avoid is a
- *   check that has quietly reported nothing for four days while everyone trusted it.
+ * THREE VALUES, AND "DID NOT RUN" IS THE THIRD
+ *   A missing baseline means the check DID NOT RUN. It exits 3 - the gate's word for exactly
+ *   that - never 0. It used to exit 0 while printing "this gate is INERT and is telling you
+ *   so": it told stderr, and the thing that decides reads the exit code. So the gate runner,
+ *   which has a third verdict precisely so that "did not run" is never mistaken for "passed",
+ *   recorded every baseline-less ratchet as PASS. Observed on a real scaffold with no service
+ *   worker and no PWA baseline: G12 PASS. Green by omission, at the one layer built to prevent
+ *   it, in every ratchet, in any app missing a baseline.
+ *
+ *   Exit 3 is not 2. A FAIL says "your code is broken"; this says "nothing checked it", and a
+ *   gate that confuses the two is a gate people learn to ignore. par.mjs and gate-runner.mjs
+ *   both read 3 as BLOCKED. upgrade.mjs probes for the phrase "no baseline at" and writes the
+ *   baseline, so an app that upgrades never meets this exit - which is what makes it safe.
+ *   A dead gate must be AUDIBLE, and an exit code is the only thing every caller hears.
+ *   rung: scripts/ratchet.test.sh
  */
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const RATCHET_OK = 0;
 export const RATCHET_BLOCK = 2;
-export const RATCHET_SKIP = 0;
+export const RATCHET_SKIP = 3;   // BLOCKED: the check did not run. Never 0 - see the header.
 
 export function readBaseline(file) {
   if (!fs.existsSync(file)) return null;
@@ -78,21 +89,25 @@ export function writeBaseline(file, signatures, { name, regenerateCmd, note }) {
  *                    scan matching zero files looks identical to a clean codebase.
  */
 export function evaluateRatchet(o) {
-  const { name, signatures, baselineFile, regenerateCmd, remediation, parsedSomething = true, scope = null } = o;
+  const { name, signatures, baselineFile, regenerateCmd, remediation, parsedSomething = true } = o;
 
   if (!parsedSomething) {
     console.error(`BLOCKED [${name}]: the detector produced no readable input.`);
     console.error('  A scan that matched nothing is indistinguishable from a clean tree. That is a defect, not a pass.');
-    return RATCHET_BLOCK;
+    // 3, not 2. This line has always SAID "BLOCKED" and then exited 2, which the gate renders
+    // as FAIL - "your code is broken" about a tree nothing looked at. The verdict for "could
+    // not verify" is the third value, and the message and the exit code must be the same word.
+    return RATCHET_SKIP;
   }
 
   const now = new Set(signatures);
   const base = readBaseline(baselineFile);
 
   if (base === null) {
-    console.error(`[${name}] SKIPPED - no baseline at ${baselineFile}.`);
+    // "no baseline at" is load-bearing: upgrade.mjs greps for it to know what to baseline.
+    console.error(`BLOCKED [${name}] - no baseline at ${baselineFile}.`);
     console.error(`  Create one: ${regenerateCmd}`);
-    console.error(`  Until then this gate is INERT and is telling you so.`);
+    console.error(`  Until then this check cannot run, and a check that did not run is not a pass.`);
     return RATCHET_SKIP;
   }
 
@@ -119,14 +134,6 @@ export function evaluateRatchet(o) {
   if (exit === RATCHET_OK) {
     console.log(`OK [${name}] ${now.size} known violation(s), none new.${now.size === 0 ? ' Backlog is zero - this is now a CLEAN GATE.' : ''}`);
   }
-  // EVERY verdict states what was looked at - green, blocked, or new-violation alike.
-  //
-  // "CLEAN GATE" is the most quoted line any of these audits produce, and on its own it says
-  // nothing about SCOPE. A detector that deliberately declines a directory - for good reasons,
-  // stated in its own header - still reports a clean backlog, and a close-out then cites that
-  // line as coverage of the very thing it never opened. That is not the detector lying; it is
-  // the reader having no way to tell. So the scope travels with the verdict, always.
-  if (scope) console.log(`   SCOPE [${name}] ${scope}`);
   return exit;
 }
 

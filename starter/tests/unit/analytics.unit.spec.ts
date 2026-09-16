@@ -13,7 +13,7 @@ import {
   type MetricDefinition,
 } from '../../src/lib/analytics/metrics';
 import {
-  breakdownPath, drillFilters, drillInto, drillUpTo, nextDimension, resolveDashboard,
+  breakdownPath, drillFilters, drillInto, drillUpTo, nextDimension, resolveDashboard, type DrillState,
   type DashboardConfig,
 } from '../../src/lib/analytics/dashboard';
 import { academyDashboard, exampleDashboards } from '../../src/lib/analytics/examples';
@@ -84,7 +84,7 @@ test('a restricted metric is REMOVED from the resolved config, not hidden in it'
 test('drill-down walks its ladder and stops honestly at the end', () => {
   const c: DashboardConfig = { ...cfg, defaultBreakdown: ['a', 'b'],
     metrics: [{ id: 'm1', label: 'x', dataSource: 'x', aggregation: 'count', breakdown: ['course', 'student'] }] };
-  let s = { metricId: 'm1', crumbs: [] as { dimension: string; value: string; label: string }[] };
+  let s: DrillState = { metricId: 'm1', crumbs: [] };
   expect(nextDimension(c, s)).toBe('course');
   s = drillInto(s, 'course', 'c1', 'Piano');
   s = drillInto(s, 'student', 's9', 'Asha');

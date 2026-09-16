@@ -8,7 +8,7 @@
 |---|---|---|
 | `minimal/` | a bare scaffold, never touched | the happy path: a pristine app upgrades cleanly, everything auto-applies |
 | `with-debt/` | carries **deliberately baselined violations** | **a new gate does not turn an existing app red** — the constraint "existing features must not break", tested instead of asserted |
-| `diverged/` | has **deliberately modified seed files** | an upgrade never clobbers an app's edits — modified files go to review, never overwrite |
+| `diverged/` | has **deliberately modified seed files**, and **artifacts generated from its own tokens** (a manifest, a theme module) | an upgrade never clobbers an app's edits — modified files go to review, never overwrite — and never replaces what the app generated from an app-owned source with the framework's copy |
 
 ## Rules
 

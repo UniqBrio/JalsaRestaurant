@@ -13,6 +13,14 @@ playwright-report/
 .run-log.json
 .close-out-commit.txt
 
+# The starter declares its toolchain as RANGES and ships no lockfile, on purpose - it is a
+# shape to copy, not a pinned tree (v1.33.0). But `npm install` in starter/ leaves one behind,
+# and until now nothing stopped `git add -A` from committing it: every app scaffolded from that
+# checkout would then be born pinned to one machine's resolution on one afternoon. The intent
+# lived only in a comment inside a CI file, which is a rule nothing executes. This is the rule.
+# An APP does commit its own lockfile - that is the app's fact, made on the app's schedule.
+/starter/package-lock.json
+
 # NOT ignored, on purpose - these are the framework working:
 # .baselines/       ratchet baselines are COMMITTED. That is what makes them ratchets.
 # TEST_SUMMARY.md   the append-only gate log the commit guard greps.

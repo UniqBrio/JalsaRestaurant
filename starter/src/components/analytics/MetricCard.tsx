@@ -47,7 +47,9 @@ export function MetricCard({
   testId?: string;
 }) {
   const id = testId ?? `metric-${definition.id}`;
-  const fmt = { ...definition.formatOptions, unit: definition.unit };
+  // An absent unit stays ABSENT. Under exactOptionalPropertyTypes `unit: undefined` is not the
+  // same as no unit, and the formatter's options say `unit?: string` and mean it.
+  const fmt = { ...definition.formatOptions, ...(definition.unit !== undefined ? { unit: definition.unit } : {}) };
 
   if (loading) {
     return (
@@ -103,9 +105,9 @@ export function MetricCard({
         <ProgressMeter
           progress={result.targetProgress}
           label={definition.label}
-          caption={definition.target !== undefined
-            ? `${value} of ${formatValue(definition.target, definition.format ?? 'number', fmt)}`
-            : undefined}
+          {...(definition.target !== undefined
+            ? { caption: `${value} of ${formatValue(definition.target, definition.format ?? 'number', fmt)}` }
+            : {})}
           testId={`${id}-progress`}
         />
       )}

@@ -83,7 +83,7 @@ test.describe('keyboard parity (reference shape)', () => {
     await page.getByTestId('item-name').fill('Typed without a mouse');
     await page.getByTestId('item-save').focus();
     await page.keyboard.press('Enter');
-    expect(written, 'Enter "worked" visually but no write reached the API').toHaveLength(1);
+    await expect.poll(() => written.length, 'Enter "worked" visually but no write reached the API').toBe(1);
   });
 
   test('Space selects a focused tab-style control', async ({ page }) => {
@@ -119,11 +119,9 @@ test.describe('keyboard parity (reference shape)', () => {
     await page.keyboard.type('Keyboard-only item');
     await page.keyboard.press('Tab'); // to save
     await page.keyboard.press('Enter'); // save
-    expect(written, 'the keyboard journey must land the same write the mouse journey lands')
-      .toHaveLength(1);
+    await expect.poll(() => written.length, 'the keyboard journey must land the same write the mouse journey lands').toBe(1);
     // Close returns focus to the opener - the keyboard user is back where they started,
     // not stranded at the top of the document.
-    const after = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'));
-    expect(after).toBe('list-add');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('list-add');
   });
 });

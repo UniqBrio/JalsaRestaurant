@@ -38,7 +38,7 @@ taken at the start; a start time recorded once the run is over is a recalled tim
 duration built from two recalled times is an estimate presented as a record (RC-008).
 
 ```bash
-node scripts/run-log.mjs start --type <NEW-APP|NEW|CHANGE|BUG|REFACTOR|TRIAGE|BRAINSTORM|REVIEW|FRAMEWORK> \
+node scripts/run-log.mjs start --type <NEW-APP|NEW|CHANGE|BUG|REFACTOR|TRIAGE|BRAINSTORM|FRAMEWORK> \
   --action "<what the requester asked, in THEIR words>" [--scale micro|scoped|full-scale]
 ```
 
@@ -64,7 +64,6 @@ Read the rough description and pick exactly one:
 | A LIST of several things | no file — continue directly into [workflows/triage.md](./triage.md) with the list; each surviving item returns here individually |
 | A situation with no clear next action ("what should happen when…", weighing options) | no file — continue directly into [workflows/brainstorm.md](./brainstorm.md); its decision summary drafts the request file afterwards if one is needed |
 | The PROCESS misbehaved — a track skipped a step, a gate stayed silent, a template has a gap | no file — continue directly into [workflows/framework-update.md](./framework-update.md) with the description |
-| A finished build needs LOOKING AT — "review what was generated", a handover, a quality pass — with no specific defect named | **REVIEW** | no file — continue directly into [workflows/review.md](./review.md) with the subject. It ends in framework-update, or in an explicit "nothing general was learned" |
 | Genuinely ambiguous (e.g. "improve X" where X may be broken) | ask exactly **one** question, then classify |
 
 **One entry point, every exit continues.** The requester starts here and only here, and
@@ -97,13 +96,6 @@ build a feature with no application under it, so initialization comes first:
 change run as a bug invents a defect that was a decision. When the requester's words carry an
 error message, wrong data, or "stopped working" — it is a BUG. When they carry "instead",
 "also", "rather than", "would be better" — it is a CHANGE.
-
-**REVIEW is not BUG, and the difference is who has already done the looking.** A description
-naming a symptom ("the export gives the old columns") is a BUG: the reporter found it. A
-description asking for the looking itself ("review the generated app", "what is wrong with this")
-is a REVIEW, and routing it as a BUG forces the run to pick one defect before it has evidence for
-any. A review that then finds a defect opens its own request file from `review.md` — the looking
-comes first, and the classification comes out of what it found.
 
 **Mixed input rule.** A description containing BOTH an app issue AND a process failure ("the
 price bug shipped AND the gate never caught it") produces the request file for the app issue
