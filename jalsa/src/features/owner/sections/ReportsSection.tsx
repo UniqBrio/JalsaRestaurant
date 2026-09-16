@@ -8,36 +8,26 @@ import { rupees } from '@/lib/money';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
- * Screen 32 — reports, at the depth this slice honestly reaches.
- *
- * WHAT IS HERE: today's sales, the product report, and the all-orders ledger — the three that
- * can be computed exactly from what the console already read, so every figure reconciles with
- * the dashboard tile that links to it (Standards 1.4 and 7.4). Each exports what is on screen.
- *
- * WHAT IS DELIBERATELY NOT HERE, AND SAYS SO: a date range wider than today, the purchases and
- * final reports, and the uplift report. They need a ranged read this payload does not do, and a
- * range control that silently only ever means "today" is worse than no range control at all
- * (Standard 4.4). They are Slice 2 in the request file, and the panel below names them rather
- * than leaving a gap someone has to discover.
- */
-/**
- * The five report panels, in the design set's own order and wording (`repTabs` in
+ * The four report panels, in the design set's own order and wording (`repTabs` in
  * Jalsa Owner Admin.dc.html). Named sub-tabs rather than one long scroll — the same rule
  * Settings follows (Standard 1.3), and the same Chip idiom, because a second way to switch a
  * sub-panel in one console is a defect rather than a variation.
  *
- * Two of the five cannot be computed from this payload. They are drawn as named tabs with an
- * honest empty state rather than left out: a missing tab reads as "this product has no uplift
+ * Uplift is NOT among them: the Navigation Flowchart carries it as its own top-level section and
+ * that is where it now lives (see UpliftSection). What remains here is the flowchart's own list —
+ * "Sales, purchases and expenses, final report, all-orders ledger".
+ *
+ * One of the four cannot be computed from this payload. They are drawn as named tabs with an
+ * honest empty state rather than left out: a missing tab reads as "this product has no final
  * report", which is untrue, while a named tab that says what it is waiting for is the gap
  * itself, labelled.
  */
-type ReportTab = 'sales' | 'orders' | 'expenses' | 'uplift' | 'final';
+type ReportTab = 'sales' | 'orders' | 'expenses' | 'final';
 
 const REPORT_TABS: Array<{ key: ReportTab; label: string }> = [
   { key: 'sales', label: 'Sales & products' },
   { key: 'orders', label: 'All orders' },
   { key: 'expenses', label: 'Purchases & expenses' },
-  { key: 'uplift', label: 'Uplift revenue' },
   { key: 'final', label: 'Final report' },
 ];
 
@@ -251,17 +241,6 @@ export function ReportsSection({ data }: OwnerSectionProps) {
             This is the same ledger the Tips &amp; expenses section writes — one set of entries, read here as a report
             rather than re-keyed. Entering and correcting an expense stays there, with the reason it asks for.
           </p>
-        </section>
-      ) : null}
-
-      {tab === 'uplift' ? (
-        <section>
-          <SectionLabel>Uplift revenue</SectionLabel>
-          <FirstRunState
-            title="The uplift figure is not computed yet"
-            note="Uplift is the revenue attributable to what the phone offered — the upsell tabs and the parcel card — and it is a comparison, not a sum: rounds that took an offer against rounds that did not, over a range. This payload reads today only, and a comparison over one evening is a number that looks authoritative and means nothing."
-            testId="owner-uplift-empty"
-          />
         </section>
       ) : null}
 

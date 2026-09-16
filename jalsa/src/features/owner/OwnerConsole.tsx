@@ -17,6 +17,7 @@ import { TipsSection, ExpensesSection } from './sections/LedgersSection';
 import { DaySetupSection } from './sections/DaySetupSection';
 import { WaitlistSection } from './sections/WaitlistSection';
 import { ReportsSection } from './sections/ReportsSection';
+import { UpliftSection } from './sections/UpliftSection';
 import { SettingsSection } from './sections/SettingsSection';
 import { AuditSection } from './sections/AuditSection';
 
@@ -35,7 +36,7 @@ import { AuditSection } from './sections/AuditSection';
  */
 
 export type OwnerSection =
-  'dashboard' | 'day' | 'queue' | 'orders' | 'payments' | 'menu' | 'staff' | 'tips' | 'expenses' | 'reports'
+  'dashboard' | 'day' | 'queue' | 'orders' | 'payments' | 'menu' | 'staff' | 'tips' | 'expenses' | 'reports' | 'uplift'
   | 'settings' | 'audit';
 
 export interface OwnerSectionProps {
@@ -63,6 +64,13 @@ const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> 
   { key: 'tips', label: 'Tips', permission: 'tips.all' },
   { key: 'expenses', label: 'Expenses', permission: 'expense.manage' },
   { key: 'reports', label: 'Reports', permission: 'rep.products' },
+  // THIRTEENTH SECTION. Jalsa Navigation Flowchart.dc.html lists Uplift at the top level;
+  // Jalsa Owner Admin.dc.html files it under Reports. The brief names the flowchart
+  // authoritative for navigation and the requirements document never mentions uplift, so there
+  // is no written brief to break the tie. Recorded in docs/registers/DESIGN_CONTRACT.md.
+  // Gated on rep.sales: uplift IS a revenue report, and inventing rep.uplift would mean a
+  // migration for a grant the matrix already expresses.
+  { key: 'uplift', label: 'Uplift', permission: 'rep.sales' },
   { key: 'settings', label: 'Settings', permission: 'set.tables' },
   { key: 'audit', label: 'Audit log', permission: 'audit.view' },
 ];
@@ -196,6 +204,7 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
             {section === 'tips' ? <TipsSection {...shared} /> : null}
             {section === 'expenses' ? <ExpensesSection {...shared} /> : null}
             {section === 'reports' ? <ReportsSection {...shared} /> : null}
+            {section === 'uplift' ? <UpliftSection {...shared} /> : null}
             {section === 'settings' ? <SettingsSection {...shared} /> : null}
             {section === 'audit' ? <AuditSection {...shared} /> : null}
           </>
