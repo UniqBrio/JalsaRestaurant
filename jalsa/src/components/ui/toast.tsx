@@ -36,10 +36,29 @@ export interface ToastMessage {
   text: string;
   tone?: 'neutral' | 'success' | 'error';
   undo?: () => void;
+  /**
+   * A named action, drawn exactly like Undo and living in the same live strip.
+   *
+   * Undo is not general: its label is the word "Undo" because Standard 5.4 is about reversing
+   * what just happened. An update waiting to be applied is the opposite shape — nothing has
+   * happened yet and the guest is being ASKED — so it needs its own verb. Rather than a second
+   * notification system for one message (CP-30 rule 4's offer), the pill takes an optional
+   * labelled button. `sticky` holds it open, because an offer that times out was never an offer.
+   */
+  action?: { label: string; onClick: () => void; testId: string };
+  sticky?: boolean;
 }
 
 interface ToastApi {
-  show: (text: string, opts?: { tone?: ToastMessage['tone']; undo?: () => void }) => void;
+  show: (
+    text: string,
+    opts?: {
+      tone?: ToastMessage['tone'];
+      undo?: () => void;
+      action?: ToastMessage['action'];
+      sticky?: boolean;
+    }
+  ) => void;
 }
 
 const ToastContext = React.createContext<ToastApi | null>(null);
@@ -58,7 +77,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = nextId.current++;
     setItems((cur) => [
       ...cur.slice(-2),
-      { id, text, tone: opts?.tone ?? 'neutral', ...(opts?.undo ? { undo: opts.undo } : {}) },
+      {
+        id,
+        text,
+        tone: opts?.tone ?? 'neutral',
+        ...(opts?.undo ? { undo: opts.undo } : {}),
+        ...(opts?.action ? { action: opts.action } : {}),
+        ...(opts?.sticky ? { sticky: true } : {}),
+      },
     ]);
   }, []);
 
@@ -86,10 +112,10 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
   const [paused, setPaused] = React.useState(false);
 
   React.useEffect(() => {
-    if (paused) return;
+    if (paused || toast.sticky) return;
     const t = setTimeout(onDismiss, LIFETIME_MS);
     return () => clearTimeout(t);
-  }, [paused, onDismiss]);
+  }, [paused, toast.sticky, onDismiss]);
 
   const tone =
     toast.tone === 'success'
@@ -118,6 +144,19 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
         onBlur={() => setPaused(false)}
         className="pointer-events-auto flex shrink-0 items-center gap-3"
       >
+        {toast.action ? (
+          <button
+            data-testid={toast.action.testId}
+            type="button"
+            onClick={() => {
+              toast.action?.onClick();
+              onDismiss();
+            }}
+            className="shrink-0 rounded-full px-3 py-1 type-caption font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            {toast.action.label}
+          </button>
+        ) : null}
         {toast.undo ? (
           <button
             data-testid="toast-undo"
