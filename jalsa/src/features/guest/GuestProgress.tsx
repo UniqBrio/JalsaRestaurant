@@ -133,6 +133,27 @@ export function StatusScreen({
         </p>
       </div>
 
+      {/* 4f — "The owner replies, and the guest sees they were heard". The columns have existed
+          since the schema was written and the owner's Dashboard has been filling them; nothing
+          ever read them back to the phone that asked. A reply nobody receives is a note the
+          restaurant wrote to itself. Only ANSWERED suggestions appear: the guest wrote the
+          question, they do not need it read back. */}
+      {data.replies.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0" data-testid="guest-replies">
+          {data.replies.map((r) => (
+            <li key={r.id}>
+              <Card className="bg-[var(--success-surface)] text-[var(--on-success-surface)]">
+                <SectionLabel>You said</SectionLabel>
+                <p className="m-0 type-caption leading-relaxed opacity-90">{r.body}</p>
+                <p className="m-0 mt-2.5 type-body leading-relaxed">
+                  <strong>{r.repliedBy || 'The owner'}</strong> replied — {r.reply}
+                </p>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {data.rounds.map((r) => (
           <li key={r.code}>

@@ -330,6 +330,9 @@ const SETTING_PERMISSION: Record<string, string> = {
   copy: 'set.copy',
   replies: 'set.copy',
   day: 'day.setup',
+  // Opening and closing the door queue is its own verb in the matrix, and it is not a
+  // settings-page act: it is done at the door, mid-service, by whoever is standing there.
+  queue: 'queue.close',
   employment: 'set.identity',
 };
 

@@ -33,8 +33,21 @@ import type { QueueSelfView } from '@/lib/db/types';
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 8, 10] as const;
 const POLL_MS = 10_000;
 
-export function GuestQueue({ initial, waitLabel }: { initial: QueueSelfView | null; waitLabel: string }) {
+export function GuestQueue({
+  initial,
+  waitLabel,
+  queueOpen,
+  hoursRows,
+  hoursNote,
+}: {
+  initial: QueueSelfView | null;
+  waitLabel: string;
+  queueOpen: boolean;
+  hoursRows: Array<{ day: string; hours: string; today: boolean }>;
+  hoursNote: string;
+}) {
   const toast = useToast();
+  const [showHours, setShowHours] = React.useState(false);
   const [entry, setEntry] = React.useState<QueueSelfView | null>(initial);
   const [size, setSize] = React.useState<number>(2);
   const [busy, setBusy] = React.useState(false);
@@ -185,6 +198,44 @@ export function GuestQueue({ initial, waitLabel }: { initial: QueueSelfView | nu
     );
   }
 
+  /* ── 6d · the queue is closed ────────────────────────────────────────── */
+  if (!queueOpen) {
+    return (
+      <div className="flex flex-col gap-5" data-testid="guest-queue-closed">
+        <div className="flex items-center gap-4">
+          <Image
+            src="/brand/jalsa-badge.png"
+            alt=""
+            aria-hidden
+            width={48}
+            height={48}
+            className="shrink-0 rounded-[var(--radius-md)]"
+            priority
+          />
+          <span>
+            <span className="block type-h2">We have stopped taking the queue</span>
+            <span className="block type-caption text-[var(--text-muted)]">Entrance</span>
+          </span>
+        </div>
+
+        {/* Honest instead of a dead end — the design's own words for this pattern. A closed
+            queue that simply hides the button leaves a party standing at a door with no idea
+            whether to wait, so this says what is true and what to do instead. */}
+        <p className="m-0 max-w-[30em] type-body leading-relaxed text-[var(--text-muted)]">
+          The kitchen has as much as it can finish tonight, so nobody new is being added. Ask at the door — if
+          something frees up they will know first.
+        </p>
+
+        <HoursBlock
+          rows={hoursRows}
+          note={hoursNote}
+          open={showHours}
+          onToggle={() => setShowHours((v) => !v)}
+        />
+      </div>
+    );
+  }
+
   /* ── 6a · join ───────────────────────────────────────────────────────── */
   return (
     <div className="flex flex-col gap-5" data-testid="guest-queue-join">
@@ -242,6 +293,60 @@ export function GuestQueue({ initial, waitLabel }: { initial: QueueSelfView | nu
       <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         No name or number needed. Your time is locked the moment you tap.
       </p>
+
+      <HoursBlock rows={hoursRows} note={hoursNote} open={showHours} onToggle={() => setShowHours((v) => !v)} />
+    </div>
+  );
+}
+
+/**
+ * 9c — the hours sheet, on the ENTRANCE code as well as the table one.
+ *
+ * The same question gets asked in both places and the design answers it in both: a party at the
+ * door wants to know until when, and a party at a table wants to know how long they have. One
+ * block, opened on demand so it does not push the queue button below the fold on a short phone.
+ */
+function HoursBlock({
+  rows,
+  note,
+  open,
+  onToggle,
+}: {
+  rows: Array<{ day: string; hours: string; today: boolean }>;
+  note: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  if (rows.length === 0) return null;
+  const today = rows.find((r) => r.today);
+  return (
+    <div>
+      <button
+        data-testid="guest-queue-hours"
+        type="button"
+        onClick={onToggle}
+        className="min-h-11 type-caption underline underline-offset-2 text-[var(--text-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+      >
+        {today ? `Open ${today.hours} today` : 'Opening hours'} · {open ? 'hide' : 'see the week'}
+      </button>
+
+      {open ? (
+        <Card className="mt-2" data-testid="guest-queue-hours-sheet">
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {rows.map((r) => (
+              <li key={r.day} className="flex justify-between gap-4 type-caption">
+                <span className={r.today ? 'font-semibold' : 'text-[var(--text-muted)]'}>{r.day}</span>
+                <span className={r.today ? 'font-semibold tabular-nums' : 'tabular-nums text-[var(--text-muted)]'}>
+                  {r.hours}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {note ? (
+            <p className="m-0 mt-2.5 type-caption leading-relaxed text-[var(--text-muted)]">{note}</p>
+          ) : null}
+        </Card>
+      ) : null}
     </div>
   );
 }

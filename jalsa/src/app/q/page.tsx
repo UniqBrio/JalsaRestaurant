@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { NotConfiguredState, UnreachableState } from '@/components/ui/states';
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
-import { readQueueEntry, listWaitlist } from '@/lib/db/queries';
+import { readQueueEntry, listWaitlist, readAllSettings } from '@/lib/db/queries';
 import { GuestQueue } from '@/features/guest/GuestQueue';
 
 /**
@@ -28,6 +28,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Join the queue' };
 
 const MINUTES_PER_PARTY = 6;
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
 export default async function QueuePage() {
   if (!isConfigured()) {
@@ -38,13 +39,33 @@ export default async function QueuePage() {
   const id = jar.get('jalsa_queue')?.value ?? null;
 
   const loaded = await attempt('queue.page', async () => {
-    const waiting = await listWaitlist();
-    const entry = id ? await readQueueEntry(id) : null;
-    return { waiting: waiting.length, entry };
+    const [waiting, settings, entry] = await Promise.all([
+      listWaitlist(),
+      readAllSettings(),
+      id ? readQueueEntry(id) : Promise.resolve(null),
+    ]);
+    const queue = (settings.queue ?? {}) as { open?: boolean };
+    const hours = (settings.hours ?? {}) as {
+      days?: Array<{ day: string; open: string; close: string; shut: boolean }>;
+      note?: string;
+    };
+    const today = DAYS[new Date().getDay()];
+    return {
+      waiting: waiting.length,
+      entry,
+      // Open unless somebody closed it — see the note on the owner's control.
+      queueOpen: queue.open !== false,
+      hoursRows: (hours.days ?? []).map((d) => ({
+        day: d.day,
+        hours: d.shut ? 'Closed' : `${d.open} – ${d.close}`,
+        today: d.day === today,
+      })),
+      hoursNote: hours.note ?? '',
+    };
   });
   if (!loaded.ok) return <UnreachableState surface="guest" {...(loaded.detail ? { detail: loaded.detail } : {})} />;
 
-  const { waiting, entry } = loaded.value;
+  const { waiting, entry, queueOpen, hoursRows, hoursNote } = loaded.value;
   const estimate = Math.max(5, Math.round((waiting * MINUTES_PER_PARTY) / 5) * 5);
   const waitLabel = waiting
     ? `About ${estimate} minutes right now.`
@@ -53,7 +74,13 @@ export default async function QueuePage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full flex-col justify-center gap-6 px-4 py-10"
           style={{ maxWidth: 'var(--layout-guest-max-width)' }}>
-      <GuestQueue initial={entry} waitLabel={waitLabel} />
+      <GuestQueue
+        initial={entry}
+        waitLabel={waitLabel}
+        queueOpen={queueOpen}
+        hoursRows={hoursRows}
+        hoursNote={hoursNote}
+      />
     </main>
   );
 }

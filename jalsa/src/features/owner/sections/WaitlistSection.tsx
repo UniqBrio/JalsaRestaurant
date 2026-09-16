@@ -45,6 +45,11 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
   const canNotify = data.grants.includes('queue.notify');
   const canClear = data.grants.includes('queue.clear');
   const canAdd = data.grants.includes('queue.walkin');
+  const canClose = data.grants.includes('queue.close');
+  const queueCfg = (data.settings.queue ?? {}) as { open?: boolean };
+  // Open unless somebody has closed it. A queue that defaults to closed is a queue nobody
+  // remembers to open on the one night it matters.
+  const queueOpen = queueCfg.open !== false;
 
   // Seatable now: on the floor plan, no open bill, and not waiting to be wiped. Ordered by seat
   // count so the host's eye lands on the tables that actually fit.
@@ -61,11 +66,38 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
         <SectionLabel className="mb-0">
           {queue.length === 1 ? '1 party waiting' : `${queue.length} parties waiting`}
         </SectionLabel>
-        {canAdd ? (
-          <Button data-testid="owner-queue-add" size="sm" onClick={() => setAdding(true)}>
-            Add a walk-in
-          </Button>
-        ) : null}
+        <span className="flex items-center gap-2">
+          {canClose ? (
+            <Button
+              data-testid="owner-queue-toggle"
+              size="sm"
+              variant={queueOpen ? 'ghost' : 'secondary'}
+              disabled={busy}
+              onClick={() =>
+                runBusy(async () => {
+                  await send('/api/owner/action', {
+                    action: 'write-setting',
+                    key: 'queue',
+                    value: { open: !queueOpen },
+                  });
+                  toast.show(
+                    queueOpen
+                      ? 'Queue closed — the door code now says so instead of taking names'
+                      : 'Queue open — the door code is taking parties again',
+                    { tone: 'success' }
+                  );
+                })
+              }
+            >
+              {queueOpen ? 'Close the queue' : 'Open the queue'}
+            </Button>
+          ) : null}
+          {canAdd ? (
+            <Button data-testid="owner-queue-add" size="sm" onClick={() => setAdding(true)}>
+              Add a walk-in
+            </Button>
+          ) : null}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">

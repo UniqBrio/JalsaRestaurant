@@ -272,3 +272,12 @@ export interface QueueSelfView {
   /** Only once seated; the design's alert names the table. */
   tableName: string;
 }
+
+/** An owner's answer to something this table asked. Pattern 4f. */
+export interface GuestReply {
+  id: string;
+  body: string;
+  reply: string;
+  repliedBy: string;
+  repliedAtIso: string;
+}

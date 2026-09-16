@@ -1,11 +1,11 @@
 import 'server-only';
 import { rupees, totalBill, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, type FoodType, type KotStatus } from '@/lib/status';
-import { billTotals, chargeableLines, listMenu, readAllSettings } from './queries';
+import { billTotals, chargeableLines, listGuestReplies, listMenu, readAllSettings } from './queries';
 import { readCart } from './mutations';
 import { resolveGuest, type GuestContext } from './guest';
 import { resolveFeatures, type GuestFeatures } from '@/lib/guest-features';
-import type { Bill } from './types';
+import type { Bill, GuestReply } from './types';
 
 /* The feature flags and their defaults live outside the server boundary so the owner's
  * Settings panel can read the same defaults this payload fills gaps with. */
@@ -92,6 +92,8 @@ export interface GuestPayload {
   hoursRows: Array<{ day: string; hours: string; today: boolean }>;
   holidayNote: string;
   reviewUrl: string;
+  /** Answers the owner has written to this table's suggestions — pattern 4f. Newest first. */
+  replies: GuestReply[];
   callNumber: string;
   rescanMinutes: number;
 }
@@ -135,10 +137,13 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
    * `cartLines`) is in-memory work below. So all three are issued together, and a payload build
    * costs one wave rather than two.
    */
-  const [{ items, categories }, settings, cart] = await Promise.all([
+  const [{ items, categories }, settings, cart, replies] = await Promise.all([
     listMenu(),
     readAllSettings(),
     ctx.sessionId ? readCart(ctx.sessionId) : Promise.resolve([]),
+    // Into the SAME wave, not after it. An answered suggestion is one more thing this screen
+    // shows and nothing below depends on it, so it costs no extra round trip.
+    listGuestReplies(ctx.table.id),
   ]);
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));
 
@@ -237,6 +242,7 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
       .filter(Boolean)
       .join(' · '),
     reviewUrl: engagement.reviewUrl ?? '',
+    replies,
     callNumber: engagement.callNumber ?? '',
     rescanMinutes: ctx.rescanMinutes,
   };

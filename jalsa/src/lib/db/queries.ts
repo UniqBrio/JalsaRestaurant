@@ -9,6 +9,7 @@ import type {
   FloorTable,
   Kot,
   MenuCategory,
+  GuestReply,
   MenuItem,
   QueueSelfView,
   WaitlistRow,
@@ -763,3 +764,36 @@ export async function readQueueEntry(entryId: string): Promise<QueueSelfView | n
  * there is exactly one thing to replace.
  */
 const MINUTES_PER_PARTY = 6;
+
+/**
+ * Replies the owner has written to THIS table's suggestions.
+ *
+ * WHY THE GUEST SEES THEM AT ALL
+ *   `suggestion` has carried `reply`, `replied_at` and `replied_by` since the schema was
+ *   written, and the owner's Dashboard has been writing into them. Nothing ever read them back
+ *   to the phone that asked. So the loop the design draws — 4f, "The owner replies, and the
+ *   guest sees they were heard" — ended in a column. A reply nobody receives is a note the
+ *   restaurant wrote to itself.
+ *
+ * SCOPED TO THE TABLE, NEWEST FIRST, AND ONLY WHAT HAS BEEN ANSWERED. An unanswered suggestion
+ * is not shown back to the guest: they wrote it, they know.
+ */
+export async function listGuestReplies(tableId: string): Promise<GuestReply[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('suggestion')
+    .select('id,body,reply,replied_at,replied_by')
+    .eq('restaurant_id', restaurantId)
+    .eq('table_id', tableId)
+    .not('replied_at', 'is', null)
+    .order('replied_at', { ascending: false })
+    .limit(3);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    body: r.body as string,
+    reply: r.reply as string,
+    repliedBy: (r.replied_by as string) ?? '',
+    repliedAtIso: r.replied_at as string,
+  }));
+}
