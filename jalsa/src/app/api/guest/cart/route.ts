@@ -26,5 +26,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
 
   await setCartLine({ sessionId: session.id, menuItemId: input.itemId, qty: Math.max(0, Math.floor(input.qty)) });
-  return ok({ done: true, state: await freshState() });
+  // `setCartLine` touches `guest_cart_line` only, so the session row this request read is still
+  // current — handing it to the echo saves reading it back by token.
+  return ok({ done: true, state: await freshState(session) });
 });

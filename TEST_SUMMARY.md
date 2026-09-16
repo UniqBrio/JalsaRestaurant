@@ -5,6 +5,362 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-15 (fourth) - a probe that asked before the screen existed
+
+FAIL-FIRST: jalsa/tests/functional/guest-journey.functional.spec.ts:120. OBSERVED FAILING in CI
+run 34957008824 on 08b5e91, on five of six projects - desktop-wide, tablet, mobile, mobile-ios,
+mobile-short:
+
+    Test timeout of 30000ms exceeded.
+    Error: expect(locator).toBeVisible() failed
+    Locator: getByTestId('guest-tip')
+    Call log:
+      - Expect \"toBeVisible\" getByTestId('guest-tip') with timeout 8000ms
+      - waiting for getByTestId('guest-tip')
+    > 120 |   await expect(page.getByTestId('guest-tip')).toBeVisible();
+
+(The sixth project, desktop, fails earlier at :82 on `guest-placed` - the residual send-to-kitchen
+latency case, 1/12 slots since faf47f8. Unrelated, and not touched here.)
+
+THE SYNCHRONIZATION DEFECT. `guest-tip` has no server contract at all: `guest-upsell-skip` is
+`onClick={() => go('tip')}` (GuestClosure.tsx:274) and `phase === 'tip'` renders TipScreen
+(GuestApp.tsx:263), so the tip row appears one React commit after the click - no API call, no
+mutation, no poll ('upsell' and 'tip' are both PHONE_OWNED, so reconcilePhase cannot move them).
+The transition works: closure-upsell-tip test 2 clicks the same control and reaches `guest-tip` on
+four projects in the same run.
+
+What failed is the step BEFORE it. Line 111 clicks `guest-request-payment`, and `requestPayment`
+(GuestProgress.tsx:80-87) awaits its POST and only THEN calls `go('upsell')`. Playwright's click
+returns as soon as the click dispatches. The `state()` read on line 112 is an independent request
+that needs only the row to have landed, so line 113 can observe `payment_requested` seconds before
+the phone has left the order list.
+
+WHY `isVisible()` WAS INSUFFICIENT. The old probe was:
+
+    const skip = page.getByTestId('guest-upsell-skip');
+    if (await skip.isVisible().catch(() => false)) await skip.click();
+
+`isVisible()` is a point-in-time check - it does NOT wait. At that instant the phone is still on
+the STATUS screen, so there are three possible screens (status / upsell / tip) and the probe asks
+a two-state question. It answered "no upsell", never clicked Skip, and the phone then landed on
+the upsell - where line 120 waited for a tip screen it could never reach on its own. Deterministic,
+not a race that sometimes wins.
+
+THE FIX - the wait-then-branch pattern already validated by `reachTheUpsell` in
+closure-upsell-tip:
+
+    const upsell = page.getByTestId('guest-upsell');
+    const tip = page.getByTestId('guest-tip');
+    await expect(upsell.or(tip), '...').toBeVisible();
+    if (await upsell.isVisible()) {
+      await page.getByTestId('guest-upsell-skip').click();
+    }
+    await expect(tip).toBeVisible();
+
+`expect(a.or(b)).toBeVisible()` waits for whichever closure screen the application actually
+produces; only then is `isVisible()` a meaningful two-way question. The branch is still required -
+UpsellScreen returns TipScreen directly when the owner's upsell switch is off or no tab has an
+available item - so "skip the upsell IF it appears" remains the real contract, unchanged. No
+sleep, no retry, no arbitrary wait, no timeout touched. The `guest-tip` assertion is not weakened;
+it is the same line, now reachable. Every surrounding assertion is untouched: the tip-20 click,
+`tipChosen === 20`, `billStatus === 'payment_requested'`, pay-at-table and `guest-status`.
+
+AFTER: NOT OBSERVED PASSING. The seeded Supabase test project is unreachable from this container
+(CONNECT tunnel 403) and .env.local points at yxgxmbyilpivbmeemqkp, the development/production
+project, which is never an automated target - so no DB-backed functional spec can run here and
+none was run. CI is the first execution. Observed locally: `playwright test --list` resolves the
+file across all six projects, 247/247 unit, tsc and eslint clean, `next build` clean, guard:test
+14/14, pre-commit guard exit 0.
+
+HONEST CAVEAT, RECORDED RATHER THAN HIDDEN. All five failures hit the 30 000ms TEST cap while the
+8 000ms expect was still waiting, which proves lines 62-119 already consume MORE than 22.6s of the
+30s budget. The remaining steps after line 120 (the tip POST, the state read, pay-at-table) will
+add roughly 5-8s, so this test may still land near or over the cap. This fix is necessary and
+correct either way - it removes a probe that could never succeed - but it is not claimed to be
+sufficient to turn the test green. The remainder is critical-path latency, not a budget to raise.
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-15 (third) - the same isolation defect, one test along
+
+FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts, test 3 ("a table that
+decides on one more round never has to cancel anything first"). OBSERVED FAILING in CI run
+34949294483 on faf47f8, on all five projects where the file got that far - desktop, desktop-wide,
+mobile, mobile-ios, mobile-short:
+
+    Error: expect(locator).toBeVisible() failed
+    Locator: getByTestId('guest-welcome')
+    Timeout: 8000ms
+    Error: element(s) not found
+    >  41 |   await expect(page.getByTestId('guest-welcome')).toBeVisible();
+      at orderAndAskForTheBill (...closure-upsell-tip.functional.spec.ts:41:51)   <- called from :179
+
+That run is the FIRST that ever executed test 3: before faf47f8 the file died at `guest-placed` in
+test 1, and before that at `guest-upsell-skip` in test 2. Each fix moved the frontier one test on,
+and this is the frontier.
+
+ROOT CAUSE - the same class as the test 2 defect, not a new one. Test 3 opened on
+`orderAndAskForTheBill`, whose first act is to assert the WELCOME screen. That holds only on a
+table with no bill. The table is shared by this file's tests BY DESIGN - one table per spec per
+browser project, tests/support/tables.ts - so by the time test 3 runs, tests 1 and 2 have opened a
+bill on it and the phone lands on the order list instead. The helper is not wrong; the assumption
+that test 3 runs first is.
+
+WHAT TEST 3 ACTUALLY REQUIRES, which is narrower than "a fresh table":
+  1. a bill on this table with at least one round - otherwise StatusScreen renders
+     `guest-status-empty` (rounds.length === 0), not `guest-status`;
+  2. that bill in `payment_requested` - because `guest-continue-ordering` is rendered ONLY in the
+     payment_requested branch of the status action bar (src/features/guest/GuestProgress.tsx:197),
+     and that button is the whole subject of the test.
+
+THE FIX - two lines, and no new helper. `reachTheUpsell`, added for test 2 and validated by run
+34949294483 (test 2 passed on all five projects, 5.7-7.0s), already guarantees exactly those two
+things and ends on the very assertion test 3 carried on its second line:
+
+    - welcome            -> orderAndAskForTheBill: orders, requests payment, lands on the upsell
+    - `guest-continue-closure` visible -> the bill is ALREADY payment_requested; tap it -> upsell
+    - `guest-request-payment` visible  -> tap it; `requestPayment` posts request-payment and then
+                                          go('upsell') (GuestProgress.tsx:80-87)
+    - then: await expect(page.getByTestId('guest-upsell')).toBeVisible();
+
+So `await orderAndAskForTheBill(page); await expect(guest-upsell).toBeVisible();` becomes
+`await reachTheUpsell(page);`. Every branch is a control a guest has; none is a test-only path; no
+sleep, no retry, no arbitrary wait. Test 3's own assertions - the `guest-continue-ordering`
+control, `{billStatus: 'open', paymentPaused: true}`, `rounds.length > 1`, `billStatus === 'open'`,
+`guest-payment-paused` and `guest-request-payment` - are untouched, and so are tests 1 and 2. Test
+1 still calls `orderAndAskForTheBill` directly, which is correct: it runs first, on a reset table.
+
+Writing a second helper for test 3 was rejected. Two ways to reach one screen is how the two
+drift, and the second is always the one that rots.
+
+AFTER: NOT OBSERVED PASSING. The seeded Supabase test project is unreachable from this container
+(CONNECT tunnel 403) and .env.local points at yxgxmbyilpivbmeemqkp, the development/production
+project, which is never an automated target - so no DB-backed functional spec can run here. CI is
+the first execution. What IS observed locally: `playwright test --list` resolves all 18 tests in
+the file across the six projects at their new lines (110/149/186), 247/247 unit, tsc clean, eslint
+clean, `next build` clean, guard:test 14/14, pre-commit guard exit 0.
+
+KNOWN AND NOT ADDRESSED HERE: the serial-group retry structure. When a later test in the group
+fails, Playwright re-runs the whole group, and test 1 then fails at `guest-welcome` because its own
+first attempt opened the bill - which is why run 34949294483 reported test 1 as "flaky" on five
+projects although it passed first time. Retries cannot help this file. That is a separate decision,
+not a workaround to be smuggled in here.
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-15 (second) - an 8s budget and a 22-trip path
+
+FAIL-FIRST: no new spec file. This is an APPLICATION LATENCY change; the rung that fails against
+the pre-fix tree already exists and is unchanged -
+jalsa/tests/functional/guest-journey.functional.spec.ts:82 and the same assertion reached through
+`orderAndAskForTheBill` in closure-upsell-tip.functional.spec.ts:49.
+
+    Error: expect(locator).toBeVisible() failed
+    Locator: getByTestId('guest-placed')
+    Expected: visible
+    Timeout: 8000ms
+    Error: element(s) not found
+
+OBSERVED FAILING in CI run 34940426793 (c2ba09a), 12 of 12 spec x project slots. ALSO OBSERVED
+FAILING in run 34936577339 (cab1349), 2 of 12 - closure-upsell-tip on desktop and guest-journey on
+mobile-short, byte-identical message. The defect is not new; its hit rate went from ~17% to 100%.
+
+NOT A c2ba09a REGRESSION. `git diff --stat cab1349 c2ba09a` is two files: TEST_SUMMARY.md and
+closure-upsell-tip.functional.spec.ts. No application code changed, so no test file can have
+slowed a route. The two failing specs own disjoint tables (guest-journey A1-A6,
+closure-upsell-tip N3-N8, tests/support/tables.ts), so neither can write into the other's state.
+Both runs reset from the same seed - the reset step reported `bill=12 guest_session=72` and
+`counters -> bill 1041, kot 105, group 7` in BOTH. And run 34940426793 was on the FASTER machine:
+across the 380 tests that passed in both runs the total fell 375s -> 333s, and `reachability:53`,
+which measures app-to-Supabase health directly, fell 855/776/1200ms -> 763/734/1000ms. A faster
+runner against an equally reachable database still failed 12/12, which leaves only the budget.
+
+ROOT CAUSE. `guest-placed` has NO polling contract. `place()` in GuestOrdering.tsx awaits
+`flushCart()`, awaits `POST /api/guest/round`, then calls `go('placed')`; `PlacedScreen` renders
+the testid unconditionally and `reconcilePhase` preserves `'placed'`. So the 8000ms expect is a
+hard budget on ONE request - and that request performed ~22 serial PostgREST round trips to
+Sydney on a fresh table.
+
+THE OPTIMISATION - four independent reads taken off the serial path, no write reordered across
+the response:
+  1. queries.ts `listMenu`: the `menu_category` read is keyed by restaurant_id alone and never
+     reads a menu item; it now issues alongside the `menu_item` read. -1 trip on EVERY payload
+     build (first render, 6s poll, and every echo).
+  2. guest-view.ts `assembleGuestPayload`: `readCart(ctx.sessionId)` depends on the context only,
+     not on the menu or the settings; it joins the existing Promise.all. -1 trip. With (1) a
+     payload build is now one wave instead of three.
+  3. guest-echo.ts `freshState(session?)`: every echoing route has ALREADY read the session row to
+     authorise the write. The round, cart and bill routes now hand it in instead of having it
+     re-read by token. The round route passes the `bill_id` `attachBillToSession` just wrote, so
+     `contextForSession` still finds the pointer correct and still skips its corrective write.
+     -1 trip on four write paths, the tip among them.
+  4. mutations.ts `ensureOpenBill`: the audit entry only ever needed the bill for its table NAMES,
+     and a bill one line old has exactly one membership. That name is now read in the parallel
+     wave already being awaited at the top, so `audit` overlaps `getBill` instead of following it.
+     BOTH ARE STILL AWAITED BEFORE THE FUNCTION RETURNS - no response can observe an open bill
+     whose audit entry has not landed. -1 trip.
+
+~22 -> ~18 serial trips on the round critical path, about 18%. STATED PLAINLY: this is very
+unlikely on its own to bring the path under 8s. It removes waste that is provably waste; it does
+not claim to close the budget.
+
+DELIBERATELY NOT DONE: `clearCart()` was NOT parallelised with the echo. `assembleGuestPayload`
+READS the cart (guest-view.ts) to build `inCart`, `cartCount` and `cartSubtotalLabel`, so racing
+them would echo the round just sent as though it were still in the cart. It also cannot be folded
+into the earlier Promise.all, because the sold-out branch deliberately does not clear the cart.
+
+VALIDATION: tsc --noEmit clean; eslint clean on all eight files; 247/247 unit; 5/5
+degraded.functional against the real no-database instance on :3101 (the changed `resolveGuest` ->
+`buildGuestPayload` path, rendered by a real server); `npm run build` clean; `npm run guard:test`
+14/14; pre-commit guard exit 0 over the eight staged files (G7 SKIPPED at the repo root - covered
+by the jalsa tsc run above).
+
+LIMITATION - LOCAL E2E CANNOT PROVE THE FIX. The seeded Supabase TEST project is unreachable from
+this container (CONNECT tunnel 403) and `.env.local` points at yxgxmbyilpivbmeemqkp, the
+development/production project, which is never an automated target. So the render tier and every
+DB-backed functional spec were NOT run here, and no local measurement of the round trip exists.
+The trip counts above are read off the source, not measured. CI against the test project is the
+first execution that can confirm or refute the reduction.
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-15 (first) - a test that opened on about:blank
+
+FAIL-FIRST: jalsa/tests/functional/closure-upsell-tip.functional.spec.ts, test 2 ("the tip row
+takes a preset in one tap and any other amount in one tap and a number"). OBSERVED FAILING in CI
+run 34936577339 on cab1349, in four projects - desktop-wide, mobile, mobile-ios, mobile-short:
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for getByTestId('guest-upsell-skip')
+    >  97 |   await page.getByTestId('guest-upsell-skip').click();
+
+Nothing on screen to wait for. Playwright's `page` fixture is per-TEST; `describe.serial` orders
+the tests and keeps them in one worker but does NOT hand a page from one to the next, so this test
+opened by clicking into `about:blank`. It was predicted from the code on 14-Sep and recorded then;
+run 34936577339 is the first run that ever got far enough to execute it and prove it.
+
+THE FIX: `reachTheUpsell(page)`, called at the top of test 2. It navigates to the spec's own table
+and drives to the upsell along whichever route the application actually offers from where that
+table is:
+  - no rounds yet            -> welcome screen -> `orderAndAskForTheBill` (the existing helper)
+  - a bill already requested -> order list -> "Carry on to pay" (`guest-continue-closure`, the
+    payment_requested branch of the status action bar in GuestProgress.tsx)
+  - rounds but no request     -> order list -> "Request payment"
+Every one is a control a guest has; none is a test-only path. It branches rather than always
+ordering because the table is shared by this file's tests BY DESIGN - one table per spec per
+browser project - so assuming a fresh table would reintroduce the same ordering dependence in the
+other direction. `expect(a.or(b)).toBeVisible()` waits for whichever screen the table opens on
+before anything is probed: no sleep, no retry, no guess.
+
+Test 2's assertions and intent are untouched; only the setup in front of them is new. Tests 1 and
+3 are unchanged.
+
+AFTER, OBSERVED LOCALLY: the same test, run alone against a deliberately unreachable database,
+now fails at `unreachable-guest` toHaveCount(0) (line 82, inside the new helper) instead of timing
+out on `guest-upsell-skip`. It navigates, renders the outage screen and goes RED honestly - the
+property this file's header already claims for itself. That is the before/after in one line: a
+10-second timeout on an empty tab becomes an 8-second assertion against a real rendered screen.
+
+NOT OBSERVED: the test passing. It needs the seeded test project, which is unreachable from this
+container (its host is not in the egress allowlist) and production must never be a target. CI is
+where the fix meets a real database.
+
+VALIDATION RUN: 247 unit tests pass · tsc clean · eslint clean (whole app) · `next build` green ·
+pre-commit guard exit 0 · `playwright test --list` resolves 12 tests in the file across the four
+Chromium-backed projects. `audit:all` is 7/8 - `theme-sync` drift, pre-existing from the framework
+v1.35.0 sync and untouched by this change.
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-14 (second) - eighteen executions, one table
+
+FAIL-FIRST: jalsa/tests/unit/table-allocation.unit.spec.ts (new) - `allocateTable` replaced with
+the behaviour it replaces, `() => 'A5'`, in a temporary copy of the spec: **5 failed, 6 passed**.
+The failures name the collision:
+  - "different specs in the SAME project never share a table" - `desktop: A5, A5, A5`
+  - "the same spec in DIFFERENT projects never shares a table" -
+    `guest-journey: A5, A5, A5, A5, A5, A5`
+  - "all 18 combinations are distinct" - `distinct tables among A5, A5, ...` (18 allocations,
+    1 distinct)
+  - "running out of tables throws loudly" - a constant never throws, so it would wrap silently
+  - "an unknown spec or project is refused by name" - likewise silent
+The temporary copy was removed after the run; nothing from it remains in the tree.
+
+THE DEFECT IT ANSWERS: `guest-journey`, `guest-total-visibility` and `closure-upsell-tip` all
+wrote to table A5, and six browser projects run all three - eighteen executions against one table.
+None cleans up (each says so deliberately in its header) and the reset runs ONCE before the whole
+suite, so the first execution to open a bill occupied A5 for the other seventeen. CI run
+34834299122 on 3a43532: **18 failed, 48 did not run, 375 passed**, every failure on the same first
+assertion - `guest-welcome` not visible, because a table with an open bill shows that bill's order
+list instead (JP-4). Bill B-1041 was opened at 10:41:45 and never closed or released.
+
+It is NOT primarily a race, and that is why serialising was rejected: the bill persists for the
+rest of the run, so the collision happens at one worker as surely as at two. The six passing
+assertions above are the ones a hard-coded 'A5' satisfies by luck - it IS seeded, it IS active, it
+IS stable - which is exactly why nothing in the suite could have caught this.
+
+NOT OBSERVED FAILING: "the allocator and the seed still agree", "the project list matches
+playwright.config.ts", "the matrix is the size the seed has to cover" and "the registry the specs
+actually use is the seeded one". All four were already true of this tree; they are asserted so the
+hand-kept lists cannot drift from the seed or the config without a red test, and so a registry
+that parsed to nothing cannot make the rest vacuous (binding rule 3).
+
+RUNTIME EVIDENCE, not only unit: a temporary probe spec run across the four Chromium-backed
+projects printed the live allocation - desktop `A1/A7/N3`, desktop-wide `A2/A8/N4`, mobile
+`A4/A10/N6`, mobile-short `A6/N2/N8`. Twelve distinct tables, matching the allocator exactly.
+tablet and mobile-ios were dropped by the container's Chromium override (KL-3), so their six
+allocations are proven by the unit rung only. The probe was removed after the run.
+
+NOT OBSERVED: the three functional specs passing. They cannot run here - the local environment
+points at the development/production project, which they must never write to, and the test project
+is unreachable from this container. They were run against a deliberately unreachable database to
+prove the wiring loads and the specs go red rather than error on import: **2 failed** on
+`guest-welcome` not visible, which is the documented pre-existing state on this container. The
+end-to-end proof is the next CI run.
+
+KNOWN, DELIBERATELY NOT FIXED HERE: two pre-existing defects in `closure-upsell-tip`, which this
+change makes reachable for the first time. Test 2 (line 88) never navigates before using
+`guest-upsell-skip`, and Playwright's `page` fixture is per-test, so `describe.serial` does not
+carry a page into it. Test 3 (line 122) expects `guest-welcome` on a table test 1 deliberately
+left at `payment_requested`. Isolation was never going to fix either; they are recorded so the
+next CI run's failures are expected rather than surprising.
+
+---
+
+## FAIL-FIRST EVIDENCE - 2026-09-14 (first) - presence is not ownership
+
+FAIL-FIRST: jalsa/tests/unit/schema-columns.unit.spec.ts (table-aware assertions appended) - the
+new `declaresColumnOn(table, column)` was deliberately replaced with the old table-blind
+`declaresColumn(column)` in a temporary copy of the spec, and the injected defect was observed:
+the assertion accepted `audit_entry.created_at`, a column that does not exist. **2 failed, 8
+passed**:
+  - "audit_entry timestamps with `at`, and has no `created_at` - the CI reset defect" -
+    `audit_entry.created_at must NOT be declared - expected false, received true`
+  - "no table in the reset list may be filtered on a column it does not have" -
+    `audit_entry.created_at - expected false, received true`
+The temporary spec was removed after the run; nothing from it remains in the tree.
+
+THE DEFECT IT ANSWERS: `jalsa/scripts/reset-test-db.mjs` filtered six tables on `created_at`.
+`audit_entry` timestamps with `at`, so CI on main @ 91004d1 emptied the other five and then
+refused - `column audit_entry.created_at does not exist`. The existing rung could not see it:
+`declaresColumn('created_at')` asks whether the NAME appears anywhere in the migrations, and
+fifteen tables have one. Ownership is the question that can fail.
+
+NOT OBSERVED FAILING: "the table-aware parse actually parsed", "every bill column the app writes
+by name exists ON THE BILL TABLE", and "the hand-swept columns are on the tables the application
+writes them to". All three were already true of this tree; they are asserted so the new parser
+carries its own parsed-something assertion (binding rule 3) and so the 12-Sep sweep is pinned with
+its owning table rather than by name alone.
+
+NOT OBSERVED FAILING: the reset script's own fix. `uxmyomxtosjlkvjxnvpy` is unreachable from the
+build container (no secret key, and the host is not in its egress allowlist), so the corrected
+delete loop has not been executed end to end. The predicate was verified against that database
+read-only instead: `where id is not null` parses on all six tables; `where created_at >=
+'1970-01-01'` still fails on `audit_entry` with 42703. The end-to-end proof is the next CI run.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (eighth) - the after-discount figure
 
 FAIL-FIRST: jalsa/tests/unit/discount-both-ways.unit.spec.ts (appended) - modelled against what the

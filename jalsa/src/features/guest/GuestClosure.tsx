@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { Card, Chip, FoodMark, Pill, SectionLabel, Skeleton } from '@/components/ui/atoms';
@@ -147,8 +148,8 @@ export function UpsellScreen(props: GuestScreenProps) {
       </SuccessNotice>
 
       <div>
-        <h2 className="text-[19px]">One last thing?</h2>
-        <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">
+        <h2 className="type-h3">One last thing?</h2>
+        <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
           Your bill is ready. Add a little something before you pay.
         </p>
       </div>
@@ -174,14 +175,14 @@ export function UpsellScreen(props: GuestScreenProps) {
               data-testid={`guest-upsell-tab-${t.key}`}
               onClick={() => setTab(t.key)}
               className={cn(
-                'flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-[11.5px] font-semibold leading-tight transition-colors',
+                'flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 type-caption font-semibold leading-tight transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
                 on
                   ? 'bg-[var(--primary)] text-[var(--on-primary)]'
                   : 'text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text-body)]'
               )}
             >
-              <span aria-hidden className="text-[16px] leading-none">
+              <span aria-hidden className="type-button leading-none">
                 {t.emoji}
               </span>
               <span className="text-center">{t.label}</span>
@@ -191,12 +192,12 @@ export function UpsellScreen(props: GuestScreenProps) {
       </div>
 
       <div>
-        <h3 className="m-0 text-[15px] font-semibold">{active.heading}</h3>
-        <p className="m-0 mt-0.5 text-[12px] text-[var(--text-muted)]">{active.sub}</p>
+        <h3 className="m-0 type-body font-semibold">{active.heading}</h3>
+        <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">{active.sub}</p>
       </div>
 
       {offers.length === 0 ? (
-        <p data-testid="guest-upsell-empty" className="m-0 text-[12.5px] text-[var(--text-muted)]">
+        <p data-testid="guest-upsell-empty" className="m-0 type-caption text-[var(--text-muted)]">
           Nothing here tonight — try the other {tabs.length === 3 ? 'two' : 'one'}.
         </p>
       ) : (
@@ -218,9 +219,9 @@ export function UpsellScreen(props: GuestScreenProps) {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <FoodMark type={o.foodType} />
-                    <span className="min-w-0 truncate text-[13px] font-semibold">{o.name}</span>
+                    <span className="min-w-0 truncate type-body font-semibold">{o.name}</span>
                   </span>
-                  <span className="mt-0.5 block text-[11.5px] leading-snug text-[var(--text-muted)]">
+                  <span className="mt-0.5 block type-caption leading-snug text-[var(--text-muted)]">
                     {o.description}
                   </span>
                   {active.packed ? (
@@ -229,7 +230,7 @@ export function UpsellScreen(props: GuestScreenProps) {
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[13px] font-bold tabular-nums">{o.priceLabel}</span>
+                <span className="type-body font-bold tabular-nums">{o.priceLabel}</span>
                 <Button
                   data-testid={`guest-upsell-add-${o.id}`}
                   size="icon"
@@ -340,10 +341,10 @@ export function TipScreen(props: GuestScreenProps) {
   return (
     <div className="flex flex-col gap-4 pt-2" data-testid="guest-tip">
       <div>
-        <h2 className="text-[19px]">
+        <h2 className="type-h3">
           {(data.copy.tipPrompt ?? 'Add a tip for {captain}?').replace('{captain}', data.captain || 'the team')}
         </h2>
-        <p className="m-0 mt-0.5 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-0.5 type-caption leading-relaxed text-[var(--text-muted)]">
           Goes to {data.captain ? `${data.captain} and ` : ''}the floor team, tracked apart from the
           restaurant&rsquo;s own takings.
         </p>
@@ -375,14 +376,14 @@ export function TipScreen(props: GuestScreenProps) {
 
       {editing ? (
         <div data-testid="guest-tip-custom-panel" className="flex flex-col gap-1.5">
-          <label htmlFor="guest-tip-custom-input" className="text-[12px] font-semibold">
+          <label htmlFor="guest-tip-custom-input" className="type-caption font-semibold">
             Custom tip
           </label>
           <div className="flex items-start gap-2">
             <div className="relative flex-1">
               <span
                 aria-hidden
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[14px] font-semibold text-[var(--text-muted)]"
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 type-body font-semibold text-[var(--text-muted)]"
               >
                 ₹
               </span>
@@ -417,7 +418,7 @@ export function TipScreen(props: GuestScreenProps) {
             </Button>
           </div>
           {problem ? (
-            <p data-testid="guest-tip-custom-problem" className="m-0 text-[11.5px] text-[var(--error)]" role="alert">
+            <p data-testid="guest-tip-custom-problem" className="m-0 type-caption text-[var(--error)]" role="alert">
               {problem}
             </p>
           ) : null}
@@ -468,12 +469,12 @@ export function PayingScreen({ data, go, send, runBusy, busy }: GuestScreenProps
     <div className="flex flex-col items-center gap-5 pt-10 text-center" data-testid="guest-paying">
       <Skeleton className="h-16 w-16 rounded-full" />
       <div>
-        <h2 className="text-[21px]">Waiting for your bank</h2>
-        <p className="m-0 mt-1 text-[13px] text-[var(--text-muted)]">
+        <h2 className="type-h2">Waiting for your bank</h2>
+        <p className="m-0 mt-1 type-body text-[var(--text-muted)]">
           Approve the request in your UPI app. This page updates itself.
         </p>
       </div>
-      <p className="m-0 max-w-[24em] rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12px] leading-relaxed text-[var(--on-warning-surface)]">
+      <p className="m-0 max-w-[24em] rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         Do not close this page. If the payment fails, nothing is charged and your bill stays open.
       </p>
 
@@ -487,7 +488,7 @@ export function PayingScreen({ data, go, send, runBusy, busy }: GuestScreenProps
       */}
       <div className="w-full max-w-[22rem] rounded-[var(--radius-lg)] border border-dashed border-[var(--border-strong)]/45 p-4">
         <SectionLabel>Payment provider not yet chosen</SectionLabel>
-        <p className="m-0 mb-3 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mb-3 type-caption leading-relaxed text-[var(--text-muted)]">
           These two buttons stand in for the gateway&rsquo;s answer. Everything either one leads to is real.
         </p>
         <div className="flex flex-col gap-2">
@@ -508,13 +509,15 @@ export function FailedScreen({ data, go }: GuestScreenProps) {
     <div className="flex flex-col items-center gap-5 pt-10 text-center" data-testid="guest-failed">
       <span
         aria-hidden
+        /* INTENTIONAL EXCEPTION — a glyph sized to its 64px circle, not to the reading
+           scale. See the exception list in scripts/check-typography.mjs. */
         className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--error-surface)] text-[26px] font-bold text-[var(--on-error-surface)]"
       >
         !
       </span>
       <div>
-        <h2 className="text-[21px]">That payment did not go through</h2>
-        <p className="m-0 mt-1 max-w-[26em] text-[13px] leading-relaxed text-[var(--text-muted)]">
+        <h2 className="type-h2">That payment did not go through</h2>
+        <p className="m-0 mt-1 max-w-[26em] type-body leading-relaxed text-[var(--text-muted)]">
           Nothing was charged. Your bill is still open at <strong>{data.payableLabel}</strong> and your table is still
           yours.
         </p>
@@ -538,20 +541,33 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
   const toast = useToast();
   const settled = data.billStatus === 'closed';
 
+  /* The last dish that actually reached the table, priced from the live menu rather than from
+     the bill line — a parcel is a NEW order at today's price, and quoting the historic one
+     would under- or over-charge by exactly the amount the menu moved. */
+  const lovedDish = React.useMemo(() => {
+    const served = data.rounds.flatMap((r) => r.items).filter((i) => i.servable);
+    const last = served[served.length - 1];
+    if (!last) return null;
+    const onMenu = data.menu.find((m) => m.name === last.name && m.available);
+    return { name: last.name, priceLabel: onMenu?.priceLabel ?? '' };
+  }, [data.rounds, data.menu]);
+
   return (
     <div className="flex flex-col items-center gap-5 pt-8 text-center" data-testid="guest-paid">
       <span
         aria-hidden
+        /* INTENTIONAL EXCEPTION — a glyph sized to its 64px circle, not to the reading
+           scale. See the exception list in scripts/check-typography.mjs. */
         className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--success-surface)] text-[26px]"
       >
         ✓
       </span>
 
       <div>
-        <h2 className="text-[21px]">
+        <h2 className="type-h2">
           {settled ? `${data.copy.paidHeading ?? 'Paid'} · ${data.payableLabel}` : 'Thank you'}
         </h2>
-        <p className="m-0 mt-1 max-w-[26em] text-[13px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-1 max-w-[26em] type-body leading-relaxed text-[var(--text-muted)]">
           {settled
             ? `${data.paymentMode ?? 'Payment'} at ${data.paidAt ?? 'closing'}${
                 data.tipChosen > 0 ? ` · ${rupees(data.tipChosen)} tip to ${data.captain || 'the floor team'}` : ''
@@ -562,6 +578,41 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
               `Your bank approved it. ${data.captain || 'Your captain'} records the closure at the counter — you will see the receipt here the moment they do.`}
         </p>
       </div>
+
+      {/* "Take the one you loved home" — the design set's parcel card, on the screen where the
+          meal is over and the guest is still at the table. It offers a dish from THIS bill: the
+          heart on the order list is component state and is gone by now, so "the one you loved"
+          cannot be recovered, and inventing a favourite would be a guess presented as memory.
+          The last thing served is the honest stand-in — it is the taste still in their mouth.
+          Gated on `takeaway`, the same switch the Share the Love upsell tab answers to: an
+          offer the kitchen cannot honour is worse than no offer (Standard 2.4). */}
+      {data.features.takeaway && lovedDish ? (
+        <Card className="w-full text-left" data-testid="guest-loved-card">
+          <SectionLabel>Take the one you loved home</SectionLabel>
+          <p className="m-0 mb-3 type-body">
+            <span className="font-semibold">{lovedDish.name}</span> · parcel
+            {lovedDish.priceLabel ? (
+              <span className="block type-caption text-[var(--text-muted)]">
+                {lovedDish.priceLabel} · billed separately as a takeaway
+              </span>
+            ) : null}
+          </p>
+          <Button
+            data-testid="guest-loved-add"
+            disabled={busy}
+            onClick={() =>
+              runBusy(async () => {
+                await send('/api/guest/ask', { kind: 'Parcel a favourite', note: lovedDish.name });
+                toast.show(`${lovedDish.name} parcel asked for — billed separately as a takeaway`, {
+                  tone: 'success',
+                });
+              })
+            }
+          >
+            Add a parcel
+          </Button>
+        </Card>
+      ) : null}
 
       {data.features.whatsapp ? (
         <Button
@@ -580,7 +631,7 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
       {data.features.review && data.reviewUrl ? (
         <Card className="w-full text-left">
           <SectionLabel>{data.copy.reviewHeading ?? 'Loved it? Tell Google'}</SectionLabel>
-          <p className="m-0 mb-3 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          <p className="m-0 mb-3 type-caption leading-relaxed text-[var(--text-muted)]">
             {data.copy.reviewSub ?? 'A photo from tonight helps more than words'}
           </p>
           <Button data-testid="guest-review" asChild>
@@ -611,13 +662,25 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
 }
 
 export function InvoiceScreen({ data }: GuestScreenProps) {
+  const toast = useToast();
   const lines = data.rounds.flatMap((r) => r.items.map((i) => ({ ...i, code: r.code })));
 
   return (
     <div className="flex flex-col gap-4 pb-6" data-testid="guest-invoice">
-      <div className="text-center">
-        <h2 className="text-[19px]">{data.restaurantName}</h2>
-        <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-muted)]">
+      {/* The badge heads the bill, as it does on the design set's invoice artboard and on every
+          printed document. It is the same authoritative mark as the root page — see the note in
+          src/app/page.tsx — and it carries its own maroon field, so it needs no theme pair. */}
+      <div className="flex flex-col items-center text-center">
+        <Image
+          src="/brand/jalsa-badge.png"
+          alt=""
+          aria-hidden
+          width={44}
+          height={44}
+          className="mb-2 rounded-[var(--radius-md)]"
+        />
+        <h2 className="type-h3">{data.restaurantName}</h2>
+        <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
           Table {data.table.name} · {data.billCode ?? '—'}
           {data.paidAt ? ` · ${data.paidAt}` : ''}
           {data.captain ? ` · ${data.captain}` : ''}
@@ -627,10 +690,13 @@ export function InvoiceScreen({ data }: GuestScreenProps) {
       <Card>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {lines.map((l) => (
-            <li key={l.id} className="flex items-center gap-2.5 text-[12.5px]">
+            <li key={l.id} className="flex items-center gap-2.5 type-caption">
               <FoodMark type={l.foodType} size={11} />
               <span className="min-w-0 flex-1 truncate">{l.name}</span>
-              <span className="tabular-nums text-[var(--text-muted)]">×{l.qty}</span>
+              <span className="shrink-0 tabular-nums text-[var(--text-muted)]">×{l.qty}</span>
+              {/* The amount. Without it this screen could be read but not CHECKED, which is the
+                  one thing a guest opens a bill to do. */}
+              <span className="w-[4.5rem] shrink-0 text-right tabular-nums font-semibold">{l.lineLabel}</span>
             </li>
           ))}
         </ul>
@@ -639,10 +705,25 @@ export function InvoiceScreen({ data }: GuestScreenProps) {
         </div>
       </Card>
 
-      <p className="m-0 px-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 px-1 type-caption leading-relaxed text-[var(--text-muted)]">
         GST is charged at {data.taxRate}% and shown as its own line. A tip is not restaurant income and is paid to the
         floor team in full.
       </p>
+
+      {/* The design puts Send to WhatsApp and Back under the invoice. Back is already the
+          header's ‹ on this phase (backTarget: invoice -> paid), and a second one would be a
+          second idiom for the same move, so only the send action is added here. The string is
+          the one PaidScreen already ships — the freeze rule: a new surface adopts the existing
+          words rather than inventing a synonym. */}
+      {data.features.whatsapp ? (
+        <Button
+          data-testid="guest-invoice-whatsapp"
+          variant="secondary"
+          onClick={() => toast.show('Ask your captain for the bill on WhatsApp — the provider is not connected yet.')}
+        >
+          Send the bill to WhatsApp
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,5 @@
+# PWA INSTALLABILITY BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# Each entry is a way this application is NOT installable. Add a reason beside any you keep.
+# Regenerate: node scripts/audits/check-pwa-baseline.mjs --write-baseline
+# Generated: 2026-09-16 - 0 entries

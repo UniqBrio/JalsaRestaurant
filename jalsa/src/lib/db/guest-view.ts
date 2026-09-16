@@ -44,7 +44,24 @@ export interface GuestRound {
   status: KotStatus;
   statusWord: string;
   tone: string;
-  items: Array<{ id: string; name: string; qty: number; foodType: FoodType; servable: boolean }>;
+  /**
+   * `lineLabel` is qty x unit price, already formatted.
+   *
+   * It exists for the invoice, which is the one screen a guest is asked to CHECK. The design
+   * set's invoice row is name / qty / amount; this payload carried only name and qty, so the
+   * bill could be read but not verified — a guest could see "Paneer Tikka x2" and the payable
+   * at the bottom and had no way to connect them. Formatted here, beside every other money
+   * string, rather than by the screen: `rupees()` is one idiom and the invoice is not the place
+   * to grow a second.
+   */
+  items: Array<{
+    id: string;
+    name: string;
+    qty: number;
+    foodType: FoodType;
+    servable: boolean;
+    lineLabel: string;
+  }>;
 }
 
 export interface GuestPayload {
@@ -84,12 +101,45 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const timeLabel = (iso: string): string =>
   new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
 
+/**
+ * The payload for a table, resolving the guest session from scratch.
+ *
+ * This is the entry point for the two callers that genuinely have nothing but a table name: the
+ * first render of `/t/[table]`, and the poll at `/api/guest/state`. Both may need a session
+ * CREATED, so both must go through `resolveGuest`.
+ */
 export async function buildGuestPayload(tableName: string): Promise<GuestPayload | null> {
   const ctx = await resolveGuest(tableName);
   if (!ctx) return null;
+  return assembleGuestPayload(ctx);
+}
 
-  const [{ items, categories }, settings] = await Promise.all([listMenu(), readAllSettings()]);
-  const cart = ctx.sessionId ? await readCart(ctx.sessionId) : [];
+/**
+ * The payload, from a context that is already resolved.
+ *
+ * SPLIT OUT, NEVER COPIED. A write route answering with the new state (`db/guest-echo.ts`) knows
+ * its session already — the route looked it up to authorise the write — and re-resolving it cost
+ * eight round trips to a database in another region, of which six re-read rows the route was
+ * holding. The fix is for that path to build the CONTEXT differently, not to assemble the payload
+ * differently: a second assembler would be a second answer to "what does this guest see", and the
+ * two would drift with the first field either one forgot.
+ *
+ * So there is exactly one body below, and both entry points end here.
+ */
+export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayload> {
+  /**
+   * THE CART IS NOT DOWNSTREAM OF THE MENU.
+   *
+   * `readCart` needs `ctx.sessionId` and nothing else — it was serialised after the menu and the
+   * settings only because it is written on the next line. Everything that joins them (`cartQty`,
+   * `cartLines`) is in-memory work below. So all three are issued together, and a payload build
+   * costs one wave rather than two.
+   */
+  const [{ items, categories }, settings, cart] = await Promise.all([
+    listMenu(),
+    readAllSettings(),
+    ctx.sessionId ? readCart(ctx.sessionId) : Promise.resolve([]),
+  ]);
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));
 
   const copy = (settings.copy ?? {}) as Record<string, string>;
@@ -144,6 +194,10 @@ export async function buildGuestPayload(tableName: string): Promise<GuestPayload
         // The heart unlocks on SERVED and nothing earlier. That is the whole point of the
         // waiter's tap: it is the one moment somebody confirmed the food is on the table.
         servable: k.status === 'served',
+        // The unit price is what the round was placed at, not today's menu price — a bill has
+        // to reconcile to what was charged, and a dish repriced mid-evening would otherwise
+        // make every earlier invoice wrong.
+        lineLabel: rupees(i.unitPrice * i.qty),
       })),
   }));
 

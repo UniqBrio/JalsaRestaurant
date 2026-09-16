@@ -108,10 +108,10 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                 )}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="text-[14px] font-bold">{b.tables.join(', ')}</span>
-                  <span className="text-[13px] font-bold tabular-nums">{b.payableLabel}</span>
+                  <span className="type-body font-bold">{b.tables.join(', ')}</span>
+                  <span className="type-body font-bold tabular-nums">{b.payableLabel}</span>
                 </span>
-                <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+                <span className="mt-0.5 flex flex-wrap items-center gap-1.5 type-caption text-[var(--text-muted)]">
                   {b.code} · {b.spine.captain} · {b.kots.length === 1 ? '1 round' : `${b.kots.length} rounds`} ·{' '}
                   {b.openedAt}
                   <Pill tone={b.tone}>{b.statusLabel}</Pill>
@@ -192,7 +192,7 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                       }}
                     >
                       <span>{p.name}</span>
-                      <span className="text-[11.5px] font-normal opacity-70">{p.role}</span>
+                      <span className="type-caption font-normal opacity-70">{p.role}</span>
                     </Button>
                   </li>
                 ))}
@@ -200,14 +200,14 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
           </Sheet>
 
           {selected.groupCode ? (
-            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 text-[12px] text-[var(--on-info-surface)]">
+            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 type-caption text-[var(--on-info-surface)]">
               {selected.groupCode} — one bill across {selected.tables.length} tables. Each keeps its own code and
               orders on its own phone; every round carries the table it came from.
             </p>
           ) : null}
 
           {selected.occasion ? (
-            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-4 py-2.5 text-[12px] font-semibold text-[var(--on-primary-surface)]">
+            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-4 py-2.5 type-caption font-semibold text-[var(--on-primary-surface)]">
               🎂 {selected.occasion}
             </p>
           ) : null}
@@ -219,7 +219,7 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                 <li key={k.id}>
                   <Card>
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-[12.5px] font-bold">
+                      <span className="type-caption font-bold">
                         {k.code} <span className="font-normal text-[var(--text-muted)]">· {k.placedAt}</span>
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -229,14 +229,14 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                         <Pill tone={k.tone}>{k.statusLabel}</Pill>
                       </div>
                     </div>
-                    <p className="m-0 mt-0.5 text-[11px] text-[var(--text-muted)]">
+                    <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
                       From table {k.fromTable} ·{' '}
                       {k.printStatus === 'printed' ? 'printed to the kitchen' : 'not printed'}
                     </p>
 
                     <ul className="m-0 mt-2.5 flex list-none flex-col gap-1.5 p-0">
                       {k.items.map((i) => (
-                        <li key={i.id} className="flex items-center gap-2.5 text-[12.5px]">
+                        <li key={i.id} className="flex items-center gap-2.5 type-caption">
                           <FoodMark type={i.foodType} />
                           <span
                             className={cn(

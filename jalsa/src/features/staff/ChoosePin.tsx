@@ -124,11 +124,11 @@ export function ChoosePin({ name }: { name: string }) {
       data-step={step}
     >
       <div className="text-center">
-        <p className="m-0 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
+        <p className="m-0 type-eyebrow font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
           Step {step === 'current' ? '1' : step === 'next' ? '2' : '3'} of 3
         </p>
-        <h1 className="mt-1.5 text-[21px]">{heading}</h1>
-        <p className="m-0 mt-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{note}</p>
+        <h1 className="mt-1.5 type-h2">{heading}</h1>
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">{note}</p>
       </div>
 
       {/* The real control. This screen shipped with the keypad and NOTHING else, so a phone's
@@ -193,7 +193,7 @@ export function ChoosePin({ name }: { name: string }) {
               disabled={busy}
               onClick={() => press(k)}
               aria-label={k === '⌫' ? 'Delete the last digit' : k}
-              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] text-[22px] font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] disabled:opacity-45"
+              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] type-h2 font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] disabled:opacity-45"
             >
               {k}
             </button>
@@ -201,7 +201,7 @@ export function ChoosePin({ name }: { name: string }) {
         )}
       </div>
 
-      <p className="m-0 text-center text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 text-center type-caption leading-relaxed text-[var(--text-muted)]">
         {busy ? 'Saving…' : 'Nobody can see this, including Javeed. If you forget it, he issues a new one.'}
       </p>
 

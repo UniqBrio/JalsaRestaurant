@@ -17,12 +17,12 @@ export default function Offline() {
       className="mx-auto flex min-h-dvh w-full max-w-[26rem] flex-col justify-center gap-4 px-6 text-center"
       data-testid="offline-page"
     >
-      <h1 className="text-[22px] font-semibold">No signal right now</h1>
-      <p className="m-0 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <h1 className="type-h2 font-semibold">No signal right now</h1>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
         Your phone cannot reach us at the moment, so this page could not load. Nothing is lost — your table and your
         bill are held on our side, not on your phone.
       </p>
-      <p className="m-0 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
         If you were sending a round, we cannot tell from here whether it arrived. When the signal comes back, reopen
         the code on your table and your order will be there. In a hurry, your captain is quicker than the wifi.
       </p>
@@ -34,7 +34,7 @@ export default function Offline() {
         data-testid="offline-retry"
         href="/"
 
-        className="mx-auto mt-2 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--primary)] px-6 text-[14px] font-semibold text-[var(--on-primary)]"
+        className="mx-auto mt-2 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--primary)] px-6 type-body font-semibold text-[var(--on-primary)]"
       >
         Try again
       </a>

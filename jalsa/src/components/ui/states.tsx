@@ -26,11 +26,11 @@ function Frame({ children, className, testId }: { children: React.ReactNode; cla
 }
 
 function Title({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-[16px] font-semibold">{children}</h3>;
+  return <h3 className="type-h3">{children}</h3>;
 }
 
 function Note({ children }: { children: React.ReactNode }) {
-  return <p className="m-0 max-w-[34em] text-[13px] leading-relaxed text-[var(--text-muted)]">{children}</p>;
+  return <p className="m-0 max-w-[34em] type-body leading-relaxed text-[var(--text-muted)]">{children}</p>;
 }
 
 /** Nothing exists yet. Says what will appear here, and offers the action that fills it. */
@@ -112,7 +112,7 @@ export function ErrorState({
     <Frame testId={testId}>
       <span
         aria-hidden
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--error-surface)] text-[20px] font-bold text-[var(--on-error-surface)]"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--error-surface)] type-h3 font-bold text-[var(--on-error-surface)]"
       >
         !
       </span>
@@ -175,7 +175,7 @@ export function OfflineBanner() {
     <div
       role="status"
       data-testid="offline-banner"
-      className="sticky top-0 z-40 bg-[var(--warning-surface)] px-4 py-2 text-center text-[12px] font-semibold text-[var(--on-warning-surface)]"
+      className="sticky top-0 z-40 bg-[var(--warning-surface)] px-4 py-2 text-center type-caption font-semibold text-[var(--on-warning-surface)]"
     >
       No signal right now. You can still read this page — anything you send will wait until it comes back.
     </div>
@@ -191,7 +191,7 @@ export function PartialNotice({ children, testId }: { children: React.ReactNode;
     <div
       role="status"
       data-testid={testId}
-      className="rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12.5px] leading-relaxed text-[var(--on-warning-surface)]"
+      className="rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]"
     >
       {children}
     </div>
@@ -204,7 +204,7 @@ export function SuccessNotice({ children, testId }: { children: React.ReactNode;
     <div
       role="status"
       data-testid={testId}
-      className="rounded-[var(--radius-md)] bg-[var(--success-surface)] px-4 py-3 text-[12.5px] leading-relaxed text-[var(--on-success-surface)]"
+      className="rounded-[var(--radius-md)] bg-[var(--success-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-success-surface)]"
     >
       {children}
     </div>
@@ -224,7 +224,7 @@ export function NotConfiguredState({ problem }: { problem: string }) {
         The application is deployed but one or more environment variables are missing, so it has nothing to read. This
         is a setup step, not a fault — no data has been lost.
       </Note>
-      <pre className="max-w-full overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 text-left text-[11.5px] leading-relaxed text-[var(--text-body)]">
+      <pre className="max-w-full overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 text-left type-caption leading-relaxed text-[var(--text-body)]">
         {problem}
       </pre>
       <Note>
@@ -266,7 +266,7 @@ export function UnreachableState({ surface, detail }: { surface: 'guest' | 'staf
       <Title>We cannot reach the till just now</Title>
       <Note>{note}</Note>
       {detail ? (
-        <pre className="max-w-full overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 text-left text-[11.5px] leading-relaxed text-[var(--text-body)]">
+        <pre className="max-w-full overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 text-left type-caption leading-relaxed text-[var(--text-body)]">
           {detail}
         </pre>
       ) : null}

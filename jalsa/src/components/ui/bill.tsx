@@ -54,8 +54,8 @@ export function IdentitySpine({
     >
       {rows.map(([label, value]) => (
         <div key={label} className="min-w-0">
-          <dt className="text-[9.5px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">{label}</dt>
-          <dd className="m-0 truncate text-[13px] font-semibold text-[var(--text-body)]">{value || '—'}</dd>
+          <dt className="type-eyebrow tracking-[0.1em] text-[var(--text-muted)]">{label}</dt>
+          <dd className="m-0 truncate type-body font-semibold text-[var(--text-body)]">{value || '—'}</dd>
         </div>
       ))}
     </dl>
@@ -86,14 +86,14 @@ export function TotalsBlock({
             className={cn(
               'flex items-baseline justify-between gap-4',
               r.emphasis
-                ? 'mt-1.5 border-t border-[var(--border)] pt-2.5 text-[15px] font-bold'
-                : 'text-[12.5px] text-[var(--text-muted)]'
+                ? 'mt-1.5 border-t border-[var(--border)] pt-2.5 type-button font-bold'
+                : 'type-caption text-[var(--text-muted)]'
             )}
           >
             <span>{r.label}</span>
             <span className={cn('tabular-nums', r.emphasis && 'text-[var(--text-body)]')}>{r.value}</span>
           </div>
-          {r.note ? <p className="m-0 mt-0.5 text-[11px] leading-snug text-[var(--text-muted)]">{r.note}</p> : null}
+          {r.note ? <p className="m-0 mt-0.5 type-caption leading-snug text-[var(--text-muted)]">{r.note}</p> : null}
         </div>
       ))}
     </div>
@@ -109,9 +109,9 @@ export function TotalsBlock({
 export function PayableSummary({ totals, className }: { totals: BillTotals; className?: string }) {
   return (
     <span className={cn('inline-flex items-baseline gap-1.5', className)}>
-      <span className="text-[14px] font-bold tabular-nums">{rupees(totals.payable)}</span>
+      <span className="type-body font-bold tabular-nums">{rupees(totals.payable)}</span>
       {totals.tip > 0 ? (
-        <span className="text-[11px] text-[var(--text-muted)]">incl. {rupees(totals.tip)} tip</span>
+        <span className="type-caption text-[var(--text-muted)]">incl. {rupees(totals.tip)} tip</span>
       ) : null}
     </span>
   );

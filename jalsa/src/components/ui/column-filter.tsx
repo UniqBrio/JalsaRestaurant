@@ -115,7 +115,7 @@ export function OptionsFilterBody({
             aria-pressed={on}
             onClick={() => onChange(on ? chosen.filter((c) => c !== o) : [...chosen, o])}
             className={cn(
-              'flex min-h-9 items-center justify-between gap-2 rounded-[var(--radius-sm)] px-2 text-left text-[12.5px] transition-colors',
+              'flex min-h-9 items-center justify-between gap-2 rounded-[var(--radius-sm)] px-2 text-left type-caption transition-colors',
               'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--border-focus)]',
               on
                 ? 'bg-[var(--primary-surface)] font-semibold text-[var(--on-primary-surface)]'
@@ -190,7 +190,7 @@ export function RangeFilterBody({
         value={min === undefined ? '' : String(min)}
         onChange={(e) => onChange(bounds(read(e.target.value), max))}
       />
-      <span aria-hidden className="text-[12px] text-[var(--text-muted)]">
+      <span aria-hidden className="type-caption text-[var(--text-muted)]">
         to
       </span>
       <Input

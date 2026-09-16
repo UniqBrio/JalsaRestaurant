@@ -150,6 +150,110 @@ h6 {
   letter-spacing: -0.01em;
 }
 
+/* --- Typography: the nine named roles ----------------------------------
+ *
+ * WHY NAMED ROLES AND NOT LITERALS
+ *   The screens carried 298 hand-written `text-[Npx]` values in 22 distinct sizes. That is a
+ *   type system — it was simply never named, so nothing could hold it together and every new
+ *   component invented its own twenty-third size. These classes name the six steps the design
+ *   approved, plus the three families that are deliberately NOT on the scale, and they read
+ *   their values from design/tokens.json through the generated variables. There is no second
+ *   source of truth and no literal below.
+ *
+ * DENSITY, NOT DEVICE (Reusable Design Standard 10.2)
+ *   Consumer surfaces stay light and readable; administrative surfaces may go denser. That
+ *   applies to BODY AND CAPTION ONLY — headings and controls are identical everywhere, because
+ *   a heading that shrinks on the console is a different design, not a denser one. A surface
+ *   opts in once, on its shell, with `data-density="dense"`; nothing opts in per element.
+ *
+ * THE THREE OFF-SCALE ROLES ARE NAMED, NOT ANONYMOUS
+ *   An eyebrow set in small caps with 0.11em tracking reads larger than its px suggests; a
+ *   metric is a figure, not a heading; a badge count lives inside a 16px pill. Each is a real
+ *   role with a reason, so each gets a name. What is forbidden is the unexplained literal.
+ *   rung: jalsa/scripts/check-typography.mjs
+ *
+ * WHY @layer components
+ *   Tailwind's utilities live in a later layer, so a component can still override ONE
+ *   property — `leading-none` on a pill, `font-bold` on a total — without fighting
+ *   specificity or abandoning the token for the other three.
+ */
+
+@layer components {
+  .type-h1 {
+    font-family: var(--font-heading), Poppins, system-ui, sans-serif;
+    font-size: var(--font-size-h1);
+    line-height: var(--line-height-h1);
+    font-weight: var(--font-weight-heading);
+  }
+
+  .type-h2 {
+    font-family: var(--font-heading), Poppins, system-ui, sans-serif;
+    font-size: var(--font-size-h2);
+    line-height: var(--line-height-h2);
+    font-weight: var(--font-weight-subheading);
+  }
+
+  .type-h3 {
+    font-family: var(--font-heading), Poppins, system-ui, sans-serif;
+    font-size: var(--font-size-h3);
+    line-height: var(--line-height-h3);
+    font-weight: var(--font-weight-subheading);
+  }
+
+  .type-body {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+  }
+
+  .type-caption {
+    font-size: var(--font-size-caption);
+    line-height: var(--line-height-caption);
+  }
+
+  .type-button {
+    font-size: var(--font-size-button);
+    line-height: var(--line-height-button);
+    font-weight: var(--font-weight-medium);
+  }
+
+  /* The density tier. Body and caption only — see the note above. */
+  [data-density='dense'] .type-body {
+    font-size: var(--font-size-body-dense);
+    line-height: var(--line-height-body-dense);
+  }
+
+  [data-density='dense'] .type-caption {
+    font-size: var(--font-size-caption-dense);
+    line-height: var(--line-height-caption-dense);
+  }
+
+  /* Off-scale role 1 — the eyebrow. Small caps with tracking, above a section or a bill field.
+   * Its optical size is larger than its px, which is why it sits below the caption step. */
+  .type-eyebrow {
+    font-size: var(--font-size-eyebrow);
+    line-height: var(--line-height-eyebrow);
+    font-weight: var(--font-weight-heading);
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+  }
+
+  /* Off-scale role 2 — a figure the eye lands on: a dashboard KPI, an issued PIN. Tabular by
+   * definition, and sized to its container rather than to the reading scale. */
+  .type-metric {
+    font-size: var(--font-size-metric);
+    line-height: 1;
+    font-weight: var(--font-weight-heading);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Off-scale role 3 — a count inside a pill. Bounded by the pill, not by the scale. */
+  .type-badge {
+    font-size: var(--font-size-badge);
+    line-height: 1rem;
+    font-weight: var(--font-weight-heading);
+  }
+}
+
 /* Interaction states are themed once, here, and inherited everywhere — never a browser
  * default. Reusable Design Standard 10.6. */
 :focus-visible {

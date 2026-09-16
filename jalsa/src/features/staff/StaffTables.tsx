@@ -82,18 +82,18 @@ export function FloorScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
                 )}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="text-[17px] font-bold">{t.name}</span>
-                  <span aria-hidden className="text-[13px]">
+                  <span className="type-h3 font-bold">{t.name}</span>
+                  <span aria-hidden className="type-body">
                     {t.openRequests > 0 ? '🔔' : t.hasOccasion ? '🎂' : t.groupCode ? '◆' : ''}
                   </span>
                 </span>
-                <span className="text-[11.5px] font-semibold">{t.stateLabel}</span>
-                <span className="text-[11px] opacity-80">
+                <span className="type-caption font-semibold">{t.stateLabel}</span>
+                <span className="type-caption opacity-80">
                   {t.groupCode
                     ? `${t.groupCode} · ${t.guests} guests`
                     : `${t.guests} guests · ${t.roundCount === 1 ? '1 round' : `${t.roundCount} rounds`}`}
                 </span>
-                <span className="mt-auto pt-1 text-[13px] font-bold tabular-nums">
+                <span className="mt-auto pt-1 type-body font-bold tabular-nums">
                   {data.isWaiter
                     ? t.readyCount > 0
                       ? `${t.readyCount} to run`
@@ -148,13 +148,13 @@ export function FloorScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
           </>
         }
       >
-        <p className="m-0 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Anything that phone had chosen and not sent is discarded, and the next scan starts fresh. If a round has
           already gone to the kitchen this will be refused — that is a payment or a void, not a floor operation.
         </p>
       </Sheet>
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Amber means the kitchen has work, green means a round is ready. A bell is an unanswered request, ◆ a grouped
         bill, 🎂 an occasion.
       </p>
@@ -166,7 +166,7 @@ export function FloorScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
             {free.map((t) => (
               <span
                 key={t.id}
-                className="rounded-full bg-[var(--surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--text-muted)] shadow-[var(--shadow-card)]"
+                className="rounded-full bg-[var(--surface)] px-3 py-1.5 type-caption font-semibold text-[var(--text-muted)] shadow-[var(--shadow-card)]"
               >
                 {t.name} · {t.seats}
               </span>
@@ -242,14 +242,14 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
       <IdentitySpine fields={bill.spine} />
 
       {bill.groupCode ? (
-        <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 text-[12px] leading-relaxed text-[var(--on-info-surface)]">
+        <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 type-caption leading-relaxed text-[var(--on-info-surface)]">
           One bill across {bill.tables.length} tables — {bill.tables.join(', ')} · host {bill.hostTable}. Every round
           is still its own ticket, tagged with the table it came from.
         </p>
       ) : null}
 
       {bill.occasion ? (
-        <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-4 py-2.5 text-[12px] font-semibold text-[var(--on-primary-surface)]">
+        <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-4 py-2.5 type-caption font-semibold text-[var(--on-primary-surface)]">
           🎂 {bill.occasion} — bring the dessert with a candle at the end
         </p>
       ) : null}
@@ -261,7 +261,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             <li key={k.id}>
               <Card>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[12.5px] font-bold">
+                  <span className="type-caption font-bold">
                     {k.code} <span className="font-normal text-[var(--text-muted)]">· {k.placedAt}</span>
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -274,7 +274,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                     <Pill tone={k.tone}>{k.statusWord}</Pill>
                   </div>
                 </div>
-                <p className="m-0 mt-1 text-[11px] text-[var(--text-muted)]">
+                <p className="m-0 mt-1 type-caption text-[var(--text-muted)]">
                   {bill.groupCode ? `from Table ${k.fromTable} · ` : ''}
                   {k.source === 'guest' ? 'guest phone' : k.placedBy} ·{' '}
                   {k.printStatus === 'printed' ? 'printed to kitchen' : 'not printed'}
@@ -286,19 +286,19 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                       <FoodMark type={i.foodType} />
                       <span
                         className={cn(
-                          'min-w-0 flex-1 truncate text-[13px]',
+                          'min-w-0 flex-1 truncate type-body',
                           i.cancelled && 'text-[var(--text-muted)] line-through'
                         )}
                       >
                         {i.name}
                         {i.cancelled ? (
-                          <span className="ml-1.5 text-[11px] no-underline">— {i.cancelReason.toLowerCase()}</span>
+                          <span className="ml-1.5 type-caption no-underline">— {i.cancelReason.toLowerCase()}</span>
                         ) : null}
                       </span>
-                      <span className="text-[12.5px] tabular-nums text-[var(--text-muted)]">
+                      <span className="type-caption tabular-nums text-[var(--text-muted)]">
                         ×{i.qty}
                         {i.qtyBefore !== null && i.qtyBefore !== i.qty ? (
-                          <span className="ml-1 text-[10.5px]">(was {i.qtyBefore})</span>
+                          <span className="ml-1 type-caption">(was {i.qtyBefore})</span>
                         ) : null}
                       </span>
                       {!i.cancelled && canEdit ? (
@@ -380,7 +380,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
         </Card>
       ) : (
         <p
-          className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 text-[12px] leading-relaxed text-[var(--text-muted)]"
+          className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 type-caption leading-relaxed text-[var(--text-muted)]"
           data-testid="staff-money-hidden"
         >
           Bill amounts are hidden for waiters. {bill.spine.captain} or Javeed closes the bill.
@@ -442,7 +442,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
               testIdPrefix="staff-qty-step"
               label={qtyTarget.name}
             />
-            <p className="m-0 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
+            <p className="m-0 text-center type-caption leading-relaxed text-[var(--text-muted)]">
               {qtyTarget.started
                 ? 'The kitchen has started this round. Changing it reprints the ticket with the change marked, and Javeed sees it in the audit log.'
                 : 'The kitchen has not started. The ticket reprints cleanly with your name on the change.'}
@@ -470,7 +470,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
               </p>
               <p
                 className={cn(
-                  'm-0 mt-2 rounded-[var(--radius-md)] px-3 py-2.5 text-[12.5px] leading-relaxed',
+                  'm-0 mt-2 rounded-[var(--radius-md)] px-3 py-2.5 type-caption leading-relaxed',
                   cancelTarget.started
                     ? 'bg-[var(--warning-surface)] text-[var(--on-warning-surface)]'
                     : // Neutral, not green. Green is this application's word for "this is fine",
@@ -595,7 +595,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             />
           </Field>
 
-          <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+          <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
             Recorded against your name. Javeed sees it on his dashboard immediately, the tip posts to its own ledger,
             and every table on this bill is freed at once.
           </p>
@@ -671,8 +671,8 @@ export function AddItemsScreen({ data, go, selectedBillId, send, runBusy, busy }
               <Card className={cn('flex items-center gap-3 p-3', !m.available && 'opacity-60')}>
                 <FoodMark type={m.foodType} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-semibold">{m.name}</span>
-                  <span className="block text-[11.5px] text-[var(--text-muted)]">
+                  <span className="block truncate type-body font-semibold">{m.name}</span>
+                  <span className="block type-caption text-[var(--text-muted)]">
                     {m.available ? `${m.category} · ${m.priceLabel}` : 'Out of stock — off the customer menu'}
                   </span>
                 </span>

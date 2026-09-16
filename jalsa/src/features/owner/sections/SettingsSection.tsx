@@ -24,7 +24,8 @@ import type { OwnerSectionProps } from '../OwnerConsole';
  * support ticket the day the business changes (Standard 2.x).
  */
 
-type Panel = 'hours' | 'identity' | 'tax' | 'invoice' | 'tables' | 'features' | 'copy' | 'printers';
+type Panel =
+  'hours' | 'identity' | 'tax' | 'invoice' | 'tables' | 'features' | 'copy' | 'replies' | 'engage' | 'printers';
 
 const PANELS: Array<{ key: Panel; label: string; permission: string }> = [
   { key: 'hours', label: 'Opening hours', permission: 'set.hours' },
@@ -34,6 +35,12 @@ const PANELS: Array<{ key: Panel; label: string; permission: string }> = [
   { key: 'tables', label: 'Tables & QR', permission: 'set.tables' },
   { key: 'features', label: 'What the customer sees', permission: 'set.features' },
   { key: 'copy', label: 'Words the guest sees', permission: 'set.copy' },
+  // The two the design set has and this console did not. Neither needed a schema change:
+  // writeSetting already routed `replies` to set.copy and `engagement` to set.review, and
+  // guest-view already READ engagement.reviewUrl and engagement.callNumber. The guest's Call
+  // button and review link were therefore configurable by everything except a person.
+  { key: 'replies', label: 'Replies to suggestions', permission: 'set.copy' },
+  { key: 'engage', label: 'Customer engagement', permission: 'set.review' },
   { key: 'printers', label: 'Printers', permission: 'set.printer' },
 ];
 
@@ -67,6 +74,8 @@ export function SettingsSection(props: OwnerSectionProps) {
       {panel === 'tables' ? <TablesPanel {...props} /> : null}
       {panel === 'features' ? <FeaturesPanel {...props} /> : null}
       {panel === 'copy' ? <CopyPanel {...props} /> : null}
+      {panel === 'replies' ? <RepliesPanel {...props} /> : null}
+      {panel === 'engage' ? <EngagementPanel {...props} /> : null}
       {panel === 'printers' ? <PrintersPanel {...props} /> : null}
     </div>
   );
@@ -102,7 +111,7 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {days.map((d, i) => (
           <li key={d.day} className="flex flex-wrap items-center gap-2">
-            <span className="w-24 text-[13px] font-semibold">{d.day}</span>
+            <span className="w-24 type-body font-semibold">{d.day}</span>
             <Input
               type="time"
               value={d.open}
@@ -112,7 +121,7 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               data-testid={`owner-hours-open-${d.day}`}
               className="w-32"
             />
-            <span className="text-[12px] text-[var(--text-muted)]">to</span>
+            <span className="type-caption text-[var(--text-muted)]">to</span>
             <Input
               type="time"
               value={d.close}
@@ -122,7 +131,7 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               data-testid={`owner-hours-close-${d.day}`}
               className="w-32"
             />
-            <label className="flex min-h-11 items-center gap-2 text-[12px]">
+            <label className="flex min-h-11 items-center gap-2 type-caption">
               <input
                 data-testid={`owner-hours-shut-${d.day}`}
                 type="checkbox"
@@ -208,7 +217,7 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   return (
     <Card className="flex flex-col gap-4">
       <SectionLabel>One identity block, read by every screen and every printed document</SectionLabel>
-      <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         These details appear on the bill, on offer letters and experience certificates, and in the header of the
         guest&rsquo;s phone. Changing them here changes them everywhere — nothing retypes them (Standard 2.2).
       </p>
@@ -290,7 +299,7 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           height={64}
           className="rounded-[var(--radius-md)]"
         />
-        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           The badge printed on the QR stands, the bill and every HR document. Replacing the artwork is a file change
           rather than a settings field in this release.
         </p>
@@ -363,7 +372,7 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
       {/* The worked example under the field (Standard 2.3): a rate nobody can picture is a rate
           that gets typed wrong. */}
-      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12px] leading-relaxed text-[var(--on-warning-surface)]">
+      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         At {rateNum}%, a {rupees(example)} bill carries {rupees(Math.round((example * rateNum) / 100))} of GST and
         comes to {rupees(example + Math.round((example * rateNum) / 100))}. Changing the rate re-computes every open
         bill and every bill from here on — confirm the figure with your accountant before service.
@@ -456,7 +465,7 @@ function InvoicePanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-show-kot"
       />
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Bill numbers are allocated in the database, not in the app, so two closures in the same second cannot produce
         the same number. The prefix and reset rule change what the NEXT number looks like; nothing already issued
         moves.
@@ -502,7 +511,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3">
         <SectionLabel>The tabletop code</SectionLabel>
-        <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Each code is fixed to its table and encodes one thing: <code>{data.qrOrigin}/t/&lt;table&gt;</code>. Nothing
           about a bill or a guest is in it, so the same laminated card serves every party forever — and renaming a
           table below does not break it.
@@ -521,12 +530,12 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <li key={t.id}>
                   <div
                     className={cn(
-                      'flex items-center gap-2 rounded-full py-1.5 pl-3 pr-1.5 text-[12.5px]',
+                      'flex items-center gap-2 rounded-full py-1.5 pl-3 pr-1.5 type-caption',
                       t.active ? 'bg-[var(--surface-sunken)]' : 'bg-[var(--surface-sunken)] opacity-60'
                     )}
                   >
                     <span className="font-semibold">{t.name}</span>
-                    <span className="text-[11px] text-[var(--text-muted)]">{t.seats} seats</span>
+                    <span className="type-caption text-[var(--text-muted)]">{t.seats} seats</span>
                     {!t.active ? <Pill tone="neutral">Off</Pill> : null}
                     <Button
                       data-testid={`owner-qr-${t.name}`}
@@ -673,7 +682,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               unoptimized
               className="rounded-[var(--radius-md)]"
             />
-            <code className="text-[11.5px] text-[var(--text-muted)]">
+            <code className="type-caption text-[var(--text-muted)]">
               {data.qrOrigin}/t/{qrFor}
             </code>
           </div>
@@ -750,7 +759,7 @@ function FeaturesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   return (
     <Card className="flex flex-col gap-4">
       <SectionLabel>{onCount} of the optional things are on</SectionLabel>
-      <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Switch off anything you have not the hands for tonight and it disappears from every guest&rsquo;s phone within
         seconds. No other screen changes. A feature you cannot honour is worse than a missing one, because it makes a
         promise (Standard 2.4).
@@ -824,7 +833,7 @@ function CopyPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_20rem] lg:items-start">
       <Card className="flex flex-col gap-3">
         <SectionLabel>Every string a guest reads, editable without a release</SectionLabel>
-        <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Clearing a field falls back to the shipped wording rather than blanking the screen — the default is the
           placeholder, so an empty box is never an empty phone (Standard 2.1).
         </p>
@@ -859,19 +868,19 @@ function CopyPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       <Card className="lg:sticky lg:top-32">
         <SectionLabel>As the guest sees it</SectionLabel>
         <div className="rounded-[var(--radius-lg)] bg-[var(--background)] p-4">
-          <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
+          <p className="m-0 type-caption font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
             {values.greetEvening || 'Good evening'}
           </p>
-          <p className="m-0 mt-1 text-[19px] font-semibold">{values.name || 'Jalsa Restaurant'}</p>
-          <p className="m-0 text-[11.5px] text-[var(--text-muted)]">{values.subline || 'Hosur · since 2016'}</p>
-          <p className="m-0 mt-3 text-[12px] leading-relaxed">
+          <p className="m-0 mt-1 type-h3 font-semibold">{values.name || 'Jalsa Restaurant'}</p>
+          <p className="m-0 type-caption text-[var(--text-muted)]">{values.subline || 'Hosur · since 2016'}</p>
+          <p className="m-0 mt-3 type-caption leading-relaxed">
             {values.welcome || 'The full menu is on your phone.'}
           </p>
-          <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-[var(--primary)] px-5 text-[13px] font-semibold text-[var(--on-primary)]">
+          <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-[var(--primary)] px-5 type-body font-semibold text-[var(--on-primary)]">
             {values.startBtn || 'Start ordering'}
           </span>
         </div>
-        <p className="m-0 mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           Anything typed on the left shows here, and on every guest phone once you save.
         </p>
       </Card>
@@ -893,8 +902,8 @@ function PrintersPanel({ data }: OwnerSectionProps) {
             className="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3"
           >
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold">{p.machineId}</span>
-              <span className="block text-[11.5px] text-[var(--text-muted)]">
+              <span className="block type-body font-semibold">{p.machineId}</span>
+              <span className="block type-caption text-[var(--text-muted)]">
                 {p.name} · {p.paperMm} mm · routes {p.routes.join(', ') || '—'}
                 {p.chefs.length ? ` · chefs ${p.chefs.join(', ')}` : ''}
               </span>
@@ -904,13 +913,247 @@ function PrintersPanel({ data }: OwnerSectionProps) {
         ))}
       </ul>
 
-      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12px] leading-relaxed text-[var(--on-warning-surface)]">
+      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         Printer connectivity is still an open dependency, and this release does not pretend otherwise. Until the TVS
         devices are validated, every ticket is written to the print queue and marked <strong>failed</strong> with a
         reason — the order still exists, the failure is visible on the round, and there is a retry on it. Editing
         routing, designing the character-grid templates and the print-history trail are the print-setup slice, and
         building half of them here would read as a finished feature.
       </p>
+    </Card>
+  );
+}
+
+/* ── Replies to suggestions ────────────────────────────────────────────── */
+
+/**
+ * The canned replies the owner sends from the Dashboard's suggestion thread.
+ *
+ * WHY THE TEMPLATES ARE CONFIGURATION AND THE REPLY IS NOT
+ *   A reply to a guest is written by a person, every time — the design never offers to send one
+ *   automatically, and neither does this. What is configured here is the SHORTLIST: the three or
+ *   four sentences this restaurant actually uses, so the common answer is one tap and the
+ *   unusual one is still typed. Baked into a build, changing "we have fixed it" costs a release.
+ */
+function RepliesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  /* The shape is NOT ours to choose: Dashboard.tsx already reads settings.replies.items and
+     draws a chip per entry as { name, text } — the name on the chip, the text into the box.
+     Writing a plain string[] here would have type-checked, saved, and silently emptied the
+     canned replies on the screen that uses them. */
+  const stored = (data.settings.replies ?? {}) as {
+    heading?: string;
+    items?: Array<{ name: string; text: string }>;
+  };
+  const [heading, setHeading] = React.useState(stored.heading ?? '');
+  const [items, setItems] = React.useState<Array<{ name: string; text: string }>>(stored.items ?? []);
+  const [draftName, setDraftName] = React.useState('');
+  const [draftText, setDraftText] = React.useState('');
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionLabel>{items.length === 1 ? '1 reply' : `${items.length} replies`} the team can send in one tap</SectionLabel>
+
+      <Field
+        label="Heading above the buttons"
+        htmlFor="owner-replies-heading"
+        hint="What the person replying sees above the shortlist. Empty falls back to the shipped wording."
+      >
+        <Input
+          id="owner-replies-heading"
+          value={heading}
+          placeholder="Send a quick reply"
+          onChange={(e) => setHeading(e.target.value)}
+          data-testid="owner-replies-heading"
+        />
+      </Field>
+
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {items.map((r, i) => (
+          <li key={`${r.name}-${i}`} className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 rounded-full bg-[var(--primary-surface)] px-3 py-1 type-caption font-semibold text-[var(--on-primary-surface)]">
+              {r.name}
+            </span>
+            <span className="min-w-0 flex-1 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 type-body">
+              {r.text}
+            </span>
+            <Button
+              data-testid={`owner-reply-remove-${i}`}
+              size="sm"
+              variant="ghost"
+              onClick={() => setItems(items.filter((_, j) => j !== i))}
+            >
+              Remove
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-wrap gap-3">
+        <Field label="Button label" htmlFor="owner-replies-name" className="min-w-[10rem] flex-1">
+          <Input
+            id="owner-replies-name"
+            value={draftName}
+            placeholder="Thanks"
+            onChange={(e) => setDraftName(e.target.value)}
+            data-testid="owner-replies-name"
+          />
+        </Field>
+        <Field label="What it writes" htmlFor="owner-replies-text" className="min-w-[16rem] flex-[2]">
+          <Input
+            id="owner-replies-text"
+            value={draftText}
+            placeholder="Thank you — we have passed this to the kitchen."
+            onChange={(e) => setDraftText(e.target.value)}
+            data-testid="owner-replies-text"
+          />
+        </Field>
+      </div>
+      <Button
+        data-testid="owner-replies-add"
+        variant="secondary"
+        className="self-start"
+        disabled={!draftName.trim() || !draftText.trim()}
+        onClick={() => {
+          setItems([...items, { name: draftName.trim(), text: draftText.trim() }]);
+          setDraftName('');
+          setDraftText('');
+        }}
+      >
+        Add a reply
+      </Button>
+
+      <Button
+        data-testid="owner-replies-save"
+        disabled={busy}
+        className="self-start"
+        onClick={() =>
+          runBusy(async () => {
+            await send('/api/owner/action', { action: 'write-setting', key: 'replies', value: { heading, items } });
+            toast.show(
+              items.length === 1 ? '1 quick reply saved' : `${items.length} quick replies saved`,
+              { tone: 'success' }
+            );
+          })
+        }
+      >
+        Save replies
+      </Button>
+    </Card>
+  );
+}
+
+/* ── Customer engagement ───────────────────────────────────────────────── */
+
+/**
+ * The phone number behind the guest's Call button, the review link, and how the bill travels.
+ *
+ * THESE WERE ALREADY LIVE AND ALREADY UNEDITABLE
+ *   `guest-view.ts` has read `engagement.reviewUrl` and `engagement.callNumber` since the guest
+ *   surface was built — the Call button and "Write a review" are gated on them being non-empty.
+ *   With no panel, the only way to set either was a hand-written row in the settings table. A
+ *   value the product depends on and no screen can change is configuration in name only.
+ */
+function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const stored = (data.settings.engagement ?? {}) as {
+    callNumber?: string;
+    reviewUrl?: string;
+    askPhotos?: boolean;
+    whatsappProvider?: string;
+    invoiceSentWhen?: string;
+  };
+  const [values, setValues] = React.useState({
+    callNumber: stored.callNumber ?? '',
+    reviewUrl: stored.reviewUrl ?? '',
+    askPhotos: stored.askPhotos ?? false,
+    whatsappProvider: stored.whatsappProvider ?? '',
+    invoiceSentWhen: stored.invoiceSentWhen ?? 'closed',
+  });
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionLabel>What the phone offers after the meal</SectionLabel>
+
+      <Field
+        label="Phone number behind the Call button"
+        htmlFor="owner-engage-call"
+        hint="Empty hides the button rather than dialling nothing — Standard 2.4."
+      >
+        <Input
+          id="owner-engage-call"
+          type="tel"
+          inputMode="tel"
+          value={values.callNumber}
+          onChange={(e) => setValues({ ...values, callNumber: e.target.value })}
+          data-testid="owner-engage-call"
+        />
+      </Field>
+
+      <Field
+        label="Google review link"
+        htmlFor="owner-engage-review"
+        hint="Empty hides the review card. A wrong link sends a happy guest to somebody else's page, so it is typed, never guessed."
+      >
+        <Input
+          id="owner-engage-review"
+          type="url"
+          value={values.reviewUrl}
+          placeholder="https://g.page/r/..."
+          onChange={(e) => setValues({ ...values, reviewUrl: e.target.value })}
+          data-testid="owner-engage-review"
+        />
+      </Field>
+
+      <Toggle
+        checked={values.askPhotos}
+        onCheckedChange={(v) => setValues({ ...values, askPhotos: v })}
+        label="Ask for photos before the review redirect"
+        consequence="A photo taken at the table is worth more than a line of text, and asking first is the only moment the guest still has the plate in front of them."
+        testId="owner-engage-photos"
+      />
+
+      <Field
+        label="WhatsApp provider"
+        htmlFor="owner-engage-provider"
+        hint="Named here so the bill-to-WhatsApp button can say which service is not connected yet, rather than failing silently."
+      >
+        <Input
+          id="owner-engage-provider"
+          value={values.whatsappProvider}
+          onChange={(e) => setValues({ ...values, whatsappProvider: e.target.value })}
+          data-testid="owner-engage-provider"
+        />
+      </Field>
+
+      <Field label="Invoice is sent when" htmlFor="owner-engage-when">
+        <Select
+          id="owner-engage-when"
+          value={values.invoiceSentWhen}
+          onChange={(e) => setValues({ ...values, invoiceSentWhen: e.target.value })}
+          data-testid="owner-engage-when"
+        >
+          <option value="closed">The bill is closed</option>
+          <option value="asked">The guest asks for it</option>
+          <option value="never">Never — printed only</option>
+        </Select>
+      </Field>
+
+      <Button
+        data-testid="owner-engage-save"
+        disabled={busy}
+        className="self-start"
+        onClick={() =>
+          runBusy(async () => {
+            await send('/api/owner/action', { action: 'write-setting', key: 'engagement', value: values });
+            toast.show('Engagement settings saved — every guest phone picks them up on its next tap', {
+              tone: 'success',
+            });
+          })
+        }
+      >
+        Save engagement
+      </Button>
     </Card>
   );
 }

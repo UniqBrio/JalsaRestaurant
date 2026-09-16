@@ -6,7 +6,8 @@
  * WHAT IT RUNS AGAINST
  *   The dedicated TEST project, reset before the suite by `scripts/reset-test-db.mjs`, which
  *   refuses the development/production project by ref. This file WRITES — a session, cart lines,
- *   rounds on table A5, a bill, a tip — and does not clean up: the reset before the next run is
+ *   rounds, a bill, a tip — on the table this spec is allocated in this browser project
+ *   (tests/support/tables.ts) — and does not clean up: the reset before the next run is
  *   what makes the state known.
  *
  * WHY THE ASSERTIONS ARE ABOUT STAYING PUT
@@ -25,11 +26,18 @@
  *   tests/unit/write-echo.unit.spec.ts.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { tableFor } from '../support/tables';
 
-const TABLE = 'A5';
+/**
+ * The table this spec owns. Allocated per (spec file x browser project) so the six projects that
+ * run this file never write to one another's table - see tests/support/tables.ts. Called inside
+ * each test rather than assigned at module scope, because the project name is only knowable once
+ * a test is running.
+ */
+const table = () => tableFor('closure-upsell-tip');
 
 async function orderAndAskForTheBill(page: Page) {
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await expect(page.getByTestId('unreachable-guest')).toHaveCount(0);
   await page.getByTestId('guest-start-ordering').click();
@@ -42,6 +50,59 @@ async function orderAndAskForTheBill(page: Page) {
   await page.getByTestId('guest-see-my-order').click();
   await expect(page.getByTestId('guest-status')).toBeVisible();
   await page.getByTestId('guest-request-payment').click();
+}
+
+/**
+ * Put THIS page on the upsell screen, from wherever the table already is.
+ *
+ * WHAT IT GUARANTEES ON RETURN, and why both callers want it
+ *   - a bill on this table with at least one round
+ *   - that bill in `payment_requested` — either it already was, or `guest-request-payment` was
+ *     tapped, which is what `requestPayment` in GuestProgress.tsx posts before `go('upsell')`
+ *   - this page on the upsell screen
+ *   Test 2 needs the third. Test 3 needs the first two, because `guest-continue-ordering` is
+ *   rendered only in the payment_requested branch of the status action bar.
+ *
+ * WHY A TEST NEEDS THIS AT ALL
+ *   Playwright's `page` fixture is per-TEST. `describe.serial` orders the tests and keeps them in
+ *   one worker, but it does not hand a page from one to the next — so a test that opens by
+ *   clicking something is clicking on `about:blank`. That is what CI run 34936577339 found on
+ *   four projects: `locator.click: Timeout 10000ms exceeded · waiting for
+ *   getByTestId('guest-upsell-skip')`, with nothing on screen to wait for.
+ *
+ * WHY IT BRANCHES RATHER THAN ALWAYS ORDERING
+ *   The table is shared by this file's tests by design (one table per spec per browser project,
+ *   `tests/support/tables.ts`), so its bill persists between them. A test that assumed a fresh
+ *   table would fail whenever it did not run first — the same ordering dependence in the other
+ *   direction. So this reads what the table IS and takes the route the application provides:
+ *     - no rounds yet        -> the welcome screen -> order and ask for the bill
+ *     - a bill already asked -> the order list -> "Carry on to pay", which is
+ *       `guest-continue-closure` in the payment_requested branch of the status action bar
+ *     - rounds but no request -> the order list -> "Request payment"
+ *   Every one of those is a control a guest has; none is a test-only path.
+ *
+ * WHY THE BRANCH IS NOT A RACE
+ *   `expect(a.or(b)).toBeVisible()` waits for whichever screen this table actually opens on
+ *   before anything is probed. Nothing here sleeps or retries on a guess.
+ */
+async function reachTheUpsell(page: Page) {
+  await page.goto(`/t/${table()}`);
+  await expect(page.getByTestId('unreachable-guest')).toHaveCount(0);
+
+  const welcome = page.getByTestId('guest-welcome');
+  const status = page.getByTestId('guest-status');
+  await expect(welcome.or(status), 'the table opens on the welcome screen or the order list').toBeVisible();
+
+  if (await status.isVisible()) {
+    const carryOn = page.getByTestId('guest-continue-closure');
+    const ask = page.getByTestId('guest-request-payment');
+    await expect(carryOn.or(ask), 'the order list offers a way on to the closure steps').toBeVisible();
+    await ((await carryOn.isVisible()) ? carryOn : ask).click();
+  } else {
+    await orderAndAskForTheBill(page);
+  }
+
+  await expect(page.getByTestId('guest-upsell')).toBeVisible();
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -86,6 +147,9 @@ test('all three upsell options are on screen at once, and adding never moves the
 });
 
 test('the tip row takes a preset in one tap and any other amount in one tap and a number', async ({ page }) => {
+  // This test's own page, on this test's own terms — see `reachTheUpsell`. It used to open on
+  // the line below, with no page and no navigation behind it.
+  await reachTheUpsell(page);
   await page.getByTestId('guest-upsell-skip').click();
   await expect(page.getByTestId('guest-tip')).toBeVisible();
 
@@ -120,11 +184,25 @@ test('the tip row takes a preset in one tap and any other amount in one tap and 
 });
 
 test('a table that decides on one more round never has to cancel anything first', async ({ page }) => {
-  await orderAndAskForTheBill(page);
-  await expect(page.getByTestId('guest-upsell')).toBeVisible();
+  // What this test needs before it can begin: a bill on this table with at least one round, in
+  // `payment_requested` — because `guest-continue-ordering` exists ONLY in the payment_requested
+  // branch of the status action bar, and that button is the whole subject of the test.
+  //
+  // It used to open on `orderAndAskForTheBill`, which produces that state but only from a FRESH
+  // welcome screen — so it held solely while this test ran first. Run 34949294483 is the first
+  // that ever reached it, with tests 1 and 2 having already opened the bill, and it failed on
+  // five projects at the helper's own first line:
+  //     Locator: getByTestId('guest-welcome') · Timeout: 8000ms · element(s) not found
+  //         at orderAndAskForTheBill (...:41:51)
+  // The same per-test isolation defect `reachTheUpsell` was written for, one test along.
+  //
+  // `reachTheUpsell` already establishes exactly this state, by whichever route the table's
+  // actual state offers, and ends on the assertion this test had on its second line. So it is
+  // called rather than reimplemented — a second way to reach one screen is how the two drift.
+  await reachTheUpsell(page);
 
   // Back to the order list, where the request is waiting.
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-status')).toBeVisible();
   const go = page.getByTestId('guest-continue-ordering');
   await expect(go, 'the way back to the menu is on the screen, not implied').toBeVisible();
@@ -134,7 +212,7 @@ test('a table that decides on one more round never has to cancel anything first'
 
   // The state is stated rather than left to be inferred, and the bill is open again.
   await expect
-    .poll(async () => (await page.request.get(`/api/guest/state?table=${TABLE}`)).json())
+    .poll(async () => (await page.request.get(`/api/guest/state?table=${table()}`)).json())
     .toMatchObject({ billStatus: 'open', paymentPaused: true });
 
   // Same bill, same table: another round joins what is already there.
@@ -144,7 +222,7 @@ test('a table that decides on one more round never has to cancel anything first'
   await page.getByTestId('guest-send-to-kitchen').click();
   await expect(page.getByTestId('guest-placed')).toBeVisible();
 
-  const state = (await (await page.request.get(`/api/guest/state?table=${TABLE}`)).json()) as {
+  const state = (await (await page.request.get(`/api/guest/state?table=${table()}`)).json()) as {
     rounds: unknown[];
     billStatus: string;
   };

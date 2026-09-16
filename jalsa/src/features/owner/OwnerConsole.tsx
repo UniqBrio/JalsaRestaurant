@@ -13,7 +13,9 @@ import { LiveOrders } from './sections/LiveOrders';
 import { Payments } from './sections/Payments';
 import { MenuSection } from './sections/MenuSection';
 import { StaffSection } from './sections/StaffSection';
-import { LedgersSection } from './sections/LedgersSection';
+import { TipsSection, ExpensesSection } from './sections/LedgersSection';
+import { DaySetupSection } from './sections/DaySetupSection';
+import { WaitlistSection } from './sections/WaitlistSection';
 import { ReportsSection } from './sections/ReportsSection';
 import { SettingsSection } from './sections/SettingsSection';
 import { AuditSection } from './sections/AuditSection';
@@ -33,7 +35,8 @@ import { AuditSection } from './sections/AuditSection';
  */
 
 export type OwnerSection =
-  'dashboard' | 'orders' | 'payments' | 'menu' | 'staff' | 'ledgers' | 'reports' | 'settings' | 'audit';
+  'dashboard' | 'day' | 'queue' | 'orders' | 'payments' | 'menu' | 'staff' | 'tips' | 'expenses' | 'reports'
+  | 'settings' | 'audit';
 
 export interface OwnerSectionProps {
   data: OwnerPayload;
@@ -46,11 +49,19 @@ export interface OwnerSectionProps {
 
 const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> = [
   { key: 'dashboard', label: 'Dashboard', permission: 'orders.view' },
+  { key: 'day', label: 'Day setup', permission: 'day.setup' },
   { key: 'orders', label: 'Live orders', permission: 'orders.view' },
+  { key: 'queue', label: 'Waitlist', permission: 'queue.view' },
   { key: 'payments', label: 'Payments', permission: 'bill.view' },
   { key: 'menu', label: 'Menu', permission: 'menu.view' },
   { key: 'staff', label: 'Staff', permission: 'staff.view' },
-  { key: 'ledgers', label: 'Tips & expenses', permission: 'tips.all' },
+  // Two sections, as the design set's nav has them — not one "Tips & expenses" screen.
+  // They are not the same ledger: a tip is money held for somebody else and paid out in full,
+  // an expense is money already gone. They also answer to DIFFERENT grants, which one merged
+  // section could not express — a manager who may enter purchases but must not see what the
+  // floor earned had to be given both or neither.
+  { key: 'tips', label: 'Tips', permission: 'tips.all' },
+  { key: 'expenses', label: 'Expenses', permission: 'expense.manage' },
   { key: 'reports', label: 'Reports', permission: 'rep.products' },
   { key: 'settings', label: 'Settings', permission: 'set.tables' },
   { key: 'audit', label: 'Audit log', permission: 'audit.view' },
@@ -96,7 +107,12 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
     });
 
   return (
-    <div className="min-h-dvh" data-testid="owner-console" data-section={section}>
+    // `data-density="dense"` is the ONE place this surface opts into the tighter body and
+    // caption steps (Reusable Design Standard 10.2 — layout follows density, not device). It is
+    // set on the shell rather than per element so that nothing has to remember; headings and
+    // controls are untouched by it, because a heading that shrinks on the console is a different
+    // design rather than a denser one. See the typography block in src/app/globals.css.
+    <div className="min-h-dvh" data-testid="owner-console" data-section={section} data-density="dense">
       <OfflineBanner />
 
       <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]">
@@ -104,15 +120,15 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
           className="mx-auto flex flex-wrap items-center gap-3 px-4 py-3"
           style={{ maxWidth: 'var(--layout-content-max-width)' }}
         >
-          <span className="text-[15px] font-semibold">
+          <span className="type-body font-semibold">
             {(data.restaurant.display_name as string) ?? 'Jalsa Restaurant'}
           </span>
-          <span className="text-[11.5px] text-[var(--text-muted)]">
+          <span className="type-caption text-[var(--text-muted)]">
             {data.today.openBills} open · {data.today.awaitingClosure} awaiting closure · {data.today.openRequests}{' '}
             requests
           </span>
           <span className="ml-auto flex items-center gap-3">
-            <span className="text-[12px] text-[var(--text-muted)]">
+            <span className="type-caption text-[var(--text-muted)]">
               {data.me.name} · {data.me.role}
             </span>
             <Button data-testid="owner-signout" variant="ghost" size="sm" onClick={signOut}>
@@ -137,7 +153,7 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
                 aria-current={active ? 'page' : undefined}
 
                 className={cn(
-                  'relative min-h-11 whitespace-nowrap px-3 text-[13px] transition-colors',
+                  'relative min-h-11 whitespace-nowrap px-3 type-body transition-colors',
                   'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--border-focus)]',
                   // Weight AND an underline, never colour alone — the active item has to be
                   // legible to someone who cannot separate the maroon from the ink.
@@ -148,7 +164,7 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
               >
                 {s.label}
                 {s.key === 'payments' && data.today.awaitingClosure > 0 ? (
-                  <span className="ml-1.5 rounded-full bg-[var(--primary)] px-1.5 text-[10px] font-bold text-[var(--on-primary)]">
+                  <span className="ml-1.5 rounded-full bg-[var(--primary)] px-1.5 type-caption font-bold text-[var(--on-primary)]">
                     {data.today.awaitingClosure}
                   </span>
                 ) : null}
@@ -171,11 +187,14 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
         ) : (
           <>
             {section === 'dashboard' ? <Dashboard {...shared} /> : null}
+            {section === 'day' ? <DaySetupSection {...shared} /> : null}
+            {section === 'queue' ? <WaitlistSection {...shared} /> : null}
             {section === 'orders' ? <LiveOrders {...shared} /> : null}
             {section === 'payments' ? <Payments {...shared} /> : null}
             {section === 'menu' ? <MenuSection {...shared} /> : null}
             {section === 'staff' ? <StaffSection {...shared} /> : null}
-            {section === 'ledgers' ? <LedgersSection {...shared} /> : null}
+            {section === 'tips' ? <TipsSection {...shared} /> : null}
+            {section === 'expenses' ? <ExpensesSection {...shared} /> : null}
             {section === 'reports' ? <ReportsSection {...shared} /> : null}
             {section === 'settings' ? <SettingsSection {...shared} /> : null}
             {section === 'audit' ? <AuditSection {...shared} /> : null}
@@ -220,9 +239,9 @@ export function MetricTile({
               : 'bg-[var(--surface)]'
       )}
     >
-      <span className="text-[10.5px] font-bold uppercase tracking-[0.11em] opacity-75">{label}</span>
-      <span className="text-[24px] font-bold leading-none tabular-nums">{value}</span>
-      {note ? <span className="text-[11.5px] opacity-80">{note}</span> : null}
+      <span className="type-eyebrow font-bold uppercase tracking-[0.11em] opacity-75">{label}</span>
+      <span className="type-metric font-bold leading-none tabular-nums">{value}</span>
+      {note ? <span className="type-caption opacity-80">{note}</span> : null}
     </Comp>
   );
 }

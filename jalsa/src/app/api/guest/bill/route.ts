@@ -58,13 +58,15 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   switch (input.action) {
     case 'request-payment': {
       await requestPayment(bill.id);
-      return ok({ status: 'payment_requested', state: await freshState() });
+      // None of the closure actions below writes `guest_session`, so the row read at the top of
+      // this handler is still current and the echo need not read it again.
+      return ok({ status: 'payment_requested', state: await freshState(session) });
     }
 
     case 'resume-ordering': {
       // Pausing, not cancelling. See withdrawPaymentRequest.
       await withdrawPaymentRequest(bill.id);
-      return ok({ status: 'open', state: await freshState() });
+      return ok({ status: 'open', state: await freshState(session) });
     }
 
     case 'tip': {
@@ -73,7 +75,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       // several people served the table. Standard 7.3: it is their money, tracked apart.
       await addTip({ billId: bill.id, amount, staffId: bill.captainId });
       // The new totals travel back WITH the answer. See src/lib/db/guest-echo.ts.
-      return ok({ tip: amount, state: await freshState() });
+      return ok({ tip: amount, state: await freshState(session) });
     }
 
     case 'pay': {

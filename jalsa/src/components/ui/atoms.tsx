@@ -27,7 +27,7 @@ export function SectionLabel({ children, className }: { children: React.ReactNod
   return (
     <p
       className={cn(
-        'm-0 mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.11em] text-[var(--text-muted)]',
+        'm-0 mb-2.5 type-eyebrow text-[var(--text-muted)]',
         className
       )}
     >
@@ -59,7 +59,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 type-caption font-semibold leading-none',
         TONE_CLASS[tone],
         className
       )}
@@ -133,6 +133,9 @@ export function Stepper({
 }) {
   const btn =
     'inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-strong)]/40 ' +
+    /* INTENTIONAL EXCEPTION — a glyph, not text. The +/− is sized to the stepper's own
+       fixed control box, not to the reading scale, so it stays a literal on purpose.
+       See the exception list in scripts/check-typography.mjs. */
     'bg-[var(--surface)] text-[18px] leading-none text-[var(--text-body)] transition-colors ' +
     'hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-45 ' +
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]';
@@ -149,7 +152,7 @@ export function Stepper({
         −
       </button>
       <span
-        className="min-w-6 text-center text-[14px] font-bold tabular-nums"
+        className="min-w-6 text-center type-body font-bold tabular-nums"
         aria-live="polite"
         aria-label={`${qty} ${label}`}
         data-testid={`${testIdPrefix}-qty`}
@@ -188,7 +191,7 @@ export function Chip({
       type="button"
       aria-pressed={on}
       className={cn(
-        'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[12.5px] font-semibold transition-colors',
+        'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 type-caption font-semibold transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
         on
           ? 'bg-[var(--primary)] text-[var(--on-primary)]'

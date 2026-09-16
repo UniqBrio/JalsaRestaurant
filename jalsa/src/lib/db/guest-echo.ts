@@ -1,6 +1,6 @@
 import 'server-only';
-import { currentGuestSession, tableNameForSession } from './guest';
-import { buildGuestPayload, type GuestPayload } from './guest-view';
+import { contextForSession, currentGuestSession, type GuestSession } from './guest';
+import { assembleGuestPayload, type GuestPayload } from './guest-view';
 
 /**
  * The fresh guest payload, attached to the answer of the write that changed it.
@@ -21,14 +21,33 @@ import { buildGuestPayload, type GuestPayload } from './guest-view';
  *   would tell the guest their tip did not go through when it did — the worst possible lie for
  *   this screen to tell. On a null, the phone falls back to fetching, which is exactly what it
  *   did before this existed.
+ *
+ * WHY IT BUILDS THE CONTEXT RATHER THAN RE-RESOLVING IT
+ *   It used to look the session up, turn the table id into a NAME, and hand that name to
+ *   `buildGuestPayload`, which resolved the session all over again from scratch — thirteen serial
+ *   round trips, six of them re-reading rows this request was already holding. It now builds the
+ *   context from the session directly (`contextForSession`) and runs the SAME assembler. The
+ *   payload is identical; what is gone is the second lookup of things already known.
+ *
+ * WHY THE CALLER MAY HAND IN THE SESSION
+ *   Every route that echoes has ALREADY read the session row — it had to, to decide whether this
+ *   phone was allowed to make the write at all. Looking it up a second time by token, milliseconds
+ *   later, is one more cross-region round trip for a row the request never let go of. A caller
+ *   that passes it skips that read; a caller that does not is unchanged.
+ *
+ *   A caller passing a session it has since MODIFIED must pass the modified value — the round
+ *   route writes `bill_id` via `attachBillToSession` and passes that id, so `contextForSession`
+ *   sees the pointer is already correct and skips its corrective write, exactly as it does today.
+ *   Passing a stale `billId` would be correct but slower, never wrong: the corrective write is
+ *   still there, and the bill itself is derived from `bill_table`, never from this field.
  */
-export async function freshState(): Promise<GuestPayload | null> {
+export async function freshState(session?: GuestSession | null): Promise<GuestPayload | null> {
   try {
-    const session = await currentGuestSession();
-    if (!session) return null;
-    const table = await tableNameForSession(session.tableId);
-    if (!table) return null;
-    return await buildGuestPayload(table);
+    const known = session ?? (await currentGuestSession());
+    if (!known) return null;
+    const ctx = await contextForSession(known);
+    if (!ctx) return null;
+    return await assembleGuestPayload(ctx);
   } catch {
     return null;
   }

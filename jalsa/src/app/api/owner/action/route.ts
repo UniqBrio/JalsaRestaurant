@@ -21,6 +21,10 @@ import {
   setOnDuty,
   setPermissions,
   settleTips,
+  joinWaitlist,
+  notifyWaitlist,
+  seatWaitlist,
+  removeFromWaitlist,
   upsertExpense,
   upsertMenuItem,
   upsertStaff,
@@ -78,7 +82,11 @@ type Action =
       reason?: string;
     }
   | { action: 'delete-expense'; id: string; reason: string }
-  | { action: 'settle-tips'; staffId: string };
+  | { action: 'settle-tips'; staffId: string }
+  | { action: 'join-waitlist'; partySize: number; pair: string; phone?: string; source?: 'scanned' | 'walk_in' }
+  | { action: 'notify-waitlist'; id: string }
+  | { action: 'seat-waitlist'; id: string }
+  | { action: 'remove-waitlist'; id: string; reason: string };
 
 /**
  * Everything the owner DOES.
@@ -239,6 +247,29 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'settle-tips':
       return ok(await settleTips({ staffId: input.staffId, actor }));
+
+    case 'join-waitlist':
+      return ok(
+        await joinWaitlist({
+          partySize: input.partySize,
+          pair: input.pair,
+          ...(input.phone ? { phone: input.phone } : {}),
+          ...(input.source ? { source: input.source } : {}),
+          actor,
+        })
+      );
+
+    case 'notify-waitlist':
+      await notifyWaitlist({ id: input.id, actor });
+      return ok({ done: true });
+
+    case 'seat-waitlist':
+      await seatWaitlist({ id: input.id, actor });
+      return ok({ done: true });
+
+    case 'remove-waitlist':
+      await removeFromWaitlist({ id: input.id, reason: input.reason, actor });
+      return ok({ done: true });
 
     default:
       return fail(400, { code: 'validation', message: 'That is not something this console can do.' });

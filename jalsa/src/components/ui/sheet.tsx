@@ -63,9 +63,9 @@ export function Sheet({
         >
           <header className="flex items-start justify-between gap-4 px-5 pb-2 pt-5">
             <div className="min-w-0">
-              <DialogPrimitive.Title className="text-[17px] font-semibold">{title}</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="type-h3">{title}</DialogPrimitive.Title>
               {description ? (
-                <DialogPrimitive.Description className="mt-1 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+                <DialogPrimitive.Description className="mt-1 type-caption leading-relaxed text-[var(--text-muted)]">
                   {description}
                 </DialogPrimitive.Description>
               ) : null}
@@ -76,7 +76,7 @@ export function Sheet({
                 type="button"
                 aria-label="Close"
 
-                className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[19px] leading-none text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--text-body)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+                className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--text-body)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
               >
                 ×
               </button>
@@ -151,11 +151,11 @@ export function ConfirmDialog({
         </>
       }
     >
-      <div className="flex flex-col gap-4 text-[13px] leading-relaxed">
+      <div className="flex flex-col gap-4 type-body leading-relaxed">
         <div>{consequence}</div>
         {reasons?.length ? (
           <fieldset className="m-0 border-0 p-0">
-            <legend className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.11em] text-[var(--text-muted)]">
+            <legend className="mb-2 type-eyebrow text-[var(--text-muted)]">
               Why — recorded in the audit log
             </legend>
             <div className="flex flex-wrap gap-2">
@@ -168,7 +168,7 @@ export function ConfirmDialog({
                   onClick={() => onReasonChange?.(r)}
 
                   className={cn(
-                    'min-h-11 rounded-full px-4 text-[12.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
+                    'min-h-11 rounded-full px-4 type-caption font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
                     reason === r
                       ? 'bg-[var(--primary)] text-[var(--on-primary)]'
                       : 'border border-[var(--border-strong)]/25 bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)]'

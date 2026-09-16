@@ -1,0 +1,522 @@
+/*
+ * components.css — the shared visual treatments for the starter's cross-cutting components.
+ *
+ * ONE FILE, ON PURPOSE. These five treatments (tabs, toasts, waiting, price breakdown, row
+ * selection) are each small and each referenced by exactly one component. Five stylesheets
+ * would be five imports to forget; one is registered once, in the manifest and the overview.
+ *
+ * EVERY COLOUR IS A SEMANTIC TOKEN. No literal appears below — G4 enforces it, and the pairs
+ * used here are asserted by the contrast gate in BOTH themes. If a treatment needs a colour
+ * that is not a token, the answer is a new token in design/tokens.json, never a literal here.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Tabs (CP-17 scroll behaviour, DR-3 the selected state)
+ *
+ * EVERY TAB CARRIES A VISIBLE BORDER, selected or not. A row of borderless text labels does
+ * not read as a set of controls at all — users find them by hovering, which does not exist on
+ * a phone. The border is what says "these are the things you can press".
+ *
+ * THE SELECTED TAB DIFFERS IN THREE WAYS, NOT ONE: a filled surface, a stronger border, and
+ * heavier text. Any single one of the three fails somebody — colour alone fails a colour-blind
+ * user, weight alone is invisible at a glance, a border alone disappears on a small screen.
+ * The fill is `primarySurface` with `onPrimarySurface` text, a pair the contrast gate asserts,
+ * so the tab name stays readable in both themes rather than becoming pale text on a pale wash.
+ * ------------------------------------------------------------------------- */
+.tab-row {
+  display: flex;
+  gap: var(--spacing-2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: var(--spacing-2) 0;
+  background: var(--background);
+}
+
+.tab-row__tab {
+  flex: 0 0 auto;
+  min-height: var(--layout-min-touch-target);
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-body);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: var(--line-height-body);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-out),
+              border-color var(--duration-fast) var(--easing-out);
+}
+
+.tab-row__tab:hover {
+  background: var(--surface-sunken);
+}
+
+.tab-row__tab[aria-selected='true'] {
+  background: var(--primary-surface);
+  color: var(--on-primary-surface);
+  border-color: var(--primary);
+  border-width: 2px;
+  font-weight: var(--font-weight-subheading);
+}
+
+.tab-row__badge {
+  margin-inline-start: var(--spacing-2);
+  color: var(--text-muted);
+}
+
+.tab-row__tab[aria-selected='true'] .tab-row__badge {
+  color: var(--on-primary-surface);
+}
+
+/* ---------------------------------------------------------------------------
+ * Toasts with Undo (CP-28)
+ * Fixed to the bottom so the message never covers the row that produced it, and above the
+ * fixed chrome by the shared clearance constant — never a hand-picked number (CP-8).
+ * ------------------------------------------------------------------------- */
+.toast-host {
+  position: fixed;
+  inset-inline: var(--spacing-4);
+  bottom: calc(var(--layout-bottom-chrome-clearance) + var(--spacing-4));
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  align-items: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  max-width: var(--layout-content-max-width);
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-body);
+  box-shadow: var(--shadow-raised);
+  font-size: var(--font-size-body);
+}
+
+.toast--success { border-inline-start: 4px solid var(--success); }
+.toast--error   { border-inline-start: 4px solid var(--error); }
+.toast--info    { border-inline-start: 4px solid var(--info); }
+
+.toast__message { flex: 1 1 auto; }
+
+/* Undo is the reason the toast exists, so it is a real button with a real target, not a link
+   the width of the word. A missed Undo is a support call. */
+.toast__undo {
+  flex: 0 0 auto;
+  min-height: var(--layout-min-touch-target);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary-surface);
+  color: var(--on-primary-surface);
+  font-weight: var(--font-weight-subheading);
+  cursor: pointer;
+}
+
+.toast__dismiss {
+  flex: 0 0 auto;
+  min-width: var(--layout-min-touch-target);
+  min-height: var(--layout-min-touch-target);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-body-lg);
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+ * Loading screen
+ * The diagram is drawn in currentColor so it needs no per-theme asset file.
+ * ------------------------------------------------------------------------- */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-7) var(--spacing-4);
+  text-align: center;
+  color: var(--text-body);
+  background: var(--background);
+}
+
+.loading-screen__diagram {
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  color: var(--primary);
+}
+
+.loading-screen--stalled .loading-screen__diagram { color: var(--warning); }
+
+.loading-screen__track {
+  stroke: var(--border-strong);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* The pulse is decoration: it collapses to its end state under reduced motion, which the
+   generated theme CSS applies globally. Nothing waits on it. */
+.loading-screen__pulse {
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 24 160;
+  animation: loading-travel var(--duration-slow) var(--easing-in-out) infinite;
+}
+
+@keyframes loading-travel {
+  from { stroke-dashoffset: 184; }
+  to   { stroke-dashoffset: 0; }
+}
+
+.loading-screen__node {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.loading-screen__node--busy { stroke-dasharray: 6 5; }
+
+.loading-screen__tick {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.loading-screen__headline {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-h2);
+}
+
+.loading-screen__detail,
+.loading-screen__waited {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-body);
+}
+
+.loading-screen__stages {
+  list-style: none;
+  margin: var(--spacing-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  text-align: start;
+  min-width: min(100%, 280px);
+}
+
+.loading-screen__stage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.loading-screen__stage[data-state='in-progress'] {
+  border-color: var(--primary);
+  background: var(--primary-surface);
+  color: var(--on-primary-surface);
+}
+
+.loading-screen__stage-mark {
+  width: var(--spacing-2);
+  height: var(--spacing-2);
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+}
+
+.loading-screen__stage[data-state='done'] .loading-screen__stage-mark { background: var(--success); }
+.loading-screen__stage[data-state='in-progress'] .loading-screen__stage-mark { background: var(--primary); }
+
+.loading-screen__stage-label { flex: 1 1 auto; }
+
+/* The status is a word, not only a colour — status is never carried by colour alone. */
+.loading-screen__stage-status {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.loading-screen__stage[data-state='in-progress'] .loading-screen__stage-status {
+  color: var(--on-primary-surface);
+}
+
+.loading-screen__escape {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  justify-content: center;
+  margin-top: var(--spacing-3);
+}
+
+.loading-screen__retry,
+.loading-screen__leave {
+  min-height: var(--layout-min-touch-target);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-body);
+}
+
+/* At most one primary among peers (CP-19): retry is the action, leaving is the alternative. */
+.loading-screen__retry {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: var(--font-weight-subheading);
+}
+
+.loading-screen__leave {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-body);
+}
+
+/* ---------------------------------------------------------------------------
+ * Price breakdown
+ * The same component paints the screen and the printed artefact, so the print rules live
+ * beside the screen rules rather than in a second stylesheet that drifts.
+ * ------------------------------------------------------------------------- */
+.pricing {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-body);
+  padding: var(--spacing-4);
+}
+
+.pricing__title {
+  margin: 0 0 var(--spacing-3);
+  color: var(--text-heading);
+  font-size: var(--font-size-h3);
+  line-height: var(--line-height-h3);
+}
+
+.pricing__table { width: 100%; border-collapse: collapse; }
+
+/* The caption repeats the visible heading for screen readers and print; it is not a second
+   heading on screen. */
+.pricing__caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pricing__table th,
+.pricing__table td {
+  padding: var(--spacing-2) var(--spacing-1);
+  text-align: start;
+  font-weight: var(--font-weight-body);
+  border-bottom: 1px solid var(--border);
+}
+
+.pricing__table thead th {
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.pricing__amount,
+.pricing__amount-head { text-align: end; font-variant-numeric: tabular-nums; }
+
+.pricing__detail { color: var(--text-muted); font-size: var(--font-size-caption); }
+
+.pricing__row--subtotal th,
+.pricing__row--subtotal td { border-top: 1px solid var(--border-strong); }
+
+.pricing__row--adjustment .pricing__amount { color: var(--success); }
+
+/* The payable is the one emphasised figure. Everything above it is a component of it. */
+.pricing__row--total th,
+.pricing__row--total td {
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+  color: var(--text-heading);
+  font-size: var(--font-size-body-lg);
+  font-weight: var(--font-weight-heading);
+}
+
+.pricing__note,
+.pricing__footnote,
+.pricing__empty {
+  margin: var(--spacing-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.pricing__warning {
+  margin: var(--spacing-3) 0 0;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-sm);
+  background: var(--warning-surface);
+  color: var(--on-warning-surface);
+  font-size: var(--font-size-caption);
+}
+
+@media print {
+  .pricing { border: none; background: transparent; padding: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Row selection (CP-18)
+ * The checkbox is a native input, so its focus ring comes from the global :focus-visible rule
+ * in the generated theme CSS. Nothing here re-styles focus.
+ * ------------------------------------------------------------------------- */
+.select-all { display: inline-flex; align-items: center; gap: var(--spacing-2); }
+
+.select-all__count { color: var(--text-muted); font-size: var(--font-size-caption); }
+
+.select-all__box,
+.row-select {
+  width: var(--spacing-4);
+  height: var(--spacing-4);
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.select-all__box:disabled { cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+ * PWA affordances (CP-30) — the install offer and the update offer.
+ *
+ * Fixed to the bottom rather than the top: the top of a screen is where the app's own
+ * navigation lives, and a banner that pushes it down moves every target on the page the moment
+ * the browser decides the app is installable. Semantic tokens only, so both offers are
+ * contrast-asserted in both themes by the same gate as everything else.
+ * ------------------------------------------------------------------------- */
+.pwa-bar {
+  position: fixed;
+  inset-inline: var(--spacing-4);
+  bottom: var(--spacing-4);
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+  max-width: 40rem;
+  margin-inline: auto;
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-body);
+  box-shadow: var(--shadow-raised);
+}
+
+.pwa-bar--update { border-color: var(--border-strong); }
+
+.pwa-bar__text { flex: 1 1 14rem; margin: 0; font-size: var(--font-size-body); }
+
+.pwa-bar__action {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pwa-bar__action:hover { background: var(--primary-hover); }
+.pwa-bar__action:active { background: var(--primary-pressed); }
+
+.pwa-bar__dismiss {
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pwa-bar__dismiss:hover { color: var(--text-body); border-color: var(--border-strong); }
+
+/* Motion is a preference, not a decision this file gets to make for everyone. */
+@media (prefers-reduced-motion: no-preference) {
+  .pwa-bar { animation: pwa-bar-in var(--duration-base) var(--easing-out); }
+  @keyframes pwa-bar-in { from { transform: translateY(0.5rem); opacity: 0; } }
+}
+
+/* ---------------------------------------------------------------------------
+ * Dialog (CP-14, CP-16) and confirmation (ConfirmDialog)
+ * The backdrop is FIXED and full-bleed so a stray tap lands on it - and does nothing, because
+ * dismissOnBackdrop is false by default. Both components rendered these class names for as
+ * long as they existed and no stylesheet defined them; the first run of gate G8 was the first
+ * time anyone saw the dialog drawn.
+ * ------------------------------------------------------------------------- */
+.dialog__backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  padding: var(--spacing-4);
+  background: var(--overlay);
+}
+.dialog__panel {
+  width: min(100%, 32rem);
+  max-height: calc(100dvh - 2 * var(--spacing-4));
+  overflow: auto;
+  background: var(--surface-raised);
+  color: var(--text-body);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  padding: var(--spacing-5);
+}
+.dialog__title { margin: 0 0 var(--spacing-3); color: var(--text-heading); font-size: var(--font-size-h3, 1.25rem); }
+.dialog__body { display: grid; gap: var(--spacing-3); }
+.dialog__footer { display: flex; justify-content: flex-end; gap: var(--spacing-2); margin-top: var(--spacing-4); }
+.confirm__message { margin: 0; }
+.confirm__actions { display: flex; justify-content: flex-end; gap: var(--spacing-2); margin-top: var(--spacing-4); }
+.confirm__cancel, .confirm__ok, .btn, .btn--primary, .btn--quiet, .btn--danger {
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
+  font: inherit; cursor: pointer;
+}
+.btn--primary, .confirm__ok--default { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.btn--primary:hover, .confirm__ok--default:hover { background: var(--primary-hover); }
+.btn--danger, .confirm__ok--destructive { background: var(--error); color: var(--on-error); border-color: transparent; }
+.btn--quiet { background: transparent; }
+.btn:disabled, .btn--primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+ * The reference list (src/features/items)
+ * `padding-bottom` is the CP-8 clearance token, never a hand-picked value: it is what keeps
+ * the footer action reachable under any fixed chrome (the PWA offer bar included) at a SHORT
+ * viewport - the case tests/functional/reference.functional.spec.ts asserts at 360x640.
+ * ------------------------------------------------------------------------- */
+.items { max-width: 48rem; margin: 0 auto; padding: var(--spacing-4) var(--spacing-4) calc(var(--spacing-6) + var(--layout-bottom-chrome-clearance)); color: var(--text-body); }
+.items__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-3); margin: var(--spacing-4) 0; }
+.items__title { margin: 0; color: var(--text-heading); }
+.items__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--spacing-2); }
+.items__row { display: flex; align-items: center; gap: var(--spacing-3); padding: var(--spacing-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.items__name { flex: 1 1 auto; }
+.items__status { color: var(--text-muted); font-size: var(--font-size-caption); }
+.items__empty { padding: var(--spacing-6); text-align: center; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); color: var(--text-muted); }
+.items__footer { margin-top: var(--spacing-5); display: flex; justify-content: center; }
+.field { display: grid; gap: var(--spacing-1); }
+.field__label { color: var(--text-muted); font-size: var(--font-size-caption); }
+.field__input { padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background); color: var(--text-body); font: inherit; }
+.field__group { display: flex; gap: var(--spacing-3); }
+.field__mode { color: var(--text-muted); font-size: var(--font-size-caption); }

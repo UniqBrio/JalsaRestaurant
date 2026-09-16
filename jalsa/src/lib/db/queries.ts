@@ -10,6 +10,7 @@ import type {
   Kot,
   MenuCategory,
   MenuItem,
+  WaitlistRow,
   PrinterRow,
   StaffMember,
   Suggestion,
@@ -38,13 +39,30 @@ const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now()
 
 export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuCategory[] }> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('menu_item')
-    .select(
-      'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
-    )
-    .eq('restaurant_id', restaurantId)
-    .order('sort', { ascending: true });
+
+  /**
+   * TWO READS THAT DO NOT NEED EACH OTHER, ISSUED AT ONCE.
+   *
+   * The category list is keyed by `restaurant_id` alone — it never reads a menu item, and the
+   * counting below is in-memory arithmetic over `items` done after both have landed. They were
+   * serial only because the counting sits between them in the source. That put a second
+   * cross-region round trip on the guest's critical path, and `listMenu` is on EVERY guest
+   * payload build: the first page render, the six-second poll, and the write-echo that decides
+   * when `guest-placed` appears.
+   */
+  const [
+    { data, error },
+    { data: cats },
+  ] = await Promise.all([
+    db()
+      .from('menu_item')
+      .select(
+        'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+      )
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
+    db().from('menu_category').select('id,name,sort').eq('restaurant_id', restaurantId).order('sort', { ascending: true }),
+  ]);
   if (error) throw error;
 
   const now = Date.now();
@@ -77,11 +95,6 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
     if (seen) seen.count += 1;
     else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1 });
   }
-  const { data: cats } = await db()
-    .from('menu_category')
-    .select('id,name,sort')
-    .eq('restaurant_id', restaurantId)
-    .order('sort', { ascending: true });
   const categories: MenuCategory[] = (cats ?? []).map((c) => ({
     id: c.id as string,
     name: c.name as string,
@@ -302,7 +315,7 @@ export async function listClosedBillsToday(): Promise<Bill[]> {
  */
 export async function listFloor(): Promise<FloorTable[]> {
   const restaurantId = await currentRestaurantId();
-  const [tablesRes, bills, requests, phonesRes] = await Promise.all([
+  const [tablesRes, bills, requests, phonesRes, clearingRes] = await Promise.all([
     db()
       .from('dining_table')
       .select('id,name,zone,seats,active,sort')
@@ -315,6 +328,15 @@ export async function listFloor(): Promise<FloorTable[]> {
        data sitting on a table the restaurant considers free, and the only thing that can see it
        is this query. It is what `tables.free` clears. */
     db().from('guest_session').select('table_id').eq('restaurant_id', restaurantId),
+    /* Tables a closure has released and nobody has reset yet. `released_at` is stamped by
+       release_tables_on_close the instant a bill closes — that stamp is "the guests have gone"
+       — and `cleared_at` is the other end. Until this read existed, tableStateFrom's
+       `awaitingClearing` was never passed by anything and the `clearing` state was dead. */
+    db()
+      .from('bill_table')
+      .select('table_id,released_at,bill:bill_id(code,guests)')
+      .not('released_at', 'is', null)
+      .is('cleared_at', null),
   ]);
   if (tablesRes.error) throw tablesRes.error;
 
@@ -326,6 +348,25 @@ export async function listFloor(): Promise<FloorTable[]> {
 
   const billByTable = new Map<string, Bill>();
   for (const b of bills) for (const t of b.tables) billByTable.set(t, b);
+
+  const nowMs = Date.now();
+  const awaitingClearing = new Map<
+    string,
+    { releasedAtIso: string; billCode: string; guests: number; waitedMinutes: number }
+  >();
+  for (const row of clearingRes.data ?? []) {
+    const linked = row.bill as unknown as { code?: string; guests?: number } | null;
+    const releasedAtIso = row.released_at as string;
+    awaitingClearing.set(row.table_id as string, {
+      releasedAtIso,
+      billCode: linked?.code ?? '',
+      guests: linked?.guests ?? 0,
+      // Aged on the SERVER, like the waitlist's wait. Computed in render it is both impure —
+      // the React compiler rejects it outright — and different on every device whose clock
+      // drifts, which is how two waiters disagree about which table has been cold longest.
+      waitedMinutes: Math.max(0, Math.round((nowMs - new Date(releasedAtIso).getTime()) / 60000)),
+    });
+  }
 
   const requestsByTable = new Map<string, number>();
   for (const r of requests) requestsByTable.set(r.tableName, (requestsByTable.get(r.tableName) ?? 0) + 1);
@@ -345,6 +386,9 @@ export async function listFloor(): Promise<FloorTable[]> {
         hasBill: !!bill,
         ...(bill ? { billStatus: bill.status } : {}),
         kotStatuses: statuses,
+        // First in tableStateFrom's own order of urgency: a table the party has left but
+        // nobody has wiped is not free, however empty the bill list says it is.
+        awaitingClearing: awaitingClearing.has(t.id as string),
       }),
       billId: bill?.id ?? null,
       billCode: bill?.code ?? null,
@@ -358,6 +402,7 @@ export async function listFloor(): Promise<FloorTable[]> {
       hasOccasion: !!bill?.occasion,
       total: totals?.payable ?? 0,
       phonesAttached: phones.get(t.id as string) ?? 0,
+      clearing: awaitingClearing.get(t.id as string) ?? null,
     };
   });
 }
@@ -610,4 +655,43 @@ export async function readRestaurant() {
   const { data, error } = await db().from('restaurant').select('*').eq('id', restaurantId).single();
   if (error) throw error;
   return data;
+}
+
+/**
+ * The entrance queue — everyone still waiting, oldest first.
+ *
+ * WAITING means all three lifecycle stamps are null. Seated and removed rows are left behind
+ * deliberately: they are what "how long did parties actually wait tonight" is computed from,
+ * and a queue that deletes its finished rows can only ever answer about the present.
+ */
+export async function listWaitlist(): Promise<WaitlistRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('waitlist_entry')
+    .select('id,token,pair,code,party_size,phone,source,joined_at,notified_at')
+    .eq('restaurant_id', restaurantId)
+    .is('seated_at', null)
+    .is('removed_at', null)
+    .order('joined_at', { ascending: true });
+  if (error) throw error;
+
+  const now = Date.now();
+  return (data ?? []).map((w) => ({
+    id: w.id as string,
+    token: w.token as string,
+    pair: (w.pair as string) ?? '',
+    code: w.code as string,
+    partySize: w.party_size as number,
+    phone: (w.phone as string) ?? '',
+    source: w.source as 'scanned' | 'walk_in',
+    // The raw stamp. Formatting belongs to the view that renders it — owner-view, staff-view
+    // and guest-view each hold their own timeLabel, and a fourth copy here would be the one
+    // that drifts.
+    joinedAtIso: w.joined_at as string,
+    // Minutes, computed on the server so every surface agrees about how long this party has
+    // been standing there — a client clock that is four minutes fast turns a calm queue into
+    // an angry one.
+    waitedMinutes: Math.max(0, Math.round((now - new Date(w.joined_at as string).getTime()) / 60000)),
+    notified: w.notified_at !== null,
+  }));
 }

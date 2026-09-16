@@ -27,13 +27,15 @@ export function PlacedScreen({ data, go }: GuestScreenProps) {
     <div className="flex flex-col items-center gap-5 pt-10 text-center" data-testid="guest-placed">
       <span
         aria-hidden
+        /* INTENTIONAL EXCEPTION — a glyph sized to its 64px circle, not to the reading
+           scale. See the exception list in scripts/check-typography.mjs. */
         className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--success-surface)] text-[26px]"
       >
         ✓
       </span>
       <div>
-        <h2 className="text-[21px]">{data.copy.cookingLine ?? 'Your order is being cooked'}</h2>
-        <p className="m-0 mt-1 text-[13px] text-[var(--text-muted)]">
+        <h2 className="type-h2">{data.copy.cookingLine ?? 'Your order is being cooked'}</h2>
+        <p className="m-0 mt-1 type-body text-[var(--text-muted)]">
           {(data.copy.cookingSub ?? '{captain} has it · usually 18–22 minutes').replace(
             '{captain}',
             data.captain || 'The kitchen'
@@ -44,10 +46,10 @@ export function PlacedScreen({ data, go }: GuestScreenProps) {
       {last ? (
         <Card className="w-full text-left">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[13px] font-bold">{last.code}</span>
+            <span className="type-body font-bold">{last.code}</span>
             <Pill tone={last.tone as Tone}>{last.statusWord}</Pill>
           </div>
-          <p className="m-0 mt-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{summary}</p>
+          <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">{summary}</p>
         </Card>
       ) : null}
 
@@ -106,8 +108,8 @@ export function StatusScreen({
   if (data.rounds.length === 0) {
     return (
       <div className="flex flex-col gap-4 pt-8" data-testid="guest-status-empty">
-        <h2 className="text-[19px]">Nothing ordered yet</h2>
-        <p className="m-0 text-[13px] leading-relaxed text-[var(--text-muted)]">
+        <h2 className="type-h3">Nothing ordered yet</h2>
+        <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
           When you send a round to the kitchen it appears here, with where it has got to. Every round stays on one
           bill.
         </p>
@@ -121,10 +123,10 @@ export function StatusScreen({
   return (
     <div className="flex flex-col gap-4" data-testid="guest-status">
       <div>
-        <h2 className="text-[19px]">
+        <h2 className="type-h3">
           {anyServed ? (data.copy.servedHeading ?? 'On your table — enjoy') : 'Your order'}
         </h2>
-        <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">
+        <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
           {anyServed && data.features.heart
             ? (data.copy.heartHint ?? 'Tap the heart on anything you loved')
             : 'The kitchen is working through it. Order more any time.'}
@@ -136,7 +138,7 @@ export function StatusScreen({
           <li key={r.code}>
             <Card>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[12.5px] font-bold">
+                <span className="type-caption font-bold">
                   {r.code} <span className="font-normal text-[var(--text-muted)]">· {r.placedAt}</span>
                 </span>
                 <Pill tone={r.tone as Tone}>{r.statusWord}</Pill>
@@ -145,8 +147,8 @@ export function StatusScreen({
                 {r.items.map((i) => (
                   <li key={i.id} className="flex items-center gap-2.5">
                     <FoodMark type={i.foodType} />
-                    <span className="min-w-0 flex-1 truncate text-[13px]">{i.name}</span>
-                    <span className="text-[12.5px] tabular-nums text-[var(--text-muted)]">×{i.qty}</span>
+                    <span className="min-w-0 flex-1 truncate type-body">{i.name}</span>
+                    <span className="type-caption tabular-nums text-[var(--text-muted)]">×{i.qty}</span>
                     {data.features.heart ? (
                       <button
                         data-testid={`guest-heart-${i.id}`}
@@ -158,7 +160,7 @@ export function StatusScreen({
                           setLoved((cur) => ({ ...cur, [i.id]: !cur[i.id] }));
                           if (!loved[i.id] && data.features.takeaway) openSheet('loved', i.name);
                         }}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[17px] leading-none transition-colors hover:bg-[var(--primary-surface)] disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-surface)] disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
                       >
                         <span className={loved[i.id] ? 'text-[var(--primary)]' : 'text-[var(--text-disabled)]'}>
                           {loved[i.id] ? '♥' : '♡'}
@@ -185,7 +187,7 @@ export function StatusScreen({
         />
         {data.billStatus === 'payment_requested' ? (
           <>
-            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-3 py-2 text-center text-[12.5px] font-semibold text-[var(--on-primary-surface)]">
+            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--primary-surface)] px-3 py-2 text-center type-caption font-semibold text-[var(--on-primary-surface)]">
               {data.captain ? `${data.captain} is bringing your bill` : 'Your bill is on its way'} ·{' '}
               {data.payableLabel}
             </p>
@@ -214,7 +216,7 @@ export function StatusScreen({
             {data.paymentPaused ? (
               <p
                 data-testid="guest-payment-paused"
-                className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 text-center text-[12.5px] font-semibold text-[var(--text-muted)]"
+                className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 text-center type-caption font-semibold text-[var(--text-muted)]"
               >
                 Payment request paused. You can continue ordering.
               </p>

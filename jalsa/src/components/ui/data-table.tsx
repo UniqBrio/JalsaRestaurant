@@ -230,7 +230,7 @@ export function DataTable<Row>({
           <span className="flex items-center gap-2">
             <span
               data-testid={`${testId}-filter-count`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary-surface)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--on-primary-surface)]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary-surface)] px-2.5 py-1 type-caption font-semibold text-[var(--on-primary-surface)]"
             >
               <svg
                 width="11"
@@ -268,7 +268,7 @@ export function DataTable<Row>({
       ) : (
         // Only the TABLE scrolls sideways, never the page (Standard 10.1).
         <div className="j-scroll-x rounded-[var(--radius-lg)] bg-[var(--surface)] shadow-[var(--shadow-card)]">
-          <table className="w-full border-collapse text-[12.5px]">
+          <table className="w-full border-collapse type-caption">
             <thead>
               <tr>
                 {columns.map((c) => {
@@ -279,7 +279,13 @@ export function DataTable<Row>({
                       scope="col"
                       aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                       className={cn(
-                        'border-b border-[var(--border)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.07em] text-[var(--text-muted)]',
+                        'border-b border-[var(--border)] px-3 py-2.5 type-eyebrow tracking-[0.07em] text-[var(--text-muted)]',
+                        // The header stays while the rows move. A 57-row menu scrolls its
+                        // column names off the top within one flick, and after that every
+                        // figure in the Amount column is an unlabelled number. The background
+                        // is explicit because a sticky cell paints over the rows sliding
+                        // beneath it and would otherwise be transparent.
+                        'sticky top-0 z-10 bg-[var(--surface)]',
                         c.align === 'right' ? 'text-right' : 'text-left',
                         c.secondary && 'hidden sm:table-cell'
                       )}

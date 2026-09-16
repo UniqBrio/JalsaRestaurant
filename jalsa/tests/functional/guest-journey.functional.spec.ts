@@ -5,7 +5,8 @@
  * WHAT IT RUNS AGAINST, AND WHY THAT IS THE FIRST THING SAID
  *   A dedicated TEST project, reset to its seed before the suite by `scripts/reset-test-db.mjs`.
  *   Never the development/production project: that script refuses it by ref. This file WRITES —
- *   a guest_session, cart lines, a bill on table A5, a KOT with its items, a tip — and it does
+ *   a guest_session, cart lines, a bill, a KOT with its items, a tip — on the table this spec
+ *   is allocated in this browser project (tests/support/tables.ts) — and it does
  *   not clean up after itself, because a failed run that left evidence behind is worth more than
  *   a tidy one, and the reset before the NEXT run is what makes the state known.
  *
@@ -32,8 +33,15 @@
  *   TEST_SUMMARY.md in the same change that proves it green.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { tableFor } from '../support/tables';
 
-const TABLE = 'A5';
+/**
+ * The table this spec owns. Allocated per (spec file x browser project) so the six projects that
+ * run this file never write to one another's table - see tests/support/tables.ts. Called inside
+ * each test rather than assigned at module scope, because the project name is only knowable once
+ * a test is running.
+ */
+const table = () => tableFor('guest-journey');
 
 interface GuestState {
   phase: string;
@@ -44,7 +52,7 @@ interface GuestState {
 
 /** The truth, read through the same route the screen polls. */
 async function state(page: Page): Promise<GuestState> {
-  const res = await page.request.get(`/api/guest/state?table=${TABLE}`);
+  const res = await page.request.get(`/api/guest/state?table=${table()}`);
   expect(res.ok(), `/api/guest/state answered ${res.status()}`).toBe(true);
   return (await res.json()) as GuestState;
 }
@@ -55,7 +63,7 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
   page,
 }) => {
   // 1. Scan. A fresh phone at a reset table lands on the welcome screen, not on someone's bill.
-  await page.goto(`/t/${TABLE}`);
+  await page.goto(`/t/${table()}`);
   await expect(page.getByTestId('guest-welcome')).toBeVisible();
   await expect(page.getByTestId('unreachable-guest')).toHaveCount(0);
   expect((await state(page)).rounds, 'the reset must have left no rounds on this table').toHaveLength(0);
@@ -107,9 +115,30 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
   // 6. Tip. Skip the upsell if it appears, then choose ₹20 — the seed's tip options are
   //    [0, 10, 20, 30] and the seed IS the fixture, so the value is deterministic. Not "the first
   //    chip": that is 0, addTip returns early on a zero, and the read-back would prove nothing.
-  const skip = page.getByTestId('guest-upsell-skip');
-  if (await skip.isVisible().catch(() => false)) await skip.click();
-  await expect(page.getByTestId('guest-tip')).toBeVisible();
+  //
+  //    WAIT FOR THE SCREEN BEFORE PROBING IT. `guest-request-payment` above moves the phase only
+  //    after its POST resolves — `requestPayment` in GuestProgress.tsx awaits the write, then
+  //    calls `go('upsell')` — while the `state()` read on line 112 needs only the row to have
+  //    landed, so it can return `payment_requested` seconds before the phone has left the order
+  //    list. The probe here used to be `skip.isVisible()`, which does NOT wait: it asked a
+  //    three-state question (status / upsell / tip) as if it were two, answered "no upsell" while
+  //    the phone was still on the status screen, and so never clicked Skip. The phone then landed
+  //    on the upsell and this line waited for a tip screen it would never reach on its own. That
+  //    is the line-120 failure on five projects in CI run 34957008824.
+  //
+  //    `expect(a.or(b)).toBeVisible()` waits for whichever closure screen the application
+  //    actually produces, and only then is `isVisible()` a meaningful two-way question. The
+  //    branch is still needed: UpsellScreen renders TipScreen directly when the owner's upsell
+  //    switch is off or no tab has an available item, so "skip if it appears" is the real
+  //    contract. Same pattern as `reachTheUpsell` in closure-upsell-tip, which CI has validated.
+  //    No sleep, no retry, no arbitrary wait.
+  const upsell = page.getByTestId('guest-upsell');
+  const tip = page.getByTestId('guest-tip');
+  await expect(upsell.or(tip), 'the request lands on the upsell or straight on the tip row').toBeVisible();
+  if (await upsell.isVisible()) {
+    await page.getByTestId('guest-upsell-skip').click();
+  }
+  await expect(tip).toBeVisible();
   await page.getByTestId('guest-tip-20').click();
   s = await state(page);
   expect(s.tipChosen, 'the ₹20 tip is on the bill, read back through the state route').toBe(20);
@@ -125,8 +154,8 @@ test('a second phone at the same table joins the same bill — never a rival one
   // application path to it.
   const other = await browser.newContext();
   const page = await other.newPage();
-  await page.goto(`/t/${TABLE}`);
-  const res = await page.request.get(`/api/guest/state?table=${TABLE}`);
+  await page.goto(`/t/${table()}`);
+  const res = await page.request.get(`/api/guest/state?table=${table()}`);
   const s = (await res.json()) as GuestState;
   expect(s.rounds.length, 'the second phone sees the rounds the first one placed').toBeGreaterThanOrEqual(2);
   expect(s.billStatus).toBe('payment_requested');

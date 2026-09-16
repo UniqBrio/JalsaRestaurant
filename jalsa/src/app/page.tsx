@@ -33,26 +33,32 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[42rem] flex-col justify-center gap-6 px-4 py-12">
+      {/* The authoritative badge, then the name as type — the composition every owner-console
+          artboard uses. The pair of SVGs that stood here were a REDRAWN wordmark: a "J" glyph in
+          a rounded square, not the restaurant's own mark. `/brand/jalsa-badge.png` is the design
+          source's `assets/jalsa-logo.png`, byte for byte (md5 dfe5fe5c276f3fb06a6094f688be995c),
+          and it carries its own maroon field, so it needs no light/dark pair — see `logo.badge`
+          in design/tokens.json. */}
       <div className="flex items-center gap-4">
         <Image
-          src="/brand/logo-light.svg"
+          src="/brand/jalsa-badge.png"
           alt="Jalsa Restaurant, Hosur"
-          width={220}
-          height={54}
-          className="dark:hidden"
+          width={56}
+          height={56}
+          className="shrink-0 rounded-[var(--radius-md)]"
           priority
         />
-        <Image
-          src="/brand/logo-dark.svg"
-          alt="Jalsa Restaurant, Hosur"
-          width={220}
-          height={54}
-          className="hidden dark:block"
-          priority
-        />
+        <span className="flex min-w-0 flex-col">
+          <span className="type-h1 text-[var(--text-heading)]">
+            Jalsa Restaurant
+          </span>
+          <span className="type-caption text-[var(--text-muted)]">
+            Hosur
+          </span>
+        </span>
       </div>
 
-      <p className="m-0 max-w-[36em] text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 max-w-[36em] type-body leading-relaxed text-[var(--text-muted)]">
         Scan → Order → Kitchen → Add More → Request Payment → Tip → Pay → Invoice → Review → Reconcile. Three
         surfaces, one bill, and the guest never marks it paid.
       </p>
@@ -66,8 +72,8 @@ export default function Home() {
 
             className="rounded-[var(--radius-lg)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--primary-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
           >
-            <span className="block text-[15px] font-semibold">{s.title}</span>
-            <span className="mt-0.5 block text-[12.5px] leading-relaxed text-[var(--text-muted)]">{s.note}</span>
+            <span className="block type-body font-semibold">{s.title}</span>
+            <span className="mt-0.5 block type-caption leading-relaxed text-[var(--text-muted)]">{s.note}</span>
           </Link>
         ))}
       </nav>

@@ -36,11 +36,24 @@ const DENY_PROJECT_REFS = new Set([
   'yxgxmbyilpivbmeemqkp',
 ]);
 
-const SEED_COUNTERS = { bill: 1041, kot: 105, group: 7 };
+const SEED_COUNTERS = { bill: 1041, kot: 105, group: 7, waitlist: 1 };
+
+/**
+ * What the delete loop below has already emptied. Declared HERE, above refuse(), because refuse()
+ * has to be able to read it: a failure on the sixth table happens with five already gone, and
+ * "Nothing was deleted" would then be a false statement printed by the script's own error path.
+ */
+const deleted = {};
 
 function refuse(reason) {
   console.error(`REFUSED [reset-test-db] ${reason}`);
-  console.error('  Nothing was deleted.');
+  const done = Object.entries(deleted);
+  if (done.length === 0) {
+    console.error('  Nothing was deleted.');
+  } else {
+    console.error(`  ALREADY DELETED before this failure: ${done.map(([t, n]) => `${t}=${n}`).join(' ')}`);
+    console.error('  The project is therefore NOT at its seeded state. Re-run the reset once the cause is fixed.');
+  }
   process.exit(2);
 }
 
@@ -56,11 +69,25 @@ if (!key) refuse('SUPABASE_SECRET_KEY is not set.');
 
 const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
-/** PostgREST refuses an unfiltered delete; a tautology makes "everything" explicit. */
-const everything = (table) => db.from(table).delete({ count: 'exact' }).gte('created_at', '1970-01-01');
+/**
+ * PostgREST refuses an unfiltered delete; a tautology makes "everything" explicit.
+ *
+ * THE TAUTOLOGY IS THE PRIMARY KEY, NOT A TIMESTAMP
+ *   This was `gte('created_at', '1970-01-01')`, which assumed a column name that five of these
+ *   six tables happen to share. `audit_entry` timestamps with `at` — deliberately, see the core
+ *   schema — so the loop emptied the other five and then died on its last table with
+ *   `column audit_entry.created_at does not exist` (CI on main @ 91004d1).
+ *
+ *   `id` is the one column every table in the list is guaranteed to have, because every one of
+ *   them has a primary key called `id`, and `id is not null` is true of every row BY DEFINITION
+ *   rather than by convention. So this predicate cannot drift when a seventh table joins the
+ *   list, and it never has to know what that table calls its clock.
+ */
+const everything = (table) => db.from(table).delete({ count: 'exact' }).not('id', 'is', null);
 
-const deleted = {};
-for (const table of ['bill', 'guest_session', 'table_request', 'suggestion', 'print_job', 'audit_entry']) {
+// waitlist_entry is transactional like the rest: a party left waiting by a failed run is a
+// party the next run's queue counts, and the seed contains no waiting parties.
+for (const table of ['bill', 'guest_session', 'table_request', 'suggestion', 'print_job', 'audit_entry', 'waitlist_entry']) {
   const { count, error } = await everything(table);
   if (error) refuse(`deleting ${table}: ${error.message}`);
   deleted[table] = count ?? 0;
@@ -74,5 +101,5 @@ for (const [kind, next] of Object.entries(SEED_COUNTERS)) {
   if (error) refuse(`resetting number_series.${kind}: ${error.message}`);
 }
 
-console.log(`OK [reset-test-db] project ${ref}: ${Object.entries(deleted).map(([t, n]) => `${t}=${n}`).join(' ')}; counters -> bill ${SEED_COUNTERS.bill}, kot ${SEED_COUNTERS.kot}, group ${SEED_COUNTERS.group}`);
+console.log(`OK [reset-test-db] project ${ref}: ${Object.entries(deleted).map(([t, n]) => `${t}=${n}`).join(' ')}; counters -> bill ${SEED_COUNTERS.bill}, kot ${SEED_COUNTERS.kot}, group ${SEED_COUNTERS.group}, waitlist ${SEED_COUNTERS.waitlist}`);
 console.log('   SCOPE [reset-test-db] transactional tables only; the seed (restaurant, settings, tables, menu, staff, permissions, printers, expenses) was not touched.');

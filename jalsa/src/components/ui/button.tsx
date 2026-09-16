@@ -15,9 +15,15 @@ import { cn } from '@/lib/cn';
  *   Hover, pressed, focus-visible and disabled are defined on the variants below, so no screen
  *   restyles them and no screen forgets them. The focus ring is the accent ring the token sheet
  *   defines — never the browser's blue, which fails keyboard users quietly on a maroon header.
+ *
+ * WEIGHT COMES FROM THE TYPE ROLE, NOT FROM THIS STRING
+ *   The base carried a blanket `font-semibold`. Tailwind's utilities sit in a later layer than
+ *   `@layer components`, so it silently beat `.type-button`'s own `--font-weight-medium` and
+ *   every button shipped at 600 while the approved scale said Button = 16/24 **Medium (500)**.
+ *   A token nothing honours is worse than no token. The weight is now the type role's to state.
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold ' +
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full ' +
     'transition-colors cursor-pointer select-none ' +
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] ' +
     'disabled:pointer-events-none disabled:opacity-45 [&_svg]:shrink-0',
@@ -35,10 +41,17 @@ const buttonVariants = cva(
       },
       size: {
         /** The full-width commitment: Send to the kitchen, Request payment, Record payment. */
-        lg: 'min-h-12 px-6 text-[15px] w-full',
-        md: 'min-h-11 px-5 text-[13.5px]',
-        sm: 'min-h-11 px-4 text-[12.5px]',
-        icon: 'min-h-11 min-w-11 p-0 text-[15px]',
+        lg: 'min-h-12 px-6 type-button w-full',
+        md: 'min-h-11 px-5 type-button',
+        /**
+         * The compact button is the ONE size off the Button step: it borrows `type-body`, which
+         * names no weight, so it states its own. `font-semibold` here is not a leftover of the
+         * blanket rule above — it is this size keeping exactly the weight it has always shipped
+         * at, because nothing in the design set asks a 14px button to drop to Medium and no
+         * screen carrying one could be rendered to check. Deliberate, and the only divergence.
+         */
+        sm: 'min-h-11 px-4 type-body font-semibold',
+        icon: 'min-h-11 min-w-11 p-0 type-button',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },

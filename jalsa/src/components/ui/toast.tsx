@@ -17,6 +17,18 @@ import { cn } from '@/lib/cn';
  * WHY THE TIMER PAUSES ON HOVER AND FOCUS
  *   An Undo that disappears while someone is reaching for it is worse than no Undo, because
  *   they were promised one.
+ *
+ * WHY THE PILL ITSELF TAKES NO CLICKS
+ *   It sits over the bottom action bar. A guest who sends a round and immediately taps "See my
+ *   order" is tapping through the confirmation that their tap worked — and for six seconds the
+ *   whole pill swallowed that tap, because the row carried `pointer-events-auto` while only its
+ *   two buttons need it. CI run 34866569730 caught it on `guest-see-my-order`: the button
+ *   "visible, enabled and stable", the click retried until the test gave up, and Playwright
+ *   naming `<div data-testid="toast">` as the element that would receive it.
+ *
+ *   So the pill is inert and the CONTROLS are live. Nothing about how it looks, animates, reads
+ *   out or expires changes; what changes is that a message about what just happened no longer
+ *   blocks the next thing the guest wants to do.
  */
 
 export interface ToastMessage {
@@ -24,10 +36,29 @@ export interface ToastMessage {
   text: string;
   tone?: 'neutral' | 'success' | 'error';
   undo?: () => void;
+  /**
+   * A named action, drawn exactly like Undo and living in the same live strip.
+   *
+   * Undo is not general: its label is the word "Undo" because Standard 5.4 is about reversing
+   * what just happened. An update waiting to be applied is the opposite shape — nothing has
+   * happened yet and the guest is being ASKED — so it needs its own verb. Rather than a second
+   * notification system for one message (CP-30 rule 4's offer), the pill takes an optional
+   * labelled button. `sticky` holds it open, because an offer that times out was never an offer.
+   */
+  action?: { label: string; onClick: () => void; testId: string };
+  sticky?: boolean;
 }
 
 interface ToastApi {
-  show: (text: string, opts?: { tone?: ToastMessage['tone']; undo?: () => void }) => void;
+  show: (
+    text: string,
+    opts?: {
+      tone?: ToastMessage['tone'];
+      undo?: () => void;
+      action?: ToastMessage['action'];
+      sticky?: boolean;
+    }
+  ) => void;
 }
 
 const ToastContext = React.createContext<ToastApi | null>(null);
@@ -46,7 +77,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = nextId.current++;
     setItems((cur) => [
       ...cur.slice(-2),
-      { id, text, tone: opts?.tone ?? 'neutral', ...(opts?.undo ? { undo: opts.undo } : {}) },
+      {
+        id,
+        text,
+        tone: opts?.tone ?? 'neutral',
+        ...(opts?.undo ? { undo: opts.undo } : {}),
+        ...(opts?.action ? { action: opts.action } : {}),
+        ...(opts?.sticky ? { sticky: true } : {}),
+      },
     ]);
   }, []);
 
@@ -74,10 +112,10 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
   const [paused, setPaused] = React.useState(false);
 
   React.useEffect(() => {
-    if (paused) return;
+    if (paused || toast.sticky) return;
     const t = setTimeout(onDismiss, LIFETIME_MS);
     return () => clearTimeout(t);
-  }, [paused, onDismiss]);
+  }, [paused, toast.sticky, onDismiss]);
 
   const tone =
     toast.tone === 'success'
@@ -88,41 +126,60 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
 
   return (
     <div
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
       data-testid="toast"
       className={cn(
-        'pointer-events-auto flex w-full max-w-[30rem] items-center gap-3 rounded-full px-4 py-3 text-[12.5px] font-semibold shadow-[var(--shadow-raised)]',
+        'pointer-events-none flex w-full max-w-[30rem] items-center gap-3 rounded-full px-4 py-3 type-caption font-semibold shadow-[var(--shadow-raised)]',
         tone
       )}
     >
       <span className="min-w-0 flex-1">{toast.text}</span>
-      {toast.undo ? (
-        <button
-          data-testid="toast-undo"
-          type="button"
-
-          onClick={() => {
-            toast.undo?.();
-            onDismiss();
-          }}
-          className="shrink-0 rounded-full px-3 py-1 text-[12px] font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-        >
-          Undo
-        </button>
-      ) : null}
-      <button
-        data-testid="toast-dismiss"
-        type="button"
-        aria-label="Dismiss"
-
-        onClick={onDismiss}
-        className="shrink-0 rounded-full px-1.5 text-[15px] leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      {/* The only live part. It hugs the right edge, so what it covers is the end of the bar
+          rather than the middle of whatever is under the message. The pause handlers live here
+          rather than on the pill because this is the thing a person reaches FOR: `onFocus`
+          bubbles, so tabbing to Undo pauses the timer too. */}
+      <div
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocus={() => setPaused(true)}
+        onBlur={() => setPaused(false)}
+        className="pointer-events-auto flex shrink-0 items-center gap-3"
       >
-        ×
-      </button>
+        {toast.action ? (
+          <button
+            data-testid={toast.action.testId}
+            type="button"
+            onClick={() => {
+              toast.action?.onClick();
+              onDismiss();
+            }}
+            className="shrink-0 rounded-full px-3 py-1 type-caption font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            {toast.action.label}
+          </button>
+        ) : null}
+        {toast.undo ? (
+          <button
+            data-testid="toast-undo"
+            type="button"
+            onClick={() => {
+              toast.undo?.();
+              onDismiss();
+            }}
+            className="shrink-0 rounded-full px-3 py-1 type-caption font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            Undo
+          </button>
+        ) : null}
+        <button
+          data-testid="toast-dismiss"
+          type="button"
+          aria-label="Dismiss"
+          onClick={onDismiss}
+          className="shrink-0 rounded-full px-1.5 type-button leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }

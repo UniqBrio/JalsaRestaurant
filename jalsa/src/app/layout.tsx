@@ -78,9 +78,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
-          <ToastProvider>{children}</ToastProvider>
+          {/* The registrar is INSIDE the toast provider, not beside it: since CP-30 rule 4 it
+              offers a waiting update through the ordinary toast, and useToast throws outside
+              its provider rather than failing quietly. It still renders nothing. */}
+          <ToastProvider>
+            {children}
+            <ServiceWorkerRegistrar />
+          </ToastProvider>
         </ThemeProvider>
-        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

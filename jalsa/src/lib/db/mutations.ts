@@ -65,7 +65,7 @@ export async function audit(entry: {
   if (error) throw error;
 }
 
-async function nextNumber(kind: 'bill' | 'kot' | 'group'): Promise<string> {
+async function nextNumber(kind: 'bill' | 'kot' | 'group' | 'waitlist'): Promise<string> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db().rpc('next_number', { p_restaurant: restaurantId, p_kind: kind });
   if (error) throw error;
@@ -88,14 +88,31 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
   if (existing) return existing;
 
   const restaurantId = await currentRestaurantId();
-  const tax = await currentTaxRate();
 
-  // The table's standing captain and waiter open the bill. Reassignment is a later, audited
-  // action - but a bill with nobody's name on it can never be attributed retrospectively.
-  const { data: assigned } = await db()
-    .from('staff_table')
-    .select('staff:staff_id(id,role,on_duty)')
-    .eq('table_id', tableId);
+  /**
+   * THREE READS THAT DO NOT NEED EACH OTHER, ISSUED AT ONCE.
+   *
+   * The tax rate, the table's standing staff, and the next bill number are independent: none of
+   * them reads a row another one writes, and the insert below is the first thing that needs any
+   * of their results. Run serially they were three round trips to a database in another region —
+   * measured at ~590ms each on the CI runner, which is most of a second and a half on the path
+   * between a guest tapping Send and their confirmation appearing.
+   *
+   * `nextNumber` is in here rather than left behind because it already ran before the insert;
+   * moving it earlier in wall-clock time changes nothing about when its number is allocated
+   * relative to a failure, so it burns a bill number in exactly the cases it burnt one before.
+   *
+   * The table's standing captain and waiter open the bill. Reassignment is a later, audited
+   * action - but a bill with nobody's name on it can never be attributed retrospectively.
+   */
+  const [tax, { data: assigned }, code, { data: tableRow }] = await Promise.all([
+    currentTaxRate(),
+    db().from('staff_table').select('staff:staff_id(id,role,on_duty)').eq('table_id', tableId),
+    nextNumber('bill'),
+    // The name this bill is being opened on. Read HERE, in a wave that was already being waited
+    // for, so that the audit entry below no longer has to wait for `getBill` to learn it.
+    db().from('dining_table').select('name').eq('id', tableId).maybeSingle(),
+  ]);
   type Assigned = { staff: { id: string; role: string; on_duty: boolean } | null };
   const people = ((assigned ?? []) as unknown as Assigned[])
     .map((a) => a.staff)
@@ -103,7 +120,6 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
   const captain = people.find((p) => p.role === 'Captain') ?? null;
   const waiter = people.find((p) => p.role === 'Waiter') ?? null;
 
-  const code = await nextNumber('bill');
   const { data: billRow, error: billErr } = await db()
     .from('bill')
     .insert({
@@ -135,15 +151,32 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
     throw linkErr;
   }
 
-  const bill = await getBill(billRow.id as string);
+  /**
+   * THE READ-BACK AND THE AUDIT ENTRY DO NOT NEED EACH OTHER.
+   *
+   * The entry only ever needed the bill for its table NAMES, and a bill one line old has exactly
+   * one membership — the `bill_table` row inserted above. That name is read in the parallel wave
+   * at the top of this function, so the entry can be written while the full bill is being read
+   * back rather than after it. `bill.tables.join(', ')` and this are the same string here, and
+   * `dining_table.name` is the very column `shapeBill` maps into `tables`.
+   *
+   * BOTH ARE STILL AWAITED BEFORE THIS FUNCTION RETURNS, so nothing downstream — and no response
+   * built on it — can observe an open bill whose audit entry has not landed. Rule 2 of this
+   * module is about the entry existing in the same call, not about the order of two writes
+   * neither of which reads the other.
+   */
+  const tableName = (tableRow?.name as string | undefined) ?? '';
+  const [bill] = await Promise.all([
+    getBill(billRow.id as string),
+    audit({
+      action: 'Bill opened',
+      detail: `${code} opened on ${tableName}`,
+      actor: GUEST_ACTOR,
+      billId: billRow.id as string,
+      tableId,
+    }),
+  ]);
   if (!bill) throw new Error('Bill vanished immediately after being created.');
-  await audit({
-    action: 'Bill opened',
-    detail: `${code} opened on ${bill.tables.join(', ')}`,
-    actor: GUEST_ACTOR,
-    billId: bill.id,
-    tableId,
-  });
   return bill;
 }
 
@@ -254,19 +287,27 @@ export async function placeRound(input: {
     );
   if (lineErr) throw lineErr;
 
-  // Rule 1: the round is saved. Only now is a printer asked for anything, and a refusal
-  // changes a badge on the record rather than losing the order.
-  await queuePrint({ kind: 'KOT', kotId: kot.id as string, billId: input.billId, actor: input.actor });
-
-  await audit({
-    action: 'Order placed',
-    detail: `${code} created — ${accepted.length === 1 ? '1 item' : `${accepted.length} items`}${
-      refused.length ? ` (${refused.length} unavailable and not sent)` : ''
-    }`,
-    actor: input.actor,
-    billId: input.billId,
-    tableId: input.tableId,
-  });
+  /**
+   * Rule 1: the round is saved. Only now is a printer asked for anything, and a refusal
+   * changes a badge on the record rather than losing the order.
+   *
+   * The print job and the audit entry are two inserts into two different tables, neither of
+   * which reads the other, and nothing below reads either. They were serial only because they
+   * were written on consecutive lines. Both are still awaited, so the round is not reported
+   * placed until both have landed.
+   */
+  await Promise.all([
+    queuePrint({ kind: 'KOT', kotId: kot.id as string, billId: input.billId, actor: input.actor }),
+    audit({
+      action: 'Order placed',
+      detail: `${code} created — ${accepted.length === 1 ? '1 item' : `${accepted.length} items`}${
+        refused.length ? ` (${refused.length} unavailable and not sent)` : ''
+      }`,
+      actor: input.actor,
+      billId: input.billId,
+      tableId: input.tableId,
+    }),
+  ]);
 
   return { kotCode: code, kotId: kot.id as string, refused };
 }
@@ -984,4 +1025,36 @@ export async function readCart(sessionId: string): Promise<Array<{ menuItemId: s
   return (data ?? []).map((r) => ({ menuItemId: r.menu_item_id as string, qty: r.qty as number }));
 }
 
-export { chargeableLines, billTotals };
+export { chargeableLines, billTotals, nextNumber };
+
+/**
+ * The table has been wiped down and is ready for the next party.
+ *
+ * WHAT IT DOES AND WHAT IT CANNOT
+ *   It stamps `cleared_at` on the released `bill_table` rows for this table and nothing else.
+ *   It closes no bill, releases nothing that is still held, and cannot touch a table whose
+ *   party has not left — `released_at is not null` is in the predicate, so a table still in
+ *   service simply matches no rows. That is why `tables.clear` is an ordinary grant rather than
+ *   an approval one, and why a waiter has it by role: the worst case is a table marked clean
+ *   that is not, which the next person to walk past corrects.
+ */
+export async function clearTable(input: { tableId: string; actor: Actor }): Promise<void> {
+  demand(input.actor, 'tables.clear');
+
+  const { data: table } = await db().from('dining_table').select('name').eq('id', input.tableId).maybeSingle();
+
+  const { error } = await db()
+    .from('bill_table')
+    .update({ cleared_at: new Date().toISOString(), cleared_by: input.actor.label })
+    .eq('table_id', input.tableId)
+    .not('released_at', 'is', null)
+    .is('cleared_at', null);
+  if (error) throw error;
+
+  await audit({
+    action: 'Table cleared',
+    detail: `${(table?.name as string) ?? 'A table'} reset for the next party`,
+    actor: input.actor,
+    tableId: input.tableId,
+  });
+}

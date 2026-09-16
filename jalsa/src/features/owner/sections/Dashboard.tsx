@@ -68,7 +68,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
             label="Tips collected"
             value={data.today.tipsLabel}
             note="Staff money — not income"
-            onClick={() => go('ledgers')}
+            onClick={() => go('tips')}
             testId="owner-kpi-tips"
           />
           <MetricTile
@@ -87,7 +87,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           <SectionLabel>Payment mix today</SectionLabel>
           <Card className="flex flex-wrap gap-x-6 gap-y-2">
             {data.today.paymentMix.map((p) => (
-              <span key={p.mode} className="text-[13px]">
+              <span key={p.mode} className="type-body">
                 <span className="font-semibold">{p.mode}</span>{' '}
                 <span className="tabular-nums text-[var(--text-muted)]">
                   {p.amountLabel} · {p.count === 1 ? '1 bill' : `${p.count} bills`}
@@ -107,7 +107,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         <SectionLabel>Table requests</SectionLabel>
         {data.requests.length === 0 ? (
           <Card>
-            <p className="m-0 text-[12.5px] text-[var(--text-muted)]">
+            <p className="m-0 type-caption text-[var(--text-muted)]">
               Nothing waiting. Requests appear here the moment a guest taps, and turn red after five minutes.
             </p>
           </Card>
@@ -130,13 +130,13 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                     r.urgent && 'bg-[var(--error-surface)] text-[var(--on-error-surface)]'
                   )}
                 >
-                  <span className="text-[13px] font-bold">Table {r.tableName}</span>
-                  <span className="min-w-0 flex-1 text-[13px]">
+                  <span className="type-body font-bold">Table {r.tableName}</span>
+                  <span className="min-w-0 flex-1 type-body">
                     {r.kind}
                     {r.note ? <span className="opacity-75"> — {r.note}</span> : null}
                   </span>
-                  <span className="text-[12px] text-[var(--text-muted)]">{r.captain}</span>
-                  <span className="text-[12px] font-bold tabular-nums">{r.ageMinutes} min</span>
+                  <span className="type-caption text-[var(--text-muted)]">{r.captain}</span>
+                  <span className="type-caption font-bold tabular-nums">{r.ageMinutes} min</span>
                   <Button
                     data-testid={`owner-request-done-${r.id}`}
                     size="sm"
@@ -155,7 +155,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
             ))}
           </ul>
         )}
-        <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           Captains see the same list — either of you can clear it, and it clears for both.
         </p>
       </section>
@@ -183,9 +183,9 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                         : 'bg-[var(--surface)]'
                 )}
               >
-                <span className="block text-[14px] font-bold">{t.name}</span>
-                <span className="block text-[10.5px] font-semibold">{t.stateLabel}</span>
-                <span className="block text-[10.5px] opacity-75">{t.line}</span>
+                <span className="block type-body font-bold">{t.name}</span>
+                <span className="block type-caption font-semibold">{t.stateLabel}</span>
+                <span className="block type-caption opacity-75">{t.line}</span>
               </button>
 
               {/* Only where the person holds the grant, and only on a table that is actually
@@ -240,7 +240,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           </>
         }
       >
-        <p className="m-0 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Anything that phone had chosen and not sent is discarded, and the next scan of this table starts fresh. If a
           round has already gone to the kitchen this will be refused — that is a payment or a void, not a floor
           operation.
@@ -261,8 +261,8 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
               <li key={s.id}>
                 <Card>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12.5px] font-bold">Table {s.tableName ?? '—'}</span>
-                    <span className="text-[11.5px] text-[var(--text-muted)]">
+                    <span className="type-caption font-bold">Table {s.tableName ?? '—'}</span>
+                    <span className="type-caption text-[var(--text-muted)]">
                       {new Date(s.createdAt).toLocaleTimeString('en-IN', {
                         hour: 'numeric',
                         minute: '2-digit',
@@ -271,10 +271,10 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                     </span>
                     {!s.repliedAt ? <Pill tone="primary">New</Pill> : null}
                   </div>
-                  <p className="m-0 mt-1.5 text-[13px] leading-relaxed">{s.body}</p>
+                  <p className="m-0 mt-1.5 type-body leading-relaxed">{s.body}</p>
 
                   {s.repliedAt ? (
-                    <p className="m-0 mt-2 rounded-[var(--radius-md)] bg-[var(--success-surface)] px-3 py-2 text-[12px] leading-relaxed text-[var(--on-success-surface)]">
+                    <p className="m-0 mt-2 rounded-[var(--radius-md)] bg-[var(--success-surface)] px-3 py-2 type-caption leading-relaxed text-[var(--on-success-surface)]">
                       <strong>Your reply</strong> · {s.repliedBy} — {s.reply}
                     </p>
                   ) : replyTo === s.id ? (
@@ -287,7 +287,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                             type="button"
                             onClick={() => setReply(r.text)}
 
-                            className="min-h-11 rounded-full border border-[var(--border-strong)]/25 px-3 text-[12px] font-semibold text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                            className="min-h-11 rounded-full border border-[var(--border-strong)]/25 px-3 type-caption font-semibold text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                           >
                             {r.name}
                           </button>
@@ -350,7 +350,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           </ul>
         )}
         {unanswered.length ? (
-          <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+          <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
             {unanswered.length === 1 ? 'One guest is' : `${unanswered.length} guests are`} still waiting to hear back.
             They see the reply as a message from Jalsa, not from a system.
           </p>

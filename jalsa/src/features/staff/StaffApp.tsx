@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { OfflineBanner, PartialNotice } from '@/components/ui/states';
 import type { StaffPayload } from '@/lib/db/staff-view';
 import { FloorScreen, TableScreen, AddItemsScreen } from './StaffTables';
-import { ReadyScreen, KotsScreen, RequestsScreen, MeScreen } from './StaffLists';
+import { ReadyScreen, KotsScreen, ClearScreen, RequestsScreen, MeScreen } from './StaffLists';
 
 /**
  * StaffApp — the captain's and the waiter's phone.
@@ -25,7 +25,7 @@ import { ReadyScreen, KotsScreen, RequestsScreen, MeScreen } from './StaffLists'
  *   the tab bar on the one handset nobody tested on.
  */
 
-export type StaffTab = 'floor' | 'table' | 'menu' | 'ready' | 'kots' | 'requests' | 'me';
+export type StaffTab = 'floor' | 'table' | 'menu' | 'ready' | 'kots' | 'clean' | 'requests' | 'me';
 
 export interface StaffScreenProps {
   data: StaffPayload;
@@ -66,11 +66,17 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
   const shared: StaffScreenProps = { data, go, selectedBillId, send, busy, runBusy };
 
   const unclearedRequests = data.requests.length;
+  // Tables the party has left that nobody has reset. The waiter's second job, and until the
+  // clearing columns existed there was no way to count it.
+  const needsClearing = data.tables.filter((t) => t.clearing !== null).length;
   const readyCount = data.ready.filter((r) => r.kot.status === 'ready').length;
 
   const tabs: Array<{ key: StaffTab; label: string; icon: string; badge: number }> = data.isWaiter
     ? [
+        // The design set's waiter bar, in its order: what is ready to carry, what is ready to
+        // wipe, then the room. A waiter's shift is those two queues and the floor behind them.
         { key: 'ready', label: 'To serve', icon: '▲', badge: readyCount },
+        { key: 'clean', label: 'Clear', icon: '◇', badge: needsClearing },
         { key: 'floor', label: 'Tables', icon: '▦', badge: 0 },
         { key: 'requests', label: 'Requests', icon: '!', badge: unclearedRequests },
         { key: 'me', label: 'Me', icon: '●', badge: 0 },
@@ -90,7 +96,15 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
     });
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[38rem] flex-col" data-testid="staff-app" data-tab={tab}>
+    // The floor is an operational surface, so it takes the dense body/caption steps — see the
+    // note on the owner shell and the typography block in src/app/globals.css. Headings, buttons
+    // and touch targets are identical to the guest's.
+    <div
+      className="mx-auto flex min-h-dvh w-full max-w-[38rem] flex-col"
+      data-testid="staff-app"
+      data-tab={tab}
+      data-density="dense"
+    >
       <OfflineBanner />
 
       <header className="sticky top-0 z-30 flex items-center gap-3 bg-[var(--primary)] px-4 py-3 text-[var(--on-primary)]">
@@ -101,21 +115,21 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
             onClick={() => go(tab === 'menu' ? 'table' : 'floor')}
             aria-label="Back"
 
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[20px] leading-none hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
           >
             ‹
           </button>
         ) : (
           <span
             aria-hidden
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--on-primary)]/15 text-[13px] font-bold"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--on-primary)]/15 type-body font-bold"
           >
             {data.me.initials || data.me.name.charAt(0)}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="m-0 truncate text-[15px] font-semibold">{titleFor(tab, data, selectedBillId)}</p>
-          <p className="m-0 truncate text-[11.5px] opacity-85">{subtitleFor(tab, data, selectedBillId)}</p>
+          <p className="m-0 truncate type-body font-semibold">{titleFor(tab, data, selectedBillId)}</p>
+          <p className="m-0 truncate type-caption opacity-85">{subtitleFor(tab, data, selectedBillId)}</p>
         </div>
       </header>
 
@@ -128,10 +142,10 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
 
         {data.dayNote && tab === 'floor' ? (
           <div
-            className="mb-3 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12.5px] leading-relaxed text-[var(--on-warning-surface)]"
+            className="mb-3 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]"
             data-testid="staff-day-note"
           >
-            <strong className="block text-[10.5px] font-bold uppercase tracking-[0.11em]">Note for the floor</strong>
+            <strong className="block type-eyebrow">Note for the floor</strong>
             {data.dayNote}
           </div>
         ) : null}
@@ -141,6 +155,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
         {tab === 'menu' ? <AddItemsScreen {...shared} /> : null}
         {tab === 'ready' ? <ReadyScreen {...shared} /> : null}
         {tab === 'kots' ? <KotsScreen {...shared} /> : null}
+        {tab === 'clean' ? <ClearScreen {...shared} /> : null}
         {tab === 'requests' ? <RequestsScreen {...shared} /> : null}
         {tab === 'me' ? <MeScreen {...shared} onSignOut={signOut} /> : null}
       </main>
@@ -161,7 +176,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
               aria-current={active ? 'page' : undefined}
 
               className={cn(
-                'relative flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors',
+                'relative flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 type-caption font-semibold transition-colors',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--border-focus)]',
                 active ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
               )}
@@ -169,7 +184,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
               <span
                 aria-hidden
                 className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold',
+                  'flex h-6 w-6 items-center justify-center rounded-full type-caption font-bold',
                   active ? 'bg-[var(--primary)] text-[var(--on-primary)]' : 'bg-[var(--surface-sunken)]'
                 )}
               >
@@ -178,7 +193,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
               {t.label}
               {t.badge > 0 ? (
                 <span
-                  className="absolute right-[22%] top-1.5 min-w-4 rounded-full bg-[var(--error)] px-1 text-[9px] font-bold leading-4 text-[var(--on-error)]"
+                  className="absolute right-[22%] top-1.5 min-w-4 rounded-full bg-[var(--error)] px-1 type-badge font-bold leading-4 text-[var(--on-error)]"
                   aria-label={`${t.badge} waiting`}
                 >
                   {t.badge}
@@ -211,6 +226,8 @@ function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null): str
       return data.isWaiter ? 'Ready to run' : 'Ready to collect';
     case 'kots':
       return 'Kitchen tickets';
+    case 'clean':
+      return 'Clear these tables';
     case 'requests':
       return 'Table requests';
     case 'me':
@@ -231,6 +248,10 @@ function subtitleFor(tab: StaffTab, data: StaffPayload, billId: string | null): 
       return data.ready.length === 1 ? '1 round waiting' : `${data.ready.length} rounds waiting`;
     case 'kots':
       return `${data.bills.reduce((a, b) => a + b.kots.length, 0)} tonight · newest first`;
+    case 'clean': {
+      const n = data.tables.filter((t) => t.clearing !== null).length;
+      return n ? `${n} waiting · guests have left` : 'Everything is reset';
+    }
     case 'requests':
       return data.requests.length
         ? `${data.requests.length} waiting · oldest ${Math.max(...data.requests.map((r) => r.ageMinutes))} min`

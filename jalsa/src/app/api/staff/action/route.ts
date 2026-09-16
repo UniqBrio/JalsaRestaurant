@@ -9,6 +9,7 @@ import {
   completeRequest,
   ensureOpenBill,
   freeTable,
+  clearTable,
   joinTableToBill,
   placeRound,
   reprintKot,
@@ -57,6 +58,7 @@ type Action =
     }
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'free-table'; tableId: string }
+  | { action: 'clear-table'; tableId: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string };
 
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
@@ -133,6 +135,10 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       // are properties of the operation, and a second copy at a second entry point is how the
       // two eventually disagree.
       await freeTable({ tableId: input.tableId, actor });
+      return ok({ done: true });
+
+    case 'clear-table':
+      await clearTable({ tableId: input.tableId, actor });
       return ok({ done: true });
 
     case 'set-availability':

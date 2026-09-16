@@ -89,7 +89,7 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                   <span
                     aria-hidden
                     className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold',
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full type-body font-bold',
                       p.onDuty
                         ? 'bg-[var(--primary)] text-[var(--on-primary)]'
                         : 'bg-[var(--surface-sunken)] text-[var(--text-muted)]'
@@ -98,8 +98,8 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                     {p.initials || p.name.charAt(0)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-semibold">{p.name}</span>
-                    <span className="block text-[11.5px] text-[var(--text-muted)]">
+                    <span className="block type-body font-semibold">{p.name}</span>
+                    <span className="block type-caption text-[var(--text-muted)]">
                       {p.liveTables.length
                         ? `On ${p.liveTables.join(', ')} right now`
                         : p.standingTables.length
@@ -267,7 +267,7 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
               </Field>
             </div>
             {!editing.id ? (
-              <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+              <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
                 Saving applies the <strong>{editing.role}</strong> preset —{' '}
                 {(ROLE_PRESETS[editing.role] ?? []).length} permissions — which you can then adjust one at a time.
               </p>
@@ -337,7 +337,7 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
                   {g.permissions.map((p) => (
                     <li key={p.key}>
-                      <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2 text-[12.5px] hover:bg-[var(--surface-sunken)]">
+                      <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2 type-caption hover:bg-[var(--surface-sunken)]">
                         <input
                           data-testid={`owner-perm-${p.key}`}
                           type="checkbox"
@@ -361,7 +361,7 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
             );
           })}
 
-          <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+          <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
             Every grant and revocation is written to the audit log with your name against it, and takes effect on
             their next tap — they do not need to sign in again.
           </p>
@@ -387,6 +387,8 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
               One-time PIN for <strong>{issuedPin.name}</strong>
             </SuccessNotice>
             <p
+              /* INTENTIONAL EXCEPTION — the issued PIN, set to be read aloud across a counter.
+                 Sized to its panel rather than to the reading scale; see scripts/check-typography.mjs. */
               className="m-0 rounded-[var(--radius-lg)] bg-[var(--surface-sunken)] py-6 text-center text-[38px] font-bold tracking-[0.3em] tabular-nums"
               data-testid="owner-pin-digits"
             >
@@ -402,7 +404,7 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
             >
               Copy PIN
             </Button>
-            <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+            <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
               They sign in at <strong>/staff</strong> with this PIN. It is shown once and cannot be read back — if it
               is lost, issue another. Every order, discount and closure is recorded against this name.
             </p>

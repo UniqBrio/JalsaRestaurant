@@ -46,14 +46,14 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
               <li key={b.id}>
                 <Card className="flex flex-wrap items-center gap-3">
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-bold">
+                    <span className="block type-body font-bold">
                       {b.tables.join(', ')} <Pill tone="primary">Payment requested</Pill>
                     </span>
-                    <span className="block text-[11.5px] text-[var(--text-muted)]">
+                    <span className="block type-caption text-[var(--text-muted)]">
                       {b.code} · {b.spine.captain} · {b.guests} guests · opened {b.openedAt}
                     </span>
                   </span>
-                  <span className="text-[17px] font-bold tabular-nums">{b.payableLabel}</span>
+                  <span className="type-h3 font-bold tabular-nums">{b.payableLabel}</span>
                   {canClose ? (
                     <Button data-testid={`owner-close-${b.code}`} onClick={() => setClosing(b)}>
                       Record payment
@@ -72,7 +72,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
           <Card>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
               {others.map((b) => (
-                <li key={b.id} className="flex flex-wrap items-baseline gap-x-3 text-[12.5px]">
+                <li key={b.id} className="flex flex-wrap items-baseline gap-x-3 type-caption">
                   <span className="font-semibold">{b.tables.join(', ')}</span>
                   <span className="text-[var(--text-muted)]">
                     {b.code} · {b.spine.captain} · {b.kots.length === 1 ? '1 round' : `${b.kots.length} rounds`}
@@ -136,7 +136,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
             },
           ]}
         />
-        <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           The export carries exactly the rows shown, with the filter you have applied — so what you reconcile against
           is what you were looking at.
         </p>

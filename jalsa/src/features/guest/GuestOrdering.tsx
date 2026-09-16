@@ -53,16 +53,16 @@ export function WelcomeScreen({ data, go, openSheet }: GuestScreenProps) {
       <div>
         {/* The greeting follows the DEVICE clock, and the design says so. Software that says
             "good evening" at breakfast reads as broken (Standard 7.5). */}
-        <p className="m-0 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--primary)]">{greeting}</p>
-        <h1 className="mt-1 text-[26px] leading-tight">{data.restaurantName}</h1>
-        <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">{data.copy.subline}</p>
+        <p className="m-0 type-caption font-bold uppercase tracking-[0.14em] text-[var(--primary)]">{greeting}</p>
+        <h1 className="mt-1 type-h1 leading-tight">{data.restaurantName}</h1>
+        <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">{data.copy.subline}</p>
       </div>
 
       <Card className="bg-[var(--primary-surface)]">
-        <p className="m-0 text-[13.5px] font-semibold text-[var(--on-primary-surface)]">
+        <p className="m-0 type-body font-semibold text-[var(--on-primary-surface)]">
           You are at table {data.table.name}.
         </p>
-        <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-1 type-caption leading-relaxed text-[var(--text-muted)]">
           {data.copy.welcome ??
             'The full menu is on your phone. Order as many rounds as you like — one bill at the end.'}
         </p>
@@ -75,11 +75,11 @@ export function WelcomeScreen({ data, go, openSheet }: GuestScreenProps) {
             <div key={c.name} className="flex items-center gap-3">
               <span
                 aria-hidden
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)] text-[13px] font-bold text-[var(--on-primary)]"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)] type-body font-bold text-[var(--on-primary)]"
               >
                 {c.name.charAt(0)}
               </span>
-              <span className="text-[13px]">{c.role}</span>
+              <span className="type-body">{c.role}</span>
             </div>
           ))}
         </div>
@@ -102,7 +102,7 @@ export function WelcomeScreen({ data, go, openSheet }: GuestScreenProps) {
         <Button data-testid="guest-start-ordering" size="lg" onClick={() => go('menu')}>
           {data.copy.startBtn ?? 'Start ordering'}
         </Button>
-        <p className="m-0 text-center text-[11px] text-[var(--text-muted)]">
+        <p className="m-0 text-center type-caption text-[var(--text-muted)]">
           Nothing is charged now. You pay at the end, all rounds on one bill.
         </p>
       </ActionBar>
@@ -222,7 +222,7 @@ export function MenuScreen({
               );
             })}
           </div>
-          <p className="m-0 mt-1.5 text-[11.5px] text-[var(--text-muted)]">
+          <p className="m-0 mt-1.5 type-caption text-[var(--text-muted)]">
             {diets.length
               ? `Showing ${dietPhrase.toLowerCase()} only · tap again to remove`
               : 'Pick one or more. Leave it alone to see everything.'}
@@ -246,7 +246,7 @@ export function MenuScreen({
               <span aria-hidden>☰</span>
               <span className="truncate">{category === 'All' ? 'Categories' : category}</span>
             </span>
-            <span className="text-[12px] font-normal opacity-75">{catCount(category)}</span>
+            <span className="type-caption font-normal opacity-75">{catCount(category)}</span>
           </Button>
           {category !== 'All' ? (
             <Button
@@ -290,7 +290,7 @@ export function MenuScreen({
                 className="min-h-[52px] justify-between text-left"
               >
                 <span className="min-w-0 truncate">{c === 'All' ? 'Everything' : c}</span>
-                <span className="text-[12px] font-normal opacity-70">{n}</span>
+                <span className="type-caption font-normal opacity-70">{n}</span>
               </Button>
             );
           })}
@@ -336,7 +336,7 @@ export function MenuScreen({
           <Button data-testid="guest-review-order" size="lg" onClick={() => go('cart')}>
             <span className="flex w-full items-center justify-between gap-3">
               <span>Review order</span>
-              <span className="text-[12.5px] font-normal opacity-90">
+              <span className="type-caption font-normal opacity-90">
                 {cartCount === 1 ? '1 item' : `${cartCount} items`}
               </span>
             </span>
@@ -393,12 +393,12 @@ function MenuRow({
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <FoodMark type={item.foodType} />
-            <span className="min-w-0 truncate text-[13.5px] font-semibold">{item.name}</span>
+            <span className="min-w-0 truncate type-body font-semibold">{item.name}</span>
           </span>
-          <span className="mt-0.5 block text-[11.5px] text-[var(--text-muted)]">
+          <span className="mt-0.5 block type-caption text-[var(--text-muted)]">
             {FOOD_TYPE[item.foodType].label} · {item.category}
           </span>
-          <span className="mt-1 block text-[13.5px] font-bold">{item.priceLabel}</span>
+          <span className="mt-1 block type-body font-bold">{item.priceLabel}</span>
         </span>
       </button>
 
@@ -476,8 +476,8 @@ export function CartScreen({
   if (lines.length === 0) {
     return (
       <div className="flex flex-col gap-4 pt-6" data-testid="guest-cart-empty">
-        <h2 className="text-[19px]">Nothing here yet</h2>
-        <p className="m-0 text-[13px] leading-relaxed text-[var(--text-muted)]">
+        <h2 className="type-h3">Nothing here yet</h2>
+        <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
           Add something from the menu and it will show up here before it goes anywhere near the kitchen.
         </p>
         <Button data-testid="guest-cart-back-to-menu" variant="secondary" onClick={() => go('menu')}>
@@ -490,8 +490,8 @@ export function CartScreen({
   return (
     <div className="flex flex-col gap-4" data-testid="guest-cart">
       <div>
-        <h2 className="text-[19px]">Check your order</h2>
-        <p className="m-0 mt-0.5 text-[12px] text-[var(--text-muted)]">
+        <h2 className="type-h3">Check your order</h2>
+        <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
           {cartCount === 1 ? '1 item' : `${cartCount} items`} · nothing sent to the kitchen yet
         </p>
       </div>
@@ -502,8 +502,8 @@ export function CartScreen({
             <Card className="flex items-center gap-3 p-3">
               <FoodMark type={l.foodType} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-semibold">{l.name}</span>
-                <span className="block text-[11.5px] text-[var(--text-muted)]">{rupees(l.price)} each</span>
+                <span className="block truncate type-body font-semibold">{l.name}</span>
+                <span className="block type-caption text-[var(--text-muted)]">{rupees(l.price)} each</span>
               </span>
               <Stepper
                 qty={qtyOf(l)}
@@ -512,7 +512,7 @@ export function CartScreen({
                 testIdPrefix={`guest-cart-qty-${l.id}`}
                 label={l.name}
               />
-              <span className="w-16 shrink-0 text-right text-[13px] font-bold tabular-nums">
+              <span className="w-16 shrink-0 text-right type-body font-bold tabular-nums">
                 {rupees(l.price * qtyOf(l))}
               </span>
             </Card>
@@ -521,7 +521,7 @@ export function CartScreen({
       </ul>
 
       <div>
-        <label htmlFor="guest-note" className="text-[12px] font-semibold">
+        <label htmlFor="guest-note" className="type-caption font-semibold">
           Anything the kitchen should know?
         </label>
         <Textarea
@@ -568,7 +568,7 @@ export function CartScreen({
             disabled={busy}
             aria-label="Add something else"
             title="Add something else"
-            className="h-12 w-12 shrink-0 text-[20px]"
+            className="h-12 w-12 shrink-0 type-h3"
           >
             +
           </Button>

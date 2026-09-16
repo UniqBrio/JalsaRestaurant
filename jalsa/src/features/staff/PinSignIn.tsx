@@ -81,8 +81,8 @@ export function PinSignIn() {
       data-testid="staff-signin"
     >
       <div className="text-center">
-        <h1 className="text-[22px]">Staff sign in</h1>
-        <p className="m-0 mt-1.5 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+        <h1 className="type-h2">Staff sign in</h1>
+        <p className="m-0 mt-1.5 type-caption leading-relaxed text-[var(--text-muted)]">
           Four-digit PIN. Everything you do tonight is recorded against your name.
         </p>
       </div>
@@ -150,7 +150,7 @@ export function PinSignIn() {
               onClick={() => press(k)}
 
               aria-label={k === '⌫' ? 'Delete the last digit' : k}
-              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] text-[22px] font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] type-h2 font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
             >
               {k}
             </button>
@@ -158,7 +158,7 @@ export function PinSignIn() {
         )}
       </div>
 
-      <p className="m-0 text-center text-[11.5px] text-[var(--text-muted)]">
+      <p className="m-0 text-center type-caption text-[var(--text-muted)]">
         {busy ? 'Checking…' : 'Ask Javeed if you have forgotten it.'}
       </p>
 

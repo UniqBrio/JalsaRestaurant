@@ -12,12 +12,19 @@ import type { ExpenseRow } from '@/lib/db/types';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
- * Screens 30 and 31 — the tips ledger and expenses.
+ * Screens 30 and 31 — the tips ledger and expenses, as TWO sections.
  *
- * THEY SHARE A SCREEN BECAUSE THEY SHARE A PROPERTY: neither is revenue.
- *   A tip is money collected on somebody else's behalf and paid out in full (Standard 7.3); an
- *   expense is money that has already left. Putting them beside each other, under a heading that
- *   says so, is what stops either being quietly folded into a sales figure.
+ * WHY THEY ARE NOT ONE SCREEN
+ *   They were, and the argument for merging them was that neither is revenue. That is true and
+ *   it is not enough. The design set's nav lists `tips` and `exp` separately, and the reason
+ *   shows up in the permission matrix rather than in the visual: `tips.all` is confidential —
+ *   what each member of the floor earned — while `expense.manage` is an approval grant for
+ *   entering purchases. Merged, a manager who must enter the vegetable bill had to be handed
+ *   everyone's tip income to do it, or be locked out of both.
+ *
+ *   What was right about the merge survives in the wording: each screen still says what it is
+ *   NOT, because the whole risk with both ledgers is one of them being quietly folded into a
+ *   sales figure (Standard 7.3).
  *
  * EVERY EXPENSE IS EDITABLE AND REMOVABLE, WITH A REASON (Standards 3.7 and 6.1). Create-only
  * records make the first typo permanent, and permanent typos flow into every report built on
@@ -36,20 +43,10 @@ const EXPENSE_CATEGORIES = [
   'Other',
 ];
 
-export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps) {
-  const toast = useToast();
-  const [editing, setEditing] = React.useState<{
-    id?: string;
-    spentOn: string;
-    category: string;
-    note: string;
-    amount: string;
-    reason: string;
-  } | null>(null);
-  const [deleting, setDeleting] = React.useState<ExpenseRow | null>(null);
-  const [deleteReason, setDeleteReason] = React.useState('Entered twice');
+/* ── Tips ──────────────────────────────────────────────────────────────── */
 
-  const canExpense = data.grants.includes('expense.manage');
+export function TipsSection({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
   const canSettle = data.grants.includes('tips.settle');
 
   const unsettled = data.tips.filter((t) => !t.settledAt);
@@ -62,13 +59,11 @@ export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps)
     byStaff.set(key, seen);
   }
 
-  const expenseTotal = data.expenses.reduce((a, e) => a + e.amount, 0);
-
   return (
-    <div className="flex flex-col gap-6" data-testid="owner-ledgers">
+    <div className="flex flex-col gap-4" data-testid="owner-tips">
       <section>
         <SectionLabel>Tips — staff money, excluded from income</SectionLabel>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <MetricTile
             label="Collected today"
             value={data.today.tipsLabel}
@@ -80,12 +75,6 @@ export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps)
             value={rupees(unsettled.reduce((a, t) => a + t.amount, 0))}
             note={`${unsettled.length === 1 ? '1 tip' : `${unsettled.length} tips`} across ${byStaff.size} people`}
             testId="owner-tips-unsettled"
-          />
-          <MetricTile
-            label="Expenses recorded"
-            value={rupees(expenseTotal)}
-            note={`${data.expenses.length} entries`}
-            testId="owner-expense-total"
           />
           <MetricTile
             label="Sales today"
@@ -100,11 +89,11 @@ export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps)
             {[...byStaff.values()].map((s) => (
               <li key={s.id ?? 'unattributed'}>
                 <Card className="flex flex-wrap items-center gap-3">
-                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold">{s.name}</span>
-                  <span className="text-[12px] text-[var(--text-muted)]">
+                  <span className="min-w-0 flex-1 type-body font-semibold">{s.name}</span>
+                  <span className="type-caption text-[var(--text-muted)]">
                     {s.count === 1 ? '1 tip' : `${s.count} tips`}
                   </span>
-                  <span className="text-[15px] font-bold tabular-nums">{rupees(s.amount)}</span>
+                  <span className="type-body font-bold tabular-nums">{rupees(s.amount)}</span>
                   {canSettle && s.id ? (
                     <Button
                       data-testid={`owner-settle-${s.id}`}
@@ -168,7 +157,30 @@ export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps)
           />
         </div>
       </section>
+    </div>
+  );
+}
 
+/* ── Expenses ──────────────────────────────────────────────────────────── */
+
+export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const [editing, setEditing] = React.useState<{
+    id?: string;
+    spentOn: string;
+    category: string;
+    note: string;
+    amount: string;
+    reason: string;
+  } | null>(null);
+  const [deleting, setDeleting] = React.useState<ExpenseRow | null>(null);
+  const [deleteReason, setDeleteReason] = React.useState('Entered twice');
+
+  const canExpense = data.grants.includes('expense.manage');
+  const expenseTotal = data.expenses.reduce((a, e) => a + e.amount, 0);
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="owner-expenses">
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <SectionLabel className="mb-0">Expenses — entered by hand, never inferred</SectionLabel>
@@ -189,6 +201,15 @@ export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps)
               Add an expense
             </Button>
           ) : null}
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <MetricTile
+            label="Expenses recorded"
+            value={rupees(expenseTotal)}
+            note={`${data.expenses.length} entries`}
+            testId="owner-expense-total"
+          />
         </div>
 
         <DataTable
