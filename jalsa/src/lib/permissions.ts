@@ -126,6 +126,10 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       { key: 'staff.create', label: 'Add or edit staff', approval: true },
       { key: 'staff.perms', label: 'Change permissions', approval: true, confidential: true },
       { key: 'staff.pin', label: 'Generate or reset login PINs', approval: true, confidential: true },
+      // Salary, PAN and the bank fragment the payslip prints. Separate from `staff.create`,
+      // which is name, role and who is on duty: fixing a spelling in a waiter's name is not the
+      // same act as reading what the senior captain is paid.
+      { key: 'staff.paperwork', label: 'Employment record and HR documents', approval: true, confidential: true },
     ],
   },
   {

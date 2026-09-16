@@ -5,6 +5,20 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/hr-documents.unit.spec.ts and
+jalsa/tests/unit/report-range.unit.spec.ts - the two new specs for Jalsa's HR documents and the
+Reports date range. Both observed failing on 16-Sep-2026; the full evidence is in
+jalsa/TEST_SUMMARY.md, "FAIL-FIRST EVIDENCE - 2026-09-16 (eleventh)". Four deliberate defects
+across four runs: a merge that drops blanks instead of marking them (5 failed, 22 passed), a
+pronoun fallback to he/him on an unrecorded gender (1 failed, 26 passed), a date range that
+swaps reversed dates instead of refusing them (2 failed, 19 passed), and a net that folds tips
+into income (2 failed, 19 passed). All reverted; the suites returned to 27 and 21 passed.
+
+This line is at the repository root for the same reason as the one below it: guard G3 reads
+TEST_SUMMARY.md relative to the working-tree root and cannot see a nested application's ledger.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/print-template.unit.spec.ts and
 jalsa/tests/unit/print-routing.unit.spec.ts - the two new specs for Jalsa's Print Setup slice.
 Both were observed failing on 16-Sep-2026. The full evidence, with each injected defect and the

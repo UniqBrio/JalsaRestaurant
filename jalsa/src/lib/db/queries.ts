@@ -306,6 +306,58 @@ export async function listClosedBillsToday(): Promise<Bill[]> {
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
 }
 
+/**
+ * Closed bills over a range, for the Reports section's one date range.
+ *
+ * WHY A BILL BELONGS TO THE DAY IT WAS CLOSED
+ *   A table that opens at 11:40 pm and settles at 12:20 am is one bill on two dates. `closed_at`
+ *   is the moment the money was recorded, which is the moment the books care about, and it is
+ *   the same column `listClosedBillsToday` already filters on — so today's figures and a
+ *   one-day range agree by construction rather than by coincidence.
+ *
+ * The range is inclusive at both ends: `to` is pushed to the end of its day here rather than in
+ * the caller, so every caller cannot get it wrong differently.
+ */
+export async function listClosedBillsBetween(from: string, to: string): Promise<Bill[]> {
+  const restaurantId = await currentRestaurantId();
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  end.setDate(end.getDate() + 1);
+
+  const { data, error } = await db()
+    .from('bill')
+    .select(BILL_SELECT)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'closed')
+    .gte('closed_at', start.toISOString())
+    .lt('closed_at', end.toISOString())
+    .order('closed_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+}
+
+/** Expenses over the same range, filtered on the day they were SPENT, not entered. */
+export async function listExpensesBetween(from: string, to: string): Promise<ExpenseRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('expense')
+    .select('id,spent_on,category,note,amount,entered_by')
+    .eq('restaurant_id', restaurantId)
+    .is('deleted_at', null)
+    .gte('spent_on', from)
+    .lte('spent_on', to)
+    .order('spent_on', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((e) => ({
+    id: e.id as string,
+    spentOn: e.spent_on as string,
+    category: e.category as string,
+    note: (e.note as string) ?? '',
+    amount: Number(e.amount),
+    enteredBy: e.entered_by as string,
+  }));
+}
+
 /* ── Floor ─────────────────────────────────────────────────────────────── */
 
 /**
@@ -489,7 +541,7 @@ export async function listStaff(): Promise<StaffMember[]> {
   const [staffRes, bills] = await Promise.all([
     db()
       .from('staff')
-      .select('id,name,role,initials,mobile,active,on_duty,pin_hash,staff_table(dining_table:table_id(name))')
+      .select('id,name,role,initials,mobile,email,active,on_duty,pin_hash,employee_code,designation,department,joined_on,last_working_day,gender,employment_type,monthly_salary,reports_to,shift,home_address,pan,uan,bank_last4,staff_table(dining_table:table_id(name))')
       .eq('restaurant_id', restaurantId)
       .is('removed_at', null)
       .order('name', { ascending: true }),
@@ -523,6 +575,26 @@ export async function listStaff(): Promise<StaffMember[]> {
       .filter(Boolean)
       .sort(),
     liveTables: [...(live.get(s.id as string) ?? [])].sort(),
+    employment: {
+      employeeCode: (s.employee_code as string) ?? '',
+      designation: (s.designation as string) ?? '',
+      department: (s.department as string) ?? '',
+      joinedOn: (s.joined_on as string | null) ?? '',
+      lastWorkingDay: (s.last_working_day as string | null) ?? '',
+      gender: (s.gender as string) ?? '',
+      employmentType: (s.employment_type as string) ?? '',
+      // Null and zero are different answers. Null is "nobody has recorded a salary"; zero would
+      // be "this person is paid nothing", and the documents refuse both — but only one of them
+      // is a fact somebody typed.
+      monthlySalary: s.monthly_salary === null || s.monthly_salary === undefined ? null : Number(s.monthly_salary),
+      reportsTo: (s.reports_to as string) ?? '',
+      shift: (s.shift as string) ?? '',
+      email: (s.email as string) ?? '',
+      homeAddress: (s.home_address as string) ?? '',
+      pan: (s.pan as string) ?? '',
+      uan: (s.uan as string) ?? '',
+      bankLast4: (s.bank_last4 as string) ?? '',
+    },
   }));
 }
 

@@ -39,6 +39,7 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
   const [seating, setSeating] = React.useState<{ id: string; token: string; partySize: number } | null>(null);
   const [removing, setRemoving] = React.useState<{ id: string; token: string } | null>(null);
   const [removeReason, setRemoveReason] = React.useState('They left');
+  const [noShow, setNoShow] = React.useState<{ id: string; token: string } | null>(null);
 
   const queue = data.waitlist;
   const canSeat = data.grants.includes('queue.seat');
@@ -185,6 +186,22 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
                       onClick={() => setSeating({ id: w.id, token: w.token, partySize: w.partySize })}
                     >
                       Seat
+                    </Button>
+                  ) : null}
+                  {/* NO-SHOW IS ITS OWN VERB, and it only appears after the party has been
+                      called. The flowchart lists four actions — Notify, Call, No-show, Seat —
+                      and this one is a different fact from Remove: "they left" is a party who
+                      walked away, "they did not come" is a table the host HELD and nobody sat
+                      at. Both come off the queue; only one of them says the evening lost a
+                      turn, and tonight's waiting times are read from these rows. */}
+                  {canClear && w.notified ? (
+                    <Button
+                      data-testid={`owner-queue-noshow-${w.id}`}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setNoShow({ id: w.id, token: w.token })}
+                    >
+                      No-show
                     </Button>
                   ) : null}
                   {canClear ? (
@@ -382,6 +399,41 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
             await send('/api/owner/action', { action: 'remove-waitlist', id: removing.id, reason: removeReason });
             toast.show(`${removing.token} removed — ${removeReason.toLowerCase()}`, { tone: 'success' });
             setRemoving(null);
+          })
+        }
+      />
+
+      {/* The reason is fixed and the dialog offers no alternatives, which is the point: a
+          no-show recorded as "they left" is a different evening in the numbers. It is one
+          stored reason string with exactly one caller, rather than a column — nothing reads
+          the waitlist by reason yet, and a column added now would be a schema change in
+          anticipation of a report that does not exist. */}
+      <ConfirmDialog
+        open={noShow !== null}
+        onOpenChange={(o) => !o && setNoShow(null)}
+        title="They did not come when called"
+        confirmLabel="Record a no-show"
+        busy={busy}
+        testId="owner-queue-noshow"
+        consequence={
+          noShow ? (
+            <p className="m-0 leading-relaxed">
+              <strong>{noShow.token}</strong> comes off the queue and everyone behind them moves up. It is recorded as
+              a no-show rather than as leaving, because a table was held for them — the entry is kept with your name
+              against it, so tonight&rsquo;s waiting times stay true.
+            </p>
+          ) : null
+        }
+        onConfirm={() =>
+          noShow &&
+          runBusy(async () => {
+            await send('/api/owner/action', {
+              action: 'remove-waitlist',
+              id: noShow.id,
+              reason: 'No-show — did not come when called',
+            });
+            toast.show(`${noShow.token} recorded as a no-show`, { tone: 'success' });
+            setNoShow(null);
           })
         }
       />

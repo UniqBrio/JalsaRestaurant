@@ -713,3 +713,106 @@ export async function upsertPrinter(input: {
   });
   return { id: data.id as string };
 }
+
+/* ── The employment record ─────────────────────────────────────────────── */
+
+/**
+ * The fields the HR documents merge from.
+ *
+ * SEPARATE FROM `upsertStaff`, AND SEPARATELY PERMISSIONED
+ *   `upsertStaff` edits who somebody is on the floor — name, role, mobile. This edits what they
+ *   are paid, their PAN and the last four digits of their bank account. `staff.create` is held
+ *   by anybody who may add a waiter; `staff.paperwork` is not, and the split is the whole reason
+ *   this is a second function rather than six more arguments on the first.
+ *
+ * WHAT IS AUDITED, AND WHAT IS NOT PRINTED IN THE AUDIT
+ *   A salary change is recorded with its before and after, because that is precisely the dispute
+ *   an audit log exists to settle. PAN and the bank fragment are recorded as CHANGED and never
+ *   quoted: an audit log that reprints an identity number is a second place that number lives,
+ *   readable by everyone who can read the log.
+ */
+export async function writeEmployment(input: {
+  staffId: string;
+  patch: {
+    employeeCode?: string;
+    designation?: string;
+    department?: string;
+    joinedOn?: string | null;
+    lastWorkingDay?: string | null;
+    gender?: string;
+    employmentType?: string;
+    monthlySalary?: number | null;
+    reportsTo?: string;
+    shift?: string;
+    email?: string;
+    homeAddress?: string;
+    pan?: string;
+    uan?: string;
+    bankLast4?: string;
+  };
+  actor: Actor;
+}): Promise<void> {
+  demand(input.actor, 'staff.paperwork');
+
+  const p = input.patch;
+  if (p.bankLast4 !== undefined && p.bankLast4 !== '' && !/^\d{4}$/.test(p.bankLast4)) {
+    throw new Error('The bank field holds the last four digits only — never the whole number.');
+  }
+
+  const { data: before } = await db()
+    .from('staff')
+    .select('name,monthly_salary,designation,pan,bank_last4')
+    .eq('id', input.staffId)
+    .maybeSingle();
+
+  const COLUMN: Record<string, string> = {
+    employeeCode: 'employee_code',
+    designation: 'designation',
+    department: 'department',
+    joinedOn: 'joined_on',
+    lastWorkingDay: 'last_working_day',
+    gender: 'gender',
+    employmentType: 'employment_type',
+    monthlySalary: 'monthly_salary',
+    reportsTo: 'reports_to',
+    shift: 'shift',
+    email: 'email',
+    homeAddress: 'home_address',
+    pan: 'pan',
+    uan: 'uan',
+    bankLast4: 'bank_last4',
+  };
+
+  const row: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(p)) {
+    const column = COLUMN[key];
+    if (!column || value === undefined) continue;
+    // An empty date is NULL, not ''. A date column will not take a blank string, and a
+    // last working day of '' would be a person recorded as having left on no day.
+    row[column] = (key === 'joinedOn' || key === 'lastWorkingDay') && !value ? null : value;
+  }
+  if (Object.keys(row).length === 0) return;
+
+  const { error } = await db().from('staff').update(row).eq('id', input.staffId);
+  if (error) throw error;
+
+  const who = (before?.name as string) ?? 'This employee';
+  const salaryChanged =
+    p.monthlySalary !== undefined && Number(before?.monthly_salary ?? -1) !== Number(p.monthlySalary ?? -1);
+  const identityChanged =
+    (p.pan !== undefined && p.pan !== ((before?.pan as string) ?? '')) ||
+    (p.bankLast4 !== undefined && p.bankLast4 !== ((before?.bank_last4 as string) ?? ''));
+
+  await audit({
+    action: 'Staff',
+    detail: salaryChanged
+      ? `${who}: monthly salary ${rupees(Number(before?.monthly_salary ?? 0))} → ${rupees(Number(p.monthlySalary ?? 0))}`
+      : identityChanged
+        // Named, never quoted. The log records that it changed and who changed it; an audit
+        // entry carrying a PAN is a second copy of it, readable by everyone who can read logs.
+        ? `${who}: identity or bank details changed`
+        : `${who}: employment record updated — ${Object.keys(p).join(', ')}`,
+    actor: input.actor,
+    confidential: true,
+  });
+}

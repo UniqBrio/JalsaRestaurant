@@ -141,6 +141,35 @@ export interface StaffMember {
   hasPin: boolean;
   standingTables: string[];
   liveTables: string[];
+  /**
+   * The employment record the HR documents merge from.
+   *
+   * Carried on the same row as the operational fields because it IS the same person, and a
+   * second table keyed by staff_id would be a join that exists only to separate two kinds of
+   * fact about one employee. What separates them is the permission: `staff.paperwork`, not
+   * `staff.create`.
+   *
+   * Every field here starts empty and stays empty until somebody fills it. That is the design's
+   * rule working — anything unfilled prints as a marked placeholder — not missing data.
+   */
+  employment: {
+    employeeCode: string;
+    designation: string;
+    department: string;
+    joinedOn: string;
+    lastWorkingDay: string;
+    gender: string;
+    employmentType: string;
+    monthlySalary: number | null;
+    reportsTo: string;
+    shift: string;
+    email: string;
+    homeAddress: string;
+    pan: string;
+    uan: string;
+    /** Four digits, or ''. A payslip prints `XXXX XXXX 5093` and needs nothing more. */
+    bankLast4: string;
+  };
 }
 
 export interface TableRequest {

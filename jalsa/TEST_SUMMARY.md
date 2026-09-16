@@ -249,6 +249,31 @@ _Merge blocked. Every FAIL above must resolve. No partial merges._
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-16 (eleventh) - the signed document, and the one date range
+
+Both files are NEW, so neither collected against the pre-fix tree. Four deliberate defects were
+introduced into the finished modules and each suite re-run.
+
+FAIL-FIRST: tests/unit/hr-documents.unit.spec.ts - `merge()` returning `{ text: '', placeholder:
+false }` for a blank value instead of the bracketed label: **5 failed, 22 passed** - "A BLANK
+VALUE IS NEVER A BLANK STRING", "a placeholder cannot be mistaken for the sentence around it",
+"whitespace is not a value", "undefined and null are the same as empty", and "AN UNPARSEABLE DATE
+RETURNS EMPTY so the merge marks it". That is the defect the flowchart's own rule exists to
+prevent: an offer letter reading "a gross monthly salary of  , subject to applicable statutory
+deductions" is a blank cheque that looks like a typo. Separately, `pronounsFor` falling back to
+he/him on an empty gender field: **1 failed, 26 passed** - "an unrecorded gender is THEY, never a
+guess from the name". Both reverted; 27 passed.
+
+FAIL-FIRST: tests/unit/report-range.unit.spec.ts - `checkRange` swapping a reversed pair instead
+of refusing it: **2 failed, 19 passed** - "A REVERSED RANGE IS REFUSED, never quietly swapped" and
+"a refused range is still returned unchanged". A swap hands back a correct-looking report for a
+question nobody asked. Separately, `summarise` computing net as `sales + tips - purchases`:
+**2 failed, 19 passed** - "THE NET EXCLUDES TIPS" and "tips are reported separately and never
+folded into sales", which overstates the business by the staff's own money. Both reverted;
+21 passed.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-16 (tenth) - the character grid and the routing fallback
 
 Both files are NEW, so against the pre-fix tree neither collected: the modules did not exist and

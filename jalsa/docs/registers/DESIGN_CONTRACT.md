@@ -25,6 +25,72 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-008 · Reports now have the one date range the flowchart asks for
+
+**SOURCE** — `Jalsa Navigation Flowchart.dc.html`, section three: *"Sales, purchases and expenses,
+final report, all-orders ledger. **One date range governs every panel**; each exports."*
+
+**WHAT WAS THERE** — four tabs reading `data.closedToday`, and a Final report tab carrying an
+honest empty state: *"a range control that silently only ever meant today would be worse than
+none."* That was true. It is now obsolete and is gone.
+
+**BUILT** — `src/lib/report-range.ts` (presets, validation, the roll-up — 21 cases) ·
+`/api/owner/report` (ranged read, gated on `rep.sales`) · `ReportsSection` rewritten with the
+range **above** the tabs.
+
+Three decisions worth the row:
+
+- **The range is not a property of a panel.** Four ranges is four answers to "how did last week
+  go", and somebody subtracts one panel's purchases from another's sales.
+- **Reversed dates are refused, not swapped.** A swap hands back a correct-looking report for a
+  question nobody asked.
+- **The net excludes tips on both sides.** A tip is the staff's money. `money.ts` refuses the
+  conflation by having no field called "total", and this refuses it the same way.
+
+**WHY ITS OWN ENDPOINT** — the console payload is polled every few seconds. A thirty-day range is
+thousands of bills with their rounds; on the poll, every screen pays for a report nobody opened.
+
+**STATUS** — **AUTHORISED** and built. **NOT VERIFIED** — data-bearing, and no range has been
+read against a database here.
+
+---
+
+## DC-007 · HR documents are built, and the employment columns are finally read
+
+**SOURCE** — `Jalsa Navigation Flowchart.dc.html`, section six: *"Staff record → Offer letter ·
+Experience certificate · Payslip. Variables merge from the employment record and the restaurant
+identity. **Anything unfilled prints as a marked placeholder so nothing is signed blank.**"*
+`Jalsa HR Documents.dc.html` carries the three documents' full text.
+
+**WHAT WAS THERE** — nine employment columns in the core schema, added under a comment naming the
+HR documents as their reason, and **read and written by nothing**. Every one had held its default
+since the first migration. Same shape as the reply box that wrote to a column no screen read: a
+field that exists, looks maintained, and is empty in every row.
+
+**BUILT** — `src/lib/hr-documents.ts` (the merge, rupees-in-words, payslip arithmetic, readiness
+— 27 cases) · `StaffPaperwork.tsx`, opened from the person's own row · migration
+`20260916120000` for the last five columns and the `staff.paperwork` grant.
+
+Four decisions worth the row:
+
+- **A blank is `[MONTHLY SALARY]`, never an empty string.** Two of these three get signed by the
+  employee; "a gross monthly salary of  ," reads as a typo and is a blank cheque.
+- **`staff.paperwork` is separate from `staff.create`.** Fixing a spelling in a waiter's name is
+  not the same act as reading what the senior captain is paid.
+- **Only the last four digits of the bank account are stored.** The payslip prints
+  `XXXX XXXX 5093`; the whole number is a credential nothing here can use.
+- **An unrecorded gender takes they/them.** A certificate is handed to a future employer, and one
+  that misgenders its subject is worse than one that reads a little formally.
+
+**STATUS** — **AUTHORISED** and built. **NOT VERIFIED** — data-bearing. The merge and the
+arithmetic are verified by execution; the screen has not been seen.
+
+**NOT BUILT** — printing goes through the browser, which is what the design's own "Print or save
+as PDF" does. These do not go to the thermal machines: a letter on 80 mm till roll is not a
+letter.
+
+---
+
 ## DC-006 · Print Setup is built — and the routing it edits is now read
 
 **SUPERSEDES DC-004's status**, which is kept below unchanged.

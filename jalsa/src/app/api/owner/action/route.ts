@@ -31,6 +31,7 @@ import {
   upsertPrinter,
   upsertStaff,
   upsertTable,
+  writeEmployment,
   writeIdentity,
   writeSetting,
 } from '@/lib/db/owner-mutations';
@@ -103,7 +104,8 @@ type Action =
       routes: string[];
       enabled: boolean;
     }
-  | { action: 'retry-print'; jobId: string };
+  | { action: 'retry-print'; jobId: string }
+  | { action: 'write-employment'; staffId: string; patch: Record<string, string | number | null> };
 
 /**
  * Everything the owner DOES.
@@ -308,6 +310,10 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));
+
+    case 'write-employment':
+      await writeEmployment({ staffId: input.staffId, patch: input.patch, actor });
+      return ok({ done: true });
 
     default:
       return fail(400, { code: 'validation', message: 'That is not something this console can do.' });

@@ -10,6 +10,7 @@ import { SuccessNotice } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
 import { PERMISSION_GROUPS, ROLE_PRESETS } from '@/lib/permissions';
 import type { StaffMember } from '@/lib/db/types';
+import { StaffPaperwork } from './StaffPaperwork';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -27,7 +28,7 @@ import type { OwnerSectionProps } from '../OwnerConsole';
 
 const ROLES = ['Captain', 'Waiter', 'Chef', 'Cashier', 'Owner / Admin'] as const;
 
-export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
+export function StaffSection({ data, send, runBusy, busy, go, arg }: OwnerSectionProps) {
   const toast = useToast();
   const [query, setQuery] = React.useState('');
   const [editing, setEditing] = React.useState<{ id?: string; name: string; role: string; mobile: string } | null>(
@@ -37,12 +38,16 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
   const [granted, setGranted] = React.useState<Set<string>>(new Set());
   const [issuedPin, setIssuedPin] = React.useState<{ name: string; pin: string } | null>(null);
   const [removing, setRemoving] = React.useState<StaffMember | null>(null);
+  const [paperworkFor, setPaperworkFor] = React.useState<StaffMember | null>(null);
   const [removeReason, setRemoveReason] = React.useState('Left the restaurant');
 
   const canEdit = data.grants.includes('staff.create');
   const canPerms = data.grants.includes('staff.perms');
   const canPin = data.grants.includes('staff.pin');
   const canDuty = data.grants.includes('day.setup');
+  // Separate from `staff.create`: fixing a spelling in a waiter's name is not the same act as
+  // reading what the senior captain is paid.
+  const canPaperwork = data.grants.includes('staff.paperwork');
 
   const q = query.trim().toLowerCase();
   const people = data.staff.filter(
@@ -159,6 +164,17 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                       }
                     >
                       {p.hasPin ? 'Reissue PIN' : 'Give them the app'}
+                    </Button>
+                  ) : null}
+
+                  {canPaperwork ? (
+                    <Button
+                      data-testid={`owner-paperwork-${p.id}`}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPaperworkFor(p)}
+                    >
+                      Paperwork
                     </Button>
                   ) : null}
 
@@ -441,6 +457,21 @@ export function StaffSection({ data, send, runBusy, busy }: OwnerSectionProps) {
           })
         }
       />
+
+      {/* THE PAPERWORK, OPENED FROM THE PERSON'S OWN ROW. The flowchart routes it that way —
+          "Staff record → Offer letter · Experience certificate · Payslip" — and the reason is
+          that every missing field is one the person looking at the row already knows. */}
+      {paperworkFor ? (
+        <StaffPaperwork
+          key={paperworkFor.id}
+          person={paperworkFor}
+          onClose={() => setPaperworkFor(null)}
+          data={data}
+          send={send}
+          runBusy={runBusy}
+          busy={busy}
+        />
+      ) : null}
     </div>
   );
 }
