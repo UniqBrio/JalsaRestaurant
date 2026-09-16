@@ -280,6 +280,12 @@ export function DataTable<Row>({
                       aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                       className={cn(
                         'border-b border-[var(--border)] px-3 py-2.5 type-eyebrow tracking-[0.07em] text-[var(--text-muted)]',
+                        // The header stays while the rows move. A 57-row menu scrolls its
+                        // column names off the top within one flick, and after that every
+                        // figure in the Amount column is an unlabelled number. The background
+                        // is explicit because a sticky cell paints over the rows sliding
+                        // beneath it and would otherwise be transparent.
+                        'sticky top-0 z-10 bg-[var(--surface)]',
                         c.align === 'right' ? 'text-right' : 'text-left',
                         c.secondary && 'hidden sm:table-cell'
                       )}

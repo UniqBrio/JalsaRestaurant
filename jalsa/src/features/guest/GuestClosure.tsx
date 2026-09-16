@@ -541,6 +541,17 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
   const toast = useToast();
   const settled = data.billStatus === 'closed';
 
+  /* The last dish that actually reached the table, priced from the live menu rather than from
+     the bill line — a parcel is a NEW order at today's price, and quoting the historic one
+     would under- or over-charge by exactly the amount the menu moved. */
+  const lovedDish = React.useMemo(() => {
+    const served = data.rounds.flatMap((r) => r.items).filter((i) => i.servable);
+    const last = served[served.length - 1];
+    if (!last) return null;
+    const onMenu = data.menu.find((m) => m.name === last.name && m.available);
+    return { name: last.name, priceLabel: onMenu?.priceLabel ?? '' };
+  }, [data.rounds, data.menu]);
+
   return (
     <div className="flex flex-col items-center gap-5 pt-8 text-center" data-testid="guest-paid">
       <span
@@ -567,6 +578,41 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
               `Your bank approved it. ${data.captain || 'Your captain'} records the closure at the counter — you will see the receipt here the moment they do.`}
         </p>
       </div>
+
+      {/* "Take the one you loved home" — the design set's parcel card, on the screen where the
+          meal is over and the guest is still at the table. It offers a dish from THIS bill: the
+          heart on the order list is component state and is gone by now, so "the one you loved"
+          cannot be recovered, and inventing a favourite would be a guess presented as memory.
+          The last thing served is the honest stand-in — it is the taste still in their mouth.
+          Gated on `takeaway`, the same switch the Share the Love upsell tab answers to: an
+          offer the kitchen cannot honour is worse than no offer (Standard 2.4). */}
+      {data.features.takeaway && lovedDish ? (
+        <Card className="w-full text-left" data-testid="guest-loved-card">
+          <SectionLabel>Take the one you loved home</SectionLabel>
+          <p className="m-0 mb-3 type-body">
+            <span className="font-semibold">{lovedDish.name}</span> · parcel
+            {lovedDish.priceLabel ? (
+              <span className="block type-caption text-[var(--text-muted)]">
+                {lovedDish.priceLabel} · billed separately as a takeaway
+              </span>
+            ) : null}
+          </p>
+          <Button
+            data-testid="guest-loved-add"
+            disabled={busy}
+            onClick={() =>
+              runBusy(async () => {
+                await send('/api/guest/ask', { kind: 'Parcel a favourite', note: lovedDish.name });
+                toast.show(`${lovedDish.name} parcel asked for — billed separately as a takeaway`, {
+                  tone: 'success',
+                });
+              })
+            }
+          >
+            Add a parcel
+          </Button>
+        </Card>
+      ) : null}
 
       {data.features.whatsapp ? (
         <Button
