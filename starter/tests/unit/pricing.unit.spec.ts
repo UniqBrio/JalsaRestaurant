@@ -18,7 +18,7 @@ test('nothing priced yet is a breakdown with a zero total, not an error', () => 
   const b = computePricing({ lines: [] });
   expect(b.payable).toBe(0);
   expect(b.rows).toHaveLength(1);
-  expect(b.rows[0].role).toBe('total');
+  expect(b.rows[0]!.role).toBe('total');
   expect(b.warnings).toEqual([]);
 });
 

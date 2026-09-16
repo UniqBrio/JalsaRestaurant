@@ -53,7 +53,9 @@ export function moveItem(items: readonly ModuleItem[], id: string, dir: 'up' | '
     const j = dir === 'up' ? i - 1 : i + 1;
     if (j < 0 || j >= items.length) return items as ModuleItem[];
     const next = [...items];
-    [next[i], next[j]] = [next[j], next[i]];
+    // Both indices were bounds-checked above, so the reads cannot be undefined - said explicitly
+    // rather than left to the index signature. (noUncheckedIndexedAccess)
+    [next[i], next[j]] = [next[j] as ModuleItem, next[i] as ModuleItem];
     return next;
   }
   let changed = false;

@@ -85,8 +85,10 @@ review agents, and the hook that runs the guards). Fill in the rules; the wiring
 See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md).
 
 ### 10. Set up CI
-Copy `ci/github-actions-ci.yml`. It runs the same gate runner developers run locally — if CI
-and local run different checks, one of them is decoration.
+Copy `ci/github-actions-ci.yml`. It **calls** `npm run audit:all` and `npm run guard:test` —
+the same scripts developers run locally — rather than restating the checks inside them. If CI
+and local run different checks, one of them is decoration, and a CI file that lists the checks
+by name is a copy that will drift into being exactly that.
 
 ### 11. Prove the pipeline end to end with something trivial
 Ship a health-check endpoint through the **entire** process: plan, build, test gate, deploy,

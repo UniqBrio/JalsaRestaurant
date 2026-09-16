@@ -5,6 +5,39 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+NOT OBSERVED FAILING: starter/tests/unit/pwa.unit.spec.ts - arrived with the framework v1.35.0
+sync (CP-30's named rung), not written here, and it cannot be run in this checkout: starter/ has
+no node_modules, which is the same absence that leaves gate G5 BLOCKED and G6-G8 blocked behind
+it. There is no pre-fix tree to run it against either — the code it exercises (starter/src/lib/
+pwa.ts, PwaProvider) arrives in the very same commit, so the state where it would fail has never
+existed in this repository. Recording the honest negative rather than escaping the guard: this
+spec is unproven HERE, and whoever installs starter/'s dependencies should run it before relying
+on it. Jalsa's own PWA work does not depend on it — jalsa/ keeps its own worker and registrar,
+and that behaviour WAS proven, in a browser, in bc35c4e.
+
+## Gate run - 2026-09-16 - VERDICT: BLOCKED
+
+Steps: 8 pass, 0 fail, 4 blocked.
+Time: 3.4s total - slowest G10 Backward compatibility (fixtures) (3.0s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (91ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (50ms)
+- **G4 No hard-coded colours** - PASS (53ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" in starter - not fetched from the registry on purpose. Run `npm install` in starter (provides typescript), or state why this class is unverified. - **20 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass - **20 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass - **20 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass - **20 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G9 Automation addressability** - PASS (50ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.0s)
+- **G11 Wide tables are configurable** - PASS (50ms)
+- **G12 Installable as an application** - PASS (53ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-15 (fourth) - a probe that asked before the screen existed
 
 FAIL-FIRST: jalsa/tests/functional/guest-journey.functional.spec.ts:120. OBSERVED FAILING in CI

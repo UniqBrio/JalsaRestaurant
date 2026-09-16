@@ -21,10 +21,6 @@
       and recorded first.
 - [ ] No colour literals. No magic numbers where a token exists.
 - [ ] Dead weight deleted: the superseded module, the one-off script, the now-unimported helper.
-      **A gate cited here must have a scope that covers the claim.** Read the audit's own
-      `SCOPE` line before quoting its verdict: `audit:deadweight` does not audit application
-      source, so it can never evidence "no dead components". For `src/`, sweep by hand and state
-      the command. *(RC-009: a CLEAN GATE was cited over 1,988 unreferenced lines.)*
 - [ ] Every dependency introduced was **verified to exist and be the intended package** before
       installing, and is pinned.
 - [ ] Any component built from scratch for a **baseline concern** was contributed back to
@@ -37,19 +33,11 @@
 - [ ] The failure path was **exercised**, not assumed.
 - [ ] Writes are idempotent against every unique constraint on the tables they touch.
 - [ ] Multi-step writes go through one transaction.
-- [ ] A save is proved against the **data**, never the toast — **and the read that follows the
-      write is proved to arrive.** A confirmation the screen never shows is a write the user
-      will make twice. *(RC-010.)*
-- [ ] **Re-entrancy is latched on a ref, never on rendered state**, and no side effect is called
-      from inside a state updater. `if (busy) return` over `useState` does not stop two events in
-      one tick, and React 19 runs updaters twice. *(RC-011.)*
+- [ ] A save is proved against the **data**, never the toast.
 
 ## Appearance
 - [ ] Screen checklist run per screen, with output.
 - [ ] **Both themes verified visually.**
-- [ ] **Every surface claimed responsive was RENDERED at a narrow viewport**, by a test or by a
-      person, and the ones that were not are named. A surface no test could reach is `NOT
-      EXAMINED`, never "responsive" — static inspection of class names is not evidence of layout.
 - [ ] Contrast asserted — token gate **and** computed, in every state the change can produce.
 - [ ] Per-theme assets present and declared, if the change touched any brand asset.
 

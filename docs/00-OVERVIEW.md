@@ -90,8 +90,7 @@ session. See [21-AGENT-WIRING.md](./21-AGENT-WIRING.md). Without this the rest i
 [feature](../workflows/feature.md) · [enhance](../workflows/enhance.md) ·
 [bug](../workflows/bug.md) · [refactor](../workflows/refactor.md) ·
 [triage](../workflows/triage.md) · [brainstorm](../workflows/brainstorm.md) ·
-[test gate](../workflows/test-gate.md) · [review](../workflows/review.md) ·
-[promote](../workflows/promote.md) ·
+[test gate](../workflows/test-gate.md) · [promote](../workflows/promote.md) ·
 [framework update](../workflows/framework-update.md)
 
 ### The point-of-use checks
@@ -134,10 +133,6 @@ first; nothing is blocked on day one that was not already broken.
 **Something went wrong** → [workflows/bug.md](../workflows/bug.md). If the *process* should have
 caught it, also [workflows/framework-update.md](../workflows/framework-update.md).
 
-**A build is finished and needs looking at** → [workflows/review.md](../workflows/review.md).
-Evidence before opinion; it ends in a framework change or in an explicit "nothing general was
-learned".
-
 **An app learned something general** → [workflows/promote.md](../workflows/promote.md)
 (`/promote`) — classify, park at n=1, promote at n=2 from a different app.
 
@@ -147,13 +142,23 @@ learned".
 ---
 
 ### The executable parts
-`scripts/` — the gate (`gate-runner.mjs`, eleven steps, each **timed**: the report names the
-total and the slowest step, and `gate-timing.test.sh` proves it does) · the run log
+`scripts/` — the gate (`gate-runner.mjs`, twelve steps, each **timed**: the report names the
+total and the slowest step, and `gate-timing.test.sh` proves it does; it also names the
+directory its application steps ran in, and `gate-scope.test.sh` proves that directory is the
+application's and that a narrowed run never claims the whole tree was verified; it reads its own
+ledger, so a step BLOCKED for three runs running is named as a trend) · the ratchet engine
+(`lib/ratchet.mjs`, three-valued — `ratchet.test.sh` proves a missing baseline is BLOCKED, never a
+pass) · the starter's own toolchain (`starter/package.json` declares it as ranges, so `npm install`
+produces one and G5-G8 can run at all) · the run log
 (`run-log.mjs`, which reads the clock so no duration is ever recalled) · the concurrent check
 runner (`par.mjs`) · the executable review matrix (`review-plan.mjs`) · the close-out renderer
-(`close-out.mjs`) · the theme build and its checks ·
+(`close-out.mjs`) · the theme build and its checks (`theme-build.test.sh` proves the build is a
+function of its inputs, not of the directory it was invoked from) · the shell→interpreter path
+boundary (`lib/shpath.sh`, CP-31 — `shpath.test.sh` sweeps every harness for the raw-path form
+that made three suites accuse correct code, and plants a violation to prove the sweep fires) ·
 the audits (`check-hardcoded-colors` · `check-testid-coverage` · `check-rule-coverage` ·
-`check-column-control` · `check-fixture-leak` · `check-dead-weight` · `check-backward-compat`) · the commit guards
+`check-column-control` · `check-fixture-leak` · `check-dead-weight` · `check-backward-compat` ·
+`check-pwa-baseline`) · the commit guards
 under `hooks/` · and the evolution tooling (`lineage.mjs` · `upgrade.mjs` · `conformance.mjs`),
 with shared engines in `lib/` (`ratchet` · `color` · `layout` · `lineage`).
 

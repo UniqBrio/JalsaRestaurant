@@ -13,7 +13,7 @@ import {
 export function useListControls<T extends Row>(rows: readonly T[], config: ListConfig) {
   const [state, setState] = useState<ListState>(() => ({
     ...emptyListState(),
-    date: config.dateField ? { preset: 'all' } : undefined,
+    ...(config.dateField ? { date: { preset: 'all' as const } } : {}),
   }));
 
   const result = useMemo(() => applyListControls(rows, state, config), [rows, state, config]);
@@ -26,6 +26,6 @@ export function useListControls<T extends Row>(rows: readonly T[], config: ListC
       setState((s) => ({ ...s, filters: toggleFilterValue(s.filters, field, value) })),
     setDate: (date: DateFilterState) => setState((s) => ({ ...s, date })),
     sortBy: (key: string) => setState((s) => ({ ...s, sort: toggleSort(s.sort, key) })),
-    clearAll: () => setState({ ...emptyListState(), date: config.dateField ? { preset: 'all' } : undefined }),
+    clearAll: () => setState({ ...emptyListState(), ...(config.dateField ? { date: { preset: 'all' as const } } : {}) }),
   };
 }

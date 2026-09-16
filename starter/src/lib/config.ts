@@ -31,8 +31,28 @@ const SERVER_REQUIRED: RequiredSpec[] = [
   { name: 'SESSION_SECRET', description: 'Signing key for session tokens.' },
 ];
 
+/**
+ * PUBLIC values are read STATICALLY, by name, and only then dynamically.
+ *
+ * A bundler inlines `process.env.PUBLIC_API_URL` - a literal member access it can see at build
+ * time - and inlines nothing for `process.env[name]`, which it cannot. This module read every
+ * variable through the dynamic form, so in the browser every PUBLIC_* value was undefined, and
+ * the "fail fast" below fired in every client component that imported the API client. Nothing
+ * noticed for as long as the functional gate could not boot the app; the first run that could
+ * showed "2 required client variable(s) are missing" on a server that had both set.
+ *
+ * The static table is the fix, and its shape is the point: adding a PUBLIC_* variable means
+ * adding a line here AND to next.config.mjs, and the check below fails loudly if one is
+ * forgotten - on the client, at import, which is where it would otherwise fail silently.
+ */
+const STATIC_PUBLIC: Readonly<Record<string, string | undefined>> = {
+  APP_ENV: process.env.APP_ENV,
+  PUBLIC_APP_URL: process.env.PUBLIC_APP_URL,
+  PUBLIC_API_URL: process.env.PUBLIC_API_URL,
+  PUBLIC_BUILD_ID: process.env.PUBLIC_BUILD_ID,
+};
 const read = (name: string): string | undefined => {
-  const v = process.env[name];
+  const v = name in STATIC_PUBLIC ? STATIC_PUBLIC[name] : process.env[name];
   return v && v.trim() !== '' ? v.trim() : undefined;
 };
 
@@ -42,7 +62,7 @@ function requireAll(specs: RequiredSpec[], scope: string): void {
   const lines = missing.map((m) => `  ${m.name.padEnd(24)} ${m.description}`).join('\n');
   throw new Error(
     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
-      `Copy .env.example to .env and fill these in. See docs/10-CONFIGURATION-MANAGEMENT.md.`
+      `Copy .env.example to .env and fill these in. See docs/05-CONFIGURATION-MANAGEMENT.md.`
   );
 }
 

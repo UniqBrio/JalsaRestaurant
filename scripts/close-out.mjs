@@ -23,7 +23,8 @@
  *
  * USAGE
  *   node scripts/close-out.mjs <record.json> [--upgrades|--changelog|--commit|--all] [--apply]
- *   --apply prepends to UPGRADES.md and CHANGELOG.md and writes .close-out-commit.txt.
+ *   --apply prepends to UPGRADES.md and CHANGELOG.md, writes .close-out-commit.txt, and sets
+ *           VERSION and package.json's version - the number is part of the story.
  *           It NEVER rewrites an existing entry: both files are newest-first and append-only.
  */
 import fs from 'node:fs';
@@ -38,7 +39,7 @@ const ROOT = process.cwd();
 if (!recordPath) {
   console.error('close-out: give it a record. node scripts/close-out.mjs <record.json> [--all] [--apply]');
   console.error('  Required fields: version, date, bump (PATCH|MINOR|MAJOR), title, why, appAction.');
-  console.error('  Optional: added[], fixed[], debt[], verification, files[], cases, rootCause.');
+  console.error('  Optional: added[], fixed[], debt[], verification, files[], cases, rootCause, trailers[].');
   process.exit(2);
 }
 if (!fs.existsSync(recordPath)) { console.error(`close-out: no such record: ${recordPath}`); process.exit(2); }
@@ -101,8 +102,17 @@ function commit() {
     out.push('');
   }
   if (rec.verification) out.push(wrap(stripMd(rec.verification)), '');
-  out.push(`App action: ${stripMd(rec.appAction)}`, '');
-  out.push('Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>');
+  // Wrapped like every other field. It was the one line pushed unwrapped, and the width
+  // assertion could not see it because the test fixture's appAction was short - so a real
+  // record produced an 800-character line in a file git log renders at 72 columns.
+  out.push(wrap(`App action: ${stripMd(rec.appAction)}`), '');
+  // Trailers come from the RECORD, because the correct attribution belongs to the session
+  // doing the work and is not a property of this script. A hardcoded trailer here does not
+  // replace the session's own - it is appended alongside it, so the commit carries two
+  // Co-Authored-By lines naming the same author differently. `trailers` accepts a list; the
+  // default is the plain form, which is what a run that does not care should get.
+  for (const t of (Array.isArray(rec.trailers) ? rec.trailers
+    : ['Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>'])) out.push(t);
   return out.join('\n');
 }
 
@@ -125,9 +135,15 @@ function wrap(text, firstPrefix = '', restPrefix = '') {
 const wantAll = has('--all') || (!has('--upgrades') && !has('--changelog') && !has('--commit'));
 
 if (!has('--apply')) {
-  if (has('--upgrades') || wantAll) { console.log('===== UPGRADES.md =====\n'); console.log(upgrades()); }
-  if (has('--changelog') || wantAll) { console.log('===== CHANGELOG.md =====\n'); console.log(changelog()); }
-  if (has('--commit') || wantAll) { console.log('===== commit message =====\n'); console.log(commit()); }
+  // The banner separates renderings when there are several to separate. With ONE selected the
+  // output is a single document, and the caller's obvious move is to redirect it - so a banner
+  // there is not a label, it is corruption. Observed: `--commit > .close-out-commit.txt`
+  // followed by `git commit -F` produced a commit whose subject line was "===== commit
+  // message =====". A generator whose output cannot be piped invites the mistake it then makes.
+  const banner = (t) => { if (wantAll) console.log(`===== ${t} =====\n`); };
+  if (has('--upgrades') || wantAll) { banner('UPGRADES.md'); console.log(upgrades()); }
+  if (has('--changelog') || wantAll) { banner('CHANGELOG.md'); console.log(changelog()); }
+  if (has('--commit') || wantAll) { banner('commit message'); console.log(commit()); }
   process.exit(0);
 }
 
@@ -149,6 +165,23 @@ function prepend(file, block, afterHeaderMarker) {
 
 prepend('UPGRADES.md', upgrades(), '---\n\n');
 prepend('CHANGELOG.md', changelog(), '# Changelog\n\n');
+
+/* The NUMBER is part of the story, and it was the one part still told by hand - twice.
+ * VERSION and package.json carried different values for twenty-eight releases (1.29.0 against
+ * 1.3.0) because every bump was an edit to one file and never to the other. `upgrade.mjs`
+ * reads VERSION, so the drift cost nothing until somebody read package.json first. One record,
+ * every rendering: that includes the two files that state which version this is. */
+fs.writeFileSync(path.resolve(ROOT, 'VERSION'), `${rec.version}\n`, 'utf8');
+console.log(`close-out: VERSION is now ${rec.version}`);
+const pkgPath = path.resolve(ROOT, 'package.json');
+if (fs.existsSync(pkgPath)) {
+  // A textual replace, not a parse-and-stringify: rewriting the whole file would reformat every
+  // line and turn a one-line version bump into a diff nobody can review.
+  const pkg = fs.readFileSync(pkgPath, 'utf8');
+  const bumped = pkg.replace(/("version"\s*:\s*")[^"]*(")/, `$1${rec.version}$2`);
+  if (bumped === pkg) console.error('close-out: package.json has no "version" field to update - left untouched.');
+  else { fs.writeFileSync(pkgPath, bumped, 'utf8'); console.log(`close-out: package.json version is now ${rec.version}`); }
+}
 fs.writeFileSync(path.resolve(ROOT, '.close-out-commit.txt'), commit() + '\n', 'utf8');
 console.log('close-out: commit message written to .close-out-commit.txt');
 console.log('  git commit -F .close-out-commit.txt');

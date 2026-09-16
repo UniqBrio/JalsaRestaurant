@@ -34,7 +34,7 @@ full_record() {
   "added": ["**A thing** was added with `code` in it"],
   "fixed": ["A prior mistake was corrected"],
   "debt": ["One gap stays open and is named"],
-  "appAction": "None. Nothing to do.",
+  "appAction": "None. Nothing to do - but stated at length, because the width assertion below can only fail on a field long enough to overflow, and a fixture whose every field is short proves the wrapper works on text that never needed wrapping.",
   "verification": "audit:all clean; guard:test 99/99."
 }
 JSON
@@ -59,14 +59,32 @@ if [ "$appearances" -ge 3 ]; then echo "  PASS  the title reaches all three rend
 else echo "  FAIL  the title appeared $appearances time(s), expected >= 3"; FAIL=$((FAIL+1)); fi
 check "the upgrades section carries the bump grammar" '^## 9\.9\.9 — 08-Sep-2026 — MINOR'
 check "the root cause is cited where an app will look" 'RC-042'
-check "the app action is stated, never left silent" 'None\. Nothing to do\.'
+check "the app action is stated, never left silent" 'None\. Nothing to do'
 check "honest debt gets its own heading, not a footnote" 'honest debt'
 check "the commit message carries the co-author trailer" 'Co-Authored-By: Claude Opus 5'
+# ...exactly ONE of them. The trailer used to be hardcoded here, which did not replace the
+# session's own attribution - it was appended alongside it, and the commit went out naming the
+# same author twice, differently. A generator that owns duplication must not create any.
+n_trailers="$(grep -c "^Co-Authored-By:" "$OUT" 2>/dev/null || true)"
+if [ "${n_trailers:-0}" = "1" ]; then echo "  PASS  exactly one co-author trailer, never a duplicate"; PASS=$((PASS+1))
+else echo "  FAIL  exactly one co-author trailer, never a duplicate (found ${n_trailers:-0})"; FAIL=$((FAIL+1)); fi
 
 # 2. The changelog is read in a terminal, so markdown emphasis is noise there.
 co "$REC" --changelog
 refute "the changelog strips bold markers" '\*\*A thing\*\*'
 check  "but keeps the words themselves" 'A thing was added'
+
+# 3a. A SINGLE rendering is a document, not a section of one. `--commit > file` must produce a
+#     usable commit message: a banner there becomes the subject line, which is exactly the
+#     commit this repository accidentally made before the banner was scoped to --all.
+co "$REC" --commit
+refute "a single rendering carries no section banner" '^===== '
+head -1 "$OUT" | grep -qE '^v9\.9\.9: ' \
+  && { echo "  PASS  --commit opens on the subject line, ready to pipe"; PASS=$((PASS+1)); } \
+  || { echo "  FAIL  --commit opens on '$(head -1 "$OUT")', not the subject line"; FAIL=$((FAIL+1)); }
+# ...and --all still labels its three renderings, because there the banner is doing real work.
+co "$REC" --all
+check "--all still labels each rendering" '^===== commit message ====='
 
 # 3. git log is shown at 72 columns by half the tools that render it.
 co "$REC" --commit
@@ -100,8 +118,22 @@ ok $? 2 "an unparseable record is refused"
 full_record
 printf '# Upgrade Log\n\nintro\n\n---\n\n## 1.0.0 — old\n\nprior content\n' > "$TMP/UPGRADES.md"
 printf '# Changelog\n\n## 1.0.0 — old\n\nprior content\n' > "$TMP/CHANGELOG.md"
+printf '1.0.0\n' > "$TMP/VERSION"
+printf '{ "name": "probe", "version": "0.0.1", "private": true }\n' > "$TMP/package.json"
 co "$REC" --apply
 ok $? 0 "--apply writes"
+# --apply owns the version IDENTITY, not just the prose about it. VERSION and package.json
+# carried different numbers for twenty-eight releases (1.29.0 vs 1.3.0) because each bump was a
+# hand edit to one file and never to the other. One record, every rendering - the number too.
+[ "$(cat "$TMP/VERSION" 2>/dev/null)" = "9.9.9" ] \
+  && { echo "  PASS  --apply writes VERSION"; PASS=$((PASS+1)); } \
+  || { echo "  FAIL  --apply left VERSION at '$(cat "$TMP/VERSION" 2>/dev/null)'"; FAIL=$((FAIL+1)); }
+grep -q '"version": "9.9.9"' "$TMP/package.json" 2>/dev/null \
+  && { echo "  PASS  --apply writes package.json version"; PASS=$((PASS+1)); } \
+  || { echo "  FAIL  --apply left package.json version untouched"; FAIL=$((FAIL+1)); }
+grep -q '"name": "probe"' "$TMP/package.json" \
+  && { echo "  PASS  ...without disturbing the rest of package.json"; PASS=$((PASS+1)); } \
+  || { echo "  FAIL  package.json lost content"; FAIL=$((FAIL+1)); }
 if [ "$(grep -n '9.9.9' "$TMP/UPGRADES.md" | cut -d: -f1)" -lt "$(grep -n '1.0.0' "$TMP/UPGRADES.md" | cut -d: -f1)" ]; then
   echo "  PASS  the new section is newest-first in UPGRADES"; PASS=$((PASS+1))
 else echo "  FAIL  the new section is not above the old one"; FAIL=$((FAIL+1)); fi

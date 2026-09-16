@@ -79,6 +79,6 @@ export async function request<T>(
 
 export const get = <T>(path: string) => request<T>(path, { method: 'GET' });
 export const post = <T>(path: string, body: unknown, idempotencyKey?: string) =>
-  request<T>(path, { method: 'POST', body: JSON.stringify(body), idempotencyKey });
+  request<T>(path, { method: 'POST', body: JSON.stringify(body), ...(idempotencyKey !== undefined ? { idempotencyKey } : {}) });
 export const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });

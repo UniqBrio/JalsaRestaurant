@@ -30,7 +30,7 @@ node -e '1' >/dev/null 2>&1 || { echo "SKIPPED - no node interpreter" >&2; exit 
 # assert on a broken tree instead of a working one. The summary is redirected into $TMP so a
 # test run never prepends to the committed ledger; .gate-logs/ is already git-ignored.
 OUT="$TMP/out.txt"
-node "$RUNNER" --cwd "$ROOT" --only G1 --summary "$TMP/SUMMARY.md" >"$OUT" 2>&1
+node "$RUNNER" --cwd "$ROOT" --only G1 --summary "$TMP/SUMMARY.md" --logdir "$TMP/logs" >"$OUT" 2>&1
 
 check() { # <label> <regex>
   if grep -qE "$2" "$OUT"; then echo "  PASS  $1"; PASS=$((PASS+1))

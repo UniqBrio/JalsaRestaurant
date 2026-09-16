@@ -29,7 +29,7 @@ Regardless of business requirements, every application ships these; the product-
 | Audit trail | Who changed what, from what, to what, when — wherever roles or access can be changed |
 | Money | **Wherever the application shows an amount payable** — one itemised breakdown (items · adjustments · tax · payable), one renderer, pass-through kept out of revenue (CP-29). Conditional on the domain handling money at all; where it does not, this row is N/A, stated once. |
 | Session | Session persists until the user signs out explicitly; sign-out confirms first and lives under the overflow menu |
-| Install | PWA installability where the application is a web app: manifest, icons, offline shell |
+| Install | **Every web application is installable**: generated manifest, maskable launcher icons, service worker, offline shell, and an install offer that is asked once (CP-30) |
 | Settings | A settings area where the app's configurable details live — **not a peer of daily work** ([04 §5](../04-ARCHITECTURE-AND-DESIGN.md)) · typed fail-fast environment configuration · feature flags |
 | Data plumbing | Single API client · error taxonomy · idempotent writes · transactions |
 | Safety | Outbound-send deny-by-default · env trust boundary · tenant scoping |
@@ -89,7 +89,7 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Support | Help and support — email · call · WhatsApp deep link, worded channels, honest empty state | `starter/src/components/HelpSupport.tsx` | READY |
 | Copy | Sentence case for labels, headings and table cells (DR-1) — capitalises the first letter and never lowercases the rest | `starter/src/lib/text-format.ts` | READY |
 | Session | JWT and username/password session persistence — survives reload and backgrounding; ends only on explicit sign out (DR-2) | — | **GAP** — first app to build it contributes back |
-| Install | PWA manifest, icons, service-worker shell, install prompt | — | **GAP** — an option in the customizer, never a silent default |
+| Install | PWA — generated manifest, generated offline page, generated maskable icons, service worker, install and update prompts (CP-30) | `starter/src/lib/pwa.ts` + `starter/src/components/PwaProvider.tsx` + `starter/src/app/layout.tsx` + `starter/public/sw.js` + `scripts/theme-build.mjs` | READY — **AMENDED 10-Sep-2026**, and the amendment reverses this row's own previous wording. It read "an option in the customizer, never a silent default"; the owner has directed that every generated application be installable with no additional configuration, so it is now a default and not an option. The original caution is not discarded — it was about not IMPOSING behaviour on a user, and that survives in CP-30's fourth rule: the app is installable, but nothing installs itself, the offer is asked once and remembered, and an update is offered rather than applied. `PwaProvider` takes `quiet` for a surface that must not be interrupted. |
 | UI | Bulk-action bar — composes CP-28 (delete confirms with the count and scope named; archive is one click plus Undo) and `selectionSummary`, never a second wording | `starter/src/components/BulkBar.tsx` | READY |
 | UI | Common form patterns | — | **GAP** |
 | Settings | Typed, fail-fast config (env trust boundary, `PUBLIC_` prefix rule) | `starter/src/lib/config.ts` + `starter/.env.example` | READY |

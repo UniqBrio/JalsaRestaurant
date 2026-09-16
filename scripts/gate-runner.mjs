@@ -35,6 +35,7 @@
  *
  * USAGE
  *   node scripts/gate-runner.mjs [--only <ids>] [--skip <ids>] [--summary <file>] [--cwd <dir>]
+ *                                [--app <dir>] [--logdir <dir>]
  *   Every --skip records the step as BLOCKED with the stated reason. No flag can produce green.
  */
 import { spawnSync } from 'node:child_process';
@@ -42,6 +43,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { appPath } from './lib/layout.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
@@ -57,14 +59,44 @@ const ROOT = path.resolve(process.cwd(), arg('--cwd', '.'));
  */
 const FRAMEWORK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fwScript = (rel) => path.resolve(FRAMEWORK, rel);
+
+/**
+ * ...and WITHIN the subject, where is the APPLICATION?
+ *
+ * The FRAMEWORK/ROOT split above answers "where does the checker live". It leaves the second
+ * question unasked, and the two are not the same: in the framework repository the application
+ * is `starter/`, and in a scaffolded app it is the root. `scripts/lib/layout.mjs` exists to
+ * decide that, and every audit imports it. This runner did not - so G5-G8 ran `tsc`, `eslint`
+ * and the app's test scripts against the framework root, a directory that deliberately has no
+ * tsconfig, no eslint config and no test scripts, because none of those things are the
+ * framework's.
+ *
+ * That did not produce a wrong answer, which someone would have chased. It produced BLOCKED,
+ * every time: 24 of the 27 runs in TEST_SUMMARY.md, always the same four steps, always
+ * "install the toolchain" pointing at a package.json that would never have one. A verdict
+ * that cannot change carries no information, and this file's own comments name the cost - a
+ * gate that cries wolf about the environment is a gate people learn to ignore.
+ *
+ * BLOCKED remains correct when the toolchain is genuinely absent. What changes is that the
+ * step is now aimed at the application, and the report says where that is, so a real tooling
+ * gap is distinguishable from the runner looking in the wrong place.
+ * rung: scripts/gate-scope.test.sh
+ */
+const APP = path.resolve(ROOT, arg('--app', appPath(ROOT, '.')));
+const appRel = path.relative(ROOT, APP).split(path.sep).join('/') || '.';
 const SUMMARY = path.resolve(ROOT, arg('--summary', 'TEST_SUMMARY.md'));
-const LOGDIR = path.resolve(ROOT, '.gate-logs');
+// Redirectable, like --summary and for the same reason: a harness that drives the real runner
+// must be able to keep its own artifacts out of the tree's. Without this, every test run
+// overwrote .gate-logs/G1.log..G11.log with a two-step partial run's output - leaving logs on
+// disk that describe a run nobody performed, which is the stale-log trap this file's own
+// markBlocked() comment exists to close.
+const LOGDIR = path.resolve(ROOT, arg('--logdir', '.gate-logs'));
 const ONLY = (arg('--only', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
 const SKIP = (arg('--skip', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
 const SKIP_REASON = arg('--skip-reason', 'skipped by flag, no reason given');
 
 /**
- * G1..G11. Adding a step means adding a row here - there is no other registration point,
+ * G1..G12. Adding a step means adding a row here - there is no other registration point,
  * so a step cannot be added and then silently never called.
  */
 const STEPS = [
@@ -76,14 +108,16 @@ const STEPS = [
     why: 'A logo is a colour decision that lives in a file; no stylesheet gate can see it.' },
   { id: 'G4', name: 'No hard-coded colours', cmd: ['node', [fwScript('scripts/audits/check-hardcoded-colors.mjs')]],
     why: 'Contrast gates prove the tokens are safe; only this proves nothing bypassed them.' },
-  { id: 'G5', name: 'Types', cmd: ['tsc', ['--noEmit']], localBin: 'typescript',
+  // `app: true` means "this step judges the APPLICATION, so run it where the application is".
+  // Everything without it judges the tree as a whole and runs at ROOT.
+  { id: 'G5', name: 'Types', cmd: ['tsc', ['--noEmit']], localBin: 'typescript', app: true,
     why: 'The deploy build strips types without checking them. This is the only compile gate.',
     prerequisiteFor: ['G6', 'G7', 'G8'] },
-  { id: 'G6', name: 'Lint', cmd: ['eslint', ['.', '--max-warnings', '0']], localBin: 'eslint',
+  { id: 'G6', name: 'Lint', cmd: ['eslint', ['.', '--max-warnings', '0']], localBin: 'eslint', app: true,
     why: 'Style is cheap; the value is the correctness rules a linter can actually decide.' },
-  { id: 'G7', name: 'Unit + pure specs', cmd: ['npm', ['run', '--silent', 'test:unit']],
+  { id: 'G7', name: 'Unit + pure specs', cmd: ['npm', ['run', '--silent', 'test:unit']], app: true,
     why: 'No server, no credentials: these run in every environment, so they always execute.' },
-  { id: 'G8', name: 'Functional / integration', cmd: ['npm', ['run', '--silent', 'test:functional']],
+  { id: 'G8', name: 'Functional / integration', cmd: ['npm', ['run', '--silent', 'test:functional']], app: true,
     why: 'Behaviour against real components. Slower, so it runs after the cheap gates.' },
   { id: 'G9', name: 'Automation addressability', cmd: ['node', [fwScript('scripts/audits/check-testid-coverage.mjs')]],
     why: 'A suite can only assert on elements it can address.' },
@@ -91,6 +125,10 @@ const STEPS = [
     why: 'A framework change may not turn any fixture app green -> red. "Existing features must not break" is tested here, not asserted.' },
   { id: 'G11', name: 'Wide tables are configurable', cmd: ['node', [fwScript('scripts/audits/check-column-control.mjs')]],
     why: 'A table degrades into unusability one column at a time, and no single change is ever the one that broke it. CP-21.' },
+  { id: 'G12', name: 'Installable as an application', cmd: ['node', [fwScript('scripts/audits/check-pwa-baseline.mjs')]],
+    why: 'Every part of PWA support is easy to half-do, and every half-done version looks finished: a manifest nothing links, '
+      + 'a worker nothing registers, an icon that was declared and never added. None break a build; all mean the app cannot '
+      + 'be installed, which nobody discovers until someone tries it on a phone. CP-30.' },
 ];
 
 fs.mkdirSync(LOGDIR, { recursive: true });
@@ -102,10 +140,12 @@ const passed = new Set();
  * that did not run this time must not leave last run's log sitting on disk describing it.
  * Reading a stale log as current is the same mistake as reading silence as success.
  */
-function markBlocked(step, detail) {
+function markBlocked(step, detail, flagged = false) {
   fs.writeFileSync(path.join(LOGDIR, `${step.id}.log`), `BLOCKED: ${detail}
 `, 'utf8');
-  results.push({ ...step, status: 'BLOCKED', detail });
+  // `flagged`: blocked by this run's own --only/--skip. That is a fact about the invocation,
+  // not about the step, and the trend below must not count it as one.
+  results.push({ ...step, status: 'BLOCKED', detail, flagged });
 }
 
 /**
@@ -118,9 +158,13 @@ function markBlocked(step, detail) {
  * "your types are broken". A step whose tool is absent has not run, and the honest word
  * for a step that has not run is BLOCKED.
  */
-function resolveBin(name) {
+function resolveBin(name, from = ROOT) {
   const exts = process.platform === 'win32' ? ['.cmd', '.CMD', ''] : [''];
-  for (let dir = ROOT; ; dir = path.dirname(dir)) {
+  // Walk up from where the step will RUN, not from ROOT. An application tool is installed
+  // beside the application's package.json; starting the walk at ROOT found nothing in the
+  // framework repository and reported the app's toolchain missing when it was merely
+  // elsewhere. Walking up still reaches ROOT, so a hoisted install resolves either way.
+  for (let dir = from; ; dir = path.dirname(dir)) {
     for (const ext of exts) {
       const p = path.join(dir, 'node_modules', '.bin', name + ext);
       if (fs.existsSync(p)) return p;
@@ -220,11 +264,11 @@ function distil(text) {
 
 function run(step) {
   if (ONLY.length && !ONLY.includes(step.id)) {
-    markBlocked(step, `not selected by --only ${ONLY.join(',')}`);
+    markBlocked(step, `not selected by --only ${ONLY.join(',')}`, true);
     return;
   }
   if (SKIP.includes(step.id)) {
-    markBlocked(step, SKIP_REASON);
+    markBlocked(step, SKIP_REASON, true);
     return;
   }
   const unmet = STEPS.filter((s) => s.prerequisiteFor?.includes(step.id) && !passed.has(s.id));
@@ -234,11 +278,18 @@ function run(step) {
   }
 
   let [bin, args] = step.cmd;
+  // An application step is judged where the application lives; every other step judges the
+  // whole tree and stays at ROOT.
+  const cwd = step.app ? APP : ROOT;
   if (step.localBin) {
-    const resolved = resolveBin(bin);
+    const resolved = resolveBin(bin, cwd);
     if (!resolved) {
-      markBlocked(step, `no local "${bin}" - not fetched from the registry on purpose. `
-        + `Run \`npm install\` (provides ${step.localBin}), or state why this class is unverified.`);
+      // Name the directory. "Run npm install" without one sent the reader to the framework's
+      // package.json, which will never carry the application's toolchain - a remediation that
+      // cannot work reads as the gate being broken, and it was.
+      markBlocked(step, `no local "${bin}" in ${step.app ? appRel : '.'} - not fetched from the `
+        + `registry on purpose. Run \`npm install\` in ${step.app ? appRel : '.'} `
+        + `(provides ${step.localBin}), or state why this class is unverified.`);
       return;
     }
     bin = resolved;
@@ -251,7 +302,7 @@ function run(step) {
   let r;
   const startedAt = Date.now();
   try {
-    r = spawnSync(q(bin), args.map(q), { cwd: ROOT, encoding: 'utf8', shell, timeout: 15 * 60_000 });
+    r = spawnSync(q(bin), args.map(q), { cwd, encoding: 'utf8', shell, timeout: 15 * 60_000 });
   } catch (e) {
     markBlocked(step, `could not launch "${bin}": ${e.message}`);
     return;
@@ -287,10 +338,71 @@ const fingerprint = treeFingerprint();
 const priorFingerprint = fs.existsSync(FINGERPRINT_FILE) ? fs.readFileSync(FINGERPRINT_FILE, 'utf8') : null;
 const redundant = Boolean(fingerprint && priorFingerprint && fingerprint === priorFingerprint);
 
+/**
+ * ONLY A RUN THAT VERIFIED THE WHOLE TREE MAY RECORD THAT THE TREE WAS VERIFIED.
+ *
+ * The fingerprint answers one question - "has a gate already returned a verdict on exactly
+ * these bytes?" - and a run narrowed by --only or --skip has not. It examined two steps out of
+ * eleven and knows nothing about the other nine.
+ *
+ * Writing it anyway made the next FULL run announce "this run was avoidable, the verdict was
+ * already known" about a tree no gate had ever judged. Reproduced deterministically: gate a
+ * tree, edit a file, run `npm run guard:test` - whose suites drive this runner with --only
+ * against the framework root - then gate again, and the notice fires on a run that was
+ * mandatory. The suites were not misusing the runner; the runner was recording a claim its
+ * own run did not support.
+ *
+ * This is the same defect the SELF exclusion in treeFingerprint() already fixed once, in its
+ * narrow form: a detector must never treat its own output as evidence. The general form is the
+ * rule stated above, and it is the one worth keeping - the exclusion list handles the files,
+ * this handles the claim.
+ *
+ * The notice is still only ever a NOTICE. A partial run may READ the fingerprint and say a
+ * full verdict on these bytes already exists; what it may not do is leave a record implying it
+ * produced one.
+ * rung: scripts/gate-scope.test.sh
+ */
+const verifiedWholeTree = ONLY.length === 0 && SKIP.length === 0;
+
 const runStartedAt = Date.now();
 for (const s of STEPS) run(s);
 const totalMs = Date.now() - runStartedAt;
-if (fingerprint) fs.writeFileSync(FINGERPRINT_FILE, fingerprint, 'utf8');
+if (fingerprint && verifiedWholeTree) fs.writeFileSync(FINGERPRINT_FILE, fingerprint, 'utf8');
+
+const prior = fs.existsSync(SUMMARY) ? fs.readFileSync(SUMMARY, 'utf8') : '# Test summary\n\n_Newest run first. Append-only: never overwrite a prior run._\n\n---\n\n';
+
+/**
+ * THE GATE READS ITS OWN LEDGER, so a verdict that never changes becomes visible.
+ *
+ * RC-009 - four steps aimed at a directory that could never satisfy them - sat in this file
+ * for 24 consecutive runs: same steps, same verdict, every time. Nothing noticed, because the
+ * ledger is append-only and nothing reads it for a TREND; a signal that never changes is
+ * indistinguishable from no signal. That was recorded as honest debt. This is the payment.
+ *
+ * For every step BLOCKED in THIS run for a reason of its own (not a --only/--skip flag), count
+ * how many prior runs, newest first, ALSO blocked it, and stop at the first that did not. Three
+ * or more in a row is named in the report. The count includes runs narrowed by --only, where
+ * the step was blocked "not selected": those are not evidence about the step, so a run that
+ * did not select it neither extends nor breaks the streak - it is skipped.
+ * rung: scripts/gate-scope.test.sh
+ */
+const TREND_AT = 3;
+const priorRuns = prior.split(/^## Gate run /m).slice(1);   // newest first, as the file is kept
+function consecutiveBlocked(id) {
+  let n = 1;                                                 // this run
+  for (const run of priorRuns) {
+    const line = run.split(/\r?\n/).find((l) => new RegExp(`^- \\*\\*${id} `).test(l));
+    if (!line) break;                                         // a run that predates the step
+    if (/not selected by --only|skipped by flag/.test(line)) continue;   // not evidence either way
+    if (/\*\* - BLOCKED/.test(line)) n++; else break;
+  }
+  return n;
+}
+for (const r of results) {
+  if (r.status !== 'BLOCKED' || r.flagged) continue;
+  const n = consecutiveBlocked(r.id);
+  if (n >= TREND_AT) r.trend = n;
+}
 
 /* ---- report ---- */
 const fails = results.filter((r) => r.status === 'FAIL');
@@ -306,6 +418,10 @@ const block = [
   '',
   `Steps: ${results.filter((r) => r.status === 'PASS').length} pass, ${fails.length} fail, ${blocked.length} blocked.`,
   `Time: ${fmtMs(totalMs)} total${slowest ? ` - slowest ${slowest.id} ${slowest.name} (${fmtMs(slowest.ms)})` : ''}.`,
+  // State the subject, always - not only when it is surprising. A reader who cannot see which
+  // directory G5-G8 were aimed at cannot tell an absent toolchain from a misaimed runner, and
+  // for 24 consecutive runs nobody could.
+  `Application steps ran in ${appRel}`,
   ...(redundant ? ['',
     '> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this'
     + ' verdict was already known. The gate verifies a TREE, not a change: corrections landing in'
@@ -315,7 +431,11 @@ const block = [
   ...results.map((r) => {
     const head = `- **${r.id} ${r.name}** - ${r.status} (${fmtMs(r.ms)})`;
     if (r.status === 'PASS') return head;
-    if (r.status === 'BLOCKED') return `${head} - ${String(r.detail).split('\n')[0].slice(0, 200)}`;
+    if (r.status === 'BLOCKED') {
+      const why = String(r.detail).split('\n')[0].slice(0, 200);
+      // A streak is named where the reader is already looking - on the step's own line.
+      return r.trend ? `${head} - ${why} - **${r.trend} consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing` : `${head} - ${why}`;
+    }
     return `${head}\n\n\`\`\`\n${r.detail}\n\`\`\`\n`;
   }),
   '',
@@ -329,7 +449,6 @@ const block = [
   '',
 ].join('\n');
 
-const prior = fs.existsSync(SUMMARY) ? fs.readFileSync(SUMMARY, 'utf8') : '# Test summary\n\n_Newest run first. Append-only: never overwrite a prior run._\n\n---\n\n';
 const headerEnd = prior.indexOf('---\n');
 const head = headerEnd >= 0 ? prior.slice(0, headerEnd + 4) : '';
 const tail = headerEnd >= 0 ? prior.slice(headerEnd + 4) : prior;

@@ -34,8 +34,9 @@ test('a preset applies, and custom toggles edit on top of it', () => {
 });
 
 test('re-applying a preset RESETS to the role - never a merge', () => {
-  let g = toggleGrant(applyPreset(presets, 'Manager'), 'a3');
-  g = applyPreset(presets, 'Manager');
+  const withExtra = toggleGrant(applyPreset(presets, 'Manager'), 'a3');
+  expect(withExtra.has('a3')).toBe(true);
+  const g = applyPreset(presets, 'Manager');
   // A merge would have kept a3 - and an access reviewer reading "Manager preset"
   // would then be wrong about what the member actually has.
   expect([...g].sort()).toEqual(['a1', 'a2']);

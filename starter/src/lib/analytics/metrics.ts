@@ -143,7 +143,7 @@ export function buildResult(
     direction,
     status: g === null ? 'unknown' : statusOf(direction, def.higherIsBetter ?? true),
     targetProgress: targetProgress(value, def.target),
-    series,
+    ...(series !== undefined ? { series } : {}),
   };
 }
 

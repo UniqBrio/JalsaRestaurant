@@ -48,7 +48,7 @@ export function useAsync<T>(fn: () => Promise<T>, context: string, deps: unknown
     }
     // No `finally` that flips status: each branch above sets a TERMINAL status, so there is no
     // path out of this function that leaves the state on 'loading'. That is the guarantee.
-  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  }, deps); // the dependency list is the CALLER's, by design: this hook is the effect wrapper
 
   useEffect(() => { void run(); }, [run]);
 

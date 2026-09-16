@@ -99,6 +99,16 @@ async function runFixture(name) {
     const lineage = JSON.parse(fs.readFileSync(lineageFile, 'utf8'));
     const seedHash = sha(path.join(FW, 'starter/src/lib/dates.ts'));
     if (lineage.files['src/lib/dates.ts']) lineage.files['src/lib/dates.ts'].hash = seedHash;
+    // Age the generated artifacts the way a SCAFFOLD records them, not the way --init does.
+    // --init marks a file that already differs from the seed 'adopted-modified' (sticky, goes
+    // to review), which is right for adoption and wrong for this test: it would make the
+    // checks below pass under ANY ownership rule, because review never overwrites. A real
+    // scaffold rebuilds the theme and records the result 'pristine' with the app's own hash -
+    // that is the path that clobbered, so that is the path the fixture must walk. Observed:
+    // with the pre-v1.31 rule and --init's classification, this fixture reported PASS.
+    for (const rel of ['public/manifest.webmanifest', 'src/theme/tokens.generated.ts']) {
+      lineage.files[rel] = { hash: sha(path.join(app, rel)), status: 'pristine' };
+    }
     fs.writeFileSync(lineageFile, JSON.stringify(lineage, null, 2));
     sh('git', ['add', '-A'], app); sh('git', ['commit', '-qm', 'age'], app);
 
@@ -106,6 +116,15 @@ async function runFixture(name) {
     const out2 = `${up2.stdout}\n${up2.stderr}`;
     const fileNow = fs.readFileSync(path.join(app, 'src/lib/dates.ts'), 'utf8');
     check('the divergence marker SURVIVED the upgrade', /FIXTURE_DIVERGENCE_MARKER/.test(fileNow));
+    // GENERATED artifacts are app-owned because their SOURCE is. The fixture carries a manifest
+    // and a theme module derived from its own tokens; an upgrade must leave both alone. It did
+    // not, once: v1.31.0's own end-to-end check found a real scaffold renamed back to "Default
+    // Framework App" by one upgrade. This is that finding, made a fixture so it cannot recur.
+    const mf = path.join(app, 'public/manifest.webmanifest');
+    check('the app-generated manifest keeps the APP\'s name after upgrade',
+      fs.existsSync(mf) && JSON.parse(fs.readFileSync(mf, 'utf8')).name === 'Diverged Fixture');
+    check('the app-generated theme module is not replaced by the seed',
+      /FIXTURE_DIVERGENCE_MARKER/.test(fs.readFileSync(path.join(app, 'src/theme/tokens.generated.ts'), 'utf8')));
     const seedChanged = sha(path.join(FW, 'starter/src/lib/dates.ts')) !== seedHash;
     // If the seed happens to be unchanged this run, "no review needed" is also correct.
     check('modified file routed to review OR seed unchanged',

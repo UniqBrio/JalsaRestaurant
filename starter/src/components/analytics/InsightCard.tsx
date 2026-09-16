@@ -84,7 +84,7 @@ export function InsightList({
   }
   return (
     <div className="insights" data-testid={testId}>
-      {insights.map((i) => <InsightCard key={i.id} insight={i} onAction={onAction} />)}
+      {insights.map((i) => <InsightCard key={i.id} insight={i} {...(onAction ? { onAction } : {})} />)}
     </div>
   );
 }

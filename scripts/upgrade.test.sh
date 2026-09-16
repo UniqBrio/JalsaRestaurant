@@ -181,6 +181,58 @@ echo "uncommitted" > "$app/scratch.txt"
 d=$(mktemp -d); mkdir -p "$d/x"
 ( cd "$d/x" && node "$fw/scripts/upgrade.mjs" --framework "$fw" >/dev/null 2>&1 ); expect "refuses an app with no lineage" 2 $?
 
+echo "an upgrade never overwrites what the app GENERATED from its own tokens"
+# THE RULE: an artifact generated from an app-owned source is app-owned too. `design/tokens.json`
+# was on that list and the files rendered from it were not, so an upgrade classified them
+# "pristine, and the framework changed them" and applied the framework's defaults over them.
+#
+# OBSERVED FAILING, end to end, before scripts/lib/lineage.mjs was fixed: scaffolding an app
+# called acme-invoices and running ONE upgrade renamed the installed application back to
+# "Default Framework App" - visible only to someone who had already installed it - and reset a
+# rebranded app's compiled stylesheet to the framework palette.
+REALFW="$(cd "$(dirname "$0")/.." && pwd)"
+. "$REALFW/scripts/lib/shpath.sh"   # jspath: the manifest path below crosses into JS source
+if [ -f "$REALFW/starter/design/tokens.json" ] && command -v git >/dev/null 2>&1; then
+  gen="$(mktemp -d)/app"
+  if node "$REALFW/scripts/new-app.mjs" --name acme-invoices --dir "$gen" >/dev/null 2>&1; then
+    ( cd "$gen" && git init -q . && git config user.email t@t.t && git config user.name t \
+        && git add -A && git commit -qm scaffold ) >/dev/null 2>&1
+    before="$(node -e "console.log(require('$(jspath "$gen/public/manifest.webmanifest")').name)" 2>/dev/null \
+      || sed -n 's/.*"name": "\(.*\)",/\1/p' "$gen/public/manifest.webmanifest" | head -1)"
+    ( cd "$gen" && node "$REALFW/scripts/upgrade.mjs" --framework "$REALFW" --apply >/dev/null 2>&1 )
+    after="$(sed -n 's/.*"name": "\(.*\)",/\1/p' "$gen/public/manifest.webmanifest" | head -1)"
+    [ -n "$before" ] && [ "$before" = "$after" ]
+    check "the app's installed NAME survives an upgrade ($before -> $after)" $?
+    grep -q 'Acme Invoices' "$gen/src/theme/tokens.generated.ts"
+    check "the app's generated theme module is not reset to the framework's" $?
+    rm -rf "$(dirname "$gen")"
+
+    # A stray lockfile in the starter must not SEED the app. The starter declares ranges and
+    # ships no lockfile on purpose, but `npm install` in starter/ leaves one, and the scaffolder
+    # copied whatever it found - so every app born from that checkout inherited one machine's
+    # resolution from one afternoon, and kept it, because an app commits its lockfile.
+    #
+    # PLANTED, never assumed absent. Asserting "the app has no lockfile" while the starter has
+    # none proves only that nothing was there to copy - the vacuity finding, FW-SUBJ-008.
+    PLANT="$REALFW/starter/package-lock.json"
+    if [ -e "$PLANT" ]; then
+      echo "  SKIPPED - starter/package-lock.json exists; not overwriting a real file" >&2
+    else
+      printf '{"name":"planted-by-upgrade-test","lockfileVersion":3}\n' > "$PLANT"
+      gen2="$(mktemp -d)/app"
+      node "$REALFW/scripts/new-app.mjs" --name lockfile-probe --dir "$gen2" >/dev/null 2>&1
+      [ ! -e "$gen2/package-lock.json" ]
+      check "a stray lockfile in the starter never seeds a scaffolded app" $?
+      rm -f "$PLANT"              # the plant is gitignored, so an interrupted run leaves no trace
+      rm -rf "$(dirname "$gen2")"
+    fi
+  else
+    echo "  SKIPPED - new-app.mjs could not scaffold here" >&2
+  fi
+else
+  echo "  SKIPPED - no starter tokens or no git; cannot scaffold a real app" >&2
+fi
+
 echo
 echo "$PASS passed, $FAIL failed."
 [ "$FAIL" -eq 0 ] || exit 1

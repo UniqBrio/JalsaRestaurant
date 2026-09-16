@@ -64,6 +64,7 @@ test('a password change is recorded as an event, with no values on either side',
   const [entry] = diffRecords(
     { password: 'old-one' }, { password: 'new-one' }, ctx(), { password: 'Password changed' },
   );
+  if (!entry) throw new Error('a password change produced no entry');
   expect(entry.action).toBe('Password changed');
   expect(entry.previousValue).toBe(REDACTED);
   expect(entry.newValue).toBe(REDACTED);
@@ -90,9 +91,9 @@ test('unchanged fields produce no entries at all', () => {
   const after = { name: 'Asha', roles: ['staff'], active: false };
   const entries = diffRecords(before, after, ctx(), { active: 'Account active' });
   expect(entries).toHaveLength(1);
-  expect(entries[0].action).toBe('Account active');
-  expect(entries[0].previousValue).toBe('Yes');
-  expect(entries[0].newValue).toBe('No');
+  expect(entries[0]!.action).toBe('Account active');
+  expect(entries[0]!.previousValue).toBe('Yes');
+  expect(entries[0]!.newValue).toBe('No');
 });
 
 test('null, undefined and empty string are the SAME absence', () => {

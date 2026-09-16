@@ -38,10 +38,19 @@ export function TabRow({
 
   // Keep the active tab visible. A horizontally scrolling row that opens scrolled away from
   // the current selection reads as the wrong tab being active.
+  //
+  // ONLY when it is actually out of view. `scrollIntoView()` is not free of side effects:
+  // Chromium moves the sequential focus navigation starting point to the element it scrolled
+  // to, so calling it on mount - when nothing needed scrolling - meant the very first Tab on
+  // the page landed on the tab AFTER the active one, and the active tab was unreachable by
+  // keyboard from the top of the document. Found by tests/functional/keyboard.functional.spec.ts
+  // the first time it could run. Measuring first costs a rect and buys a correct Tab order.
   useEffect(() => {
-    rowRef.current
-      ?.querySelector<HTMLElement>(`[data-tab-id="${activeId}"]`)
-      ?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    const row = rowRef.current;
+    const el = row?.querySelector<HTMLElement>(`[data-tab-id="${activeId}"]`);
+    if (!row || !el) return;
+    const r = row.getBoundingClientRect(), t = el.getBoundingClientRect();
+    if (t.left < r.left || t.right > r.right) el.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }, [activeId]);
 
   return (

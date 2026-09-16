@@ -47,7 +47,7 @@ export function applyPreset(presets: Presets, role: string): Grants {
 
 export function toggleGrant(grants: Grants, capabilityId: string): Grants {
   const next = new Set(grants);
-  next.has(capabilityId) ? next.delete(capabilityId) : next.add(capabilityId);
+  if (next.has(capabilityId)) next.delete(capabilityId); else next.add(capabilityId);
   return next;
 }
 

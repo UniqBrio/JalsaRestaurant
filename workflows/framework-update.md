@@ -29,7 +29,6 @@ enough to be followed.
 | File | Role |
 |---|---|
 | `workflows/*.md` | The track runbooks |
-| `workflows/review.md` | Track R — the post-generation review that FEEDS this workflow. Its R4 is the only step allowed to decide a lesson is not general |
 | `docs/*.md` | The reference documentation |
 | `checklists/*.md` | Point-of-use verification |
 | `docs/registers/*.md` | The living registers |

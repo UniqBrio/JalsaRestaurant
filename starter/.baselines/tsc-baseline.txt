@@ -1,0 +1,6 @@
+# TYPE ERROR BASELINE - accepted, temporary debt. This file may only shrink.
+# Signature: <file>|<TScode>, deliberately WITHOUT line numbers so an unrelated edit
+# above a known error does not read as a new one.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS.
+# Regenerate: bash scripts/hooks/tsc-baseline.sh
+# Generated: 2026-09-10 - 0 signature(s)

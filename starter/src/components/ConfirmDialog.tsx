@@ -71,7 +71,9 @@ export function ConfirmDialog({
             type="button"
             className={`confirm__ok confirm__ok--${tone}`}
             aria-disabled={busy}
-            data-testid={`${testId}-ok`}
+            // `accept`, not `ok`: the control never SAYS "OK" (its label names the action), so
+            // its id should not either. The reference journey addresses it as confirm-accept.
+            data-testid={`${testId}-accept`}
             onClick={() => { if (!busy) onConfirm(); }}
           >
             {busy ? 'Working…' : confirmLabel}

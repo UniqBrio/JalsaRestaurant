@@ -112,7 +112,7 @@ export function computePricing(input: PricingInput): PricingBreakdown {
   const passThroughLines = lines.filter((l) => l.kind === 'passThrough');
 
   for (const l of charges) {
-    rows.push({ id: l.id, label: l.label, detail: l.detail, amount: lineAmount(l), role: 'line' });
+    rows.push({ id: l.id, label: l.label, ...(l.detail !== undefined ? { detail: l.detail } : {}), amount: lineAmount(l), role: 'line' });
   }
   const chargeSubtotal = roundMoney(rows.reduce((s, r) => s + r.amount, 0));
 
@@ -135,7 +135,7 @@ export function computePricing(input: PricingInput): PricingBreakdown {
     rows.push({
       id: a.id,
       label: a.label,
-      detail: typeof a.percent === 'number' ? `${a.percent}%` : undefined,
+      ...(typeof a.percent === 'number' ? { detail: `${a.percent}%` } : {}),
       amount: signed,
       role: 'adjustment',
     });
@@ -157,7 +157,7 @@ export function computePricing(input: PricingInput): PricingBreakdown {
   for (const l of passThroughLines) {
     const amount = lineAmount(l);
     passThroughTotal = roundMoney(passThroughTotal + amount);
-    rows.push({ id: l.id, label: l.label, detail: l.detail, amount, role: 'passThrough' });
+    rows.push({ id: l.id, label: l.label, ...(l.detail !== undefined ? { detail: l.detail } : {}), amount, role: 'passThrough' });
   }
 
   // Rule 2: the payable is the SUM OF THE ROWS SHOWN, never an independently computed figure.

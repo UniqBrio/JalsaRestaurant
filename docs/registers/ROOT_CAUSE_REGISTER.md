@@ -59,111 +59,389 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
-## RC-011 — A concurrency guard written in React state let a single tap act twice
+## RC-013 — The starter's "no lockfile, on purpose" was a comment in an uninstalled CI file, and the scaffolder copied whatever `npm install` left behind
 
-**Date:** 11-Sep-2026  ·  **Severity:** S2  ·  **Modules:** jalsa `src/features/staff/PinSignIn.tsx`
+**Date:** 11-Sep-2026  ·  **Severity:** S3 (nothing was broken; every app scaffolded from a checkout where anyone had run `npm install` in `starter/` would have been silently born pinned, and would have committed the pin)  ·  **Modules:** `scripts/new-app.mjs`, `.gitignore`, `ci/`
 
-**Symptom** — four taps on a four-digit keypad sent TWO sign-in attempts. Nothing on screen
-showed it; it surfaced only when a functional spec counted the requests.
+**Symptom** — `starter/package-lock.json` appeared after a routine `npm install` in `starter/`. It was untracked, but nothing ignored it, so `git add -A` would have committed it; and scaffolding a real app with `node scripts/new-app.mjs` copied it into the new app **byte-for-byte** (81,552 bytes), verified by running the scaffolder rather than by reading it.
 
-**Root cause** — the submit call lived inside a `setState` updater. An updater must be pure, and
-React 19 deliberately invokes it twice under StrictMode. The same class covers every guard of the
-shape `if (busy) return` where `busy` is rendered state: two events in one tick both read the
-pre-update value, because state has not flushed.
+**Root cause** — v1.33.0 decided deliberately that the starter declares **ranges and ships no lockfile** — it is a shape to copy, not a pinned tree. That decision was written down in **three** places and enforced in none: a comment inside `ci/github-actions-ci.yml` (a file which at the time had never been copied into `.github/workflows/`, so it had never executed anything), and twice in `docs/02-PROJECT-INITIALIZATION.md` — *"The starter is a shape, not a lockfile"* at line 24, and *"lockfile committed"* in the app's own checklist at line 106, which is the correct opposite rule for an app.
 
-**Fix** — compute the next value outside the updater, call `setState` with it, then act. For
-re-entrancy, latch on a ref, never on rendered state.
+That is the finding, sharper than "it was undocumented": the prose was **right, repeated, and consistent**, and it still changed nothing, because no prose is reachable from `fs.readdirSync`. Meanwhile `new-app.mjs`'s `SKIP` set listed only build output — `node_modules`, `.next`, `dist`, `test-results`, `playwright-report`, `.gate-logs` — because a lockfile is not build output and nobody had asked whether it should be *seeded*.
 
-**Files** — `jalsa/src/features/staff/PinSignIn.tsx`, `jalsa/docs/registers/CANONICAL_PATTERNS.md`
-(JP-11).
+So the intent existed, was correct, and was enforced by nothing. CLAUDE.md's first idea, applied to a decision instead of a rule.
 
-**How to verify** — `npx playwright test tests/functional/signin.functional.spec.ts -g "submits
-exactly once"`. It asserts the REQUEST COUNT, not the spinner.
+**Fix** — Two lines, at the two places the file can escape. `.gitignore` gains `/starter/package-lock.json`, so it cannot enter the framework's history by reflex. `new-app.mjs`'s `SKIP` gains `package-lock.json`, so a stray one cannot seed an app. Only the starter copy is affected: `copy()` also walks `HALF_A`, which is a list of *directories*, and the framework's own root lockfile sits above all of them — checked before the edit, not after.
 
-**Recurrence risk** — high, and invisible to every pointer-driven manual test. Searched
-`grep -rnE "setState|set[A-Z]\w+\(\(" jalsa/src` — 1 further site (`GuestApp.runBusy`,
-`if (busy) return` over state) which is mitigated by `disabled={busy}` but shares the class.
+This addresses the cause rather than the instance: deleting the file would have fixed today and left both escape routes open.
 
-**Prevention** — `rung: jalsa/tests/functional/signin.functional.spec.ts`. Framework rule FR-3
-below; no automated detector yet — an ESLint rule forbidding calls inside updaters is the
-candidate, parked as it needs a real AST check rather than a grep.
+**Files** — `.gitignore` · `scripts/new-app.mjs` · `scripts/upgrade.test.sh` (the rung) · `ci/github-actions-ci.yml` + `.github/workflows/github-actions-ci.yml`
 
-**Process check** — **No.** No checklist item or audit would have found it; executing the journey
-did. This is the argument for the functional tier, not for another rule.
+**How to verify** — `bash scripts/upgrade.test.sh` — the case *"a stray lockfile in the starter never seeds a scaffolded app"*. It **plants** a lockfile in `starter/`, scaffolds a real app, asserts the file did not arrive, and removes the plant. Observed FAILING against the pre-fix `new-app.mjs`, which is the only reason it is worth keeping.
+
+**Recurrence risk** — The class is *a decision recorded only in prose, in a file nothing runs*. One other instance was found in the same sweep and is recorded as debt rather than fixed: `ci/github-actions-ci.yml` and its installed copy under `.github/workflows/` are two files that must stay in step, with nothing comparing them — the installed copy was already one version behind within an hour of being installed, and this run had to re-sync it by hand.
+
+**Prevention** — `rung: scripts/upgrade.test.sh` (the planted-lockfile case). Planted rather than asserted-absent on purpose: with no lockfile in `starter/`, "the app has no lockfile" passes because nothing was there to copy, which proves nothing — the vacuity finding already recorded as FW-SUBJ-008.
+
+**Process check** — **Yes.** The DoD asks whether a decision record was written for a hard-to-reverse decision; "the starter ships unpinned" was treated as too small to record anywhere executable, and it was — until the scaffolder made it every future app's decision too. The lesson is the placement, not the size: a decision that some *script* must honour belongs in that script's behaviour, with a rung, not in a comment beside it.
 
 ---
 
-## RC-010 — The read that proves a write was droppable, so the screen denied what the user just did
+## RC-012 — Three guard suites reported twelve defects in code that was correct: a path crossing from the shell into JavaScript source is data, and nothing translates it
 
-**Date:** 11-Sep-2026  ·  **Severity:** S2  ·  **Modules:** jalsa `src/hooks/useLiveData.ts`
+**Date:** 11-Sep-2026  ·  **Severity:** S3 (no application defect; the cost was diagnostic — the suites accused healthy code, and off-POSIX the framework's own `guard:test` could not go green)  ·  **Modules:** `scripts/*.test.sh` — the shell test harnesses
 
-**Symptom** — none reported; found by reading. After a write, the screen could keep showing
-pre-write state for a full poll interval (6s, 8s on the owner console).
+**Symptom** — `npm run guard:test` reported 10/13 on Windows. `ratchet` failed 6 of 9, `theme-build` 3 of 11, `pwa-baseline` 3 of 13. The messages named assertions and called them broken: *"no baseline is BLOCKED, neither pass nor fail (expected 3, got 1)"*, *"the manifest is valid and its colours come from the tokens"*. Every one of those subjects was in fact correct.
 
-**Root cause** — one boolean served two different jobs. `if (inFlight) return` correctly stops
-SCHEDULED polls stacking up, and `send()` reused the same `refresh()`. So a poll already awaiting
-the network silently swallowed the post-write read. A dropped tick costs nothing; a dropped
-confirmation costs a second order in the kitchen, because the obvious human response to "nothing
-happened" is to press the button again.
+**Root cause** — A path used as **argv** is translated by the shell on the way out, so `node "$ROOT/x.mjs"` resolves everywhere. A path interpolated into JavaScript **source** — an ESM import specifier, a `readFileSync` argument — is *data*, and no translation runs. Git Bash's `/c/Explorations/...` therefore reached Node verbatim and was resolved as `C:\c\Explorations\...`. Ten of the thirteen suites pass paths only as argv, which is exactly why the distinction stayed invisible until the three that do not were run off POSIX.
 
-**Fix** — `src/hooks/refresh-gate.ts`: a refresh a PERSON caused is remembered and re-run the
-moment the in-flight one finishes; a refresh a TIMER caused is still dropped freely. The hook also
-compares the payload as text and skips `setState` when nothing changed.
+Two things turned a portability bug into a diagnostic one. The failures were reported **as defects in the subject** rather than as a harness that could not run — the third verdict exists for precisely this and a bash harness had no way to say it. And `2>/dev/null` on the `node -e` calls discarded the `ERR_MODULE_NOT_FOUND` and `ENOENT` that named the cause outright.
 
-**Files** — `jalsa/src/hooks/refresh-gate.ts` (new), `jalsa/src/hooks/useLiveData.ts`,
-`jalsa/tests/unit/refresh-gate.unit.spec.ts` (new, 6 cases).
+**Fix** — `scripts/lib/shpath.sh`, sourced by every harness that crosses the boundary. `jspath` yields the native form for `fs`; `jsurl` yields a `file://` URL, which is the **only** form Node accepts as an ESM specifier — a bare `C:/...` is rejected as `ERR_UNSUPPORTED_ESM_URL_SCHEME` because the drive letter parses as a scheme. That is two functions because it is two requirements, and `shpath.test.sh` case 3 asserts the bare form is still rejected, so the day it is not, the redundancy is reported rather than assumed.
 
-**How to verify** — `npx playwright test tests/unit/refresh-gate.unit.spec.ts`. The load-bearing
-case is "a refresh a person caused is never dropped".
+This addresses the cause rather than the three symptoms: the conversion exists once, and the sweep in case 4 means a fourth harness cannot reintroduce it quietly.
 
-**Recurrence risk** — every application that polls. Searched `grep -rn "useLiveData" jalsa/src` —
-3 call sites, all fixed by the single hook.
+**Files** — `scripts/lib/shpath.sh` (new) · `scripts/shpath.test.sh` (new) · `scripts/ratchet.test.sh` · `scripts/theme-build.test.sh` · `scripts/pwa-baseline.test.sh` · `scripts/upgrade.test.sh` · `package.json`
 
-**Prevention** — `rung: jalsa/tests/unit/refresh-gate.unit.spec.ts`. Framework rule FR-4 below.
+**How to verify** — `bash scripts/shpath.test.sh` — 7 assertions. Case 4 sweeps every harness in the tree; case 5 plants a violation and proves the sweep fires on it. On any platform, `npm run guard:test` is 14/14.
 
-**Process check** — **Yes.** `checklists/DEFINITION_OF_DONE.md` asks that a save is proved against
-the data rather than the toast, but says nothing about the READ that follows it. Strengthened in
-this run.
+**Recurrence risk** — Searched every shell harness in the repo with `grep -nE "'[\$][A-Za-z_][A-Za-z0-9_]*/"` over the 13 files matched by `scripts/*.test.sh`, `scripts/hooks/*.test.sh`, `.claude/hooks/*.test.sh`, `.codex/hooks/*.test.sh`. Four files were affected: the three that failed, **plus `scripts/upgrade.test.sh:199`**, which was not failing — its `|| sed` fallback silently absorbed the broken `require()`, so it produced the right answer by a route nobody intended. That fourth site is the argument for the sweep: two of the four shapes this class takes do not announce themselves.
+
+The class is not confined to Windows — it is any shell whose path namespace differs from the interpreter's. It stayed dormant because CI runs Ubuntu, where the two coincide.
+
+**Prevention** — `rung: scripts/shpath.test.sh` (case 4, the sweep; case 5, the fail-first plant), wired into `npm run guard:test`. Deliberately **not** a ratcheted audit in `audit:all`: an application has no shell harnesses, so the detector would parse nothing there and report BLOCKED, turning every green app red — the precise outcome the ratchet exists to prevent. The check is scoped to the tree that owns the harnesses.
+
+The sweep requires a following `/` to fire. A whole path held in one variable — `'$MF'` — is not distinguishable by syntax from a JSON key — `'$field'` — and a check that flags correct code is switched off within a day. The narrow form that never lies is the one that survives; the residual shape is covered by the `_js` / `_url` naming convention and by review. Stated here rather than implied, per CLAUDE.md rule 1.
+
+**Process check** — **Yes.** Two gaps, both now closed. `guard:test` was only ever executed on the platform that happened to work, so "every guard is proven to fire" was true on Ubuntu and unverified anywhere else. And the harnesses suppressed the interpreter errors that named the cause — the same "never go quietly dead" rule the `.mjs` layer obeys had no expression in the shell layer. CP-31 records the boundary rule; this entry records why it cost twelve false accusations to find.
 
 ---
 
-## RC-009 — A clean-gate verdict was cited as coverage of a directory the audit never opened
+## RC-011 — The reference implementation had never been compiled, linted, or run: the starter declared no toolchain, so four gates could not execute anywhere
 
-**Date:** 11-Sep-2026  ·  **Severity:** S2  ·  **Modules:** `scripts/audits/check-dead-weight.mjs`,
-`scripts/lib/ratchet.mjs`, `checklists/DEFINITION_OF_DONE.md`
+**Date:** 10-Sep-2026  ·  **Severity:** S2 (the framework's own reference implementation did not type-check, and its functional specs described a screen that did not exist)  ·  **Modules:** the starter — toolchain, types, lint, unit tier, functional tier, configuration, the reference screen
 
-**Symptom** — an application close-out recorded *"Dead weight deleted — gate: PASS
-(`audit:deadweight`)"* while 1,988 lines across 15 unreferenced components sat in
-`src/components/`. Evidence: `for f in $(find src/components -name '*.tsx'); do ...` — 15 files
-with zero references outside themselves.
+**Symptom** — `npm run gate` reported G5–G8 BLOCKED in 30 consecutive runs. Every entry blamed the
+environment: *"no local tsc — run npm install"*. Running `npm install` in `starter/` installed
+**nothing**, because `starter/package.json` declared no dependencies at all — not here, not in
+CI, not on any machine. The registry was reachable the whole time.
 
-**Root cause** — NOT a lying detector. `check-dead-weight.mjs` declines application source
-deliberately, for a sound reason stated in its own header: dynamic imports and file-based routing
-make a reference scan confidently wrong. The defect is that its VERDICT did not carry that
-scope. `OK [DEAD WEIGHT] … CLEAN GATE` is the line a reader meets; the header is not. A verdict
-that cannot be read as narrow will be read as broad.
+**Root cause** — the starter was "a shape, not a lockfile", and that sentence had been read as
+"declare nothing" rather than "pin nothing". With no toolchain obtainable, the four application
+gates were structurally un-runnable, and everything they would have caught accumulated unseen
+for the reference implementation's whole life. Making them runnable surfaced, in order:
 
-**Fix** — `evaluateRatchet` gained a `scope` field printed with EVERY verdict — OK, BLOCKED and
-new-violation alike. The dead-weight audit now states the directories it audited, that application
-source is not audited, and *"Do not cite this verdict as coverage of src/."*
+1. **44 type errors** across 20 files — nearly all the starter's own strict settings
+   (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) biting code nobody had ever
+   type-checked; one missing dependency (`dotenv`); one error in v1.31.0's own `PwaProvider`.
+2. **7 lint findings** and no ESLint configuration for G6 to run against.
+3. **The unit tier booted the whole application.** `webServer` is global, so `playwright test
+   tests/unit` started `next dev` and waited two minutes — contradicting the first sentence of
+   the config's own header — and G7 timed out in any environment that could not serve the app.
+4. **The functional specs described a screen that did not exist.** `tests/functional/` drove a
+   list, an add/edit dialog, an archive confirmation and a keyboard journey against `/`, which
+   served a 404. Both specs were worked examples of tests with no worked example of the thing
+   tested.
+5. **`config.ts` read `process.env[name]` dynamically**, which no bundler inlines, so every
+   `PUBLIC_*` value was undefined in the browser and `publicConfig` threw at import in every
+   client component. Nothing noticed because nothing had ever loaded a client component.
+6. **`ConfirmDialog` rendered `confirm-ok`** while its own comment and the spec said "never OK".
+7. **`Dialog`/`ConfirmDialog` rendered class names no stylesheet defined**, so the dialog had
+   never been drawn.
+8. **`TabRow` called `scrollIntoView()` on every mount.** Chromium moves the sequential focus
+   navigation starting point to the scrolled element, so the first Tab on the page skipped the
+   active tab. Found by the keyboard spec the first time it could run.
+9. **The specs' data assertions raced.** `expect(written).toHaveLength(1)` the instant a
+   keypress resolved failed one run in four with no defect — the write is dispatched inside the
+   event and intercepted a moment later. The reference spec's own habit 3 ("assert the DATA")
+   now says: and wait for it.
+10. **Two projects ran on WebKit**, which the CI template never installs — 36 of 108 functional
+    runs failed at browser launch in every environment.
 
-**Files** — `scripts/lib/ratchet.mjs`, `scripts/audits/check-dead-weight.mjs`,
-`scripts/audit-scope.test.sh` (new, 6 cases), `package.json` (`guard:test`),
-`checklists/DEFINITION_OF_DONE.md`.
+Ten findings, one cause: **a gate that cannot run finds nothing, and "nothing found" is
+indistinguishable from "nothing wrong" for as long as the gate stays blocked.** Binding rule 4
+says BLOCKED is never a pass; RC-009 made the block audible; RC-010 made the streak visible.
+This is what was behind it.
 
-**How to verify** — `bash scripts/audit-scope.test.sh`. It EXECUTES the audit and asserts the
-output carries the scope, rather than reading the source for the word.
+**Fix** —
+- `starter/package.json` declares its toolchain **as ranges** (still no lockfile — the shape
+  is kept, the emptiness is not). Every name verified against the registry before being written.
+- All 44 type errors fixed at the site, never baselined; `tsc-baseline.txt` written at zero.
+- `eslint.config.js` (the two recommended sets, nothing else); all 7 findings fixed.
+- The unit tier starts no server (`playwright.config.ts` recognises `tests/unit` on the
+  command line — the only signal that exists before the config is evaluated).
+- **The reference screen exists**: `src/features/items/` composes `TabRow`, `ListControls`,
+  `Dialog`, `ConfirmDialog` and `ToastHost` and builds none of them (documented in
+  `starter/docs/modules/items.md`). Archive model, edit parity, re-read after every write, Save
+  hands control back at once and a failed save returns the dialog with the draft.
+- `config.ts` reads `PUBLIC_*` through a static table; `next.config.mjs` inlines them under
+  the framework's own prefix. `confirm-accept`. Dialog and list styles, tokens only. `TabRow`
+  scrolls only when out of view. Every `written` assertion polls. The iOS-device projects run
+  on Chromium, with the WebKit gap named in the config rather than implied.
+- The functional server is configured in `webServer.env` and needs no `.env`; a sandbox that
+  forbids browser downloads names its Chromium in `PW_CHROMIUM_PATH`.
 
-**Recurrence risk** — every ratchet audit shares `evaluateRatchet`, so all of them gained the
-field at once; each still has to pass a `scope`. Searched
-`grep -rn "evaluateRatchet({" scripts/audits` — 5 call sites, 1 now passes a scope. The other
-four are honest today (they do scan what their name implies) and are the paydown queue.
+**Files** — `starter/package.json` · `starter/eslint.config.js` (new) · `starter/next.config.mjs`
+(new) · `starter/playwright.config.ts` · `starter/src/lib/config.ts` · `starter/src/app/page.tsx`
+(new) · `starter/src/features/items/*` (new) · `starter/docs/modules/items.md` (new) ·
+`starter/src/components/{Dialog,ConfirmDialog,TabRow,PwaProvider,ModuleAccessPanel}.tsx` ·
+`starter/src/components/analytics/{InsightCard,MetricCard,AnalyticsTable}.tsx` ·
+`starter/src/components/components.css` · `starter/src/lib/{api-client,audit,loading,logger,
+module-customizer,module-access,pricing,selection,list-controls}.ts` · `starter/src/lib/analytics/metrics.ts`
+· `starter/src/hooks/{useListControls,useAsync}.ts` · `starter/tests/**` · `starter/.baselines/tsc-baseline.txt`
 
-**Prevention** — `rung: scripts/audit-scope.test.sh`. Framework rule FR-1 below.
+**How to verify** — in `starter/`: `npm install` → `npm run typecheck` (clean) → `npm run lint`
+(clean) → `npm run test:unit` (113 pass) → `npm run test:functional` (108 pass, six projects).
+Then `npm run gate` at the root: **G5–G8 PASS, each with a measured duration** — the first time
+in 31 recorded runs that any of the four has reported anything but BLOCKED.
 
-**Process check** — **Yes.** The Definition of Done let a gate name stand in for a claim about
-scope. Strengthened in this run: an item citing a gate must cite a gate whose scope covers the
-claim.
+**Fail-first evidence** — every finding above was observed as a real failure of the gate that
+caught it, on the real tree, before its fix: `tsc` 44 errors · `eslint` 7 errors · G7 timed out
+at 2m 01s · G8 against a 404 · "2 required client variable(s) are missing" in the browser
+console with both set on the server · Tab order `[details, add, search]` with `overview` skipped
+· the keyboard journey passing 3 of 4 repeats · 36 of 108 failing at `browserType.launch`.
+Every one of those runs is in the session's gate logs and ledger.
+
+**Recurrence risk** — **Structurally closed for the class**: with a declared toolchain, G5–G8
+run in CI and locally, and nothing can accumulate unseen behind them again. What remains, named:
+WebKit is not exercised anywhere (a CI decision, recorded in the config); `tsc-baseline.txt`
+is at zero and is therefore a clean gate — the moment an app adopts with a backlog, the ratchet
+takes over, which is what it is for.
+
+**Prevention** — `rung: starter/tests/functional/reference.functional.spec.ts` ·
+`rung: starter/tests/functional/keyboard.functional.spec.ts` · `rung: starter/tests/unit/*.spec.ts`
+(113) · gate G5–G8 themselves, now executable; the `Time:` line of every gate run is the proof
+that they ran.
+
+**Process check** — **Yes.** The gate said "install the toolchain" for 30 runs, and every run
+accepted that as an environment problem — including v1.30.0, which fixed the *directory* the
+message pointed at and left the message. The framework's own test of a claim is to execute it;
+nobody executed `npm install`. A blocked gate is a claim that the check *could* run somewhere.
+This entry is what it cost to test that claim once.
+
+---
+
+## RC-010 — A check that did not run was recorded as PASS, by every ratchet, in any app missing a baseline
+
+**Date:** 10-Sep-2026  ·  **Severity:** S2 (no application defect shipped; the gate's verdict was false in exactly the direction its design exists to prevent)  ·  **Modules:** process — the ratchet engine, the concurrent runner, the gate runner, the close-out renderer, the conformance fixtures
+
+**Symptom** — a scaffolded app with its service worker deleted and no PWA baseline: `npm run gate`
+reports **G12 Installable as an application — PASS**. The audit's own stderr, in the same run:
+*"this gate is INERT and is telling you so."*
+
+**Root cause** — `RATCHET_SKIP = 0`. The engine told stderr that the check had not run, and
+exited with the code that means it passed. The gate runner has three verdicts precisely so that
+"did not run" is never mistaken for "passed", and it reads exit codes, not prose — so every
+ratchet (G4 · G9 · G11 · G12) reported PASS in any app missing its baseline. Green by omission,
+at the one layer built to prevent it, from the day the ratchet library was written. Binding
+rule 3 said so in its own text — *"a missing baseline prints a loud SKIPPED and passes"* — and
+binding rule 4 said the opposite one paragraph later: *"a step that did not run is BLOCKED."*
+Two binding rules disagreed, and the code honoured the wrong one. The same engine's "parsed
+nothing" branch *printed* BLOCKED and *exited* 2, which the gate rendered as FAIL: "your code is
+broken" about a tree nothing had looked at.
+
+Three further findings from the same pass, each recorded debt from RC-009 or v1.31.0:
+
+1. **Nothing read the ledger.** `TEST_SUMMARY.md` is append-only and was read by no script, so
+   RC-009's four steps sat in it for 24 consecutive runs with nobody noticing — a signal that
+   never changes is indistinguishable from no signal.
+2. **Two version identities.** `package.json` said `1.3.0`; `VERSION` said `1.31.0`. Every bump
+   for twenty-eight releases was a hand edit to one and never to the other, because
+   `close-out --apply` rendered the story into three places and the *number* into none.
+3. **The fixture rung for v1.31.0's upgrade-clobber was vacuous.** `fixtures/diverged` gained a
+   generated manifest and theme module — and the new check PASSED against the pre-fix ownership
+   rule. Conformance ages lineage with `--init`, which marks a file that already differs from the
+   seed `adopted-modified` (sticky, routed to review, never overwritten). A real scaffold records
+   it `pristine` with the app's own hash — the path that clobbered. A fixture walking the wrong
+   path proves the wrong thing with the same green.
+
+**Fix** —
+- `RATCHET_SKIP = 3`. A missing baseline is BLOCKED at the ratchet, and the phrase `no baseline
+  at` is kept verbatim because `upgrade.mjs` greps for it to write the baseline on apply — which
+  is what makes the change safe: an app that upgrades never meets this exit. The parsed-nothing
+  branch exits 3 too, so its message and its code are finally the same word.
+- `par.mjs` reads 3 as `BLKD`, lists blocked tasks separately, and exits 3 unless something
+  genuinely FAILED, which outranks. CI therefore goes BLOCKED, not red, on an unbaselined app.
+- `gate-runner.mjs` reads its own ledger before rendering: a step BLOCKED for a reason of its own
+  (not a `--only`/`--skip` flag) for three or more consecutive runs is named as a streak on its
+  own report line. Runs that did not select the step neither extend nor break the streak. On this
+  repository's real ledger the first run reported **28 consecutive** for G5–G8.
+- `close-out.mjs --apply` writes `VERSION` and `package.json`'s version from the record. The
+  number is part of the story.
+- `conformance.mjs` ages the fixture's generated artifacts the way `new-app` records them —
+  `pristine`, with the app's own hash — and the new checks fail against the old rule.
+- Binding rule 3 amended: tooling gaps fail open in the **commit guard**; a missing baseline in a
+  **gate** is BLOCKED. Rule 4 unchanged; the two now agree.
+
+**Files** — `scripts/lib/ratchet.mjs` · `scripts/par.mjs` · `scripts/gate-runner.mjs` ·
+`scripts/close-out.mjs` · `scripts/conformance.mjs` · `fixtures/diverged/public/manifest.webmanifest`
+(new) · `fixtures/diverged/src/theme/tokens.generated.ts` (new) · `scripts/ratchet.test.sh` (new)
+· `scripts/gate-scope.test.sh` · `scripts/close-out.test.sh` · `CLAUDE.md` ·
+`docs/17-ENFORCEMENT-RATCHETS.md` · `fixtures/README.md` · `package.json`
+
+**How to verify** — `bash scripts/ratchet.test.sh` → 9/9. Delete any `.baselines/*-baseline.txt`
+in an app and run `npm run gate`: that step reads **BLOCKED**, with a duration, naming the missing
+baseline — never PASS. `npm run audit:all` in the same app ends `BLOCKED: <task>` and exits 3.
+Run `npm run gate` twice more: the third report names the streak. `cat VERSION` and
+`node -p "require('./package.json').version"` print the same number.
+
+**Fail-first evidence** — `ratchet.test.sh`: 3 of 9 observed failing (exit 0 for no baseline;
+`par` exit 1 and label `FAIL` for a blocked task). `gate-scope.test.sh` cases 13–15: 3 of 3
+observed failing (G4 PASS at the gate; no baseline named; no streak). `close-out.test.sh`: 2
+observed failing (`VERSION` left at 1.0.0; `package.json` untouched). Conformance `diverged`: both
+new checks observed failing against `HEAD~1:scripts/lib/lineage.mjs` **once the fixture was aged
+as a scaffold** — and observed *passing* against it before that, which is the vacuity finding
+itself. Case 14's first draft failed for a reason of its own: the ledger was read *after* the
+report was rendered, so the streak was computed and never printed; fixed by reading first.
+
+**Recurrence risk** — **Reduced structurally.** The class is "the message and the verdict
+disagree, and the consumer reads the verdict." The exit codes are now the same word as the
+messages at every layer (`ratchet.test.sh` holds all three), and the drift between `VERSION` and
+`package.json` cannot recur because neither is hand-edited any more. `grep -rn "RATCHET_SKIP\|exit 3\|code === 3" scripts/` → **9 matches**, all reviewed, all consistent. What remains: a
+**workspace** app that never runs `framework:upgrade` still has no baseline for a gate added
+after it was scaffolded — it now sees BLOCKED where it saw PASS, which is the true verdict
+replacing a false one, and the fix is the one command `UPGRADES.md` names.
+
+**Prevention** — `rung: scripts/ratchet.test.sh` · `rung: scripts/gate-scope.test.sh` (cases
+13–15) · `rung: scripts/close-out.test.sh` (version identity) · `rung: fixtures/diverged/` via
+`scripts/conformance.mjs`. Rule 3's text now matches rule 4's.
+
+**Process check** — **Yes.** Every one of these was named as honest debt in v1.30.0 or v1.31.0's
+own close-out. Debt that is written down and then left is the same as debt nobody wrote down,
+one version later. This run is the framework-update loop doing the thing it says it does:
+reading its own previous entry and paying it.
+
+---
+
+## RC-009 — Three checkers judged their own invocation instead of the tree, and one of them had been failing every run for 24 runs
+
+**Date:** 10-Sep-2026  ·  **Severity:** S2 (no application defect shipped; the framework's own gate could not return an informative verdict, and every scaffolded app inherited two of the three)  ·  **Modules:** process — the theme build, the gate runner, the CI workflow
+
+**Symptom** — three unrelated-looking complaints, found while auditing the framework for stability:
+
+1. `npm run theme:build` from `starter/` and from the framework root produced **different bytes
+   from identical tokens**, so `--check` reported `DRIFT … stale or hand-edited` on files
+   nothing had edited. Gate **G1** and commit guard **G4** both blamed the tree.
+2. `npm run gate` at the framework root recorded **`VERDICT: BLOCKED` in 24 of the 27 runs**
+   in `TEST_SUMMARY.md`, always the same four steps (G5 Types · G6 Lint · G7 Unit · G8
+   Functional), always with the remediation "run `npm install`".
+3. A gate run on a tree no gate had ever seen announced *"This run was avoidable. The tree is
+   byte-identical to the previous gate run."*
+
+**Root cause** — one shape, three instances: **a checker described its own invocation and
+called it a property of the subject.**
+
+1. `theme-build.mjs` baked the token source into every generated file as a path relative to
+   `process.cwd()`. `starter/src/theme` built from the root wrote `starter/design/tokens.json`;
+   the same tokens to the same directory built from `starter/` wrote `design/tokens.json`. The
+   builder was a function of where it was invoked, so its own byte-comparison checker could
+   never agree with itself in two places. `starter/package.json` runs `theme:build` **and**
+   `gate` from the application directory, so the starter's own scripts and the framework root's
+   rejected each other's output with no fixed point.
+2. `gate-runner.mjs` had already learned to separate the CHECKER's location from the SUBJECT's
+   — that was an earlier fix, and its comment is still in the file. It never asked the second
+   question: *within the subject, where is the application?* In this repository the application
+   is `starter/`; in a scaffolded app it is the root. `scripts/lib/layout.mjs` exists to decide
+   exactly that and **every audit imports it**; the gate runner was the sole consumer that did
+   not. So G5–G8 ran `tsc`, `eslint` and the app's test scripts against the framework root — a
+   directory that deliberately has no tsconfig, no eslint config and no test scripts, because
+   none of those things are the framework's. The result was not a wrong answer, which someone
+   would have chased. It was BLOCKED, permanently, pointing at a `package.json` that was never
+   going to carry the application's toolchain.
+3. The runner wrote its tree fingerprint after **any** run, including one narrowed by `--only`
+   that examined two steps out of eleven. The test suites in this repository drive the real
+   runner with `--only` against the framework root, so `npm run guard:test` silently stamped
+   "this tree has been gated" on a tree that had not been.
+
+The unifying defect is the one binding rule 5 already states in its narrow form — *never let a
+detector read its own output as evidence.* Each of these three passed that reading and failed
+its general form: **only a run that verified the thing may record that the thing was verified,
+and a generated artifact may not encode the circumstances of its generation.**
+
+A fourth instance, same family, was found in the same sweep: `ci/github-actions-ci.yml`
+enumerated the audits by name, which made it a hand-maintained **copy** of `audit:all`. It had
+drifted — `audit:fixtures` and `audit:deadweight` were in `audit:all` and not in CI — so two of
+the ten audits could not fail a pull request, under a file header that reads *"If CI and local
+run different checks, one of them is decoration."*
+
+**Fix** — remove the variable rather than compensate for it, in all four:
+
+- The generated header names the token source **relative to the generated file's own
+  directory**. Both paths are already absolute, so cwd cannot enter. It is also the same string
+  in both layouts (`../../design/tokens.json`), which means the artifact the framework ships and
+  the one a scaffolded app rebuilds are byte-identical — see *Recurrence risk*. And unlike a
+  cwd-relative path it is **followable** from the file that carries it.
+- The gate runner resolves the application subtree through `appPath()`, the same helper every
+  audit uses, marks G5–G8 `app: true`, runs them there, resolves their local binaries from
+  there, and **states the directory in the report**. `--app` overrides it. A BLOCKED step now
+  names the directory to install in, so a remediation that cannot work is no longer printed.
+- Only a run with no `--only` and no `--skip` writes the fingerprint. A narrowed run may still
+  *read* it; what it may not do is leave a record implying it produced a verdict it did not.
+  `--logdir` was added alongside, so a harness driving the real runner keeps its step logs out
+  of the subject's `.gate-logs/` — the same stale-artifact trap, one level down.
+- CI **calls** `audit:all` instead of restating it. A new audit is now wired into CI by the same
+  edit that adds it to the script, and there is no second list to forget. `par.mjs` labels every
+  task and runs them all, so a CI failure still names each failing check individually.
+
+**Files** — `scripts/theme-build.mjs` · `scripts/gate-runner.mjs` · `ci/github-actions-ci.yml` ·
+`package.json` · `starter/src/theme/tokens.generated.css` · `starter/src/theme/tokens.generated.ts`
+· `scripts/theme-build.test.sh` (new) · `scripts/gate-scope.test.sh` (new) ·
+`scripts/gate-timing.test.sh` (isolated its logs) · `FRAMEWORK_MANIFEST.md` ·
+`docs/00-OVERVIEW.md` · `tests/cases/FRAMEWORK_PROCESS_CASES.md`
+
+**How to verify** —
+`bash scripts/theme-build.test.sh` → 5/5 · `bash scripts/gate-scope.test.sh` → 12/12.
+Then `npm run gate` and read the new `Application steps ran in` line: it must name `starter`
+here and `.` in a scaffolded app. With `typescript` installed under `starter/`, G5 reports a
+**measured duration** instead of `-` — that is the difference between a step that ran and a
+step that never spawned, and it is the whole claim of this fix.
+
+**Fail-first evidence** — every case below was run against the pre-fix tree before its fix
+landed:
+- `theme-build.test.sh` — **3 of 5 observed failing** (cwd-identical build, `--check` from the
+  application directory, header followability). Cases 3 and 5 are regression guards and
+  correctly pass in both trees — 5 is the one that matters: the checker must still catch a
+  genuinely hand-edited file, or crying-wolf has been traded for going blind.
+- `gate-scope.test.sh` — **6 of 12 observed failing** against `HEAD:scripts/gate-runner.mjs`,
+  restored for the run and put back afterwards.
+- Instance 3 was additionally reproduced by hand, deterministically: gate a tree, edit a file,
+  run `npm run guard:test`, gate again → the notice fired on a mandatory run.
+
+**Recurrence risk** — **Reduced structurally, and the reach was wider than it looked.**
+Instance 1 was not confined to this repository. `new-app.mjs` copies `starter/` into a new app
+and then **rebuilds** the theme inside it, so every scaffolded app was born with two generated
+files differing from its own recorded seed. `upgrade.mjs` reads that as `pristine` + "the
+framework changed it" and auto-overwrites both on **every** upgrade — re-breaking the new app's
+G1 — whether or not a single token had moved. Making the header identical in both layouts
+removes the divergence at its source, so there is nothing left for the upgrade to report.
+
+The conformance fixtures did not catch it and still would not: `fixtures/*/src/` carries no
+`theme/` directory, so no fixture exercises a generated artifact across the scaffold-then-
+rebuild path. That is **recorded debt, not coverage** — the two new suites test the builder and
+the runner directly, which closes the defect but not the fixture gap. Named here so it is
+findable rather than rediscovered.
+
+`grep -rn "process.cwd()" scripts/ --include=*.mjs` → **11 matches**, all reviewed. Ten are
+correct: they anchor CLI *messages* and *input resolution*, which are properly relative to the
+person who typed the command. The eleventh was `theme-build.mjs`'s `rel()` used inside generated
+*content*, and only that use is fixed — `rel()` itself is still right for the messages it also
+serves. The distinction to keep is **message versus artifact**, not "avoid cwd".
+
+**Prevention** — `rung: scripts/theme-build.test.sh` (instance 1) ·
+`rung: scripts/gate-scope.test.sh` (instances 2 and 3) · instance 4 is prevented
+**structurally**: with CI calling `audit:all` rather than restating it, the two lists it could
+drift between no longer both exist. That is the cheapest enforcement level in the rule budget —
+no new rule, no new check, one fewer thing to keep in step.
+
+**Process check** — **Yes, and the gap is worth naming.** Every one of these was reachable from
+artifacts the process already produces. Instance 2 in particular had been writing its own
+evidence into an append-only ledger for 24 consecutive runs: same verdict, same four steps,
+every time. Nothing reads that ledger for a *trend*, so a signal that never changed was
+indistinguishable from no signal. The framework's own first idea — a rule that nothing executes
+is not a rule — has a corollary this incident supplies: **an output nobody reads is not a
+signal.** `TEST_SUMMARY.md` remains append-only and unread by any script; that is honest debt,
+recorded here, and it is the reason this took an explicit audit to find rather than surfacing
+on its own.
 
 ---
 

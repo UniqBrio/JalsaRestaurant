@@ -83,25 +83,35 @@ const runStartedAt = Date.now();
 const results = await pool(tasks, JOBS, run);
 const totalMs = Date.now() - runStartedAt;
 
+// Exit 3 is the gate's third value - BLOCKED, the check could not run - and it is reported as
+// exactly that, never as FAIL. The tasks behind audit:all are ratchets; a ratchet with no
+// baseline exits 3, and the one thing worse than a dead gate is a dead gate reported as a
+// broken codebase. The whole run then exits 3 unless something genuinely FAILED, which outranks.
+const verdict = (code) => (code === 0 ? 'OK  ' : code === 3 ? 'BLKD' : 'FAIL');
 for (const r of results) {
-  const head = `${r.code === 0 ? 'OK  ' : 'FAIL'} ${r.label} (${fmt(r.ms)})`;
+  const head = `${verdict(r.code)} ${r.label} (${fmt(r.ms)})`;
   console.log(`\n=== ${head} ===`);
   process.stdout.write(r.out.trimEnd() + '\n');
 }
 
-const failed = results.filter((r) => r.code !== 0);
+const failed = results.filter((r) => r.code !== 0 && r.code !== 3);
+const blocked = results.filter((r) => r.code === 3);
 // Serial cost is the honest comparison: the sum of what the tasks actually took. Reporting a
 // speed-up against anything else would be flattering the tool rather than measuring it.
 const serialMs = results.reduce((a, r) => a + r.ms, 0);
 const slowest = results.reduce((a, b) => (b.ms > a.ms ? b : a));
 
 console.log('\n' + '-'.repeat(70));
-console.log(`${results.length - failed.length}/${results.length} passed in ${fmt(totalMs)}`
+console.log(`${results.length - failed.length - blocked.length}/${results.length} passed in ${fmt(totalMs)}`
   + `${SERIAL ? ' (serial)' : ` with ${JOBS} jobs`} - serial cost would be ${fmt(serialMs)}.`);
 console.log(`Slowest: ${slowest.label} (${fmt(slowest.ms)})`
   + `${SERIAL ? '' : ' - the floor for this set, since nothing finishes before its longest task.'}`);
+if (blocked.length) {
+  console.log(`\nBLOCKED: ${blocked.map((b) => b.label).join(', ')}`);
+  console.log('These checks could not run. That is not a pass: make them runnable or accept the gap in writing.');
+}
 if (failed.length) {
   console.log(`\nFAILED: ${failed.map((f) => f.label).join(', ')}`);
   console.log('Every task ran to completion - the list above is complete, not the first failure.');
 }
-process.exit(failed.length ? 1 : 0);
+process.exit(failed.length ? 1 : blocked.length ? 3 : 0);
