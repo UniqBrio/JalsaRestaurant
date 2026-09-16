@@ -21,6 +21,12 @@ playwright-report/
 # An APP does commit its own lockfile - that is the app's fact, made on the app's schedule.
 /starter/package-lock.json
 
+# TypeScript's incremental build cache, left behind by any typecheck run in starter/. Exactly
+# the same class of accident as the lockfile above: regenerated on every compile, meaningful to
+# no reader, and one `git add -A` away from being copied into every scaffolded app as though it
+# were source. Ignored for the same reason and by the same rule.
+/starter/tsconfig.tsbuildinfo
+
 # NOT ignored, on purpose - these are the framework working:
 # .baselines/       ratchet baselines are COMMITTED. That is what makes them ratchets.
 # TEST_SUMMARY.md   the append-only gate log the commit guard greps.
