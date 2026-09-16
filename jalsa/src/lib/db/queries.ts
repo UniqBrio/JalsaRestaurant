@@ -14,6 +14,7 @@ import type {
   QueueSelfView,
   WaitlistRow,
   PrinterRow,
+  PrintJobRow,
   StaffMember,
   Suggestion,
   TableRequest,
@@ -611,7 +612,7 @@ export async function listPrinters(): Promise<PrinterRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('printer')
-    .select('id,machine_id,name,purpose,paper_mm,routes,chefs,online')
+    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at')
     .eq('restaurant_id', restaurantId)
     .order('machine_id', { ascending: true });
   if (error) throw error;
@@ -620,11 +621,73 @@ export async function listPrinters(): Promise<PrinterRow[]> {
     machineId: p.machine_id as string,
     name: p.name as string,
     purpose: p.purpose as string,
+    station: (p.station as string) ?? 'Main Kitchen',
     paperMm: p.paper_mm as number,
     routes: (p.routes as string[]) ?? [],
     chefs: (p.chefs as string[]) ?? [],
+    connection: (p.connection as string) ?? 'Ethernet',
+    address: (p.address as string) ?? '',
+    port: (p.port as number) ?? 9100,
     online: p.online as boolean,
+    // A machine from before the print-setup migration has no opinion, and the safe reading of
+    // no opinion is "the owner has not switched it off".
+    enabled: (p.enabled as boolean | null) ?? true,
+    lastSeenAt: (p.last_seen_at as string | null) ?? null,
   }));
+}
+
+/**
+ * Tonight's print trail — every ticket the system tried, newest first.
+ *
+ * WHY IT IS CAPPED AND WHY THE CAP IS HERE
+ *   The design's History section is a list somebody scans mid-service for the one ticket that
+ *   did not come out. That is tonight's work, not the year's, and an uncapped read of a table
+ *   that grows by one row per round would be the slowest query in the console by a wide margin.
+ *   Capped in the query, not in the component: a component that fetches everything and renders
+ *   the first eighty has already paid the cost.
+ */
+export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('print_job')
+    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,printer(name),kot(code,table_id),bill(code)')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const tableIds = [
+    ...new Set(
+      (data ?? [])
+        .map((j) => (j.kot as unknown as { table_id: string | null } | null)?.table_id)
+        .filter((t): t is string => !!t)
+    ),
+  ];
+  const names = new Map<string, string>();
+  if (tableIds.length) {
+    const { data: tables } = await db().from('dining_table').select('id,name').in('id', tableIds);
+    (tables ?? []).forEach((t) => names.set(t.id as string, t.name as string));
+  }
+
+  return (data ?? []).map((j) => {
+    const kot = j.kot as unknown as { code: string; table_id: string | null } | null;
+    const bill = j.bill as unknown as { code: string } | null;
+    return {
+      id: j.id as string,
+      kind: j.kind as string,
+      // The reference a person would look for. A print job's own uuid appears on no ticket and
+      // in no conversation anybody has ever had in a kitchen.
+      reference: kot?.code ?? bill?.code ?? '—',
+      table: kot?.table_id ? (names.get(kot.table_id) ?? '—') : '—',
+      printerName: (j.printer as unknown as { name: string } | null)?.name ?? 'No machine',
+      status: j.status as PrintJobRow['status'],
+      attempts: (j.attempts as number) ?? 0,
+      isReprint: (j.is_reprint as boolean) ?? false,
+      requestedBy: (j.requested_by as string) ?? 'system',
+      lastError: (j.last_error as string) ?? '',
+      createdAt: j.created_at as string,
+    };
+  });
 }
 
 /* ── Settings ──────────────────────────────────────────────────────────── */

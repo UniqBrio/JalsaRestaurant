@@ -3,6 +3,7 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { kitchenHasStarted, type KotStatus } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
+import { resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
 import { billTotals, chargeableLines, getBill, openBillForTable } from './queries';
 import { BILL_STAFF_COLUMN, type Bill } from './types';
 
@@ -225,7 +226,10 @@ export async function placeRound(input: {
   const ids = input.lines.map((l) => l.menuItemId);
   const { data: items, error: itemErr } = await db()
     .from('menu_item')
-    .select('id,name,price,food_type,available,closed_until')
+    // The category comes back in the SAME query the availability check already runs. Routing a
+    // round to its station therefore costs nothing on the order path — which is the only reason
+    // it is done here rather than by a worker reading the job back.
+    .select('id,name,price,food_type,available,closed_until,menu_category!inner(name)')
     .eq('restaurant_id', restaurantId)
     .in('id', ids);
   if (itemErr) throw itemErr;
@@ -297,7 +301,15 @@ export async function placeRound(input: {
    * placed until both have landed.
    */
   await Promise.all([
-    queuePrint({ kind: 'KOT', kotId: kot.id as string, billId: input.billId, actor: input.actor }),
+    queuePrint({
+      kind: 'KOT',
+      kotId: kot.id as string,
+      billId: input.billId,
+      actor: input.actor,
+      categories: accepted.map(
+        ({ item }) => (item.menu_category as unknown as { name: string } | null)?.name ?? ''
+      ),
+    }),
     audit({
       action: 'Order placed',
       detail: `${code} created — ${accepted.length === 1 ? '1 item' : `${accepted.length} items`}${
@@ -500,22 +512,64 @@ export async function queuePrint(input: {
   billId: string;
   actor: Actor;
   isReprint?: boolean;
+  /**
+   * The menu categories this round contains. The caller already holds them — `placeRound` has
+   * just read the items — so routing costs no extra round trip on the hot path. Omitted, the
+   * decision falls back to "any machine of this kind", which is what it was before routing
+   * existed and is still the right answer for a bill.
+   */
+  categories?: readonly string[];
 }): Promise<void> {
   const restaurantId = await currentRestaurantId();
+  const purpose = input.kind === 'KOT' ? 'KOT' : 'Invoice';
 
-  const { data: printers } = await db()
+  const { data: rows } = await db()
     .from('printer')
-    .select('id,online,purpose')
+    .select('id,name,purpose,station,routes,online,enabled')
     .eq('restaurant_id', restaurantId)
-    .eq('purpose', input.kind === 'KOT' ? 'KOT' : 'Invoice');
+    .eq('purpose', purpose);
 
-  const reachable = (printers ?? []).find((p) => p.online === true) ?? null;
+  const printers: RoutablePrinter[] = (rows ?? []).map((p) => ({
+    id: p.id as string,
+    name: p.name as string,
+    purpose: p.purpose as string,
+    station: (p.station as string) ?? 'Main Kitchen',
+    routes: (p.routes as string[]) ?? [],
+    online: p.online as boolean,
+    enabled: (p.enabled as boolean | null) ?? true,
+  }));
+
+  /**
+   * ROUTING IS CONSULTED HERE OR IT IS DECORATION.
+   *
+   * The Routing section of Print Setup is a screen that says which machine prints which
+   * category. If this function kept picking the first reachable machine, that screen would
+   * configure nothing and the only symptom would be tandoor tickets appearing in the main
+   * kitchen — which looks exactly like the fallback working. A settings screen whose value is
+   * never read is worse than an absent one.
+   *
+   * A round can span two stations, so the DECISION is taken per category and the job is written
+   * against the machine the FIRST category resolves to, with every other station named in the
+   * reason. One job per round, not one per station: the print worker that fans a job out to
+   * machines does not exist yet, and writing four jobs no worker will read would be a queue
+   * that looks busier than the kitchen is.
+   */
+  const decisions = (input.categories?.length ? [...new Set(input.categories)] : ['']).map((category) =>
+    resolvePrinter({ purpose, category, printers })
+  );
+  const first = decisions[0] ?? { printer: null, rule: 'none' as const, station: '', reason: '' };
+  const chosen = first.printer;
+  const reachable = chosen && chosen.online && chosen.enabled ? chosen : null;
+
+  const failure = chosen
+    ? decisions.map((d) => d.reason).filter(Boolean).join(' · ') || 'No printer for this route is reachable.'
+    : 'No printer for this route is reachable.';
 
   await db()
     .from('print_job')
     .insert({
       restaurant_id: restaurantId,
-      printer_id: reachable?.id ?? (printers ?? [])[0]?.id ?? null,
+      printer_id: chosen?.id ?? null,
       kind: input.kind,
       kot_id: input.kotId ?? null,
       bill_id: input.billId,
@@ -523,7 +577,9 @@ export async function queuePrint(input: {
       attempts: 1,
       is_reprint: input.isReprint ?? false,
       requested_by: input.actor.label,
-      last_error: reachable ? '' : 'No printer for this route is reachable.',
+      // On success the reason is still recorded, because "it printed" does not say WHERE, and
+      // where is the question somebody asks when a station insists it never got the ticket.
+      last_error: reachable ? '' : failure,
       completed_at: reachable ? new Date().toISOString() : null,
     });
 
@@ -537,6 +593,75 @@ export async function queuePrint(input: {
       })
       .eq('id', input.kotId);
   }
+}
+
+/**
+ * Try a failed or retrying job again.
+ *
+ * WHY THIS IS A NEW ATTEMPT ON THE SAME ROW AND NOT A NEW ROW
+ *   The print history is the record of what the system tried. Three attempts at KOT-0041 are one
+ *   ticket that has not arrived, not three tickets — and the design's History table has a Tries
+ *   column precisely so a person can tell those apart. A new row per retry would show a kitchen
+ *   three outstanding tickets and send somebody looking for two that do not exist.
+ *
+ * A retry is NOT a reprint. It does not mark the ticket, because nothing came out of a machine
+ * the first time. Reprinting a ticket that DID print is `reprintKot`, and that one marks it.
+ */
+export async function retryPrintJob(input: { jobId: string; actor: Actor }): Promise<{ printed: boolean }> {
+  demand(input.actor, 'orders.reprint');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: job, error } = await db()
+    .from('print_job')
+    .select('id,kind,kot_id,attempts,status')
+    .eq('id', input.jobId)
+    .single();
+  if (error) throw error;
+
+  if (job.status === 'printed') {
+    // Not an error and not a silent success: the job is already done, and re-sending it would
+    // put a second unmarked ticket in the kitchen — the one printing mistake that costs food.
+    throw new Error('That ticket has already printed. Use Reprint, which marks the paper.');
+  }
+
+  const { data: rows } = await db()
+    .from('printer')
+    .select('id,name,purpose,station,routes,online,enabled')
+    .eq('restaurant_id', restaurantId)
+    .eq('purpose', job.kind === 'KOT' ? 'KOT' : 'Invoice');
+
+  const target = (rows ?? []).find((p) => p.online === true && ((p.enabled as boolean | null) ?? true)) ?? null;
+  const attempts = ((job.attempts as number) ?? 0) + 1;
+
+  await db()
+    .from('print_job')
+    .update({
+      status: target ? 'printed' : 'failed',
+      attempts,
+      printer_id: target?.id ?? null,
+      last_error: target ? '' : `Attempt ${attempts}: no machine of this kind answered.`,
+      completed_at: target ? new Date().toISOString() : null,
+    })
+    .eq('id', input.jobId);
+
+  if (job.kot_id) {
+    await db()
+      .from('kot')
+      .update({
+        print_status: target ? 'printed' : 'failed',
+        print_attempts: attempts,
+        printed_at: target ? new Date().toISOString() : null,
+      })
+      .eq('id', job.kot_id as string);
+  }
+
+  await audit({
+    action: 'Reprint',
+    detail: `Print job retried — attempt ${attempts}, ${target ? `printed at ${target.name as string}` : 'still no machine answered'}`,
+    actor: input.actor,
+  });
+
+  return { printed: !!target };
 }
 
 /* ── Closure ───────────────────────────────────────────────────────────── */

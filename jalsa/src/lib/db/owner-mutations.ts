@@ -334,6 +334,10 @@ const SETTING_PERMISSION: Record<string, string> = {
   // settings-page act: it is done at the door, mid-service, by whoever is standing there.
   queue: 'queue.close',
   employment: 'set.identity',
+  // The two print templates, the food-type split and the fallback note. Everything on the
+  // Print Setup surface that is not a machine is one key, because it is one screen's worth of
+  // decisions and splitting it would mean four writes for one Save.
+  print: 'set.printer',
 };
 
 export async function writeSetting(input: {
@@ -617,4 +621,95 @@ export async function removeFromWaitlist(input: { id: string; reason: string; ac
     detail: `${(row?.token as string) ?? 'A party'} left the queue — ${input.reason}`,
     actor: input.actor,
   });
+}
+
+/* ── Printers ──────────────────────────────────────────────────────────── */
+
+/**
+ * Add or reconfigure one machine.
+ *
+ * WHY THE ROUTES ARE WRITTEN HERE AND NOT BY A SEPARATE "ROUTING" WRITE
+ *   The design draws Printers and Routing as two sections, and they ARE two screens — but they
+ *   edit one fact: which categories a machine claims. A second write path for the same column
+ *   is the "two ways to do one thing" this repository treats as a defect, and the drifted one is
+ *   always the one somebody finds first. The Routing section calls this with the categories
+ *   changed and everything else unchanged.
+ *
+ * A DISABLED MACHINE IS NOT AN OFFLINE ONE. `enabled` is the owner's decision and is written
+ * here; `online` is whether it answered and is never set from a form.
+ */
+export async function upsertPrinter(input: {
+  id?: string;
+  machineId: string;
+  name: string;
+  purpose: string;
+  station: string;
+  paperMm: number;
+  connection: string;
+  address: string;
+  port: number;
+  routes: string[];
+  enabled: boolean;
+  actor: Actor;
+}): Promise<{ id: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  if (!input.name.trim()) throw new Error('Give the machine a name first — somebody has to find it in a kitchen.');
+  if (input.connection !== 'USB' && !input.address.trim()) {
+    throw new Error('A network machine needs an address, or nothing can reach it.');
+  }
+
+  const patch = {
+    machine_id: input.machineId.trim(),
+    name: input.name.trim(),
+    purpose: input.purpose,
+    station: input.station.trim() || 'Main Kitchen',
+    paper_mm: input.paperMm,
+    connection: input.connection,
+    address: input.connection === 'USB' ? '' : input.address.trim(),
+    port: input.connection === 'USB' ? 0 : input.port,
+    routes: input.routes,
+    enabled: input.enabled,
+  };
+
+  if (input.id) {
+    const { data: before } = await db()
+      .from('printer')
+      .select('name,station,routes,enabled')
+      .eq('id', input.id)
+      .maybeSingle();
+
+    const { error } = await db().from('printer').update(patch).eq('id', input.id);
+    if (error) throw error;
+
+    const wasEnabled = (before?.enabled as boolean | null) ?? true;
+    const routesChanged = JSON.stringify((before?.routes as string[]) ?? []) !== JSON.stringify(input.routes);
+    await audit({
+      action: 'Settings',
+      detail: routesChanged
+        ? `${input.name} routing: ${((before?.routes as string[]) ?? []).join(', ') || 'nothing'} → ${
+            input.routes.join(', ') || 'nothing'
+          }`
+        : wasEnabled !== input.enabled
+          ? `${input.name} ${input.enabled ? 'enabled' : 'switched off — its tickets fall back to the main kitchen'}`
+          : `${input.name} reconfigured`,
+      actor: input.actor,
+    });
+    return { id: input.id };
+  }
+
+  const { data, error } = await db()
+    .from('printer')
+    .insert({ restaurant_id: restaurantId, online: false, ...patch })
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  await audit({
+    action: 'Settings',
+    detail: `${input.name} added — ${input.paperMm} mm, ${input.station}, ${input.purpose} template`,
+    actor: input.actor,
+  });
+  return { id: data.id as string };
 }

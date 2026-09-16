@@ -10,6 +10,7 @@ import { Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
+import { PrintSetupSection } from './PrintSetupSection';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -41,7 +42,9 @@ const PANELS: Array<{ key: Panel; label: string; permission: string }> = [
   // button and review link were therefore configurable by everything except a person.
   { key: 'replies', label: 'Replies to suggestions', permission: 'set.copy' },
   { key: 'engage', label: 'Customer engagement', permission: 'set.review' },
-  { key: 'printers', label: 'Printers', permission: 'set.printer' },
+  // Five sections of its own — the design's "Printing and paperwork" surface, reached from
+  // Settings where the flowchart's ten sub-sections put it.
+  { key: 'printers', label: 'Printers & machines', permission: 'set.printer' },
 ];
 
 export function SettingsSection(props: OwnerSectionProps) {
@@ -76,7 +79,7 @@ export function SettingsSection(props: OwnerSectionProps) {
       {panel === 'copy' ? <CopyPanel {...props} /> : null}
       {panel === 'replies' ? <RepliesPanel {...props} /> : null}
       {panel === 'engage' ? <EngagementPanel {...props} /> : null}
-      {panel === 'printers' ? <PrintersPanel {...props} /> : null}
+      {panel === 'printers' ? <PrintSetupSection {...props} /> : null}
     </div>
   );
 }
@@ -889,40 +892,14 @@ function CopyPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 }
 
 /* ── Printers ──────────────────────────────────────────────────────────── */
-
-function PrintersPanel({ data }: OwnerSectionProps) {
-  return (
-    <Card className="flex flex-col gap-3">
-      <SectionLabel>{data.printers.length} machines configured</SectionLabel>
-
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {data.printers.map((p) => (
-          <li
-            key={p.id}
-            className="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block type-body font-semibold">{p.machineId}</span>
-              <span className="block type-caption text-[var(--text-muted)]">
-                {p.name} · {p.paperMm} mm · routes {p.routes.join(', ') || '—'}
-                {p.chefs.length ? ` · chefs ${p.chefs.join(', ')}` : ''}
-              </span>
-            </span>
-            <Pill tone={p.online ? 'success' : 'error'}>{p.online ? 'Reachable' : 'Not reachable'}</Pill>
-          </li>
-        ))}
-      </ul>
-
-      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
-        Printer connectivity is still an open dependency, and this release does not pretend otherwise. Until the TVS
-        devices are validated, every ticket is written to the print queue and marked <strong>failed</strong> with a
-        reason — the order still exists, the failure is visible on the round, and there is a retry on it. Editing
-        routing, designing the character-grid templates and the print-history trail are the print-setup slice, and
-        building half of them here would read as a finished feature.
-      </p>
-    </Card>
-  );
-}
+/*
+ * The panel that used to live here listed the machines and then explained, honestly, that
+ * routing, the character-grid templates and the print-history trail were not built and that
+ * building half of them would read as a finished feature. They are built now, as the design's
+ * five sections, and the panel is `PrintSetupSection`. The paragraph is not preserved: it
+ * described an absence that no longer exists, and a note about a gap that has been filled is
+ * the kind of stale prose that teaches the wrong thing with confidence.
+ */
 
 /* ── Replies to suggestions ────────────────────────────────────────────── */
 

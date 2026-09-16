@@ -200,10 +200,39 @@ export interface PrinterRow {
   machineId: string;
   name: string;
   purpose: string;
+  /** Where in the building. What a fallback ticket is stamped with. */
+  station: string;
   paperMm: number;
+  /** Menu category NAMES this machine claims. Empty means "everything nobody else claims". */
   routes: string[];
   chefs: string[];
+  connection: string;
+  address: string;
+  port: number;
+  /**
+   * `online` is whether it answered — a fault, and the fallback exists for it.
+   * `enabled` is whether the owner wants it used — a decision. They are never the same word
+   * on screen, because only one of them needs somebody to walk into the kitchen.
+   */
   online: boolean;
+  enabled: boolean;
+  lastSeenAt: string | null;
+}
+
+/** One row of the print-history trail: what the system tried to print, and what happened. */
+export interface PrintJobRow {
+  id: string;
+  kind: string;
+  /** KOT-0042 or B-1048 — the identifier a person would look for, never the job's uuid. */
+  reference: string;
+  table: string;
+  printerName: string;
+  status: 'queued' | 'printed' | 'failed';
+  attempts: number;
+  isReprint: boolean;
+  requestedBy: string;
+  lastError: string;
+  createdAt: string;
 }
 
 /** What the guest's phone is shown. Never the whole bill row - only what their screen needs. */

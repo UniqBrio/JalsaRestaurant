@@ -25,6 +25,45 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-006 · Print Setup is built — and the routing it edits is now read
+
+**SUPERSEDES DC-004's status**, which is kept below unchanged.
+
+**BUILT** — `src/features/owner/sections/PrintSetupSection.tsx`, the flowchart's five sections:
+Overview · Printers · Templates · Routing · History, under Settings → Printers & machines.
+
+The two pieces that carry the design's actual claims are **modules, not components**, and are the
+only part of this that can be observed here:
+
+| | |
+|---|---|
+| `src/lib/print-template.ts` | The character grid. 58 mm and 80 mm are separate layouts; `validateTemplate` **blocks** a save rather than warning. 34 cases. |
+| `src/lib/print-routing.ts` | category → station → printer, and the fallback that stops a ticket vanishing. 18 cases. |
+
+**THE ROUTING IS CONSULTED BY THE ORDER PATH.** `queuePrint` was picking the first reachable
+machine of the right purpose; it now resolves per category, and `placeRound` passes the
+categories it has already read — same query, no extra round trip. Without that, the Routing
+section would be a screen configuring nothing, and the only symptom would be tandoor tickets in
+the main kitchen, which looks exactly like the fallback working.
+
+**THE PREVIEW IS BUILT FROM THE RESTAURANT'S OWN MENU**, not a specimen round. The question a
+template answers is whether *this* menu's longest dish name fits; a fixed sample would pass on a
+menu whose longest name is eleven characters longer. With no menu items the panel says the
+verdict proves nothing rather than showing green — an empty ticket fits every grid.
+
+**STATUS** — **AUTHORISED** and built. **NOT VERIFIED**: the owner console is data-bearing and
+cannot be rendered here, and this adds a fourth unapplied migration. The grid and the routing are
+verified by execution; the screen around them has not been seen.
+
+**STILL NOT TRUE, AND SAID ON THE SCREEN** — the TVS machines remain an unvalidated dependency.
+Nothing in this deployment opens a socket to one, so no machine is ever marked as answering, and
+the Printers panel says so where a person is reading it rather than in a note elsewhere.
+
+**NOT BUILT** — HR documents (offer letter, experience certificate, payslip). Separate row when
+they land.
+
+---
+
 ## DC-005 · "See the menu while you wait" is not drawn
 
 **SOURCE** — `Jalsa Customer Patterns.dc.html`, pattern 6b: a secondary button on the queue-token

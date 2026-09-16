@@ -11,6 +11,7 @@ import {
   joinTableToBill,
   replyToSuggestion,
   reprintKot,
+  retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
 import {
@@ -27,6 +28,7 @@ import {
   removeFromWaitlist,
   upsertExpense,
   upsertMenuItem,
+  upsertPrinter,
   upsertStaff,
   upsertTable,
   writeIdentity,
@@ -86,7 +88,22 @@ type Action =
   | { action: 'join-waitlist'; partySize: number; pair: string; phone?: string; source?: 'scanned' | 'walk_in' }
   | { action: 'notify-waitlist'; id: string }
   | { action: 'seat-waitlist'; id: string; tableId?: string }
-  | { action: 'remove-waitlist'; id: string; reason: string };
+  | { action: 'remove-waitlist'; id: string; reason: string }
+  | {
+      action: 'upsert-printer';
+      id?: string;
+      machineId: string;
+      name: string;
+      purpose: string;
+      station: string;
+      paperMm: number;
+      connection: string;
+      address: string;
+      port: number;
+      routes: string[];
+      enabled: boolean;
+    }
+  | { action: 'retry-print'; jobId: string };
 
 /**
  * Everything the owner DOES.
@@ -270,6 +287,27 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     case 'remove-waitlist':
       await removeFromWaitlist({ id: input.id, reason: input.reason, actor });
       return ok({ done: true });
+
+    case 'upsert-printer':
+      return ok(
+        await upsertPrinter({
+          ...(input.id ? { id: input.id } : {}),
+          machineId: input.machineId,
+          name: input.name,
+          purpose: input.purpose,
+          station: input.station,
+          paperMm: input.paperMm,
+          connection: input.connection,
+          address: input.address,
+          port: input.port,
+          routes: input.routes,
+          enabled: input.enabled,
+          actor,
+        })
+      );
+
+    case 'retry-print':
+      return ok(await retryPrintJob({ jobId: input.jobId, actor }));
 
     default:
       return fail(400, { code: 'validation', message: 'That is not something this console can do.' });

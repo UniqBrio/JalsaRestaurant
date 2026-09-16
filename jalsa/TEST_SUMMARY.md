@@ -249,6 +249,34 @@ _Merge blocked. Every FAIL above must resolve. No partial merges._
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-16 (tenth) - the character grid and the routing fallback
+
+Both files are NEW, so against the pre-fix tree neither collected: the modules did not exist and
+the import threw, which proves the files are new rather than that their assertions can fail. Four
+deliberate defects were therefore introduced into the finished modules and each suite re-run.
+
+FAIL-FIRST: tests/unit/print-template.unit.spec.ts - `validateTemplate` returning
+`canSave: true` regardless of its own failures: **4 failed, 30 passed** - "AN OVER-WIDTH LINE
+BLOCKS THE SAVE", "a printable width WIDER than the roll is refused", "AUTO-FIT PRODUCES A
+TEMPLATE THAT ACTUALLY VALIDATES", and, from the second defect, "A REPRINT IS MARKED BEFORE
+ANYTHING ELSE" with the band spliced in below the header instead of prepended (`expected the
+first line to contain *** REPRINT ***`). The first is the defect the design's own failure note
+describes - an over-width line does not shrink on a thermal printer, it disappears, and a warning
+nobody is forced to read is how it reaches the kitchen. The second is a cook reading the top of
+an unmarked reprint and cooking the round twice.
+
+FAIL-FIRST: tests/unit/print-routing.unit.spec.ts - `resolvePrinter` returning
+`{ printer: null }` when the claiming machine is unreachable instead of falling back: **3 failed,
+15 passed**, among them "AN UNREACHABLE STATION FALLS BACK TO THE MAIN KITCHEN - a ticket never
+vanishes". Separately, the fallback decision reporting the FALLBACK machine's station rather than
+the intended one: **2 failed, 16 passed** - "A FALLBACK TICKET CARRIES THE STATION IT WAS MEANT
+FOR" (`expected "Tandoor", received "Main Kitchen"`). A tandoor ticket coming out of the main
+kitchen machine stamped "Main Kitchen" is picked up by the wrong cook.
+
+All four defects were reverted; the suites returned to 34 and 18 passed respectively.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-12 (eighth) - the after-discount figure
 
 FAIL-FIRST: tests/unit/discount-both-ways.unit.spec.ts (appended) - modelled against what the

@@ -12,6 +12,7 @@ import {
   listOpenBills,
   listOpenRequests,
   listPrinters,
+  listPrintJobs,
   listStaff,
   listSuggestions,
   listTips,
@@ -22,7 +23,7 @@ import {
 import type { SignedInStaff } from './auth';
 import { db } from '@/lib/supabase/server';
 import type {
-  AuditRow, Bill, ExpenseRow, PrinterRow, StaffMember, Suggestion, TipRow, WaitlistRow,
+  AuditRow, Bill, ExpenseRow, PrinterRow, PrintJobRow, StaffMember, Suggestion, TipRow, WaitlistRow,
 } from './types';
 
 /**
@@ -161,6 +162,8 @@ export interface OwnerPayload {
   expenses: ExpenseRow[];
   expensesTotalLabel: string;
   printers: PrinterRow[];
+  /** Tonight's print trail — the History section of Print Setup. Newest first. */
+  printJobs: PrintJobRow[];
   audit: AuditRow[];
   qrOrigin: string;
 }
@@ -254,6 +257,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     tips,
     expenses,
     printers,
+    printJobs,
     audit,
     waitlist,
   ] = await Promise.all([
@@ -269,6 +273,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     listTips(),
     listExpenses(),
     listPrinters(),
+    listPrintJobs(),
     listAudit(),
     listWaitlist(),
   ]);
@@ -398,6 +403,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     expenses,
     expensesTotalLabel: rupees(expenses.reduce((a, e) => a + e.amount, 0)),
     printers,
+    printJobs,
     audit,
     // Position is 1-based and computed HERE, from the order the query already guarantees
     // (oldest first). A screen that numbered its own rows would renumber them every time one

@@ -1,0 +1,182 @@
+/**
+ * print-routing unit spec — category → station → printer, and the fallback that stops a ticket
+ * vanishing.
+ *
+ * FAIL-FIRST EVIDENCE: observed on 16-Sep-2026. Against the pre-fix tree the whole file failed
+ * to collect (`src/lib/print-routing.ts` did not exist). Two deliberate defects were then put
+ * into the finished module and the suite re-run:
+ *
+ *   1. `resolvePrinter` returning `{ printer: null }` when the claiming machine is unreachable,
+ *      instead of falling back — **3 failed, 15 passed**, among them "AN UNREACHABLE STATION
+ *      FALLS BACK TO THE MAIN KITCHEN — a ticket never vanishes". That is the defect the
+ *      flowchart's Print-failed row names in so many words, and its symptom is a party waiting
+ *      for food nobody was told to cook.
+ *   2. The fallback decision reporting the FALLBACK machine's station instead of the intended
+ *      one — **2 failed, 16 passed**. "A FALLBACK TICKET CARRIES THE STATION IT WAS MEANT FOR"
+ *      went red: the tandoor's ticket came out of the main kitchen printer stamped "Main
+ *      Kitchen", where the wrong cook picks it up.
+ *
+ * Both were reverted and the suite returned to 18 passed.
+ */
+import { test, expect } from '@playwright/test';
+import { mainPrinter, resolvePrinter, splitRound, type RoutablePrinter } from '../../src/lib/print-routing';
+
+const printer = (p: Partial<RoutablePrinter> & { id: string }): RoutablePrinter => ({
+  name: `Machine ${p.id}`,
+  purpose: 'KOT',
+  station: 'Main Kitchen',
+  routes: [],
+  online: true,
+  enabled: true,
+  ...p,
+});
+
+const MAIN = printer({ id: 'main', name: 'Main Kitchen Printer', station: 'Main Kitchen' });
+const TANDOOR = printer({
+  id: 'tandoor',
+  name: 'Tandoor Station',
+  station: 'Tandoor',
+  routes: ['Non-Veg Starters', 'Veg Starters'],
+});
+const COUNTER = printer({ id: 'counter', name: 'Counter Bill Printer', purpose: 'Invoice', station: 'Billing' });
+const FLOOR = [MAIN, TANDOOR, COUNTER];
+
+/* ── The happy route ───────────────────────────────────────────────────── */
+
+test('a category a machine claims goes to that machine', () => {
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Non-Veg Starters', printers: FLOOR });
+  expect(d.printer?.id).toBe('tandoor');
+  expect(d.rule).toBe('routed');
+  expect(d.station).toBe('Tandoor');
+});
+
+test('the decision reads as the design writes it — category, station, printer', () => {
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Non-Veg Starters', printers: FLOOR });
+  expect(d.reason).toBe('Non-Veg Starters → Tandoor → Tandoor Station');
+});
+
+test('a category NOBODY claims lands on the main machine rather than nowhere', () => {
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Desserts', printers: FLOOR });
+  expect(d.printer?.id).toBe('main');
+  expect(d.rule).toBe('unrouted');
+});
+
+test('a renamed category still reaches its station — matching ignores case and padding', () => {
+  const d = resolvePrinter({ purpose: 'KOT', category: '  non-veg starters ', printers: FLOOR });
+  expect(d.printer?.id).toBe('tandoor');
+  expect(d.rule).toBe('routed');
+});
+
+test('a bill never goes to a kitchen machine, whatever the routes say', () => {
+  const d = resolvePrinter({ purpose: 'Invoice', category: 'Non-Veg Starters', printers: FLOOR });
+  expect(d.printer?.id).toBe('counter');
+});
+
+/* ── The fallback ──────────────────────────────────────────────────────── */
+
+test('AN UNREACHABLE STATION FALLS BACK TO THE MAIN KITCHEN — a ticket never vanishes', () => {
+  const down = [MAIN, { ...TANDOOR, online: false }, COUNTER];
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Non-Veg Starters', printers: down });
+  expect(d.printer?.id).toBe('main');
+  expect(d.rule).toBe('fallback');
+});
+
+test('A FALLBACK TICKET CARRIES THE STATION IT WAS MEANT FOR, not the one it came out at', () => {
+  const down = [MAIN, { ...TANDOOR, online: false }, COUNTER];
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: down });
+  expect(d.printer?.id).toBe('main');
+  expect(d.station).toBe('Tandoor');
+  expect(d.reason).toContain('Tandoor');
+});
+
+test('OFF and NOT ANSWERING are different words — a decision is not a fault', () => {
+  const off = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: [MAIN, { ...TANDOOR, enabled: false }] });
+  const dead = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: [MAIN, { ...TANDOOR, online: false }] });
+  expect(off.reason).toContain('switched off');
+  expect(dead.reason).toContain('not answering');
+});
+
+test('with EVERY machine down the decision still names one, so the failure has an address', () => {
+  const dark = FLOOR.map((p) => ({ ...p, online: false }));
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Desserts', printers: dark });
+  expect(d.printer).not.toBeNull();
+  expect(d.printer?.purpose).toBe('KOT');
+});
+
+test('no machine of that kind at all is reported as such, never as a fallback', () => {
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Desserts', printers: [COUNTER] });
+  expect(d.printer).toBeNull();
+  expect(d.rule).toBe('none');
+  expect(d.reason).toContain('No KOT printer');
+});
+
+/* ── Which machine is "main" ───────────────────────────────────────────── */
+
+test('the main machine is the one claiming no category of its own', () => {
+  expect(mainPrinter('KOT', FLOOR)?.id).toBe('main');
+});
+
+test('with every machine claiming a category, the first reachable one is main', () => {
+  const all = [{ ...MAIN, routes: ['Rice'] }, TANDOOR];
+  expect(mainPrinter('KOT', all)?.id).toBe('main');
+});
+
+/* ── The food-type split is a SECOND decision ──────────────────────────── */
+
+test('routing decides the machine; the food-type split decides how many tickets it prints', () => {
+  const items = [
+    { category: 'Rice', foodType: 'veg' as const },
+    { category: 'Rice', foodType: 'non_veg' as const },
+  ];
+  const combined = splitRound({ items, printers: FLOOR, splitByFoodType: false });
+  const split = splitRound({ items, printers: FLOOR, splitByFoodType: true });
+  expect(combined).toHaveLength(1);
+  expect(split).toHaveLength(2);
+  expect(new Set(split.map((t) => t.printerId))).toEqual(new Set(['main']));
+});
+
+test('EGG TRAVELS WITH VEG — one fryer, one side of the kitchen', () => {
+  const items = [
+    { category: 'Rice', foodType: 'veg' as const },
+    { category: 'Rice', foodType: 'egg' as const },
+  ];
+  expect(splitRound({ items, printers: FLOOR, splitByFoodType: true })).toHaveLength(1);
+});
+
+test('a split never invents a ticket for a side the round has nothing on', () => {
+  const items = [{ category: 'Rice', foodType: 'veg' as const }];
+  const tickets = splitRound({ items, printers: FLOOR, splitByFoodType: true });
+  expect(tickets).toHaveLength(1);
+  expect(tickets[0]?.foodTypes).toEqual(['veg']);
+});
+
+test('a round spanning two stations produces one ticket per station', () => {
+  const items = [
+    { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
+    { category: 'Rice', foodType: 'veg' as const },
+  ];
+  const tickets = splitRound({ items, printers: FLOOR, splitByFoodType: false });
+  expect(tickets).toHaveLength(2);
+  expect(new Set(tickets.map((t) => t.station))).toEqual(new Set(['Tandoor', 'Main Kitchen']));
+});
+
+test('a fallback merges into the machine it fell back to but KEEPS its own station heading', () => {
+  const down = [MAIN, { ...TANDOOR, online: false }];
+  const items = [
+    { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
+    { category: 'Rice', foodType: 'veg' as const },
+  ];
+  const tickets = splitRound({ items, printers: down, splitByFoodType: false });
+  expect(tickets).toHaveLength(2);
+  expect(tickets.every((t) => t.printerId === 'main')).toBe(true);
+  expect(tickets.map((t) => t.station).sort()).toEqual(['Main Kitchen', 'Tandoor']);
+});
+
+test('every ticket carries a reason — a routing nobody can read is a routing nobody can fix', () => {
+  const tickets = splitRound({
+    items: [{ category: 'Desserts', foodType: 'veg' as const }],
+    printers: FLOOR,
+    splitByFoodType: false,
+  });
+  tickets.forEach((t) => expect(t.reason.length).toBeGreaterThan(10));
+});

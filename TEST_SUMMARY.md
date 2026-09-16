@@ -5,6 +5,23 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/print-template.unit.spec.ts and
+jalsa/tests/unit/print-routing.unit.spec.ts - the two new specs for Jalsa's Print Setup slice.
+Both were observed failing on 16-Sep-2026. The full evidence, with each injected defect and the
+counts it produced, is in the application's own ledger at jalsa/TEST_SUMMARY.md, under
+"FAIL-FIRST EVIDENCE - 2026-09-16 (tenth)". In short: four deliberate defects across four runs -
+a `validateTemplate` that returns canSave regardless of its own failures (4 failed, 30 passed),
+a reprint band spliced below the header instead of prepended (one of those four), a
+`resolvePrinter` that returns nothing instead of falling back (3 failed, 15 passed), and a
+fallback reporting the machine's own station rather than the one the ticket was meant for
+(2 failed, 16 passed). All four reverted; both suites returned to 34 and 18 passed.
+
+This line is at the repository root because guard G3 reads TEST_SUMMARY.md relative to the
+working-tree root and cannot see a nested application's ledger. It is a pointer to the evidence,
+not a second copy of it - the detail belongs beside the specs it describes.
+
+---
+
 NOT OBSERVED FAILING: starter/tests/unit/pwa.unit.spec.ts - arrived with the framework v1.35.0
 sync (CP-30's named rung), not written here, and it cannot be run in this checkout: starter/ has
 no node_modules, which is the same absence that leaves gate G5 BLOCKED and G6-G8 blocked behind
