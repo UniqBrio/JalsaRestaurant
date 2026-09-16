@@ -37,7 +37,7 @@ export function Field({
 }) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={htmlFor} className="text-[12px] font-semibold text-[var(--text-body)]">
+      <label htmlFor={htmlFor} className="type-caption font-semibold text-[var(--text-body)]">
         {label}
         {required ? (
           <span className="text-[var(--error)]" aria-hidden>
@@ -49,11 +49,11 @@ export function Field({
       </label>
       {children}
       {error ? (
-        <p className="m-0 text-[11.5px] font-semibold text-[var(--error)]" role="alert">
+        <p className="m-0 type-caption font-semibold text-[var(--error)]" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{hint}</p>
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">{hint}</p>
       ) : null}
     </div>
   );
@@ -61,7 +61,7 @@ export function Field({
 
 const controlClass =
   'w-full min-h-11 rounded-[var(--radius-md)] border border-[var(--border-strong)]/35 bg-[var(--surface)] ' +
-  'px-3.5 text-[13.5px] text-[var(--text-body)] placeholder:text-[var(--text-disabled)] ' +
+  'px-3.5 type-body text-[var(--text-body)] placeholder:text-[var(--text-disabled)] ' +
   'transition-colors hover:border-[var(--border-strong)]/60 ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] ' +
   'disabled:opacity-45';
@@ -139,7 +139,7 @@ export function SearchField({
         />
         {value && typeof resultCount === 'number' ? (
           <span
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11.5px] font-semibold text-[var(--text-muted)]"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 type-caption font-semibold text-[var(--text-muted)]"
             aria-live="polite"
           >
             {resultCount === 1 ? '1 match' : `${resultCount} matches`}
@@ -152,7 +152,7 @@ export function SearchField({
           type="button"
           onClick={() => onChange('')}
 
-          className="min-h-11 shrink-0 rounded-full px-3 text-[12px] font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--text-body)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+          className="min-h-11 shrink-0 rounded-full px-3 type-caption font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-sunken)] hover:text-[var(--text-body)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
         >
           Clear
         </button>
@@ -187,11 +187,11 @@ export function Toggle({
   return (
     <div className="flex items-start justify-between gap-4 py-2.5">
       <div className="min-w-0">
-        <label htmlFor={id} className="text-[13px] font-semibold">
+        <label htmlFor={id} className="type-body font-semibold">
           {label}
         </label>
         {consequence ? (
-          <p className="m-0 mt-0.5 text-[11.5px] leading-relaxed text-[var(--text-muted)]">{consequence}</p>
+          <p className="m-0 mt-0.5 type-caption leading-relaxed text-[var(--text-muted)]">{consequence}</p>
         ) : null}
       </div>
       <SwitchPrimitive.Root

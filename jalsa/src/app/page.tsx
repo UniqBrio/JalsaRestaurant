@@ -49,16 +49,16 @@ export default function Home() {
           priority
         />
         <span className="flex min-w-0 flex-col">
-          <span className="font-[family-name:var(--font-heading)] text-[var(--font-size-h1)] font-bold leading-[var(--line-height-h1)] text-[var(--text-heading)]">
+          <span className="type-h1 text-[var(--text-heading)]">
             Jalsa Restaurant
           </span>
-          <span className="text-[var(--font-size-caption)] leading-[var(--line-height-caption)] text-[var(--text-muted)]">
+          <span className="type-caption text-[var(--text-muted)]">
             Hosur
           </span>
         </span>
       </div>
 
-      <p className="m-0 max-w-[36em] text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 max-w-[36em] type-body leading-relaxed text-[var(--text-muted)]">
         Scan → Order → Kitchen → Add More → Request Payment → Tip → Pay → Invoice → Review → Reconcile. Three
         surfaces, one bill, and the guest never marks it paid.
       </p>
@@ -72,8 +72,8 @@ export default function Home() {
 
             className="rounded-[var(--radius-lg)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--primary-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
           >
-            <span className="block text-[15px] font-semibold">{s.title}</span>
-            <span className="mt-0.5 block text-[12.5px] leading-relaxed text-[var(--text-muted)]">{s.note}</span>
+            <span className="block type-body font-semibold">{s.title}</span>
+            <span className="mt-0.5 block type-caption leading-relaxed text-[var(--text-muted)]">{s.note}</span>
           </Link>
         ))}
       </nav>

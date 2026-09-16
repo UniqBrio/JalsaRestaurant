@@ -102,7 +102,7 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {days.map((d, i) => (
           <li key={d.day} className="flex flex-wrap items-center gap-2">
-            <span className="w-24 text-[13px] font-semibold">{d.day}</span>
+            <span className="w-24 type-body font-semibold">{d.day}</span>
             <Input
               type="time"
               value={d.open}
@@ -112,7 +112,7 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               data-testid={`owner-hours-open-${d.day}`}
               className="w-32"
             />
-            <span className="text-[12px] text-[var(--text-muted)]">to</span>
+            <span className="type-caption text-[var(--text-muted)]">to</span>
             <Input
               type="time"
               value={d.close}
@@ -122,7 +122,7 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               data-testid={`owner-hours-close-${d.day}`}
               className="w-32"
             />
-            <label className="flex min-h-11 items-center gap-2 text-[12px]">
+            <label className="flex min-h-11 items-center gap-2 type-caption">
               <input
                 data-testid={`owner-hours-shut-${d.day}`}
                 type="checkbox"
@@ -208,7 +208,7 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   return (
     <Card className="flex flex-col gap-4">
       <SectionLabel>One identity block, read by every screen and every printed document</SectionLabel>
-      <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         These details appear on the bill, on offer letters and experience certificates, and in the header of the
         guest&rsquo;s phone. Changing them here changes them everywhere — nothing retypes them (Standard 2.2).
       </p>
@@ -290,7 +290,7 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           height={64}
           className="rounded-[var(--radius-md)]"
         />
-        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           The badge printed on the QR stands, the bill and every HR document. Replacing the artwork is a file change
           rather than a settings field in this release.
         </p>
@@ -363,7 +363,7 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
       {/* The worked example under the field (Standard 2.3): a rate nobody can picture is a rate
           that gets typed wrong. */}
-      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12px] leading-relaxed text-[var(--on-warning-surface)]">
+      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         At {rateNum}%, a {rupees(example)} bill carries {rupees(Math.round((example * rateNum) / 100))} of GST and
         comes to {rupees(example + Math.round((example * rateNum) / 100))}. Changing the rate re-computes every open
         bill and every bill from here on — confirm the figure with your accountant before service.
@@ -456,7 +456,7 @@ function InvoicePanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-show-kot"
       />
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Bill numbers are allocated in the database, not in the app, so two closures in the same second cannot produce
         the same number. The prefix and reset rule change what the NEXT number looks like; nothing already issued
         moves.
@@ -502,7 +502,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3">
         <SectionLabel>The tabletop code</SectionLabel>
-        <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Each code is fixed to its table and encodes one thing: <code>{data.qrOrigin}/t/&lt;table&gt;</code>. Nothing
           about a bill or a guest is in it, so the same laminated card serves every party forever — and renaming a
           table below does not break it.
@@ -521,12 +521,12 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <li key={t.id}>
                   <div
                     className={cn(
-                      'flex items-center gap-2 rounded-full py-1.5 pl-3 pr-1.5 text-[12.5px]',
+                      'flex items-center gap-2 rounded-full py-1.5 pl-3 pr-1.5 type-caption',
                       t.active ? 'bg-[var(--surface-sunken)]' : 'bg-[var(--surface-sunken)] opacity-60'
                     )}
                   >
                     <span className="font-semibold">{t.name}</span>
-                    <span className="text-[11px] text-[var(--text-muted)]">{t.seats} seats</span>
+                    <span className="type-caption text-[var(--text-muted)]">{t.seats} seats</span>
                     {!t.active ? <Pill tone="neutral">Off</Pill> : null}
                     <Button
                       data-testid={`owner-qr-${t.name}`}
@@ -673,7 +673,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               unoptimized
               className="rounded-[var(--radius-md)]"
             />
-            <code className="text-[11.5px] text-[var(--text-muted)]">
+            <code className="type-caption text-[var(--text-muted)]">
               {data.qrOrigin}/t/{qrFor}
             </code>
           </div>
@@ -750,7 +750,7 @@ function FeaturesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   return (
     <Card className="flex flex-col gap-4">
       <SectionLabel>{onCount} of the optional things are on</SectionLabel>
-      <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Switch off anything you have not the hands for tonight and it disappears from every guest&rsquo;s phone within
         seconds. No other screen changes. A feature you cannot honour is worse than a missing one, because it makes a
         promise (Standard 2.4).
@@ -824,7 +824,7 @@ function CopyPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[1fr_20rem] lg:items-start">
       <Card className="flex flex-col gap-3">
         <SectionLabel>Every string a guest reads, editable without a release</SectionLabel>
-        <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Clearing a field falls back to the shipped wording rather than blanking the screen — the default is the
           placeholder, so an empty box is never an empty phone (Standard 2.1).
         </p>
@@ -859,19 +859,19 @@ function CopyPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       <Card className="lg:sticky lg:top-32">
         <SectionLabel>As the guest sees it</SectionLabel>
         <div className="rounded-[var(--radius-lg)] bg-[var(--background)] p-4">
-          <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
+          <p className="m-0 type-caption font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
             {values.greetEvening || 'Good evening'}
           </p>
-          <p className="m-0 mt-1 text-[19px] font-semibold">{values.name || 'Jalsa Restaurant'}</p>
-          <p className="m-0 text-[11.5px] text-[var(--text-muted)]">{values.subline || 'Hosur · since 2016'}</p>
-          <p className="m-0 mt-3 text-[12px] leading-relaxed">
+          <p className="m-0 mt-1 type-h3 font-semibold">{values.name || 'Jalsa Restaurant'}</p>
+          <p className="m-0 type-caption text-[var(--text-muted)]">{values.subline || 'Hosur · since 2016'}</p>
+          <p className="m-0 mt-3 type-caption leading-relaxed">
             {values.welcome || 'The full menu is on your phone.'}
           </p>
-          <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-[var(--primary)] px-5 text-[13px] font-semibold text-[var(--on-primary)]">
+          <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-[var(--primary)] px-5 type-body font-semibold text-[var(--on-primary)]">
             {values.startBtn || 'Start ordering'}
           </span>
         </div>
-        <p className="m-0 mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           Anything typed on the left shows here, and on every guest phone once you save.
         </p>
       </Card>
@@ -893,8 +893,8 @@ function PrintersPanel({ data }: OwnerSectionProps) {
             className="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3"
           >
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold">{p.machineId}</span>
-              <span className="block text-[11.5px] text-[var(--text-muted)]">
+              <span className="block type-body font-semibold">{p.machineId}</span>
+              <span className="block type-caption text-[var(--text-muted)]">
                 {p.name} · {p.paperMm} mm · routes {p.routes.join(', ') || '—'}
                 {p.chefs.length ? ` · chefs ${p.chefs.join(', ')}` : ''}
               </span>
@@ -904,7 +904,7 @@ function PrintersPanel({ data }: OwnerSectionProps) {
         ))}
       </ul>
 
-      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 text-[12px] leading-relaxed text-[var(--on-warning-surface)]">
+      <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         Printer connectivity is still an open dependency, and this release does not pretend otherwise. Until the TVS
         devices are validated, every ticket is written to the print queue and marked <strong>failed</strong> with a
         reason — the order still exists, the failure is visible on the round, and there is a retry on it. Editing

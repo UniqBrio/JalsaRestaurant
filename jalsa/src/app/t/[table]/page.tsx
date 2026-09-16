@@ -53,12 +53,12 @@ function UnknownTable({ name }: { name: string }) {
       className="mx-auto flex min-h-dvh w-full max-w-[26rem] flex-col justify-center gap-4 px-6 text-center"
       data-testid="guest-unknown-table"
     >
-      <h1 className="text-[21px] font-semibold">We cannot find table {name.toUpperCase()}</h1>
-      <p className="m-0 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <h1 className="type-h2 font-semibold">We cannot find table {name.toUpperCase()}</h1>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
         The code you scanned points at a table this restaurant does not have — usually a card that has been moved, or
         one from an older set. Nothing is wrong at your end.
       </p>
-      <p className="m-0 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
         Show this screen to any of the team and they will bring you the right code, or take your order themselves.
       </p>
       <Button data-testid="guest-unknown-home" asChild variant="secondary">

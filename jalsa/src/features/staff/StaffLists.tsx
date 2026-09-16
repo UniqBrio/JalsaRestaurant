@@ -43,11 +43,11 @@ export function ReadyScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
           <li key={kot.id}>
             <Card className={cn(kot.status === 'ready' && 'bg-[var(--success-surface)]')}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[15px] font-bold">Table {tableName}</span>
+                <span className="type-body font-bold">Table {tableName}</span>
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      'text-[12px] font-semibold tabular-nums',
+                      'type-caption font-semibold tabular-nums',
                       kot.ageMinutes > 6 ? 'text-[var(--error)]' : 'text-[var(--text-muted)]'
                     )}
                   >
@@ -56,7 +56,7 @@ export function ReadyScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
                   <Pill tone={kot.tone}>{kot.statusWord}</Pill>
                 </div>
               </div>
-              <p className="m-0 mt-0.5 text-[11px] text-[var(--text-muted)]">
+              <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
                 {kot.code} · {billCode} · {captain}
               </p>
 
@@ -64,7 +64,7 @@ export function ReadyScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
                 {kot.items
                   .filter((i) => !i.cancelled)
                   .map((i) => (
-                    <li key={i.id} className="flex items-center gap-2.5 text-[13px]">
+                    <li key={i.id} className="flex items-center gap-2.5 type-body">
                       <FoodMark type={i.foodType} />
                       <span className="min-w-0 flex-1 truncate">{i.name}</span>
                       <span className="tabular-nums text-[var(--text-muted)]">×{i.qty}</span>
@@ -106,7 +106,7 @@ export function ReadyScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
         ))}
       </ul>
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Picked up means it left the counter. Served means it is on the table — that is what unlocks the guest&rsquo;s
         heart button, so it has to be a real tap, not an assumption.
       </p>
@@ -139,7 +139,7 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
           <li key={k.id}>
             <Card>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[12.5px] font-bold">
+                <span className="type-caption font-bold">
                   {k.code} <span className="font-normal text-[var(--text-muted)]">· {k.placedAt}</span>
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -147,11 +147,11 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
                   <Pill tone={k.tone}>{k.statusWord}</Pill>
                 </div>
               </div>
-              <p className="m-0 mt-0.5 text-[11px] text-[var(--text-muted)]">
+              <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
                 Table {k.fromTable} · {b.code} · {b.spine.captain}
                 {b.groupCode ? ` · ${b.groupCode}` : ''} · {k.source === 'guest' ? 'guest phone' : k.placedBy}
               </p>
-              <p className="m-0 mt-1.5 text-[12px] leading-relaxed">
+              <p className="m-0 mt-1.5 type-caption leading-relaxed">
                 {k.items
                   .filter((i) => !i.cancelled)
                   .map((i) => `${i.name} ×${i.qty}`)
@@ -188,7 +188,7 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
         ))}
       </ul>
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         A reprint is stamped REPRINT and recorded against your name, so the kitchen knows it is not a second order.
       </p>
     </div>
@@ -231,12 +231,12 @@ export function RequestsScreen({ data, send, runBusy, busy }: StaffScreenProps) 
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold">Table {r.tableName}</span>
-                    <span className="block text-[11.5px] opacity-80">
+                    <span className="block type-body font-semibold">Table {r.tableName}</span>
+                    <span className="block type-caption opacity-80">
                       {r.note || 'No note'} · {r.urgent ? "on Javeed's dashboard too" : 'waiting'}
                     </span>
                   </span>
-                  <span className="text-[12px] font-bold tabular-nums">{r.ageMinutes} min</span>
+                  <span className="type-caption font-bold tabular-nums">{r.ageMinutes} min</span>
                   <Button
                     data-testid={`staff-request-done-${r.id}`}
                     size="sm"
@@ -257,7 +257,7 @@ export function RequestsScreen({ data, send, runBusy, busy }: StaffScreenProps) 
         </div>
       ))}
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Marking done clears it from the owner&rsquo;s dashboard too, with your name against it.
       </p>
     </div>
@@ -274,13 +274,13 @@ export function MeScreen({ data, onSignOut }: StaffScreenProps & { onSignOut: ()
       <Card className="flex items-center gap-3">
         <span
           aria-hidden
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)] text-[16px] font-bold text-[var(--on-primary)]"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)] type-button font-bold text-[var(--on-primary)]"
         >
           {data.me.initials || data.me.name.charAt(0)}
         </span>
         <span className="min-w-0">
-          <span className="block text-[15px] font-semibold">{data.me.name}</span>
-          <span className="block text-[12px] text-[var(--text-muted)]">
+          <span className="block type-body font-semibold">{data.me.name}</span>
+          <span className="block type-caption text-[var(--text-muted)]">
             {data.me.role}
             {data.myTables.length ? ` · ${data.myTables.join(', ')}` : ' · no open tables'}
           </span>
@@ -299,7 +299,7 @@ export function MeScreen({ data, onSignOut }: StaffScreenProps & { onSignOut: ()
               .map((p) => {
                 const on = granted.has(p.key);
                 return (
-                  <li key={p.key} className="flex items-center gap-2.5 text-[12.5px]">
+                  <li key={p.key} className="flex items-center gap-2.5 type-caption">
                     <span
                       aria-hidden
                       className={cn(
@@ -315,7 +315,7 @@ export function MeScreen({ data, onSignOut }: StaffScreenProps & { onSignOut: ()
               })}
           </ul>
         </Card>
-        <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           Javeed sets these. Anything with a cross asks for his approval instead of failing silently.
         </p>
       </div>

@@ -134,13 +134,13 @@ export function CloseBillSheet({
             <SectionLabel>What each table ordered</SectionLabel>
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {bill.perTable.map((t) => (
-                <li key={t.table} className="flex justify-between text-[12.5px]">
+                <li key={t.table} className="flex justify-between type-caption">
                   <span>Table {t.table}</span>
                   <span className="tabular-nums text-[var(--text-muted)]">{t.amountLabel}</span>
                 </li>
               ))}
             </ul>
-            <p className="m-0 mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
+            <p className="m-0 mt-1.5 type-caption leading-relaxed text-[var(--text-muted)]">
               Shown so the host can see who ate what. It stays one bill and one payment.
             </p>
           </div>
@@ -187,7 +187,7 @@ export function CloseBillSheet({
           />
         </Field>
 
-        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Recorded against <strong>{closerName}</strong> at the moment you press it. The tip posts to its own ledger
           and stays out of income, every table on this bill is freed at once, and the guest sees the receipt on their
           phone.

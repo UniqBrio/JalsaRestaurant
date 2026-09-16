@@ -100,11 +100,11 @@ export function LedgersSection({ data, send, runBusy, busy }: OwnerSectionProps)
             {[...byStaff.values()].map((s) => (
               <li key={s.id ?? 'unattributed'}>
                 <Card className="flex flex-wrap items-center gap-3">
-                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold">{s.name}</span>
-                  <span className="text-[12px] text-[var(--text-muted)]">
+                  <span className="min-w-0 flex-1 type-body font-semibold">{s.name}</span>
+                  <span className="type-caption text-[var(--text-muted)]">
                     {s.count === 1 ? '1 tip' : `${s.count} tips`}
                   </span>
-                  <span className="text-[15px] font-bold tabular-nums">{rupees(s.amount)}</span>
+                  <span className="type-body font-bold tabular-nums">{rupees(s.amount)}</span>
                   {canSettle && s.id ? (
                     <Button
                       data-testid={`owner-settle-${s.id}`}

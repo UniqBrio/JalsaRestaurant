@@ -59,7 +59,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
             {closed.map((m) => (
               <span
                 key={m.id}
-                className="flex items-center gap-2 rounded-full bg-[var(--warning-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--on-warning-surface)]"
+                className="flex items-center gap-2 rounded-full bg-[var(--warning-surface)] px-3 py-1.5 type-caption font-semibold text-[var(--on-warning-surface)]"
               >
                 <FoodMark type={m.foodType} size={11} />
                 {m.name}
@@ -79,7 +79,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                       })
                     }
 
-                    className="rounded-full bg-[var(--on-warning-surface)]/10 px-2 py-0.5 text-[11px] underline underline-offset-2"
+                    className="rounded-full bg-[var(--on-warning-surface)]/10 px-2 py-0.5 type-caption underline underline-offset-2"
                   >
                     Put back
                   </button>
@@ -218,7 +218,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
           ]}
         />
 
-        <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           The switch above is the same one captains see. Turning it off pulls the dish from every open guest session
           within seconds — nothing else on any screen changes.
         </p>
@@ -333,7 +333,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
             </Field>
 
             {editing.id ? (
-              <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-3 py-2.5 text-[11.5px] leading-relaxed text-[var(--on-warning-surface)]">
+              <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-3 py-2.5 type-caption leading-relaxed text-[var(--on-warning-surface)]">
                 Changing a price is recorded separately in the audit log, with the old figure and the new one. Bills
                 already open keep the price they were quoted.
               </p>

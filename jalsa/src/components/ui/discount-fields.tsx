@@ -145,11 +145,11 @@ export function DiscountFields({
       </div>
 
       {problem ? (
-        <p data-testid={`${testIdPrefix}-problem`} className="m-0 text-[11.5px] text-[var(--error)]" role="alert">
+        <p data-testid={`${testIdPrefix}-problem`} className="m-0 type-caption text-[var(--error)]" role="alert">
           {problem}
         </p>
       ) : (
-        <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Enter either percentage or amount. The other value updates automatically.
         </p>
       )}
@@ -161,15 +161,15 @@ export function DiscountFields({
           data-testid={`${testIdPrefix}-after`}
           className="mt-0.5 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2.5"
         >
-          <div className="flex items-baseline justify-between text-[12.5px] text-[var(--text-muted)]">
+          <div className="flex items-baseline justify-between type-caption text-[var(--text-muted)]">
             <span>Discount</span>
             <span className="tabular-nums">− {rupees(after.discount)}</span>
           </div>
-          <div className="mt-1 flex items-baseline justify-between text-[12.5px] text-[var(--text-muted)]">
+          <div className="mt-1 flex items-baseline justify-between type-caption text-[var(--text-muted)]">
             <span>GST {taxRate}% on the reduced amount</span>
             <span className="tabular-nums">{rupees(after.tax)}</span>
           </div>
-          <div className="mt-1.5 flex items-baseline justify-between border-t border-[var(--border)] pt-1.5 text-[14px] font-bold">
+          <div className="mt-1.5 flex items-baseline justify-between border-t border-[var(--border)] pt-1.5 type-body font-bold">
             <span>After discount</span>
             <span data-testid={`${testIdPrefix}-after-payable`} className="tabular-nums">
               {rupees(after.payable)}

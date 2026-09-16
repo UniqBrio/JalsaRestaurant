@@ -172,7 +172,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
             { key: 'total', header: 'Total', cell: (o) => o.payableLabel, value: (o) => o.payable, align: 'right' },
           ]}
         />
-        <p className="m-0 mt-2 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
           &ldquo;Placed by&rdquo; is recorded on every round as it is created and cannot be reconstructed afterwards —
           it is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
         </p>
@@ -181,13 +181,13 @@ export function ReportsSection({ data }: OwnerSectionProps) {
       <section>
         <SectionLabel>Not in this release</SectionLabel>
         <Card>
-          <p className="m-0 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
             A date range wider than today, the purchases and final reports, the review-engagement figure and the
             uplift report are the next slice of work, not a gap in this one. They need a ranged read this screen does
             not do, and a range control that silently only ever meant &ldquo;today&rdquo; would be worse than none —
             every panel under it would look authoritative and be wrong.
           </p>
-          <p className="m-0 mt-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
             Everything above exports exactly the rows shown, so a range can be assembled by hand in the meantime.
           </p>
         </Card>

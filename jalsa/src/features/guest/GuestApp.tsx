@@ -346,7 +346,7 @@ function GuestHeader({
           onClick={onBack}
           aria-label="Back"
 
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[20px] leading-none transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
         >
           ‹
         </button>
@@ -354,8 +354,8 @@ function GuestHeader({
         <span className="w-2" aria-hidden />
       )}
       <div className="min-w-0 flex-1">
-        <p className="m-0 truncate text-[15px] font-semibold">{title}</p>
-        <p className="m-0 truncate text-[11.5px] opacity-85">{sub}</p>
+        <p className="m-0 truncate type-body font-semibold">{title}</p>
+        <p className="m-0 truncate type-caption opacity-85">{sub}</p>
       </div>
       <button
         data-testid="guest-more"
@@ -363,7 +363,7 @@ function GuestHeader({
         onClick={onMore}
         aria-label="Ask for something"
 
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[20px] leading-none transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
       >
         ⋯
       </button>
@@ -383,8 +383,8 @@ function TableInactive({ table, callNumber }: { table: string; callNumber: strin
       className="mx-auto flex min-h-dvh w-full max-w-[26rem] flex-col justify-center gap-4 px-6 text-center"
       data-testid="guest-table-inactive"
     >
-      <h1 className="text-[21px] font-semibold">Table {table} is not in service</h1>
-      <p className="m-0 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+      <h1 className="type-h2 font-semibold">Table {table} is not in service</h1>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
         This code is on a table we are not seating at the moment. Any of the team will move you to one that is — you
         have not lost your place by scanning it.
       </p>
@@ -517,7 +517,7 @@ export function TotalReveal({
     <div className="flex flex-col">
       <label
         htmlFor={id}
-        className="flex min-h-11 cursor-pointer select-none items-center gap-2 self-start text-[12px] font-semibold text-[var(--text-muted)]"
+        className="flex min-h-11 cursor-pointer select-none items-center gap-2 self-start type-caption font-semibold text-[var(--text-muted)]"
       >
         <CheckboxPrimitive.Root
           id={id}
@@ -531,7 +531,7 @@ export function TotalReveal({
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]'
           )}
         >
-          <CheckboxPrimitive.Indicator className="text-[11px] leading-none text-[var(--on-primary)]">
+          <CheckboxPrimitive.Indicator className="type-caption leading-none text-[var(--on-primary)]">
             ✓
           </CheckboxPrimitive.Indicator>
         </CheckboxPrimitive.Root>
@@ -543,7 +543,7 @@ export function TotalReveal({
           {rows.map((r) => (
             <div
               key={r.label}
-              className="flex items-baseline justify-between gap-4 text-[12.5px] text-[var(--text-muted)]"
+              className="flex items-baseline justify-between gap-4 type-caption text-[var(--text-muted)]"
             >
               <span>{r.label}</span>
               <span className="font-semibold tabular-nums text-[var(--text-body)]">{r.value}</span>

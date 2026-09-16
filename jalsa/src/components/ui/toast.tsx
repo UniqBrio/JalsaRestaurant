@@ -102,7 +102,7 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
     <div
       data-testid="toast"
       className={cn(
-        'pointer-events-none flex w-full max-w-[30rem] items-center gap-3 rounded-full px-4 py-3 text-[12.5px] font-semibold shadow-[var(--shadow-raised)]',
+        'pointer-events-none flex w-full max-w-[30rem] items-center gap-3 rounded-full px-4 py-3 type-caption font-semibold shadow-[var(--shadow-raised)]',
         tone
       )}
     >
@@ -126,7 +126,7 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
               toast.undo?.();
               onDismiss();
             }}
-            className="shrink-0 rounded-full px-3 py-1 text-[12px] font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            className="shrink-0 rounded-full px-3 py-1 type-caption font-bold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
           >
             Undo
           </button>
@@ -136,7 +136,7 @@ function ToastRow({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => 
           type="button"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="shrink-0 rounded-full px-1.5 text-[15px] leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          className="shrink-0 rounded-full px-1.5 type-button leading-none opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
         >
           ×
         </button>

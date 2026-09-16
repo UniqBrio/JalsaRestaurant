@@ -26,7 +26,7 @@ export function AuditSection({ data }: OwnerSectionProps) {
     <div className="flex flex-col gap-4" data-testid="owner-audit">
       <Card>
         <SectionLabel>What this log is for</SectionLabel>
-        <p className="m-0 text-[12px] leading-relaxed text-[var(--text-muted)]">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Every consequential action — an order placed, a quantity changed, a cancellation, a discount, a closure, a
           permission granted, a price moved — with the minute it happened and the name against it. Entries marked
           confidential involve money, access or someone&rsquo;s employment.
@@ -91,7 +91,7 @@ export function AuditSection({ data }: OwnerSectionProps) {
         ]}
       />
 
-      <p className="m-0 text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         The export carries exactly the rows shown, with the filter and search applied — and the export itself is not
         recorded, because reading a log should not be an event in it.
       </p>
