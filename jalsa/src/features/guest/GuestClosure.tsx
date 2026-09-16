@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { Card, Chip, FoodMark, Pill, SectionLabel, Skeleton } from '@/components/ui/atoms';
@@ -615,11 +616,23 @@ export function PaidScreen({ data, go, send, runBusy, busy }: GuestScreenProps) 
 }
 
 export function InvoiceScreen({ data }: GuestScreenProps) {
+  const toast = useToast();
   const lines = data.rounds.flatMap((r) => r.items.map((i) => ({ ...i, code: r.code })));
 
   return (
     <div className="flex flex-col gap-4 pb-6" data-testid="guest-invoice">
-      <div className="text-center">
+      {/* The badge heads the bill, as it does on the design set's invoice artboard and on every
+          printed document. It is the same authoritative mark as the root page — see the note in
+          src/app/page.tsx — and it carries its own maroon field, so it needs no theme pair. */}
+      <div className="flex flex-col items-center text-center">
+        <Image
+          src="/brand/jalsa-badge.png"
+          alt=""
+          aria-hidden
+          width={44}
+          height={44}
+          className="mb-2 rounded-[var(--radius-md)]"
+        />
         <h2 className="type-h3">{data.restaurantName}</h2>
         <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
           Table {data.table.name} · {data.billCode ?? '—'}
@@ -634,7 +647,10 @@ export function InvoiceScreen({ data }: GuestScreenProps) {
             <li key={l.id} className="flex items-center gap-2.5 type-caption">
               <FoodMark type={l.foodType} size={11} />
               <span className="min-w-0 flex-1 truncate">{l.name}</span>
-              <span className="tabular-nums text-[var(--text-muted)]">×{l.qty}</span>
+              <span className="shrink-0 tabular-nums text-[var(--text-muted)]">×{l.qty}</span>
+              {/* The amount. Without it this screen could be read but not CHECKED, which is the
+                  one thing a guest opens a bill to do. */}
+              <span className="w-[4.5rem] shrink-0 text-right tabular-nums font-semibold">{l.lineLabel}</span>
             </li>
           ))}
         </ul>
@@ -647,6 +663,21 @@ export function InvoiceScreen({ data }: GuestScreenProps) {
         GST is charged at {data.taxRate}% and shown as its own line. A tip is not restaurant income and is paid to the
         floor team in full.
       </p>
+
+      {/* The design puts Send to WhatsApp and Back under the invoice. Back is already the
+          header's ‹ on this phase (backTarget: invoice -> paid), and a second one would be a
+          second idiom for the same move, so only the send action is added here. The string is
+          the one PaidScreen already ships — the freeze rule: a new surface adopts the existing
+          words rather than inventing a synonym. */}
+      {data.features.whatsapp ? (
+        <Button
+          data-testid="guest-invoice-whatsapp"
+          variant="secondary"
+          onClick={() => toast.show('Ask your captain for the bill on WhatsApp — the provider is not connected yet.')}
+        >
+          Send the bill to WhatsApp
+        </Button>
+      ) : null}
     </div>
   );
 }

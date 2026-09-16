@@ -68,7 +68,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
             label="Tips collected"
             value={data.today.tipsLabel}
             note="Staff money — not income"
-            onClick={() => go('ledgers')}
+            onClick={() => go('tips')}
             testId="owner-kpi-tips"
           />
           <MetricTile

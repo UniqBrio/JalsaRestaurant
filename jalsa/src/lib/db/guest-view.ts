@@ -44,7 +44,24 @@ export interface GuestRound {
   status: KotStatus;
   statusWord: string;
   tone: string;
-  items: Array<{ id: string; name: string; qty: number; foodType: FoodType; servable: boolean }>;
+  /**
+   * `lineLabel` is qty x unit price, already formatted.
+   *
+   * It exists for the invoice, which is the one screen a guest is asked to CHECK. The design
+   * set's invoice row is name / qty / amount; this payload carried only name and qty, so the
+   * bill could be read but not verified — a guest could see "Paneer Tikka x2" and the payable
+   * at the bottom and had no way to connect them. Formatted here, beside every other money
+   * string, rather than by the screen: `rupees()` is one idiom and the invoice is not the place
+   * to grow a second.
+   */
+  items: Array<{
+    id: string;
+    name: string;
+    qty: number;
+    foodType: FoodType;
+    servable: boolean;
+    lineLabel: string;
+  }>;
 }
 
 export interface GuestPayload {
@@ -177,6 +194,10 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
         // The heart unlocks on SERVED and nothing earlier. That is the whole point of the
         // waiter's tap: it is the one moment somebody confirmed the food is on the table.
         servable: k.status === 'served',
+        // The unit price is what the round was placed at, not today's menu price — a bill has
+        // to reconcile to what was charged, and a dish repriced mid-evening would otherwise
+        // make every earlier invoice wrong.
+        lineLabel: rupees(i.unitPrice * i.qty),
       })),
   }));
 

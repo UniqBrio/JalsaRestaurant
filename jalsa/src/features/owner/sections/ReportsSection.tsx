@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Card, SectionLabel } from '@/components/ui/atoms';
+import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { FirstRunState } from '@/components/ui/states';
 import { rupees } from '@/lib/money';
@@ -20,7 +20,29 @@ import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
  * (Standard 4.4). They are Slice 2 in the request file, and the panel below names them rather
  * than leaving a gap someone has to discover.
  */
+/**
+ * The five report panels, in the design set's own order and wording (`repTabs` in
+ * Jalsa Owner Admin.dc.html). Named sub-tabs rather than one long scroll — the same rule
+ * Settings follows (Standard 1.3), and the same Chip idiom, because a second way to switch a
+ * sub-panel in one console is a defect rather than a variation.
+ *
+ * Two of the five cannot be computed from this payload. They are drawn as named tabs with an
+ * honest empty state rather than left out: a missing tab reads as "this product has no uplift
+ * report", which is untrue, while a named tab that says what it is waiting for is the gap
+ * itself, labelled.
+ */
+type ReportTab = 'sales' | 'orders' | 'expenses' | 'uplift' | 'final';
+
+const REPORT_TABS: Array<{ key: ReportTab; label: string }> = [
+  { key: 'sales', label: 'Sales & products' },
+  { key: 'orders', label: 'All orders' },
+  { key: 'expenses', label: 'Purchases & expenses' },
+  { key: 'uplift', label: 'Uplift revenue' },
+  { key: 'final', label: 'Final report' },
+];
+
 export function ReportsSection({ data }: OwnerSectionProps) {
+  const [tab, setTab] = React.useState<ReportTab>('sales');
   const closed = data.closedToday;
 
   // Product report: quantity and revenue per dish, from the closed bills' own lines. Computed
@@ -67,6 +89,24 @@ export function ReportsSection({ data }: OwnerSectionProps) {
 
   return (
     <div className="flex flex-col gap-6" data-testid="owner-reports">
+      <nav
+        className="j-scroll-x flex gap-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label="Reports"
+      >
+        {REPORT_TABS.map((t) => (
+          <Chip
+            key={t.key}
+            on={tab === t.key}
+            onClick={() => setTab(t.key)}
+            data-testid={`owner-rep-tab-${t.key}`}
+          >
+            {t.label}
+          </Chip>
+        ))}
+      </nav>
+
+      {tab === 'sales' ? (
+        <>
       <section>
         <SectionLabel>Today</SectionLabel>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -129,7 +169,10 @@ export function ReportsSection({ data }: OwnerSectionProps) {
           />
         )}
       </section>
+        </>
+      ) : null}
 
+      {tab === 'orders' ? (
       <section>
         <SectionLabel>All orders · {orders.length}</SectionLabel>
         <DataTable
@@ -177,21 +220,61 @@ export function ReportsSection({ data }: OwnerSectionProps) {
           it is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
         </p>
       </section>
+      ) : null}
 
-      <section>
-        <SectionLabel>Not in this release</SectionLabel>
-        <Card>
-          <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
-            A date range wider than today, the purchases and final reports, the review-engagement figure and the
-            uplift report are the next slice of work, not a gap in this one. They need a ranged read this screen does
-            not do, and a range control that silently only ever meant &ldquo;today&rdquo; would be worse than none —
-            every panel under it would look authoritative and be wrong.
-          </p>
+      {tab === 'expenses' ? (
+        <section>
+          <SectionLabel>Purchases &amp; expenses · {data.expensesTotalLabel}</SectionLabel>
+          <DataTable
+            rows={data.expenses}
+            rowKey={(e) => e.id}
+            defaultSort={{ key: 'date', direction: 'desc' }}
+            exportName="jalsa-purchases"
+            emptyTitle="Nothing recorded yet"
+            emptyNote="Purchases are typed in under Tips &amp; expenses. This report is only ever as complete as the day's entries — nothing is inferred from anywhere else."
+            searchPlaceholder="Search category, note or person"
+            testId="owner-purchases-table"
+            columns={[
+              { key: 'date', header: 'Date', cell: (e) => e.spentOn, value: (e) => e.spentOn },
+              {
+                key: 'category',
+                header: 'Category',
+                cell: (e) => <span className="font-semibold">{e.category}</span>,
+                value: (e) => e.category,
+              },
+              { key: 'note', header: 'Note', cell: (e) => e.note, value: (e) => e.note, secondary: true },
+              { key: 'by', header: 'Entered by', cell: (e) => e.enteredBy, value: (e) => e.enteredBy, secondary: true },
+              { key: 'amount', header: 'Amount', cell: (e) => rupees(e.amount), value: (e) => e.amount, align: 'right' },
+            ]}
+          />
           <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-            Everything above exports exactly the rows shown, so a range can be assembled by hand in the meantime.
+            This is the same ledger the Tips &amp; expenses section writes — one set of entries, read here as a report
+            rather than re-keyed. Entering and correcting an expense stays there, with the reason it asks for.
           </p>
-        </Card>
-      </section>
+        </section>
+      ) : null}
+
+      {tab === 'uplift' ? (
+        <section>
+          <SectionLabel>Uplift revenue</SectionLabel>
+          <FirstRunState
+            title="The uplift figure is not computed yet"
+            note="Uplift is the revenue attributable to what the phone offered — the upsell tabs and the parcel card — and it is a comparison, not a sum: rounds that took an offer against rounds that did not, over a range. This payload reads today only, and a comparison over one evening is a number that looks authoritative and means nothing."
+            testId="owner-uplift-empty"
+          />
+        </section>
+      ) : null}
+
+      {tab === 'final' ? (
+        <section>
+          <SectionLabel>Final report</SectionLabel>
+          <FirstRunState
+            title="The final report needs a date range"
+            note="Income, purchases and the net for a range — the figure the books are closed on. It needs a ranged read this screen does not do, and a range control that silently only ever meant today would be worse than none: every panel under it would look authoritative and be wrong. Every other tab here exports exactly the rows shown, so a range can be assembled by hand in the meantime."
+            testId="owner-final-empty"
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
