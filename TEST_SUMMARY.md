@@ -5,6 +5,14 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/separate-a-table.unit.spec.ts - the new spec for separating a table
+from a group bill. Observed failing on 16-Sep-2026; the full evidence is in jalsa/TEST_SUMMARY.md,
+"FAIL-FIRST EVIDENCE - 2026-09-16 (twelfth)". Two deliberate defects: removing the
+payment-requested branch (2 failed, 9 passed - the behaviour survived, the useful sentence did
+not) and removing the host-table branch (3 failed, 8 passed). Both reverted; 11 passed.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/hr-documents.unit.spec.ts and
 jalsa/tests/unit/report-range.unit.spec.ts - the two new specs for Jalsa's HR documents and the
 Reports date range. Both observed failing on 16-Sep-2026; the full evidence is in

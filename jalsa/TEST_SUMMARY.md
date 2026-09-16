@@ -249,6 +249,30 @@ _Merge blocked. Every FAIL above must resolve. No partial merges._
 
 ---
 
+## FAIL-FIRST EVIDENCE - 2026-09-16 (twelfth) - separating a table from a group bill
+
+FAIL-FIRST: tests/unit/separate-a-table.unit.spec.ts - NEW, so it did not collect against the
+pre-change tree (`billSeparability` did not exist). Two deliberate defects were put into the
+finished predicate and the suite re-run.
+
+Removing the `payment_requested` branch: **2 failed, 9 passed** - "the refusal for a payment
+request names the thing to do instead" and "the four refusals say four different things". Worth
+recording exactly, because it is the more interesting of the two: "A TABLE THAT HAS ASKED TO PAY
+CANNOT BE SEPARATED" still PASSED. The table was still refused, by the generic not-open branch
+below it. The BEHAVIOUR survived the defect; the useful sentence did not. That is why the wording
+is asserted separately - a bill whose guest is waiting to pay, told it is "closed", sends the host
+looking for a closure that never happened instead of at Withdraw, which is one tap away.
+
+Removing the host-table branch: **3 failed, 8 passed** - "THE HOST TABLE CANNOT LEAVE ITS OWN
+BILL", "the host refusal points at the other tables", and "every refusal carries a sentence".
+`host_table_id` anchors the bill's code; detaching it leaves a bill whose host table belongs to a
+different bill, which is the same table claimed twice and is what the partial unique index exists
+to prevent.
+
+Both reverted; 11 passed.
+
+---
+
 ## FAIL-FIRST EVIDENCE - 2026-09-16 (eleventh) - the signed document, and the one date range
 
 Both files are NEW, so neither collected against the pre-fix tree. Four deliberate defects were

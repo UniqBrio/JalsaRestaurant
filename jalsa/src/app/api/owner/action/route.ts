@@ -6,6 +6,7 @@ import {
   changeQty,
   closeBill,
   completeRequest,
+  detachTableFromBill,
   freeTable,
   reassignBillStaff,
   joinTableToBill,
@@ -105,6 +106,7 @@ type Action =
       enabled: boolean;
     }
   | { action: 'retry-print'; jobId: string }
+  | { action: 'detach-table'; billId: string; tableId: string }
   | { action: 'write-employment'; staffId: string; patch: Record<string, string | number | null> };
 
 /**
@@ -310,6 +312,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));
+
+    case 'detach-table':
+      return ok(await detachTableFromBill({ billId: input.billId, tableId: input.tableId, actor }));
 
     case 'write-employment':
       await writeEmployment({ staffId: input.staffId, patch: input.patch, actor });

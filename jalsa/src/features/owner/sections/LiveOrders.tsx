@@ -9,6 +9,7 @@ import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
+import { billSeparability } from '@/lib/status';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { CloseBillSheet } from '../CloseBillSheet';
 
@@ -38,10 +39,14 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
   const [closing, setClosing] = React.useState(false);
   const [cancelTarget, setCancelTarget] = React.useState<{ id: string; name: string; qty: number } | null>(null);
   const [cancelReason, setCancelReason] = React.useState<string>(CANCEL_REASONS[0]);
+  const [detaching, setDetaching] = React.useState<{ table: string; amountLabel: string } | null>(null);
   /* Correcting the captain or waiter on a bill — running or closed. Behind a grant, because on a
      closed bill it moves an unsettled tip with the name. See reassignBillStaff. */
   const [reassign, setReassign] = React.useState<'captain' | 'waiter' | null>(null);
   const canReassign = data.grants.includes('bill.reassign_staff');
+  // Separating a table is the same act as joining one, in reverse, so it carries the same grant.
+  // Minting `bill.split` would be a migration for a permission the matrix already expresses.
+  const canSplit = data.grants.includes('tables.assign');
 
   // A dashboard tile that names a bill selects that bill. Adjusted during render so the panel
   // opens on the right one immediately rather than on the previous selection for a frame.
@@ -199,11 +204,59 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
             </ul>
           </Sheet>
 
+          {/* THE GROUP, AND WHAT EACH TABLE ON IT ATE.
+              `perTable` has been computed on every group bill since the beginning and was
+              rendered nowhere — the host could see one total across four tables and had no way
+              to see the four. It is here now, and it is also the figure beside Separate: the
+              same `where table_id = …` that moves the rounds, so what a host reads is exactly
+              what leaves. */}
           {selected.groupCode ? (
-            <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 type-caption text-[var(--on-info-surface)]">
-              {selected.groupCode} — one bill across {selected.tables.length} tables. Each keeps its own code and
-              orders on its own phone; every round carries the table it came from.
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 type-caption text-[var(--on-info-surface)]">
+                {selected.groupCode} — one bill across {selected.tables.length} tables. Each keeps its own code and
+                orders on its own phone; every round carries the table it came from.
+              </p>
+              {selected.perTable.length ? (
+                <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="owner-bill-per-table">
+                  {selected.perTable.map((t) => (
+                    <li
+                      key={t.table}
+                      className="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2"
+                    >
+                      <span className="min-w-0 flex-1 type-caption font-semibold">
+                        {t.table}
+                        {t.isHost ? (
+                          <span className="ml-2 font-normal text-[var(--text-muted)]">
+                            the bill was opened here
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="type-caption tabular-nums">{t.amountLabel}</span>
+                      {canSplit &&
+                      billSeparability({
+                        status: selected.status,
+                        tableCount: selected.tables.length,
+                        isHostTable: t.isHost,
+                      }).can ? (
+                        <Button
+                          data-testid={`owner-bill-detach-${t.table}`}
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => setDetaching({ table: t.table, amountLabel: t.amountLabel })}
+                        >
+                          Separate
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+                These are each table&rsquo;s own rounds before tax and tip, and they add up to the bill exactly —
+                nothing here is apportioned. Separating a table moves those rounds onto a bill of its own.
+              </p>
+            </div>
           ) : null}
 
           {selected.occasion ? (
@@ -344,6 +397,46 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
             });
             toast.show(`${cancelTarget.name} cancelled — ${cancelReason.toLowerCase()}`, { tone: 'success' });
             setCancelTarget(null);
+          })
+        }
+      />
+
+      {/* SEPARATE. A confirm rather than a button, because two bills where there was one is not
+          undoable from a screen: rejoining is a fresh join, and the new bill has its own number
+          that a guest may already have been shown. */}
+      <ConfirmDialog
+        open={detaching !== null}
+        onOpenChange={(o) => !o && setDetaching(null)}
+        title={detaching ? `Separate ${detaching.table} onto its own bill` : 'Separate'}
+        confirmLabel="Separate it"
+        busy={busy}
+        testId="owner-bill-detach"
+        consequence={
+          detaching && selected ? (
+            <p className="m-0 leading-relaxed">
+              <strong>{detaching.table}</strong>&rsquo;s rounds — <strong>{detaching.amountLabel}</strong> before tax —
+              move onto a new bill with its own number, and the table pays separately. {selected.code} keeps everything
+              the other tables ordered, and keeps any tip: a tip is one guest&rsquo;s decision about one total and
+              there is no honest way to divide it.
+            </p>
+          ) : null
+        }
+        onConfirm={() =>
+          detaching &&
+          selected &&
+          runBusy(async () => {
+            const res = await send<{ newBillCode: string; movedRounds: number }>('/api/owner/action', {
+              action: 'detach-table',
+              billId: selected.id,
+              tableId: data.floor.find((f) => f.name === detaching.table)?.id ?? '',
+            });
+            toast.show(
+              `${detaching.table} is now ${res.newBillCode} — ${
+                res.movedRounds === 1 ? '1 round' : `${res.movedRounds} rounds`
+              } moved`,
+              { tone: 'success' }
+            );
+            setDetaching(null);
           })
         }
       />

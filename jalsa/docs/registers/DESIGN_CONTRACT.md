@@ -25,6 +25,96 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-011 · Separating a table: the fourth group case, and what perTable was worth
+
+**SOURCE** — `Jalsa Product Plan.dc.html`, the group-bill section: *"Four cases have to be
+designed, not discovered: joining a table that already has an open bill …; **removing a table
+mid-service (its lines move to a fresh bill)**; a latecomer scanning a table nobody has added
+yet; and two tables requesting payment at the same time on one bill."*
+
+**WHAT WAS THERE** — three of the four. The second was not built, and the hole it left was a
+party of four who joined a table of eight, ate, and wanted to pay separately: the only route was
+closing one bill for everybody and settling it by hand at the counter.
+
+Also found: `perTable` — what each table on a group bill ate — has been computed on every payload
+since the beginning and **rendered nowhere**. A host could see one total across four tables and
+had no way to see the four.
+
+**BUILT** — `billSeparability()` in `status.ts` (the predicate, 11 cases) ·
+`detachTableFromBill()` · the per-table breakdown with a Separate action beside each row.
+
+**THE ROUNDS MOVE; NOTHING IS APPORTIONED.** Every KOT already carries `table_id`, so "what did
+this table eat" is a `where` clause rather than a division — and the two bills afterwards add up
+to what the one bill was, line for line. This is deliberately **not** a split-by-amount feature:
+a figure that corresponds to nothing anybody ordered is an argument at the counter about
+arithmetic nobody can check.
+
+**A TIP STAYS WITH ITS BILL.** A tip is one guest's decision about one total and there is no
+honest way to divide it. The audit entry says so in the same sentence as the move.
+
+**STATUS** — **AUTHORISED** and built. **NOT VERIFIED** — data-bearing. The predicate is verified
+by execution; the move has never been run against a database.
+
+**STILL NOT BUILT** — case one, *"joining a table that already has an open bill (its lines merge
+in, and the merge is logged)"*. `joinTableToBill` **refuses** with a named reason instead of
+merging. That is safe and is stated on screen, but it is not what the plan asks for. Recorded
+here rather than quietly counted as done.
+
+---
+
+## DC-010 · The design set contradicts itself about the visual system too
+
+**SOURCE A** — `Jalsa Product Plan.dc.html`, twice, in its own words: *"Visual system: **Organic**
+— cream ground, terracotta accent, sage second accent, **Caprasimo over Figtree**, pill controls,
+16px radii"*, and later *"Organic applied restaurant-side: cream ground, terracotta for primary
+actions and totals, sage for confirmed and served states …"*
+
+**SOURCE B** — the artboards themselves. `#7A1C24` maroon ×207, `#241F1E` ink ×48, Poppins and
+Noto. Not one terracotta primary, not one Caprasimo heading.
+
+**THIS CORRECTS DC-002's REASONING, AND LEAVES ITS DECISION STANDING.** DC-002 called
+`_ds/organic-*` "document chrome, not a source for any product token". The first half of that is
+now known to be wrong: Organic was *intended* as the product's visual system, by the plan that
+preceded the artboards. It is not merely the styling of the canvas documents.
+
+**DECISION UNCHANGED, ON BETTER GROUNDS.** The artboards are the drawn screens, and this
+repository's own `CLAUDE.md` says what the specification is: *"33 screens across 4 surfaces."* A
+plan naming a starting palette that the screens then departed from is superseded **by the
+screens**. The brand mark is maroon and is md5-identical to the design's own file; the guest
+surface has shipped maroon throughout. Repainting the product terracotta and swapping both
+typefaces on the strength of a planning paragraph the artboards overrode would be a rebrand, not
+an alignment.
+
+**STATUS** — **RESOLVED** by precedence. The contradiction is **not** resolved *in the design
+set*, and this row exists so nobody re-derives DC-002's weaker argument and reaches a different
+answer.
+
+---
+
+## DC-009 · The warm neutrals: one token, and it is one the design uses
+
+**SOURCE** — counted across the three product artboards: `#FFF` ×121 · `#FBF8F7` ×52 ·
+`#F1ECEA` ×20 · `#F4F0EE` ×11.
+
+**WHAT DC-002 RECORDED** — surfaces as a "MINOR VARIATION — open", on the reading that the design
+used `#FBF8F7`/`#F1ECEA` where the app uses `#FFFFFF`/`#F4F0EE`. The fuller count above changes
+the picture:
+
+- The card surface `#FFFFFF` is **exact**: `#FFF` is the design's most-used colour by a wide
+  margin, and it is what cards are drawn on.
+- `#FBF8F7`, `#F1ECEA` and `#F4F0EE` are all **inset rows inside cards** — three near-identical
+  warm greys used interchangeably in one artboard set.
+
+**DECISION** — one `surfaceSunken` token, and its value `#F4F0EE` is one of the three the design
+itself uses. Collapsing three interchangeable greys into one semantic token is what a token
+system is for; restoring three would mean three tokens with no semantic difference between them,
+which is the second-way-to-do-one-thing this repository treats as a defect.
+
+**STATUS** — **RESOLVED**, and DC-002's surface row is closed rather than left open. Gate G2
+(contrast, all tokens, both themes) executes it on every run.
+
+---
+
 ## DC-008 · Reports now have the one date range the flowchart asks for
 
 **SOURCE** — `Jalsa Navigation Flowchart.dc.html`, section three: *"Sales, purchases and expenses,

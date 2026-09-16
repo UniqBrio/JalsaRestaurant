@@ -114,6 +114,45 @@ export function tableIsFreeable(input: {
   return input.billId !== null || input.phonesAttached > 0;
 }
 
+/**
+ * Can this table be taken off this bill and given one of its own?
+ *
+ * `Jalsa Product Plan.dc.html` lists four group cases that "have to be designed, not
+ * discovered", and this is the second of them: *"removing a table mid-service (its lines move to
+ * a fresh bill)"*. The rule is here rather than only in `detachTableFromBill` for the reason
+ * `tableIsFreeable` is here: the screen decides whether to OFFER the button by the same
+ * predicate the server decides whether to ALLOW it by, so a hidden button is a courtesy and
+ * never the boundary.
+ *
+ * Each refusal carries its own sentence, because the three are three different situations and
+ * exactly one of them has an obvious next step.
+ */
+export function billSeparability(input: {
+  status: BillStatus;
+  tableCount: number;
+  isHostTable: boolean;
+}): { can: boolean; reason: string } {
+  if (input.tableCount < 2) {
+    return { can: false, reason: 'There is only one table on this bill — there is nothing to separate.' };
+  }
+  if (input.isHostTable) {
+    // host_table_id anchors the bill's own code. Detaching it would leave a bill whose host
+    // table belongs to a different bill — the same table claimed twice.
+    return { can: false, reason: 'This is the table the bill was opened on. Separate one of the others instead.' };
+  }
+  if (input.status === 'payment_requested') {
+    return {
+      can: false,
+      reason:
+        'This table has already asked to pay. Withdraw the payment request first — moving lines out from under a total somebody has read is not a thing to do quietly.',
+    };
+  }
+  if (input.status !== 'open') {
+    return { can: false, reason: 'That bill is closed. A closed bill is a record, and records are not re-split.' };
+  }
+  return { can: true, reason: '' };
+}
+
 export const FOOD_TYPE: Record<FoodType, { label: string; short: string }> = {
   veg: { label: 'Veg', short: 'V' },
   non_veg: { label: 'Non-veg', short: 'N' },

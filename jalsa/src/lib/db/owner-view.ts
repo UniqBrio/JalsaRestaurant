@@ -63,8 +63,14 @@ export interface OwnerBillView {
   taxRate: number;
   tip: number;
   totals: TotalsRow[];
-  /** Per-table breakdown, so a host can see who ate what without splitting the bill. */
-  perTable: Array<{ table: string; amountLabel: string }>;
+  /**
+   * Per-table breakdown: what each table's own rounds came to, before tax and tip.
+   *
+   * It answers "who ate what" without apportioning anything — and it is the same `where` clause
+   * `detachTableFromBill` uses, so the figure a host reads beside Separate is exactly what moves
+   * onto the new bill.
+   */
+  perTable: Array<{ table: string; amountLabel: string; isHost: boolean }>;
   kots: Array<{
     id: string;
     code: string;
@@ -190,7 +196,9 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       .filter((k) => k.tableName === t && k.status !== 'cancelled')
       .flatMap((k) => k.items.filter((i) => !i.cancelledAt))
       .reduce((a, i) => a + i.unitPrice * i.qty, 0);
-    return { table: t, amountLabel: rupees(amount) };
+    // The host table is the one the bill was opened on and cannot be separated off it — its
+    // row says so rather than offering a button that refuses.
+    return { table: t, amountLabel: rupees(amount), isHost: t === b.hostTable };
   });
 
   return {

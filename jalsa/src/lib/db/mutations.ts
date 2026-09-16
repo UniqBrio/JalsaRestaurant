@@ -1,6 +1,6 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
-import { kitchenHasStarted, type KotStatus } from '@/lib/status';
+import { billSeparability, kitchenHasStarted, type KotStatus } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
@@ -1261,4 +1261,150 @@ export async function guestLeaveQueue(input: { entryId: string }): Promise<void>
     detail: `${(row?.token as string) ?? 'A party'} left the queue from their own phone`,
     actor: GUEST_ACTOR,
   });
+}
+
+/**
+ * Take one table out of a group mid-service, its rounds moving to a bill of its own.
+ *
+ * THE CASE THE PRODUCT PLAN SAID WOULD NOT BE DISCOVERED
+ *   `Jalsa Product Plan.dc.html` names four group cases that "have to be designed, not
+ *   discovered", and this is the second: *"removing a table mid-service (its lines move to a
+ *   fresh bill)"*. Three of the four were built. This one was not, and the hole it left is a
+ *   party of four who joined a table of eight, ate, and want to pay separately — for whom the
+ *   only route was closing one bill for everybody and settling it by hand at the counter.
+ *
+ * WHY THE ROUNDS MOVE RATHER THAN BEING COPIED OR SPLIT BY AMOUNT
+ *   Every KOT already carries `table_id` — the column exists so the kitchen and the runner know
+ *   where the food goes on a group bill. That means "what did this table eat" is not a guess or
+ *   a division, it is a `where` clause, and the two bills afterwards add up to what the one bill
+ *   was, line for line, with no rounding and nothing apportioned.
+ *
+ *   That is also why this is not a "split the bill by amount" feature and never will be. A
+ *   guest's phone shows its own table's rounds; a bill split by amount would show a figure that
+ *   corresponds to nothing anybody ordered, and the first argument at the counter would be about
+ *   arithmetic nobody can check.
+ *
+ * WHY IT REFUSES ONCE CLOSURE HAS STARTED
+ *   Payment requested is a guest waiting at a total they have read. Moving lines out from under
+ *   that total changes what they were told to pay, after they were told it. The honest answer is
+ *   to withdraw the request first, which is already a verb this application has.
+ *
+ * WHY THE HOST TABLE CANNOT BE THE ONE THAT LEAVES
+ *   `bill.host_table_id` is the table the bill was opened on and is what the code `B-1048` is
+ *   anchored to. Detaching it would leave a bill whose host table belongs to a different bill —
+ *   the same table pointed at twice, which the partial unique index is there to prevent.
+ */
+export async function detachTableFromBill(input: {
+  billId: string;
+  tableId: string;
+  actor: Actor;
+}): Promise<{ newBillCode: string; movedRounds: number }> {
+  demand(input.actor, 'tables.assign');
+  const restaurantId = await currentRestaurantId();
+
+  const bill = await getBill(input.billId);
+  if (!bill) throw new Error('No such bill.');
+
+  const { data: leaving } = await db()
+    .from('dining_table')
+    .select('id,name')
+    .eq('id', input.tableId)
+    .maybeSingle();
+  if (!leaving) throw new Error('No such table.');
+
+  const { data: hostRow, error: hostErr } = await db()
+    .from('bill')
+    .select('host_table_id,tax_rate,captain_staff_id,waiter_staff_id')
+    .eq('id', input.billId)
+    .single();
+  if (hostErr || !hostRow) throw hostErr ?? new Error('No such bill.');
+
+  // The SAME predicate the screen decides whether to offer the button by. Rule 3 of this module:
+  // a hidden button is a courtesy, never a boundary.
+  const verdict = billSeparability({
+    status: bill.status,
+    tableCount: bill.tables.length,
+    isHostTable: (hostRow.host_table_id as string) === input.tableId,
+  });
+  if (!verdict.can) throw new Error(verdict.reason);
+
+  const { data: membership } = await db()
+    .from('bill_table')
+    .select('bill_id')
+    .eq('bill_id', input.billId)
+    .eq('table_id', input.tableId)
+    .is('released_at', null)
+    .maybeSingle();
+  if (!membership) throw new Error(`${leaving.name as string} is not on this bill.`);
+
+  /**
+   * ORDER MATTERS AND IT IS NOT NEGOTIABLE.
+   *
+   * The membership row is removed BEFORE the new bill claims the table, because the partial
+   * unique index enforces one unreleased membership per table and would — correctly — refuse the
+   * insert otherwise. A failure between the two leaves the table on NO bill, which the floor
+   * screen shows as free and a captain can re-seat; the reverse order would leave it on two,
+   * which nothing can show and nobody can undo.
+   */
+  const { error: dropErr } = await db()
+    .from('bill_table')
+    .delete()
+    .eq('bill_id', input.billId)
+    .eq('table_id', input.tableId);
+  if (dropErr) throw dropErr;
+
+  const code = await nextNumber('bill');
+  const { data: fresh, error: newErr } = await db()
+    .from('bill')
+    .insert({
+      restaurant_id: restaurantId,
+      code,
+      host_table_id: input.tableId,
+      // The new bill inherits the staff and the rate, not the guest count: the covers on the
+      // old bill were counted for a party that is now two parties, and a number carried across
+      // would be wrong on both sides. Two is the same default an ordinary table opens with.
+      guests: 2,
+      tax_rate: hostRow.tax_rate as number,
+      captain_staff_id: hostRow.captain_staff_id as string | null,
+      waiter_staff_id: hostRow.waiter_staff_id as string | null,
+    })
+    .select('id')
+    .single();
+  if (newErr) throw newErr;
+
+  const { error: linkErr } = await db()
+    .from('bill_table')
+    .insert({ bill_id: fresh.id as string, table_id: input.tableId });
+  if (linkErr) throw linkErr;
+
+  // The rounds this table sent, and only those. `table_id` is on every KOT already.
+  const { data: moved, error: moveErr } = await db()
+    .from('kot')
+    .update({ bill_id: fresh.id as string })
+    .eq('bill_id', input.billId)
+    .eq('table_id', input.tableId)
+    .select('id');
+  if (moveErr) throw moveErr;
+
+  /**
+   * A TIP FOLLOWS ITS BILL, AND THERE IS NO SPLIT OF ONE.
+   *
+   * A tip is one guest's decision about one total. When the table leaving is the one that tipped
+   * there is no honest way to divide it, so tips stay with the bill they were left on and the
+   * audit entry says so — the alternative is apportioning somebody's gratuity by a ratio they
+   * never agreed to.
+   */
+  const movedCount = (moved ?? []).length;
+
+  await audit({
+    action: 'Group',
+    detail: `${leaving.name as string} separated from ${bill.code} onto ${code} — ${
+      movedCount === 1 ? '1 round' : `${movedCount} rounds`
+    } moved. Tips stay with ${bill.code}.`,
+    actor: input.actor,
+    billId: input.billId,
+    tableId: input.tableId,
+  });
+
+  return { newBillCode: code, movedRounds: movedCount };
 }
