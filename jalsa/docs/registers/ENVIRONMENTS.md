@@ -62,12 +62,38 @@ Confirmed with `git check-ignore .env.local` before the first commit.
 
 ## Applied migrations
 
-| File | Applied to `yxgxmbyilpivbmeemqkp` | What it does |
-|---|---|---|
-| `20260910070000_jalsa_core_schema.sql` | ✅ 10-Sep-2026 | 22 tables, RLS enabled with no policies, the bill/table membership model, `next_number` |
-| `20260910071000_jalsa_seed_and_pin.sql` | ✅ 10-Sep-2026 | restaurant, 11 settings, 20 tables, 11 categories, 57 items, 27 staff, 4 printers, 5 expenses |
-| `20260910072000_jalsa_bootstrap_pins_and_permissions.sql` | ✅ 10-Sep-2026 | role presets — 278 permission rows |
-| `20260910073000_jalsa_provisional_pins.sql` | ✅ 10-Sep-2026 | `pin_provisional`, `set_own_pin`, the `1234` setup code (KL-4) |
+> **This table was three rows stale on 16-Sep-2026** and said so to anybody who read it: the
+> 12-Sep migrations had been applied and never recorded. It is now written from
+> `list_migrations` on both projects rather than from memory, which is the only way it can be
+> checked. **Read it against the database, not instead of it.**
+
+| File | `yxgxmbyilpivbmeemqkp` | `uxmyomxtosjlkvjxnvpy` | What it does |
+|---|---|---|---|
+| `20260910070000_jalsa_core_schema.sql` | ✅ 10-Sep | ✅ 11-Sep | 22 tables, RLS enabled with no policies, the bill/table membership model, `next_number` |
+| `20260910071000_jalsa_seed_and_pin.sql` | ✅ 10-Sep | ✅ 11-Sep | restaurant, 11 settings, 20 tables, 11 categories, 57 items, 27 staff, 4 printers, 5 expenses |
+| `20260910072000_jalsa_bootstrap_pins_and_permissions.sql` | ✅ 10-Sep | ✅ 11-Sep | role presets — 278 permission rows |
+| `20260910073000_jalsa_provisional_pins.sql` | ✅ 10-Sep | ✅ 11-Sep | `pin_provisional`, `set_own_pin`, the `1234` setup code (KL-4) |
+| `20260912100000_jalsa_free_a_table.sql` | ✅ 12-Sep | ✅ 16-Sep | `tables.free` to the owner |
+| `20260912110000_jalsa_discount_type.sql` | ✅ 12-Sep | ✅ 12-Sep | the discount kind on a bill |
+| `20260912120000_jalsa_reassign_bill_staff.sql` | ✅ 12-Sep | ✅ 16-Sep | `bill.reassign_staff` to the owner |
+| `20260916090000_jalsa_waitlist.sql` | ✅ 16-Sep | ✅ 16-Sep | `waitlist_entry`, the `W-` series, six `queue.*` grants |
+| `20260916091000_jalsa_table_clearing.sql` | ✅ 16-Sep | ✅ 16-Sep | `bill_table.cleared_at` / `cleared_by`, the trigger's reopen branch, `tables.clear` |
+| `20260916100000_jalsa_guest_queue.sql` | ✅ 16-Sep | ✅ 16-Sep | `waitlist_entry.seated_table_id` and its check |
+| `20260916110000_jalsa_print_setup.sql` | ✅ 16-Sep | ✅ 16-Sep | printer station / connection / address / port / enabled; routes re-seeded onto menu categories |
+| `20260916120000_jalsa_hr_documents.sql` | ✅ 16-Sep | ✅ 16-Sep | the last five employment columns and `staff.paperwork` |
+
+**Verified after the 16-Sep run**, on `yxgxmbyilpivbmeemqkp`, against the counts taken immediately
+before it: staff 27, menu items 57, tables 20, bills 2, KOTs 6, printers 4, settings 11 — every
+one unchanged. Permission rows 280 → 297, which is exactly the seventeen the three grant
+migrations add (six `queue.*`, `tables.clear` across three roles, `staff.paperwork`).
+`waitlist_entry` exists with 0 rows.
+
+**Two advisor notes, neither introduced by this run.** `rls_enabled_no_policy` now lists 23 tables
+including `waitlist_entry` — that is the posture guardrail 3 requires, not a finding, and the new
+table appearing there is the evidence it followed it. `function_search_path_mutable` flags
+`release_tables_on_close`; the table-clearing migration re-creates that function and did **not**
+add `set search_path`, so the pre-existing warning is carried forward rather than fixed.
+`touch_updated_at` has carried the same warning since the core schema.
 
 The project was left in its seeded state on 10-Sep-2026: the verification bill, its two KOTs, its
 tip and its audit rows were deleted and `number_series` was reset to `bill 1041 / kot 105 /
