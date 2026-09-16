@@ -1058,3 +1058,82 @@ export async function clearTable(input: { tableId: string; actor: Actor }): Prom
     tableId: input.tableId,
   });
 }
+
+/* ── The entrance queue, guest side ────────────────────────────────────── */
+
+/**
+ * A party joins by scanning the door code. NO PERMISSION IS DEMANDED, and that is the point.
+ *
+ * Every other write in this application is made by a named member of staff holding a grant. A
+ * party standing at the door has no PIN and never will, so this write is narrowed instead of
+ * granted: it may create one row, with a party size, marked `scanned`. It cannot choose its
+ * token or its code — both come from the server — and it cannot notify, seat, or read anybody
+ * else's row.
+ *
+ * No name and no number are taken. The design's own copy is the specification: "No name or
+ * number needed. Your time is locked the moment you tap." A queue is the one place a restaurant
+ * is tempted to collect a phone number it has no use for, and the design declined.
+ */
+export async function guestJoinQueue(input: { partySize: number }): Promise<{ id: string; token: string }> {
+  if (!Number.isInteger(input.partySize) || input.partySize < 1 || input.partySize > 50) {
+    throw new Error('Tell us how many of you there are.');
+  }
+  const restaurantId = await currentRestaurantId();
+  const token = await nextNumber('waitlist');
+  const code = String(Math.floor(1000 + Math.random() * 9000));
+
+  const { data, error } = await db()
+    .from('waitlist_entry')
+    .insert({
+      restaurant_id: restaurantId,
+      token,
+      code,
+      pair: '',
+      party_size: input.partySize,
+      phone: '',
+      source: 'scanned',
+      actor_label: 'Guest',
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  await audit({
+    action: 'Waitlist',
+    detail: `${token} joined from the door code — ${input.partySize} ${input.partySize === 1 ? 'guest' : 'guests'}`,
+    actor: GUEST_ACTOR,
+  });
+  return { id: data.id as string, token };
+}
+
+/**
+ * "Leave the queue" — the guest's own row, and only while they are still in it.
+ *
+ * The predicate is the authorisation: an id that is already seated or already removed matches
+ * nothing, so a stale cookie cannot resurrect or re-remove anything. The row is kept and marked,
+ * never deleted, so tonight's waiting times stay true.
+ */
+export async function guestLeaveQueue(input: { entryId: string }): Promise<void> {
+  const restaurantId = await currentRestaurantId();
+  const { data: row } = await db()
+    .from('waitlist_entry')
+    .select('token')
+    .eq('id', input.entryId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+
+  const { error } = await db()
+    .from('waitlist_entry')
+    .update({ removed_at: new Date().toISOString(), removed_reason: 'Left from their own phone' })
+    .eq('id', input.entryId)
+    .eq('restaurant_id', restaurantId)
+    .is('seated_at', null)
+    .is('removed_at', null);
+  if (error) throw error;
+
+  await audit({
+    action: 'Waitlist',
+    detail: `${(row?.token as string) ?? 'A party'} left the queue from their own phone`,
+    actor: GUEST_ACTOR,
+  });
+}

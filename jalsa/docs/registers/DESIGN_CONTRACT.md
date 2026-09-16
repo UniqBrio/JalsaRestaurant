@@ -25,6 +25,22 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-005 · "See the menu while you wait" is not drawn
+
+**SOURCE** — `Jalsa Customer Patterns.dc.html`, pattern 6b: a secondary button on the queue-token
+screen offering the menu to a party still standing at the door.
+
+**DECISION** — **Not implemented, deliberately.** A party in the queue has no table, and every
+menu screen this application has is assembled from a table's payload (`buildGuestPayload`). The
+two available options were a link to a route that does not exist, or a second menu built
+table-free — a broken promise, or a second source of truth for the menu. Neither is better than
+an absent button.
+
+**STATUS** — **RECORDED.** The button returns when a table-less menu route exists. Until then the
+absence is in the code, with this row's number beside it.
+
+---
+
 ## DC-004 · Print Setup is a five-section surface and does not exist
 
 **SOURCE** — `Jalsa Navigation Flowchart.dc.html`, "Printing and paperwork": *"Print setup — five

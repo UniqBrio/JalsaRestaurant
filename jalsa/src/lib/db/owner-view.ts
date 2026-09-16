@@ -123,6 +123,8 @@ export interface OwnerPayload {
      *  Decided HERE, from the same rule freeTable enforces, so the screen never offers an
      *  action the server is about to refuse (Standard 5.6). */
     freeable: boolean;
+    /** Released by a closure and not yet reset. The waitlist must not seat onto one. */
+    clearing: { releasedAtIso: string; billCode: string; guests: number; waitedMinutes: number } | null;
   }>;
   openBills: OwnerBillView[];
   closedToday: OwnerBillView[];
@@ -357,6 +359,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
           : 'Off the floor',
       totalLabel: t.total > 0 ? rupees(t.total) : '—',
       freeable: tableIsFreeable(t),
+      clearing: t.clearing,
     })),
 
     openBills: openViews,

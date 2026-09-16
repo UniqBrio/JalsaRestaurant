@@ -85,7 +85,7 @@ type Action =
   | { action: 'settle-tips'; staffId: string }
   | { action: 'join-waitlist'; partySize: number; pair: string; phone?: string; source?: 'scanned' | 'walk_in' }
   | { action: 'notify-waitlist'; id: string }
-  | { action: 'seat-waitlist'; id: string }
+  | { action: 'seat-waitlist'; id: string; tableId?: string }
   | { action: 'remove-waitlist'; id: string; reason: string };
 
 /**
@@ -264,7 +264,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       return ok({ done: true });
 
     case 'seat-waitlist':
-      await seatWaitlist({ id: input.id, actor });
+      await seatWaitlist({ id: input.id, ...(input.tableId ? { tableId: input.tableId } : {}), actor });
       return ok({ done: true });
 
     case 'remove-waitlist':

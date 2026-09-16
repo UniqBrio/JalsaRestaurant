@@ -36,6 +36,7 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
   const [pair, setPair] = React.useState('');
   const [phone, setPhone] = React.useState('');
   const [source, setSource] = React.useState<'walk_in' | 'scanned'>('walk_in');
+  const [seating, setSeating] = React.useState<{ id: string; token: string; partySize: number } | null>(null);
   const [removing, setRemoving] = React.useState<{ id: string; token: string } | null>(null);
   const [removeReason, setRemoveReason] = React.useState('They left');
 
@@ -44,6 +45,12 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
   const canNotify = data.grants.includes('queue.notify');
   const canClear = data.grants.includes('queue.clear');
   const canAdd = data.grants.includes('queue.walkin');
+
+  // Seatable now: on the floor plan, no open bill, and not waiting to be wiped. Ordered by seat
+  // count so the host's eye lands on the tables that actually fit.
+  const free = data.floor
+    .filter((t) => t.active && !t.billId && t.clearing === null)
+    .sort((a, b) => b.seats - a.seats);
 
   const heads = queue.reduce((a, w) => a + w.partySize, 0);
   const longest = queue.length ? Math.max(...queue.map((w) => w.waitedMinutes)) : 0;
@@ -143,14 +150,7 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
                       data-testid={`owner-queue-seat-${w.id}`}
                       size="sm"
                       disabled={busy}
-                      onClick={() =>
-                        runBusy(async () => {
-                          await send('/api/owner/action', { action: 'seat-waitlist', id: w.id });
-                          toast.show(`${w.token} seated — the captain opens the bill at the table`, {
-                            tone: 'success',
-                          });
-                        })
-                      }
+                      onClick={() => setSeating({ id: w.id, token: w.token, partySize: w.partySize })}
                     >
                       Seat
                     </Button>
@@ -171,6 +171,70 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
           ))}
         </ul>
       )}
+
+      {/* WHICH TABLE — the design says "seating reads each table's seat count", and the guest's
+          own screen names the table they were sent to. Tables too small for the party are still
+          offered but marked: a host seating six at a four-top is making a judgement about two
+          chairs pulled across, not making a mistake the screen should block. */}
+      <Sheet
+        open={seating !== null}
+        onOpenChange={(o) => !o && setSeating(null)}
+        posture="modal"
+        title={seating ? `Seat ${seating.token}` : 'Seat'}
+        description={
+          seating
+            ? `${seating.partySize} ${seating.partySize === 1 ? 'guest' : 'guests'} · the captain opens the bill at the table`
+            : ''
+        }
+        testId="owner-queue-seat-sheet"
+        footer={
+          <Button data-testid="owner-queue-seat-cancel" variant="ghost" onClick={() => setSeating(null)}>
+            Cancel
+          </Button>
+        }
+      >
+        {seating ? (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {free.length === 0 ? (
+              <li className="type-body text-[var(--text-muted)]">
+                Every table is taken or waiting to be cleared. Clear one first, or seat this party by hand once a
+                table frees up.
+              </li>
+            ) : (
+              free.map((t) => (
+                <li key={t.id}>
+                  <Button
+                    data-testid={`owner-queue-seat-at-${t.id}`}
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy}
+                    className="w-full justify-between"
+                    onClick={() =>
+                      runBusy(async () => {
+                        await send('/api/owner/action', {
+                          action: 'seat-waitlist',
+                          id: seating.id,
+                          tableId: t.id,
+                        });
+                        setSeating(null);
+                        toast.show(`${seating.token} seated at ${t.name}`, { tone: 'success' });
+                      })
+                    }
+                  >
+                    <span>
+                      {t.name} · {t.zone}
+                    </span>
+                    <span className={t.seats < seating.partySize ? 'text-[var(--warning)]' : ''}>
+                      {t.seats} {t.seats === 1 ? 'seat' : 'seats'}
+                      {t.seats < seating.partySize ? ' · tight' : ''}
+                    </span>
+                  </Button>
+                </li>
+              ))
+            )}
+          </ul>
+        ) : null}
+      </Sheet>
 
       <Sheet
         open={adding}

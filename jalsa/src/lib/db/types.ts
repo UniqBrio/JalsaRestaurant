@@ -254,3 +254,21 @@ export interface WaitlistRow {
   waitedMinutes: number;
   notified: boolean;
 }
+
+/** One waiting party's own view of the queue — what pattern 6b and 6c draw. */
+export interface QueueSelfView {
+  id: string;
+  token: string;
+  code: string;
+  partySize: number;
+  joinedAtIso: string;
+  /** Parties still waiting who joined earlier. 0 means next. */
+  ahead: number;
+  /** 1-based, so "2nd in line" is `position`. */
+  position: number;
+  /** Rounded to five minutes and shown with a tilde — an estimate, never a promise. */
+  estimateMinutes: number;
+  state: 'waiting' | 'ready' | 'seated' | 'left';
+  /** Only once seated; the design's alert names the table. */
+  tableName: string;
+}

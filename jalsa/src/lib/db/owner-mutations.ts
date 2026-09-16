@@ -565,13 +565,20 @@ export async function notifyWaitlist(input: { id: string; actor: Actor }): Promi
  * (`ensureOpenBill`, which owns the one-open-bill-per-table rule), and a queue that could open
  * a second would eventually disagree with it about a table that already has a party on it.
  */
-export async function seatWaitlist(input: { id: string; actor: Actor }): Promise<void> {
+export async function seatWaitlist(input: { id: string; tableId?: string; actor: Actor }): Promise<void> {
   demand(input.actor, 'queue.seat');
   const { data: row } = await db().from('waitlist_entry').select('token').eq('id', input.id).maybeSingle();
 
+  // WHICH table, recorded. The guest's own screen (Customer Patterns 6c) reads "W-18 · 4 guests
+  // · Table A4" — without the id the alert can only say "your table is ready" and leave a party
+  // of four scanning a dining room. It records where the host SENT them; it still opens no bill.
   const { error } = await db()
     .from('waitlist_entry')
-    .update({ seated_at: new Date().toISOString(), actor_label: input.actor.label })
+    .update({
+      seated_at: new Date().toISOString(),
+      actor_label: input.actor.label,
+      ...(input.tableId ? { seated_table_id: input.tableId } : {}),
+    })
     .eq('id', input.id)
     .is('seated_at', null)
     .is('removed_at', null);
@@ -580,6 +587,7 @@ export async function seatWaitlist(input: { id: string; actor: Actor }): Promise
   await audit({
     action: 'Waitlist',
     detail: `${(row?.token as string) ?? 'A party'} seated by ${input.actor.label}`,
+    ...(input.tableId ? { tableId: input.tableId } : {}),
     actor: input.actor,
   });
 }

@@ -10,6 +10,7 @@ import type {
   Kot,
   MenuCategory,
   MenuItem,
+  QueueSelfView,
   WaitlistRow,
   PrinterRow,
   StaffMember,
@@ -695,3 +696,70 @@ export async function listWaitlist(): Promise<WaitlistRow[]> {
     notified: w.notified_at !== null,
   }));
 }
+
+/**
+ * One waiting party's own view of the queue, by the row id its phone holds in a cookie.
+ *
+ * WHY POSITION AND THE ESTIMATE ARE COMPUTED HERE
+ *   "2nd in line · ~12 minutes" is the whole of pattern 6b, and both numbers have to agree with
+ *   what the host sees or the party at the door is arguing with a screen. Counting ahead of this
+ *   row on the server is one answer from one clock; counting in the browser is one answer per
+ *   device.
+ *
+ * THE ESTIMATE IS DELIBERATELY COARSE AND DELIBERATELY NOT A PROMISE
+ *   Parties ahead x a per-party turn, rounded to five minutes. The design writes it as "~12
+ *   minutes" with a tilde for the same reason: a precise-looking wait is a promise the kitchen
+ *   never made, and a party told "12" at 8:31 is angry at 8:44 in a way a party told "about ten
+ *   or fifteen" is not.
+ */
+export async function readQueueEntry(entryId: string): Promise<QueueSelfView | null> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('waitlist_entry')
+    .select('id,token,code,party_size,joined_at,notified_at,seated_at,removed_at,dining_table:seated_table_id(name)')
+    .eq('id', entryId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const joinedAtIso = data.joined_at as string;
+  const seated = data.seated_at !== null;
+  const removed = data.removed_at !== null;
+
+  // Everyone still waiting who joined before this party. Seated and removed rows are excluded,
+  // so the number falls as the room turns over rather than counting people already at a table.
+  let ahead = 0;
+  if (!seated && !removed) {
+    const { count } = await db()
+      .from('waitlist_entry')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId)
+      .is('seated_at', null)
+      .is('removed_at', null)
+      .lt('joined_at', joinedAtIso);
+    ahead = count ?? 0;
+  }
+
+  const table = data.dining_table as unknown as { name?: string } | null;
+  return {
+    id: data.id as string,
+    token: data.token as string,
+    code: data.code as string,
+    partySize: data.party_size as number,
+    joinedAtIso,
+    ahead,
+    position: ahead + 1,
+    estimateMinutes: Math.max(5, Math.round((ahead * MINUTES_PER_PARTY) / 5) * 5),
+    state: removed ? 'left' : seated ? 'seated' : data.notified_at !== null ? 'ready' : 'waiting',
+    tableName: table?.name ?? '',
+  };
+}
+
+/**
+ * The turn estimate, in minutes per party ahead. A constant because the honest alternative —
+ * measuring tonight's actual seat-to-seat times — needs a night of finished rows to average and
+ * would read as authoritative long before it was. Named here so the day it becomes a measurement
+ * there is exactly one thing to replace.
+ */
+const MINUTES_PER_PARTY = 6;
