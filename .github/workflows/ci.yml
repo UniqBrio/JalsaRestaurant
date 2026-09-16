@@ -1,0 +1,124 @@
+# CI — runs exactly the gate a developer runs locally, on the application this repository ships.
+#
+# If CI and local run different checks, one of them is decoration — and it is always the one that
+# is slower to fix.
+#
+# WHY THIS IS NOT THE FRAMEWORK'S OWN WORKFLOW
+#   `.github/workflows/github-actions-ci.yml` arrived with the framework sync. It is a TEMPLATE —
+#   its own header says "Copy to .github/workflows/ci.yml" — and every application step in it
+#   points at `starter/`, the framework's reference implementation. Committed unchanged it would
+#   have installed, typechecked and tested a directory this repository does not ship, and reported
+#   the result as Jalsa's. This file is that template, pointed at `jalsa/`.
+#
+# WHAT IS DELIBERATELY NOT HERE
+#   The functional suite, apart from the degraded spec. Every other spec under `tests/functional`
+#   needs a database, and the only reachable database is production, which is never an automated
+#   target. A workflow that ran them would either fail on every push or be pointed somewhere it
+#   must not be pointed. `degraded.functional.spec.ts` is the one that runs BECAUSE there is no
+#   database — it proves every surface shows a designed screen when the data does not load.
+
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---- The framework's own gates ------------------------------------------------------------
+  # Cheap, no browser, no credentials — so they run everywhere and therefore always actually run.
+  framework:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The ratchets and the fail-first guard both read history, not a shallow clone.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `ci`, never `install`. A run that resolves different versions than the lockfile is not
+      # testing what will ship.
+      - run: npm ci
+
+      # ONE STEP, NOT A LIST OF THEM, and that is the point: enumerating the audits here would
+      # make this file a hand-maintained copy of `audit:all`, and a copy drifts. A new audit is
+      # wired into CI by the same edit that adds it to the script, with no second place to forget.
+      - name: Every framework audit
+        run: npm run audit:all
+
+      - name: Commit guards are reachable — each one EXECUTED, not read
+        run: npm run guard:test
+
+  # ---- Jalsa ---------------------------------------------------------------------------------
+  jalsa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: jalsa
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          # Both lockfiles: this job installs the framework's dependencies as well as Jalsa's,
+          # and a cache keyed on one of them goes stale the first time the other changes.
+          cache-dependency-path: |
+            package-lock.json
+            jalsa/package-lock.json
+
+      # The framework's own dependencies, at the repository root: Jalsa's audits and its gate
+      # runner are the framework's scripts, invoked across the directory boundary.
+      - name: Install framework dependencies
+        working-directory: .
+        run: npm ci
+
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Every Jalsa audit (theme, contrast, colours, test ids, columns, fixtures, dead weight, PWA, typography)
+        run: npm run audit:all
+
+      - name: Unit and pure specs
+        run: npm run test:unit
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Computed contrast, in both themes, in a real browser
+        run: npm run test:render
+
+      # The one functional spec that needs NO database — it is the spec for what every surface
+      # does when the database is unreachable, which is the state this runner is permanently in.
+      - name: Degraded surfaces
+        run: npx playwright test tests/functional/degraded.functional.spec.ts
+
+      - name: Production build
+        run: npm run build
+
+      # Uploaded on failure only. A green run does not need 200 MB of traces.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: jalsa/playwright-report/
+          retention-days: 14

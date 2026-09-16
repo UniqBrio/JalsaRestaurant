@@ -12,6 +12,29 @@
 
 ---
 
+## 1.36.0 — 2026-09-16 — MINOR
+
+**A test written to catch an unreadable verdict, which nothing ran, because the verdict it was written for never changed**
+
+`audit-scope.test.sh` was committed to catch a specific failure: on 11-Sep-2026 an application close-out cited the dead-weight audit's "CLEAN GATE" line as "dead weight deleted" while 1,988 lines of unreferenced components sat in `src/components/`. The audit was honest — it declines application source, for a good reason written in its own header — and the verdict was unreadable, because it stated a result without stating what it had looked at.
+
+The test was right and it never ran. `evaluateRatchet` was never given the scope line, so the suite failed 5 of 6 — so it could not be wired into `guard:test` — so nothing referenced it — so `check-dead-weight` BLOCKED on it as an unreferenced script — so the framework's own `audit:all` sat at 10/11, permanently. A four-link chain, every link a correct rule doing exactly what it was written to do, ending in a red gate that could not be fixed by fixing the thing it named. Deleting the script would have gone green and thrown away the only rung that would have caught the incident it was written for.
+
+The fix is the one the test was waiting for: the ratchet engine now prints a SCOPE line WITH every verdict. Printed first, on stdout, before any BLOCKED line reaches stderr — so a reader who sees only the tail of a log still has it, and so the pass and the failure carry the same sentence. An audit that stated its limits only when it passed would state them exactly when nobody was reading.
+
+### Added
+- `evaluateRatchet` takes an optional `scope`, printed as `SCOPE [NAME] …` with every verdict, whatever the verdict is
+- `check-dead-weight.mjs` passes one: how many files under which directories, that application source is NOT audited and why, and not to cite the verdict as coverage of `src/`
+- `audit-scope.test.sh` wired into `guard:test` and `guard:test:serial`, and strengthened from 6 cases to 9. It EXECUTES the audit rather than grepping its source, because reading `ratchet.mjs` for the word "scope" proves the source mentions it and only running it proves the output carries it — and it now PLANTS an unreferenced script, because its existing "whatever the verdict is" case observes whatever verdict happens to occur, and today that is OK: a scope line printed only on a pass would have satisfied it forever while being missing from the one output somebody reads closely. Two things about the probe, both learned by getting them wrong: it is not a dotfile (`walk()` skips those, so it planted nothing and the case passed for the wrong reason), and its filename is ASSEMBLED at runtime rather than written out, because the harness is itself one of the files the audit scans for references — a probe named literally here IS referenced, so the audit correctly called it live and the violation never fired. The same discipline the audit already applies to its own baseline
+
+### Fixed
+- The framework's own `audit:all` is 11/11 for the first time since `audit-scope.test.sh` was committed; `guard:test` is 15/15
+
+### What an adopting app must do
+Nothing. `scope` is optional and every existing audit that omits it behaves exactly as before. An app that wants its own audits to state their scope passes the field.
+
+---
+
 ## 1.35.0 — 2026-09-11 — MINOR
 
 **A decision recorded only in a comment, in a file nothing ran - and the CI that could not see the class it was written for**

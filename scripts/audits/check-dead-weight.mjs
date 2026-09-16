@@ -95,6 +95,12 @@ process.exit(
     baselineFile: BASELINE,
     regenerateCmd: CMD,
     parsedSomething: audited.length > 0,
+    // The limits of this audit, beside its verdict rather than in its header where only
+    // somebody already suspicious would go looking.
+    scope:
+      `${audited.length} file(s) under ${DIRS.map((d) => path.relative(ROOT, d).replace(/\\/g, '/') || '.').join(', ')}. ` +
+      'Application source is NOT audited — dynamic imports and file-based routing would make a ' +
+      'reference scan produce confident nonsense there. Do not cite this verdict as coverage of src/.',
     remediation:
       'Either delete the script (a change deletes what it finished with), or reference it from\n' +
       '  package.json, CI, or the manifest so the next reader can tell it is live.',

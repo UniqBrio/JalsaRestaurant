@@ -148,7 +148,8 @@ directory its application steps ran in, and `gate-scope.test.sh` proves that dir
 application's and that a narrowed run never claims the whole tree was verified; it reads its own
 ledger, so a step BLOCKED for three runs running is named as a trend) · the ratchet engine
 (`lib/ratchet.mjs`, three-valued — `ratchet.test.sh` proves a missing baseline is BLOCKED, never a
-pass) · the starter's own toolchain (`starter/package.json` declares it as ranges, so `npm install`
+pass, and every verdict carries a SCOPE line naming what it did and did not look at, which
+`audit-scope.test.sh` proves by running the audit rather than reading it) · the starter's own toolchain (`starter/package.json` declares it as ranges, so `npm install`
 produces one and G5-G8 can run at all) · the run log
 (`run-log.mjs`, which reads the clock so no duration is ever recalled) · the concurrent check
 runner (`par.mjs`) · the executable review matrix (`review-plan.mjs`) · the close-out renderer

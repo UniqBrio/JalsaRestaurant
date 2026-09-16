@@ -87,9 +87,26 @@ export function writeBaseline(file, signatures, { name, regenerateCmd, note }) {
  * @param {boolean}  [o.parsedSomething=true] False if the detector could not read its input.
  *                    A detector that parsed nothing must report BLOCKED, never success - a
  *                    scan matching zero files looks identical to a clean codebase.
+ * @param {string}   [o.scope]        What this audit actually looked at, and what it did NOT.
+ *                    Printed WITH every verdict - see the note below.
  */
 export function evaluateRatchet(o) {
-  const { name, signatures, baselineFile, regenerateCmd, remediation, parsedSomething = true } = o;
+  const { name, signatures, baselineFile, regenerateCmd, remediation, parsedSomething = true, scope } = o;
+
+  /**
+   * THE SCOPE TRAVELS WITH THE VERDICT, WHATEVER THE VERDICT IS.
+   *
+   * "CLEAN GATE" is the most quoted line these audits produce and on its own it says nothing
+   * about what was looked at. On 11-Sep-2026 an application close-out cited the dead-weight
+   * audit's clean line as "dead weight deleted" while 1,988 lines of unreferenced components sat
+   * in src/components/. The audit was honest; the verdict was unreadable.
+   *
+   * Printed FIRST and on stdout, before any BLOCKED line reaches stderr, so a reader who sees
+   * only the tail of a log still has it — and so the pass and the failure carry the same
+   * sentence. An audit that stated its limits only when it passed would be stating them exactly
+   * when nobody was reading.
+   */
+  if (scope) console.log(`SCOPE [${name}] ${scope}`);
 
   if (!parsedSomething) {
     console.error(`BLOCKED [${name}]: the detector produced no readable input.`);
