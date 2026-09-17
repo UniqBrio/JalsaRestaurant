@@ -5,6 +5,34 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/close-bill-order-pane.unit.spec.ts and
+jalsa/tests/render/close-bill-panes.render.spec.ts - the two new specs for the Record payment
+dialog's order pane. Both observed failing on 17-Sep-2026 against the pre-change tree; the full
+evidence is in jalsa/TEST_SUMMARY.md under "Gate run - 2026-09-17 (second)".
+
+  - close-bill-order-pane.unit: **5 failed, 3 passed** - "the rounds must come from the bill",
+    "the veg/non-veg mark", the money-pane testid, "the grid must be responsive", the
+    empty-state testid.
+  - close-bill-panes.render: **9 failed, 18 passed** with `GRID` set to the shipped
+    `flex flex-col gap-4` - the class pin went red and every side-by-side assertion from 768px
+    up reported `both panes start on the same line (y 900 vs 936)`.
+
+  The render spec also found a REAL defect in the change it was written for, which is the
+  reason the tier exists: `md:grid-cols-[...]` alone left the base grid with one `auto` track,
+  `auto` sizes to max-content, and an unbreakable dish name therefore set the dialog's width -
+  the panes spilled at 430, 390, 375, 360 and 320px. Fixed with `grid-cols-1` at the base.
+
+NOT OBSERVED FAILING: the 3 unit cases and 18 render cases that passed on the pre-change tree
+are regression guards by construction, not proofs of the defect - a parse-found-the-file sanity
+check, a list that was already singular, an import that was already absent, and the containment
+and stacking checks that a flex column satisfies anyway.
+
+These lines are at the repository root for the same reason as the ones below them: guard G3
+reads TEST_SUMMARY.md relative to the working-tree root and cannot see a nested application's
+ledger.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/upsell-action-bar.unit.spec.ts,
 jalsa/tests/render/guest-upsell-bar.render.spec.ts,
 jalsa/tests/render/settings-submenu.render.spec.ts,

@@ -4,6 +4,52 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-17 (second) - VERDICT: BLOCKED
+
+Record payment: the order details moved onto a left pane.
+
+- **Static + audits** - PASS. `npm run audit:all` 10/10.
+- **Types** - PASS. `tsc --noEmit` clean. **Lint** - PASS.
+- **Unit + render tiers** - PASS. **559/559** (up from 524; +8 unit, +27 render).
+- **G8 Functional / integration** - **BLOCKED**, unchanged and for the same reason as the run
+  below: the only app instance here points at the project holding the only copy of real data.
+  Not re-run. A step that did not run is BLOCKED and says why.
+
+WHAT THE RENDER SPEC FOUND, AND IT WAS A REAL DEFECT, NOT A TEST PROBLEM
+  `md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]` alone was not enough. Below `md` there was no
+  explicit column at all, so the grid got ONE `auto` track, `auto` sizes to max-content, and a
+  dish name with no space in it therefore set the dialog's width. The panes spilled out of the
+  dialog at **430, 390, 375, 360 and 320px** - every phone. Fixed by `grid-cols-1` at the base
+  (Tailwind emits `repeat(1, minmax(0, 1fr))`). No class-name assertion could have found this,
+  which is the whole argument for the render tier.
+
+TWO SPEC BUGS OF MY OWN, RECORDED RATHER THAN QUIETLY FIXED
+  1. `close-bill-order-pane.unit.spec.ts` first asserted the file contained no `send<` at all.
+     Wrong: the close-bill write has always used one. The assertion now counts sends (exactly
+     one) and names it, which is the claim actually worth making.
+  2. `close-bill-panes.render.spec.ts` first compared a pane's viewport x-coordinate against the
+     dialog's WIDTH. The dialog is centred, so its left edge is not 0 and the two numbers were
+     never comparable; it reported a spill at every width. It now measures the dialog's content
+     box and compares edges to edges.
+
+FAIL-FIRST: tests/unit/close-bill-order-pane.unit.spec.ts - **5 failed, 3 passed** against the
+pre-change tree (`git checkout` of CloseBillSheet.tsx): "the rounds must come from the bill",
+"the veg/non-veg mark", the money-pane testid, "the grid must be responsive", the empty-state
+testid.
+NOT OBSERVED FAILING: the 3 that passed are regression guards by construction - the parse-found-
+the-dialog sanity check (must pass on both trees or the suite is measuring the wrong file), the
+per-table list already being exactly one, and no data-layer import already being true.
+FAIL-FIRST: tests/render/close-bill-panes.render.spec.ts - **9 failed, 18 passed** with the
+component stashed and `GRID` set to the shipped `flex flex-col gap-4`: the class pin went red,
+and every side-by-side assertion from 768px up reported `both panes start on the same line
+(y 900 vs 936)`. The 18 that passed are the containment checks (a flex column contains fine) and
+the stacked checks at phone widths (a flex column does stack) - recorded rather than smoothed
+over, because they are not evidence of the defect.
+
+_Merge blocked: G8 BLOCKED._
+
+---
+
 ## Gate run - 2026-09-17 - VERDICT: BLOCKED
 
 Steps run directly rather than through `npm run gate`; the gate's own G8 was **stopped on
