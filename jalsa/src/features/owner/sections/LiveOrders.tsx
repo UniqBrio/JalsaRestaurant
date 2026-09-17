@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, Chip, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
+import { Field, Input } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
-import { billSeparability } from '@/lib/status';
+import { billSeparability, eligibleForBillRole } from '@/lib/status';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { CloseBillSheet } from '../CloseBillSheet';
 
@@ -40,6 +41,7 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
   const [cancelTarget, setCancelTarget] = React.useState<{ id: string; name: string; qty: number } | null>(null);
   const [cancelReason, setCancelReason] = React.useState<string>(CANCEL_REASONS[0]);
   const [detaching, setDetaching] = React.useState<{ table: string; amountLabel: string } | null>(null);
+  const [staffQuery, setStaffQuery] = React.useState('');
   /* Correcting the captain or waiter on a bill — running or closed. Behind a grant, because on a
      closed bill it moves an unsettled tip with the name. See reassignBillStaff. */
   const [reassign, setReassign] = React.useState<'captain' | 'waiter' | null>(null);
@@ -166,9 +168,30 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
             }
             testId="owner-reassign-sheet"
           >
-            <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-              {data.staff
-                .filter((p) => p.active)
+            {/* THE LIST NOW MATCHES THE TITLE. It offered every active person — Chefs, Cleaning
+                staff, the Cashier — under a heading that said "Captain on B-1043", and the write
+                behind it checked nothing, so an unsettled tip could be moved to a cleaner. The
+                same predicate runs on the server (see reassignBillStaff). */}
+            <Field label="Find a name" htmlFor="owner-reassign-search">
+              <Input
+                id="owner-reassign-search"
+                data-testid="owner-reassign-search"
+                value={staffQuery}
+                placeholder={reassign === 'waiter' ? 'Waiters' : 'Captains'}
+                onChange={(e) => setStaffQuery(e.target.value)}
+              />
+            </Field>
+            <ul className="m-0 mt-3 flex list-none flex-col gap-1.5 p-0">
+              {eligibleForBillRole(
+                reassign ?? 'captain',
+                data.staff,
+                (reassign === 'waiter' ? selected.spine.waiter : selected.spine.captain)
+                  ? (data.staff.find(
+                      (s) => s.name === (reassign === 'waiter' ? selected.spine.waiter : selected.spine.captain)
+                    )?.id ?? null)
+                  : null
+              )
+                .filter((p) => p.name.toLowerCase().includes(staffQuery.trim().toLowerCase()))
                 .map((p) => (
                   <li key={p.id}>
                     <Button

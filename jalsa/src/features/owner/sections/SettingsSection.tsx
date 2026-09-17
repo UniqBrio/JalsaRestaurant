@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/cn';
+import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
@@ -54,10 +55,14 @@ export function SettingsSection(props: OwnerSectionProps) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="owner-settings">
-      <nav
-        className="j-scroll-x flex gap-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        aria-label="Settings sections"
-      >
+      {/* TEN DESTINATIONS, AND EVERY ONE OF THEM ON THE SCREEN.
+          This was a `flex` row with no `flex-wrap`, inside `overflow-x: auto`, with the
+          scrollbar hidden on both engines — so `Printers & machines`, the tenth and longest
+          label, was present in the DOM and reachable only by a scroll gesture nothing on the
+          screen suggested was available. A filter strip may scroll sideways; a NAVIGATION may
+          not, because each chip is a different destination and one nobody can see is one
+          nobody can reach. See `src/lib/chip-nav.ts`. */}
+      <nav className={CHIP_NAV_WRAP} aria-label="Settings sections">
         {allowed.map((p) => (
           <Chip
             key={p.key}

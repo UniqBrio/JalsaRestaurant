@@ -68,7 +68,8 @@ async function orderAndAskForTheBill(page: Page) {
  *   one worker, but it does not hand a page from one to the next — so a test that opens by
  *   clicking something is clicking on `about:blank`. That is what CI run 34936577339 found on
  *   four projects: `locator.click: Timeout 10000ms exceeded · waiting for
- *   getByTestId('guest-upsell-skip')`, with nothing on screen to wait for.
+ *   getByTestId('guest-upsell-skip')`, with nothing on screen to wait for. (That control is now
+ *   `guest-upsell-tip`; the failure it recorded is the same one.)
  *
  * WHY IT BRANCHES RATHER THAN ALWAYS ORDERING
  *   The table is shared by this file's tests by design (one table per spec per browser project,
@@ -124,22 +125,28 @@ test('all three upsell options are on screen at once, and adding never moves the
   await expect(page.getByTestId('guest-upsell-tab-desserts')).toHaveAttribute('aria-selected', 'true');
 
   // Add from Desserts. THE assertion: still here.
-  const before = await page.getByTestId('guest-upsell-pay').textContent();
+  // 17-Sep-2026: this used to read the pay button's label, which carried the live payable until
+  // the bar became "Continue ordering" + "Add a tip". THE BEHAVIOUR UNDER TEST IS UNCHANGED - that
+  // every add re-renders the payable from the payload the write answered with - so the probe moves
+  // to the element that still shows it, the confirmation banner at the top of the same screen.
+  // Moving the probe rather than deleting the assertion is the point: the regression this test
+  // exists for is a stale total, not a particular button.
+  const before = await page.getByTestId('guest-upsell-confirm').textContent();
   await page.locator('[data-testid^="guest-upsell-add-"]').first().click();
   await expect(page.getByTestId('guest-upsell'), 'the guest must not be moved on').toBeVisible();
   await expect
-    .poll(async () => page.getByTestId('guest-upsell-pay').textContent(), {
-      message: 'the payable in the button must move with the addition',
+    .poll(async () => page.getByTestId('guest-upsell-confirm').textContent(), {
+      message: 'the payable in the banner must move with the addition',
     })
     .not.toBe(before);
 
   // Move across the tabs and add again — same bill, same screen.
   await page.getByTestId('guest-upsell-tab-beverages').click();
   await expect(page.getByTestId('guest-upsell-tab-beverages')).toHaveAttribute('aria-selected', 'true');
-  const second = await page.getByTestId('guest-upsell-pay').textContent();
+  const second = await page.getByTestId('guest-upsell-confirm').textContent();
   await page.locator('[data-testid^="guest-upsell-add-"]').first().click();
   await expect(page.getByTestId('guest-upsell')).toBeVisible();
-  await expect.poll(async () => page.getByTestId('guest-upsell-pay').textContent()).not.toBe(second);
+  await expect.poll(async () => page.getByTestId('guest-upsell-confirm').textContent()).not.toBe(second);
 
   await page.getByTestId('guest-upsell-tab-share').click();
   await expect(page.getByTestId('guest-upsell-tab-share')).toHaveAttribute('aria-selected', 'true');
@@ -150,7 +157,8 @@ test('the tip row takes a preset in one tap and any other amount in one tap and 
   // This test's own page, on this test's own terms — see `reachTheUpsell`. It used to open on
   // the line below, with no page and no navigation behind it.
   await reachTheUpsell(page);
-  await page.getByTestId('guest-upsell-skip').click();
+  // 17-Sep-2026: "No thanks, continue to payment" was removed; "Add a tip" is the route on.
+  await page.getByTestId('guest-upsell-tip').click();
   await expect(page.getByTestId('guest-tip')).toBeVisible();
 
   // Five options: the presets plus Custom.

@@ -1,5 +1,6 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
+import { SCHEMA_FAULT_MESSAGE, isSchemaFault } from './db-errors';
 import { PermissionDenied } from '@/lib/permissions';
 import { logError } from '@/lib/logger';
 
@@ -40,6 +41,7 @@ export function fail(status: number, body: ApiError): NextResponse {
  * denied state that says which permission is missing and who can grant it - and a bare 403
  * cannot say either.
  */
+
 export function handler(
   fn: (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<NextResponse>
 ) {
@@ -54,7 +56,9 @@ export function handler(
       const message =
         err instanceof Error && err.message.startsWith('Configuration error')
           ? err.message
-          : 'Something on our side failed. Nothing you did was lost — try again.';
+          : isSchemaFault(err)
+            ? SCHEMA_FAULT_MESSAGE
+            : 'Something on our side failed. Nothing you did was lost — try again.';
       return fail(500, { code: 'server', message });
     }
   };

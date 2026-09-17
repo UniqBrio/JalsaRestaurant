@@ -153,6 +153,52 @@ export function billSeparability(input: {
   return { can: true, reason: '' };
 }
 
+/**
+ * May this person hold this position on a bill?
+ *
+ * WHY THE SERVER NEEDS THIS AND NOT JUST THE PICKER
+ *   The "Captain on B-1043" sheet listed every active person — Chefs, Cleaning staff, the
+ *   Cashier — and `reassignBillStaff` wrote whatever id it was handed straight into
+ *   `captain_staff_id`. An unsettled tip FOLLOWS the captain, so a Cleaning staff member could
+ *   be made captain on a bill and have somebody else's gratuity moved to them. The dialog
+ *   promised captains and the write checked nothing, which is rule 3 of `mutations.ts` broken
+ *   in both directions at once.
+ *
+ * WHY OWNER / ADMIN IS ON BOTH LISTS
+ *   One restaurant, one owner, and on a busy Friday he runs tables himself — the floor screen
+ *   already shows "My tables · Javeed Ahmed". Excluding him would mean a position he is
+ *   currently holding could not be re-selected after it was changed by mistake.
+ *
+ * WHY A CAPTAIN MAY BE A WAITER AND NOT THE REVERSE
+ *   Running food is part of a captain's night; owning a table is not part of a waiter's. The
+ *   asymmetry is the real hierarchy, and inverting it would let the picker quietly promote
+ *   somebody into the position the tip attaches to.
+ */
+const ELIGIBLE: Record<'captain' | 'waiter', readonly string[]> = {
+  captain: ['Captain', 'Owner / Admin'],
+  waiter: ['Waiter', 'Captain', 'Owner / Admin'],
+};
+
+export function canHoldBillRole(role: 'captain' | 'waiter', staffRole: string): boolean {
+  return (ELIGIBLE[role] ?? []).includes(staffRole);
+}
+
+/**
+ * The people a picker may offer for a position.
+ *
+ * The CURRENT holder is always included, whatever their role. Somebody wrongly made captain by
+ * the old unchecked write is still recorded as captain today, and a list that filtered them out
+ * would make the mistake permanent — the one name you need in order to undo it would be the one
+ * name missing.
+ */
+export function eligibleForBillRole<T extends { id: string; role: string; active: boolean }>(
+  role: 'captain' | 'waiter',
+  people: readonly T[],
+  currentHolderId: string | null
+): T[] {
+  return people.filter((p) => (p.active && canHoldBillRole(role, p.role)) || p.id === currentHolderId);
+}
+
 export const FOOD_TYPE: Record<FoodType, { label: string; short: string }> = {
   veg: { label: 'Veg', short: 'V' },
   non_veg: { label: 'Non-veg', short: 'N' },

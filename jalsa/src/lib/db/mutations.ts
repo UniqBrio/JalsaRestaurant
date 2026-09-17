@@ -1,6 +1,6 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
-import { billSeparability, kitchenHasStarted, type KotStatus } from '@/lib/status';
+import { billSeparability, canHoldBillRole, kitchenHasStarted, type KotStatus } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
@@ -961,6 +961,34 @@ export async function reassignBillStaff(input: {
 
   const wasName = input.role === 'captain' ? bill.captain : bill.waiter;
   const column = BILL_STAFF_COLUMN[input.role];
+
+  /**
+   * THE SAME PREDICATE THE PICKER FILTERS BY. Rule 3: a hidden option is a courtesy, never a
+   * boundary — and this boundary guards money, because an unsettled tip follows the captain.
+   * `null` is allowed through: clearing the position is a different act from assigning it to
+   * somebody who cannot hold it.
+   */
+  if (input.staffId !== null) {
+    const { data: candidate } = await db()
+      .from('staff')
+      .select('name,role,active,restaurant_id')
+      .eq('id', input.staffId)
+      .maybeSingle();
+    if (!candidate) throw new Error('No such member of staff.');
+    if (candidate.restaurant_id !== (await currentRestaurantId())) {
+      throw new Error('That person does not work here.');
+    }
+    if (!candidate.active) {
+      throw new Error(`${candidate.name as string} has been removed from the staff list.`);
+    }
+    if (!canHoldBillRole(input.role, candidate.role as string)) {
+      throw new Error(
+        `${candidate.name as string} is ${candidate.role as string} — only a ${
+          input.role === 'captain' ? 'Captain' : 'Waiter'
+        } can be the ${input.role} on a bill. The tip follows the captain, so this is checked here as well as on the screen.`
+      );
+    }
+  }
 
   const { error } = await db()
     .from('bill')

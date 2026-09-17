@@ -136,7 +136,10 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
   const tip = page.getByTestId('guest-tip');
   await expect(upsell.or(tip), 'the request lands on the upsell or straight on the tip row').toBeVisible();
   if (await upsell.isVisible()) {
-    await page.getByTestId('guest-upsell-skip').click();
+    // 17-Sep-2026: `guest-upsell-skip` ("No thanks, continue to payment") was removed with
+    // the pay button beside it. `guest-upsell-tip` is the one control that now carries this
+    // screen's route on to the tip row, and it runs the identical `go('tip')`.
+    await page.getByTestId('guest-upsell-tip').click();
   }
   await expect(tip).toBeVisible();
   await page.getByTestId('guest-tip-20').click();

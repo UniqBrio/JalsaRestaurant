@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Field, Input } from '@/components/ui/field';
@@ -201,10 +202,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         </p>
       ) : null}
 
-      <nav
-        className="j-scroll-x flex gap-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        aria-label="Reports"
-      >
+      <nav className={CHIP_NAV_WRAP} aria-label="Reports">
         {REPORT_TABS.map((t) => (
           <Chip key={t.key} on={tab === t.key} onClick={() => setTab(t.key)} data-testid={`owner-rep-tab-${t.key}`}>
             {t.label}
