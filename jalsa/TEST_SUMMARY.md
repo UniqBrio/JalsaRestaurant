@@ -4,6 +4,49 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-17 (third) - VERDICT: BLOCKED
+
+Closed today -> the bill, in full, with Print and Share to whatsapp.
+
+- **Static + audits** - PASS. `npm run audit:all` 10/10.
+- **Types** - PASS. **Lint** - PASS over all of `src/`.
+- **Unit + render tiers** - PASS. **579/579** (up from 559; +20 unit).
+- **G8 Functional / integration** - **BLOCKED**, same reason as the two runs below: the only app
+  instance here points at the project holding the only copy of real data.
+
+WHAT THE TESTID AUDIT CAUGHT, TWICE, AND IT WAS RIGHT BOTH TIMES
+  1. The share control was `Button asChild` wrapping an anchor. The audit reads the source, so
+     it saw an anchor with no id - and it was correct that the anchor is the element that ships.
+     Rewritten as a real anchor carrying `buttonVariants`, which is also better: middle-click,
+     long-press and "open in new tab" all work, and a screen reader announces a link.
+  2. Then it flagged the comment EXPLAINING that change, because a bare angle-bracket tag in
+     prose matches its element regex. Reworded. Noted in the file so the next person does not
+     rediscover it.
+
+TWO SPEC ASSERTIONS CORRECTED, RECORDED RATHER THAN QUIETLY WIDENED
+  1. `bill-share.unit` asserted the share URL contained no apostrophe. Wrong:
+     `encodeURIComponent` leaves `'` alone because it is legal in a query string, and nothing
+     truncates on it. The round-trip assertion is what actually proves the message arrives
+     whole, and it stays.
+  2. `bill-detail-wiring.unit` asserted the literal `>Print<`. The formatter breaks a multi-prop
+     button across lines, so that literal never appears in correctly formatted code. Matched
+     from the testid to the label instead.
+
+FAIL-FIRST: tests/unit/bill-share.unit.spec.ts - four deliberate defects, one per run, each
+reverted; the suite returned to 11 passed each time.
+  - cancelled lines billed to the guest (removed the skip): **1 failed, 10 passed**
+  - GST hard-coded instead of the bill's own totals rows: **3 failed, 8 passed**
+  - an open bill claiming it was paid (`if (true)`): **1 failed, 10 passed**
+  - the text not URL-encoded: **1 failed, 10 passed**
+FAIL-FIRST: tests/unit/bill-detail-wiring.unit.spec.ts - **8 failed, 1 passed** with
+BillDetailSheet.tsx replaced by a placeholder and Payments.tsx and globals.css checked out.
+NOT OBSERVED FAILING: the 1 that passed is the print-block scoping test - the pre-change block
+had no unscoped hide rule either, so it guards against a regression rather than proving a defect.
+
+_Merge blocked: G8 BLOCKED._
+
+---
+
 ## Gate run - 2026-09-17 (second) - VERDICT: BLOCKED
 
 Record payment: the order details moved onto a left pane.

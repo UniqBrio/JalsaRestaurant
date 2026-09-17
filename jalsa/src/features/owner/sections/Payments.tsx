@@ -8,6 +8,7 @@ import { DataTable } from '@/components/ui/data-table';
 import type { OwnerBillView } from '@/lib/db/owner-view';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { CloseBillSheet } from '../CloseBillSheet';
+import { BillDetailSheet } from '../BillDetailSheet';
 
 /**
  * Screen 24 — the closure queue, and everything closed today.
@@ -22,6 +23,10 @@ import { CloseBillSheet } from '../CloseBillSheet';
  */
 export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
   const [closing, setClosing] = React.useState<OwnerBillView | null>(null);
+  /* Two sheets, two pieces of state, deliberately not one. Reading a closed bill and recording
+     a payment are different acts on different bills, and a single `selected` would open the
+     wrong one the first time both were reachable from the same table. */
+  const [viewing, setViewing] = React.useState<OwnerBillView | null>(null);
 
   const awaiting = data.openBills
     .filter((b) => b.status === 'payment_requested')
@@ -100,7 +105,19 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
             {
               key: 'bill',
               header: 'Bill',
-              cell: (b) => <span className="font-semibold">{b.code}</span>,
+              /* The bill number opens the bill. It is a button and not a row click: a row that
+                 is entirely clickable swallows the text selection somebody needs to copy a
+                 reference out of, and it gives a keyboard user no target to tab to. */
+              cell: (b) => (
+                <button
+                  data-testid={`owner-open-bill-${b.code}`}
+                  type="button"
+                  onClick={() => setViewing(b)}
+                  className="rounded-[var(--radius-sm)] font-semibold text-[var(--primary)] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+                >
+                  {b.code}
+                </button>
+              ),
               value: (b) => b.code,
             },
             { key: 'table', header: 'Table', cell: (b) => b.tables.join(', '), value: (b) => b.tables.join(', ') },
@@ -141,6 +158,13 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
           is what you were looking at.
         </p>
       </section>
+
+      <BillDetailSheet
+        bill={viewing}
+        open={viewing !== null}
+        onOpenChange={(v) => !v && setViewing(null)}
+        restaurantName={typeof data.restaurant.name === 'string' ? data.restaurant.name : 'Jalsa Restaurant'}
+      />
 
       <CloseBillSheet
         bill={closing}

@@ -307,4 +307,47 @@ h6 {
   .j-no-print {
     display: none !important;
   }
+
+  /*
+   * PRINTING ONE PANEL, NOT THE CONSOLE BEHIND IT.
+   *
+   * A sheet marked `j-print-root` is the only thing that reaches paper: everything else on the
+   * page is hidden, the scrim goes, and the dialog stops being a fixed, centred, 88vh-capped
+   * box and becomes a document that flows onto as many pages as it needs.
+   *
+   * `:has()` rather than a class toggled on <body> by JavaScript, because a class added on
+   * print and removed afterwards is a piece of state that can be left behind — by an error, by
+   * a cancelled print dialog, by a component unmounting mid-print — and a console stuck with
+   * every panel hidden is a far worse failure than a print that came out wrong.
+   *
+   * Scoped to `body:has(.j-print-root)` so that a page with no printable panel open prints
+   * exactly as it did before this block existed.
+   */
+  body:has(.j-print-root) > *:not(:has(.j-print-root)) {
+    display: none !important;
+  }
+
+  /* The scrim and the dialog's own chrome are siblings INSIDE the portal, so the rule above
+     does not reach them. The close button and the footer buttons are controls, not content. */
+  body:has(.j-print-root) .j-scrim,
+  body:has(.j-print-root) [role='dialog'] > header button,
+  body:has(.j-print-root) [role='dialog'] > footer {
+    display: none !important;
+  }
+
+  body:has(.j-print-root) [role='dialog'] {
+    position: static !important;
+    max-width: none !important;
+    width: auto !important;
+    max-height: none !important;
+    transform: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* The sheet's body scrolls on screen. On paper there is nothing to scroll, and an
+     `overflow-y: auto` box prints only the slice that happened to be visible. */
+  body:has(.j-print-root) [role='dialog'] > div {
+    overflow: visible !important;
+  }
 }

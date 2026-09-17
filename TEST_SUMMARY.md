@@ -5,6 +5,28 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/bill-share.unit.spec.ts and
+jalsa/tests/unit/bill-detail-wiring.unit.spec.ts - the two new specs for the bill-detail screen
+opened from Closed today. Both observed failing on 17-Sep-2026; the full evidence is in
+jalsa/TEST_SUMMARY.md under "Gate run - 2026-09-17 (third)".
+
+  - bill-share.unit: FOUR deliberate defects, one per run, each reverted and the suite returned
+    to 11 passed. Cancelled lines billed to the guest: **1 failed, 10 passed**. GST hard-coded
+    instead of the bill's own totals rows: **3 failed, 8 passed**. An open bill claiming it was
+    paid: **1 failed, 10 passed**. The text not URL-encoded: **1 failed, 10 passed**.
+  - bill-detail-wiring.unit: **8 failed, 1 passed** with the component replaced by a placeholder
+    and Payments.tsx and globals.css checked out.
+
+NOT OBSERVED FAILING: jalsa/tests/unit/bill-detail-wiring.unit.spec.ts - the print-block scoping
+case. The pre-change `@media print` block had no unscoped hide rule either, so it guards a
+regression rather than proving the defect.
+
+These lines are at the repository root for the same reason as the ones below them: guard G3
+reads TEST_SUMMARY.md relative to the working-tree root and cannot see a nested application's
+ledger.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/close-bill-order-pane.unit.spec.ts and
 jalsa/tests/render/close-bill-panes.render.spec.ts - the two new specs for the Record payment
 dialog's order pane. Both observed failing on 17-Sep-2026 against the pre-change tree; the full
