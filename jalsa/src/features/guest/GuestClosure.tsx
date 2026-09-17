@@ -246,36 +246,55 @@ export function UpsellScreen(props: GuestScreenProps) {
         </ul>
       )}
 
+      {/*
+        TWO STACKED FULL-WIDTH BUTTONS — THE SHAPE, NOT JUST THE LABELS, IS THE CHANGE.
+
+        What this replaced was a `size="lg"` pay button above a `flex items-center gap-2` row
+        holding a `flex-1` secondary button beside an unconstrained ghost one. That row had no
+        wrap rule, so its width was the sum of its contents and "No thanks, continue to payment"
+        set the floor: there is no viewport narrow enough for it to be safe and none wide enough
+        to make it right. It is the JP-22 shape, and a column cannot overflow sideways at all.
+
+        `ActionBar` is already `flex flex-col`, whose children stretch, so both buttons are full
+        width at every width without one measurement between them — the same bar `guest-tip-bar`
+        eight lines down has always used.
+
+        THE LOUD ACTION IS ORDERING AGAIN, AND THE SCREEN NOW AGREES WITH ITSELF
+        This screen exists to offer one more thing. Its biggest button used to be the way out of
+        it. The live payable has not left the screen: it is in `guest-upsell-confirm` at the top,
+        re-rendered from the same write echo the button label used to carry.
+
+        THE ROUTE TO PAYMENT SURVIVES, ONCE INSTEAD OF TWICE (Standard 1.6, never a dead end)
+        Both removed buttons did the identical thing — `go('tip')`. The tip step still ends in
+        Pay, and its first chip is "No tip", so the guest who wants to settle up and leave is one
+        tap further on than before and is never asked to tip to get there.
+      */}
       <ActionBar testId="guest-upsell-bar">
-        {/* The amount is live: every add re-renders this label from the payload the write
-            answered with, so the guest watches the number they are agreeing to move. */}
-        <Button data-testid="guest-upsell-pay" size="lg" onClick={() => go('tip')} disabled={busy}>
-          Pay {data.payableLabel}
+        {/* The tabs above are the curated shortcut; this is "show me everything". It pauses the
+            payment request on the way past — the guest never has to cancel anything to order
+            again. The write and its notice are unchanged; only the label and the weight moved. */}
+        <Button
+          data-testid="guest-upsell-continue-ordering"
+          size="lg"
+          disabled={busy}
+          onClick={() =>
+            props.runBusy(async () => {
+              await send('/api/guest/bill', { action: 'resume-ordering' });
+              toast.show('Payment request paused. Order away.', { tone: 'success' });
+              go('menu');
+            })
+          }
+        >
+          Continue ordering
         </Button>
-        <div className="flex items-center gap-2">
-          {/* The tabs above are the curated shortcut; this is "show me everything". It pauses
-              the payment request on the way past — the guest never has to cancel anything to
-              order again. */}
-          <Button
-            data-testid="guest-upsell-continue-ordering"
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            disabled={busy}
-            onClick={() =>
-              props.runBusy(async () => {
-                await send('/api/guest/bill', { action: 'resume-ordering' });
-                toast.show('Payment request paused. Order away.', { tone: 'success' });
-                go('menu');
-              })
-            }
-          >
-            ＋ Continue Ordering
-          </Button>
-          <Button data-testid="guest-upsell-skip" variant="ghost" size="md" onClick={() => go('tip')}>
-            No thanks, continue to payment
-          </Button>
-        </div>
+        <Button
+          data-testid="guest-upsell-tip"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => go('tip')}
+        >
+          Add a tip
+        </Button>
       </ActionBar>
     </div>
   );

@@ -4,6 +4,59 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-17 - VERDICT: BLOCKED
+
+Steps run directly rather than through `npm run gate`; the gate's own G8 was **stopped on
+purpose** and is recorded BLOCKED, not skipped and not passed.
+
+- **Static + audits** - PASS. `npm run audit:all` 10/10 (colors, testids, columns, fixtures,
+  deadweight, pwa, typography, assets all zero-violation).
+- **Types** - PASS. `tsc --noEmit` clean.
+- **Lint** - PASS on every changed source file.
+- **Unit + render tiers** - PASS. **524/524** across `tests/unit` and `tests/render`.
+- **G8 Functional / integration** - **BLOCKED**.
+
+_Why G8 is BLOCKED and not FAIL or PASS._ The functional tier drives the running app, and the
+only app instance available here reads `.env.local`, which points at the project holding the
+ONLY copy of the restaurant's real data. `npm run gate` was started without that being checked;
+it ran 16:21-16:24 UTC and was killed. The database was then read to establish what it had
+written: the newest row of any kind in that project is **16:17:55 UTC** - four minutes before
+the run started - and every row in the window belongs to a person driving table A5 by hand
+(KOT-120/121/122, a Need water and a Water bottle request, four tips). **Zero rows written.**
+
+The tier was not re-run and must not be until a non-production target is reachable. Two
+functional specs in this commit had selectors repointed for the new action bar
+(`guest-upsell-pay` -> `guest-upsell-confirm`, `guest-upsell-skip` -> `guest-upsell-tip`) and
+those edits are therefore **unexecuted**. A step that did not run is BLOCKED and says why.
+
+FAIL-FIRST: tests/unit/upsell-action-bar.unit.spec.ts - 5 failed, 1 passed against the pre-fix
+bar; ids came back ['guest-upsell-pay','guest-upsell-continue-ordering','guest-upsell-skip'],
+"no nested flex row inside the bar", "the tip button must exist · expected > -1".
+NOT OBSERVED FAILING: tests/unit/upsell-action-bar.unit.spec.ts:119 (the 6th case) - it guards
+the `resume-ordering` write that the request's MUST NOT CHANGE line protects, so it passes on
+both trees by design.
+FAIL-FIRST: tests/render/guest-upsell-bar.render.spec.ts - 20 failed, 6 passed against the
+three-button row; "each button gets its own line (y: 840, 842, 842)" at all 13 widths, and
+"No thanks, continue to payment (x 554 -> 841, viewport 834)". The 6 that passed are the
+viewport half at 1024px and wider, where the old row genuinely fit.
+FAIL-FIRST: tests/render/settings-submenu.render.spec.ts - 15 failed, 4 passed with
+CHIP_NAV_WRAP holding its shipped non-wrapping value; "Printers & machines (x 1271 -> 1421,
+viewport 1280)", "the nav must not scroll sideways (1405 > 1248)".
+FAIL-FIRST: tests/unit/bill-role-eligibility.unit.spec.ts - 6 failed, 3 passed against the
+picker that listed every active person and the server that checked nothing.
+FAIL-FIRST: tests/unit/function-overloads.unit.spec.ts - 2 failed, 3 passed with the DROP
+migration removed; "widen a function by DROPPING the narrow signature first, as verify_staff_pin
+does". The parse-found-functions assertion passed, which is what proves the 2 failures are real
+rather than an empty scan.
+NOT OBSERVED FAILING: tests/render/responsive-sweep.render.spec.ts - it is a standing sweep of
+the reachable routes at 13 widths, not the proof of one fix; it passed 79/79 on first run. The
+defect it would have caught is the one settings-submenu.render.spec.ts records above, on a route
+this sweep cannot sign into.
+
+_Merge blocked: G8 BLOCKED. BLOCKED is a verdict that may be committed; silence is not._
+
+---
+
 ## Gate run - 2026-09-12 - VERDICT: FAIL
 
 Steps: 10 pass, 1 fail, 0 blocked.

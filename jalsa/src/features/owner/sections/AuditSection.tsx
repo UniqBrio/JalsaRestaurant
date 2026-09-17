@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
+import { Card, Chip, ChipRow, Pill, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
@@ -33,7 +33,11 @@ export function AuditSection({ data }: OwnerSectionProps) {
         </p>
       </Card>
 
-      <div className="j-scroll-x flex gap-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* A FILTER, not a navigation (JP-22): every option is the same kind of thing and
+          the tail is a narrower view of a list still on screen, so it may scroll. It uses
+          ChipRow rather than a hand-rolled copy of ChipRow's inner div, which is what it
+          was — and which had dropped the right-edge fade that makes the cut legible. */}
+      <ChipRow>
         {types.map((t) => (
           <Chip
             key={t}
@@ -49,7 +53,7 @@ export function AuditSection({ data }: OwnerSectionProps) {
             )}
           </Chip>
         ))}
-      </div>
+      </ChipRow>
 
       <DataTable
         rows={rows}

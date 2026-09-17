@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Field, Input, Select, Toggle } from '@/components/ui/field';
 import { Sheet } from '@/components/ui/sheet';
@@ -120,10 +121,7 @@ export function PrintSetupSection(props: OwnerSectionProps) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="owner-print-setup">
-      <nav
-        className="j-scroll-x flex gap-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        aria-label="Print setup sections"
-      >
+      <nav className={CHIP_NAV_WRAP} aria-label="Print setup sections">
         {TABS.map((t) => (
           <Chip key={t.key} on={tab === t.key} onClick={() => setTab(t.key)} data-testid={`owner-print-${t.key}`}>
             {t.label}

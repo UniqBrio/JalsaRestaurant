@@ -5,6 +5,45 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/upsell-action-bar.unit.spec.ts,
+jalsa/tests/render/guest-upsell-bar.render.spec.ts,
+jalsa/tests/render/settings-submenu.render.spec.ts,
+jalsa/tests/unit/bill-role-eligibility.unit.spec.ts and
+jalsa/tests/unit/function-overloads.unit.spec.ts - the five new specs for the guest closure bar,
+the Settings submenu wrap, the bill-role guard and the set_staff_pin overload. All observed
+failing on 17-Sep-2026 against the pre-fix tree; the full evidence, verbatim failure messages
+included, is in jalsa/TEST_SUMMARY.md under "Gate run - 2026-09-17 - VERDICT: BLOCKED".
+
+  - upsell-action-bar.unit: **5 failed, 1 passed** - ids came back as the three shipped buttons,
+    "no nested flex row inside the bar", "the tip button must exist · expected > -1".
+  - guest-upsell-bar.render: **20 failed, 6 passed** - "each button gets its own line
+    (y: 840, 842, 842)" at all 13 widths; "No thanks, continue to payment (x 554 -> 841,
+    viewport 834)". The 6 that passed are the viewport half at 1024px and wider, where the old
+    three-button row genuinely fit; recorded rather than smoothed over.
+  - settings-submenu.render: **15 failed, 4 passed** - "Printers & machines (x 1271 -> 1421,
+    viewport 1280)", "the nav must not scroll sideways (1405 > 1248)".
+  - bill-role-eligibility.unit: **6 failed, 3 passed**.
+  - function-overloads.unit: **2 failed, 3 passed** with the DROP migration removed - "widen a
+    function by DROPPING the narrow signature first, as verify_staff_pin does". Its
+    parse-found-functions assertion passed in the same run, which is what proves those two
+    failures are a real finding and not an empty scan.
+
+NOT OBSERVED FAILING: jalsa/tests/render/responsive-sweep.render.spec.ts - it is a standing
+sweep of the reachable routes at 13 widths rather than the proof of one fix, and it passed 79/79
+on its first run. The defect it would have caught is the one settings-submenu.render.spec.ts
+records above, on a route this sweep cannot sign into.
+
+NOT OBSERVED FAILING: jalsa/tests/unit/upsell-action-bar.unit.spec.ts:119 - the sixth case in
+that file guards the `resume-ordering` write which the request's MUST NOT CHANGE line protects,
+so it passes on the pre-fix tree and the fixed one by design. It is a regression guard, not a
+proof of the defect.
+
+These lines are at the repository root for the same reason as the ones below them: guard G3
+reads TEST_SUMMARY.md relative to the working-tree root and cannot see a nested application's
+ledger.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/separate-a-table.unit.spec.ts - the new spec for separating a table
 from a group bill. Observed failing on 16-Sep-2026; the full evidence is in jalsa/TEST_SUMMARY.md,
 "FAIL-FIRST EVIDENCE - 2026-09-16 (twelfth)". Two deliberate defects: removing the

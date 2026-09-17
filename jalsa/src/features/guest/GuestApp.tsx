@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { cn } from '@/lib/cn';
+import { ACTION_BAR_STACK } from '@/lib/action-bar';
 import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { OfflineBanner, PartialNotice } from '@/components/ui/states';
@@ -464,10 +465,7 @@ export function ActionBar({
     <div
       ref={ref}
       data-testid={testId}
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-30 mx-auto flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3',
-        className
-      )}
+      className={cn(ACTION_BAR_STACK, className)}
       style={{ maxWidth: 'var(--layout-guest-max-width)' }}
     >
       {children}
