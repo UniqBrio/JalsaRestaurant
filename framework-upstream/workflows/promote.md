@@ -43,14 +43,23 @@ Mechanical assist: grep the proposed rule against the source app's `PRODUCT_LEXI
 lexicon word appearing in the rule is a strong app-specific signal. (A heuristic, not a proof —
 but a cheap one that catches most over-promotion.)
 
+`npm run capture -- --rule "<rule>" --app <name> --apply` runs that grep and parks the row for
+you. It refuses a rule carrying a lexicon word; `--allow-lexicon-word` excuses that one check
+and nothing else. **It never promotes** — see Filter 3.
+
 ### Filter 3 — the rule of three *(the register decides)*
 
 Check `docs/registers/CANDIDATES.md` for the same class:
 
 - **Not there** → this is n=1. **VERDICT: PARKED.** Add the row: domain-free rule · source app ·
   date · `PARKED (n=1)`. Do not touch the framework.
+  (`npm run capture -- --rule "<rule>" --app <name> --apply`)
 - **Already parked, and this sighting is from a DIFFERENT app** → n=2. **VERDICT: PROMOTE.**
   Update the row's sighting count and status.
+  (`npm run capture -- --sighting-of CAND-00N --app <name> --apply` marks it `ELIGIBLE (n=2)`.
+  That is a **report**: the capture tool changes no framework file, and the promotion itself is
+  this runbook's human gate below, then `/framework-update`. Automating the promotion would mint
+  rules with no rung, no case and no version bump — at machine speed.)
 - Already parked, same app again → still n=1 for promotion purposes. Note the recurrence — a
   same-app repeat means the app's own fix did not hold, which is a Track C matter, not a
   promotion signal.

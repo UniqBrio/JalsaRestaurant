@@ -21,6 +21,14 @@ slightly wrong.
 **A database column name is not a user-facing word.** `acct_status_cd` is a schema decision;
 what the user reads is a product decision, and they are allowed to differ.
 
+That sentence was prose for as long as it existed, and prose does not stop `{item.status}` from
+rendering `active` to a customer — it did, in this repository's own reference implementation.
+**CP-32 is the mechanism**: canonical value and presentation label are declared apart, the label
+map is total by construction (a new state fails the build until it is named), and
+`scripts/audits/check-presentation-labels.mjs` ratchets it. The canonical value **never changes**
+— renaming `active` to `Active` to make it read better spreads the defect into the schema, the
+API and every test selector. The words in the label are what this register governs.
+
 ---
 
 ## Approved terms

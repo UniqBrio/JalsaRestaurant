@@ -25,5 +25,6 @@ always the one someone finds first. See [docs/09](../../docs/09-CODE-QUALITY.md)
 | Migration with RLS and rollback | `starter/supabase/migrations/` |
 | Cloud function pipeline | `starter/supabase/functions/_shared/http.ts` |
 | Transactions and compensation | `starter/supabase/functions/_shared/tx.ts` |
+| Reading from Supabase safely: keyset to completion, bounded lists, truncation guard, load-failed ≠ empty | `starter/src/lib/supabase-safety.ts` |
 | Calling a model provider | `starter/supabase/functions/_shared/provider.ts` |
 | Unit / render / functional specs | `starter/tests/` |

@@ -1,0 +1,5 @@
+# SUPABASE READS BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# SOFT findings only (BREAKS SOON early warnings). HARD findings are never baselined: an unbounded read is unsafe today, not tolerated debt.
+# Regenerate: node scripts/audits/check-supabase-reads.mjs --write-baseline
+# Generated: 2026-09-14 - 0 entries

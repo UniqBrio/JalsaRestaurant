@@ -26,6 +26,34 @@ const ROOT = process.cwd();
 const SRC = path.resolve(ROOT, 'starter');
 const DEST = path.resolve(ROOT, arg('--dir', `../${NAME}`));
 
+/* THE SCAFFOLD DECLARES ITS CATEGORY.
+ *
+ * `starter/` is Next.js + React + TypeScript + Supabase - that is CATEGORY B, and until this
+ * flag existed the scaffolder produced one silently, whatever the product actually needed. A
+ * team building a mobile-first installable application would get a Next.js app with a DOM
+ * component library and find out late, which is precisely what the policy's design-system rule
+ * warns against making the foundation of a React Native application.
+ *
+ * Category A is REFUSED rather than approximated. There is no Expo/React Native implementation
+ * in this framework - every UI row for that stack is a GAP in COMPONENT_LIBRARY - and handing
+ * someone a Next.js tree labelled "mobile-first universal" would be the silent default with a
+ * better name on it. */
+const CATEGORY = String(arg('--category', 'B')).toUpperCase();
+if (CATEGORY !== 'B') {
+  console.error(`\nRefusing to scaffold Category ${CATEGORY}.\n`);
+  console.error('  This scaffolder produces a CATEGORY B application:');
+  console.error('    Next.js · React · TypeScript · Supabase\n');
+  console.error('  Category A - Expo · React Native · Expo Router · React Native Web · Supabase -');
+  console.error('  has no implementation in this framework. Every UI row for that stack is a GAP in');
+  console.error('  docs/registers/COMPONENT_LIBRARY.md, and scaffolding a web tree under that name');
+  console.error('  would be worse than refusing: the mistake would be invisible until it was expensive.\n');
+  console.error('  If Category A is genuinely right (see docs/27-STACK-SELECTION.md), the first app');
+  console.error('  on that stack builds it and contributes the rows back - the "Adding a stack"');
+  console.error('  path COMPONENT_LIBRARY §3 was written for.\n');
+  console.error('  If a responsive web application is in fact enough, scaffold without --category.');
+  process.exit(2);
+}
+
 if (fs.existsSync(DEST) && fs.readdirSync(DEST).length) {
   console.error(`Refusing to scaffold into a non-empty directory: ${DEST}`);
   process.exit(1);
@@ -223,4 +251,8 @@ Next, in order (docs/02-PROJECT-INITIALIZATION.md):
      (.claude/ came with the scaffold: /feature, /bug, /gate and the commit hook work already)
   8. Ship one trivial change through the FULL pipeline, while the stakes are zero.
      You will find three broken things. That is the point.
+
+STACK: Category B - Next.js · React · TypeScript · Supabase.
+  Chosen by scaffold, not by analysis. If this product is mobile-first, installable, or
+  headed for the app stores, run the selection first: docs/27-STACK-SELECTION.md.
 `);

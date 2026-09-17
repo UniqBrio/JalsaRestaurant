@@ -44,6 +44,19 @@ echo "adapter: blocking"
 d=$(scratch); ( cd "$d"; echo "export const x=1" > src/a.ts; git add -A >/dev/null )
 expect "blocks a guarded commit"          2 "$(run "$d" '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"feat: add x\""}}')"
 
+# RC-019 - THE BYPASS. This adapter runs BEFORE the command, so it reads the index as it
+# stands at that moment. When the command stages its own work the index is EMPTY then, every
+# guard finds no change, and the commit sails through in silence. It is the one-liner people
+# actually type, so the bypass was the COMMON path, not an edge case.
+d=$(scratch); ( cd "$d"; echo "export const x=1" > src/a.ts )   # deliberately NOT staged
+expect "git add IN THE SAME COMMAND does not bypass the guards" 2 "$(run "$d" '{"tool_name":"Bash","tool_input":{"command":"git add -A && git commit -m \"feat: add x\""}}')"
+d=$(scratch); ( cd "$d"; echo "export const x=1" > src/a.ts )
+expect "commit -am does not bypass the guards"                  2 "$(run "$d" '{"tool_name":"Bash","tool_input":{"command":"git commit -am \"feat: add x\""}}')"
+# The other direction, and it matters as much: staging inside the command must not INVENT a
+# change where the tree is clean. A guard that blocks an empty commit is a guard people turn off.
+d=$(scratch)
+expect "a clean tree staged in the same command still passes"   0 "$(run "$d" '{"tool_name":"Bash","tool_input":{"command":"git add -A && git commit -m \"chore: nothing\""}}')"
+
 echo "adapter: escape text is recovered from the COMMAND, not a stale message file"
 d=$(scratch); ( cd "$d"; echo "export const x=1" > src/a.ts
   printf 'Gate run\n' >> TEST_SUMMARY.md; echo notes > docs.md; git add -A >/dev/null )

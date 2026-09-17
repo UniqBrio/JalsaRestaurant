@@ -147,6 +147,13 @@ stage is one paragraph inside `RUN_<feature>.md` unless build-vs-buy is real.)
 A design run produces documents and, where the environment provides the Claude Design canvas,
 a visual design. **It writes no application code and touches no database.**
 
+**Run it through [workflows/design-phase.md](./design-phase.md)** — the order of operations for
+a design decision: frame · retrieve before asking · classify the evidence · materiality · depth ·
+design · verify · escalate as a package. Its reasoning layer is
+[docs/26-DESIGN-DECISIONS.md](../docs/26-DESIGN-DECISIONS.md) (what counts as evidence, who may
+decide, how deep to go). The sub-steps below are what that phase produces here; the runbook is
+*how* to decide, and it is where the answer to "should I ask this?" lives.
+
 This stage is the framework's **design-intelligence layer**, not a formality between gates:
 it follows the method in [docs/24-DESIGN-PLANNING.md](../docs/24-DESIGN-PLANNING.md) (IA
 before screens, journeys before layout, patterns before pixels), holds the bar in
@@ -156,6 +163,25 @@ principle: **simplify the experience, not the capability.** And its question dis
 Gate 1's: a design decision that materially affects the experience — conflicting
 requirements, several defensible directions, a constraint forcing a visible trade-off — goes
 to the requester as a question with a recommendation, never a silent assumption.
+
+### A3.0 Was a design SUPPLIED? — answer this before anything below
+
+If an approved design arrived — an exported folder, a prototype, a spec — this stage is not
+deciding a design, it is **implementing that one**, and [design-phase D10](./design-phase.md)
+is the order of operations: inventory (`npm run design:ingest -- <folder>`) · declare source
+authority · write `docs/DESIGN_CONTRACT.md` from
+[the template](../templates/docs/DESIGN_CONTRACT.md) · `npm run audit:design` **before
+substantial implementation**.
+
+> **This is executed, not read: gate step G13 in `npm run gate`.** Every approved decision reads
+> `implemented | deferred | changed | blocked | unresolved`, and each word has to be earned —
+> `implemented` by Evidence the audit resolves against the code plus a Verified-by, `deferred` /
+> `blocked` by an owner, `changed` by a §8 row; `unresolved` blocks and cannot be baselined into
+> green. A designed feature can be accounted for, never absent — and "implemented" is checked,
+> not believed (RC-018, CP-33).
+
+Everything below still applies to what the design left open. It does **not** license reopening
+what the design settled: that is a DESIGN CHANGE, recorded, or it is drift.
 
 ### A3.1 Reuse first — app, then library, then build
 Resolution order, one read each ([docs/registers/COMPONENT_LIBRARY.md](../docs/registers/COMPONENT_LIBRARY.md)):
@@ -190,6 +216,15 @@ Run the substitution table before adding any control:
 | a confirmation dialog | immediate action + undo (destructive actions excepted) |
 | a long form | smart defaults + progressive disclosure |
 | a global menu action | a context action at the point of need |
+
+**Every list, count, total and export names its data volume (CP-34, docs/28).** For each read:
+what is the MAXIMUM number of rows it can ever see - not today, at the size the business could
+reach - and which sanctioned shape follows: **aggregate** (a figure is a query, never the rows),
+**bound** (a page below the cap, ordered, with Load more), or **keyset to completion** (an export
+or reconciliation). "Filtered by tenant" is not a bound unless the tenant is constrained below the
+cap, and that constraint is written on the read as a `SUPABASE-BOUND:` annotation with an
+authoriser. This is decided here because the shape decides the API and the UI, and because the
+read that is wrong at scale is the one that passed every test at fixture size.
 
 **Fewest actions wins.** The most common case should need zero actions — the right default is
 already selected. Any gesture needs a discoverability cue, an undo path and a non-gesture
@@ -358,6 +393,11 @@ migration, removing or reshaping an existing capability, anything on the safety 
 ## A5 — Build
 
 - Implement to the plan. Minimum change for the ask. No drive-by refactors.
+- **Every Supabase read uses a sanctioned shape, inside the data layer** (CP-34): aggregation,
+  `readBounded`, or `pageAllByKey` from `src/lib/supabase-safety.ts`; a filter-bound read carries
+  its `SUPABASE-BOUND:` annotation. ESLint rejects `.from(`/`.rpc(` outside the data layer at
+  edit time; gate G14 rejects every other unsafe shape. Any new list or export gets a fixture
+  LARGER than the test cap (50) - that is the fixture that finds the bug.
 - **Build in parallel when the plan supports it.** Token *generation* is the slowest part of a
   run, and it is the only part that parallel agents genuinely shorten. When the plan has **3+
   independent tasks**, serialise them to `fanout.json` and validate first:

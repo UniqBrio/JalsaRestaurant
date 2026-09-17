@@ -26,6 +26,7 @@
 import { useMemo } from 'react';
 import { useListControls } from '../hooks/useListControls';
 import { useColumnPrefs, type ColumnDef } from '../hooks/useColumnPrefs';
+import { ColumnFilter } from './ColumnFilter';
 import { ListControls } from './ListControls';
 import { ColumnControl } from './ColumnControl';
 import { modulesIn, newestFirst, toRow, isUnattributed, type AuditEntry } from '../lib/audit';
@@ -40,6 +41,9 @@ const COLUMNS: ColumnDef[] = [
   { key: 'at', label: 'Modified at', required: true },
   { key: 'remarks', label: 'Remarks' },
 ];
+
+/** A stable identity: a fresh Set() per render would change identity on every render. */
+const EMPTY_SELECTION: ReadonlySet<string> = new Set<string>();
 
 /** Every column is sortable except the two free-text value columns, where sorting means little. */
 const SORTABLE = COLUMNS
@@ -112,7 +116,7 @@ export function AuditLogTable({
         onDate={list.setDate}
         onSort={list.sortBy}
         onClear={list.clearAll}
-        filters={[{ field: 'module', label: 'Module', options: moduleOptions }]}
+        filters={[]}
         sortable={SORTABLE}
         searchPlaceholder="Search the audit log"
         testId={testId}
@@ -160,6 +164,20 @@ export function AuditLogTable({
                       </button>
                     ) : (
                       c.label
+                    )}
+                    {/* DR-7: the filter sits in the column it filters, as a control of its own
+                        beside the sort button - never the same affordance. It drives the SAME
+                        list state the toolbar used to, so filter behaviour is unchanged. */}
+                    {c.key === 'module' && (
+                      <ColumnFilter
+                        field="module"
+                        label={c.label}
+                        options={moduleOptions}
+                        selected={list.state.filters.module ?? EMPTY_SELECTION}
+                        onToggle={list.toggleFilter}
+                        onClear={list.clearField}
+                        testId={testId}
+                      />
                     )}
                   </th>
                 ))}

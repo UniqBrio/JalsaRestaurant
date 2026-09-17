@@ -136,6 +136,46 @@ If neither is possible, record the honest negative:
 NOT OBSERVED FAILING: tests/render/badge.render.spec.ts — new surface, no prior behaviour
 ```
 
+### The failure must be NAMED, not merely claimed *(v2.9.0)*
+
+**`FAIL-FIRST: x — red first` no longer satisfies guard G3.** The line must carry an observable
+signal: an exit code, a count, a measurement, or the message in quotes. Quoting is always
+available, so the rule is always satisfiable.
+
+The reason is not tidiness. "A failure happened" cannot show the failure belonged to **this**
+check — and one week produced five results that were green or red for a reason nobody had
+looked at, every one of which satisfied fail-first as it then stood:
+
+| Shape | What it looked like |
+|---|---|
+| **Zero-match scan** | A sweep whose regex the shell had mangled matched nothing, in both the broken and the fixed tree — indistinguishable from clean (RC-012) |
+| **Program never ran** | An injected defect had a syntax error, so the tool died on load; the "it can fail" probe passed against something that never executed |
+| **Shared exit code** | A new check passed on an *older* check's identical exit 2 — twice, in v2.1.0 and v2.2.0 |
+
+### Three questions, for a new behaviour rung
+
+1. **Did the unfixed tree fail?** — fail-first, as always.
+2. **What exactly did the failure say?** — the signal above. If you cannot name it, you did not
+   look at it.
+3. **Could anything else have produced that same failure?** — if yes, the evidence is not yet
+   attributable, and step 3 is not optional.
+
+**If the answer to 3 is yes, isolate before recording** — release the other checks with their
+escape tokens, clean the precondition, or assert on the message rather than the code. Observed
+in this repository: an app-code change with a weak fail-first line exits 2 from **G2**, the
+gate-ledger guard, not from G3 at all. Releasing G2 moves the same exit 2 to G3. Without that
+step the evidence names the wrong check, confidently.
+
+Where the failure signal is already unique, do nothing — isolation is a fix for ambiguity, not a
+ritual.
+
+> **A green test is a claim about the test** until its failure mode and its attribution establish
+> what it actually verified.
+
+**For detectors and scanners**, the companion rule already stands and is unchanged: a scan that
+matched nothing reports **BLOCKED**, never a clean result — an empty input set and a clean
+codebase look identical from the outside (CLAUDE.md rules 3 and 5).
+
 **That is a verdict. Silence is not.**
 
 Enforced by guard G3 in `scripts/hooks/pre-commit-guard.sh`.

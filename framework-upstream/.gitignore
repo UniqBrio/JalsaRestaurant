@@ -4,6 +4,10 @@ dist/
 .env
 .env.*
 !.env.example
+# The TEST project's configuration is committed: it carries no secrets by construction (only
+# test-time switches such as the deliberately low Supabase row cap, docs/28 §10), and a low cap
+# that lives only on one machine protects nobody. RC-021 found it silently ignored.
+!.env.test
 test-results/
 playwright-report/
 .gate-logs/

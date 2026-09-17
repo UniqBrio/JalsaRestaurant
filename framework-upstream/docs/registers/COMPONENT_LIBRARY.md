@@ -62,9 +62,12 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Authentication | Forgot / reset password flow | — | **GAP** |
 | Navigation | Section tabs (scrolling, keyboard-operable) | `starter/src/components/TabRow.tsx` | READY |
 | Navigation | App shell: header / footer | — | **GAP** |
+| UI | **Column header filter (DR-7)** — a small control in a filterable column's header, separate from the sort affordance, driving the EXISTING `list-controls` filter state | `starter/src/components/ColumnFilter.tsx` (+ `useListControls.clearField`) | **PARTIAL** (v2.11.0) — a working control exists and is used by `AuditLogTable`'s `module` column, driving the shared filter state rather than a second model. **Not promoted to READY**, and the difference matters: it has been exercised on ONE column of ONE table, with a flat list of string options. Still unproven and unbuilt — a searchable option list for a long set, range/date filters, numeric comparisons, a mobile presentation (DR-6 composition, still open), and any second consumer. The second table to need it is what should either finish it or reveal what is wrong with it |
+| UI | **Filter sheet (DR-6)** — a labelled button carrying the current choice and the option count, opening a compact one-screen grid; choosing applies immediately and closes | — | **GAP** — first app whose filters outgrow one screen width builds it to DR-6 and contributes back. The no-horizontal-scroll half is already executed by `starter/tests/functional/narrow-width.functional.spec.ts`; what is missing is the shared replacement, and this row says so rather than implying one exists |
+| UI | **Searchable select (DR-5)** — filters as you type, focused with the cursor live on open, shows existing options before a keystroke, adds a new one inline with **+ Add**, refuses a duplicate that differs only by case or spacing, and keeps what is added | `starter/src/components/SearchableSelect.tsx` + `starter/src/lib/select-options.ts` (pure) | **READY** (v2.4.0). Reaching ANOTHER user needs `onCreateOption` wired to your store; `storageKey` is a per-browser fallback and the component's own docs say so rather than calling it persistence |
 | UI | Input dialog (focus, unsaved-changes, no backdrop dismiss) | `starter/src/components/Dialog.tsx` | READY |
 | UI | Wide-table column control | `starter/src/components/ColumnControl.tsx` + `useColumnPrefs.ts` | READY |
-| UI | List controls — search across key fields, contextual filters, date presets + custom range, asc/desc sort, honest count (CP-23) | `starter/src/components/ListControls.tsx` + `starter/src/hooks/useListControls.ts` + `starter/src/lib/list-controls.ts` | READY |
+| UI | List controls — search across key fields, contextual filters, date presets + custom range, asc/desc sort, honest count (CP-23) | `starter/src/components/ListControls.tsx` + `starter/src/hooks/useListControls.ts` + `starter/src/lib/list-controls.ts` | READY (**REFINED** v2.11.0: `useListControls` gained `clearField(field)` — a per-FIELD clear, which DR-7's header control needs and for which only `clearAll` existed; added to the shared hook rather than looped in the caller, so every app gains it). On a **multi-column data table** the per-field filters belong in the column headers (DR-7) and the toolbar keeps search + dates; the filter STATE and logic here are unchanged and are what any header control drives |
 | Analytics | Metric tile (value · comparison · target · sparkline), business-agnostic | `starter/src/components/analytics/MetricCard.tsx` | READY |
 | Analytics | Metric model + aggregations + growth/target logic | `starter/src/lib/analytics/metrics.ts` | READY |
 | Analytics | Value formatting (currency incl. lakh/crore, percent, compact, duration, dates) | `starter/src/lib/analytics/format.ts` | READY |
@@ -105,6 +108,24 @@ defect (the same rule as CANONICAL_PATTERNS: a second way of doing the same thin
 | Data | Server function pipeline | `starter/supabase/functions/_shared/http.ts` | READY |
 | Data | Dates (entry/display/storage) | `starter/src/lib/dates.ts` | READY |
 | Data | Reference schema (RLS, tenant isolation, idempotency) | `starter/supabase/migrations/00000000000000_reference_migration.sql` | READY |
+
+### Stack: `expo-react-native-supabase` — Category A, **entirely unbuilt** *(registered v2.10.0)*
+
+The universal stack [docs/27](../27-STACK-SELECTION.md) selects for a mobile-first application:
+Expo · React Native · TypeScript · Expo Router · React Native Web · Supabase · NativeWind or
+equivalent · EAS Build/Submit · PWA for the web target.
+
+| Concern | Implementation | Status |
+|---|---|---|
+| **Every baseline UI concern** — dialog, list controls, searchable select, tabs, toasts, selection, column control, states, focus and keyboard model | — | **GAP** — nothing exists. `npm run new:app --category A` **refuses** rather than handing over a DOM tree under this name |
+| Theme tokens | Partially portable: `theme-build` already emits `tokens.generated.**ts**` beside the CSS, and the `.ts` half can feed NativeWind | **GAP** (the token source is shared; the consumption is not built) |
+| Contrast enforcement | `scripts/check-contrast.mjs` operates on tokens, not the DOM — **stack-neutral as it stands** | READY (shared) |
+| Gates G5–G8 | Run `next` and Playwright against a web app; a parallel toolchain would be needed | **GAP** |
+| Data, auth, storage, realtime | Supabase — unchanged by the frontend choice | READY (shared) |
+
+**This row set is deliberately not being filled speculatively.** It is a second reference
+implementation to maintain forever, and it should be driven by a real product that needs it —
+the first app on this stack builds each concern to the same standards and contributes it back.
 
 ### Adding a stack
 

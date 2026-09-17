@@ -264,10 +264,26 @@ form of that rule.
 
 ## 7. Responsive planning — decided, not discovered
 
-Plan per breakpoint class before implementation — desktop, laptop, tablet, mobile — and for
-each screen answer, explicitly: what remains visible · what collapses · what moves · what
+**The unit of the decision is AVAILABLE SPACE, not a device name (DR-8).** Breakpoint classes —
+desktop, laptop, tablet, mobile — are a useful way to *walk* the range, and a poor way to
+*decide*, because the same screen is also rendered in a narrow dialog on a wide monitor, in a
+split pane, and at a zoom level nobody tested. So for each arrangement the question is: **at what
+width does this stop being usable, and what does it become then?** — answered against control
+operability, label readability, room for helper and validation text to expand, touch operability,
+and whether the grouping still reads as a group. That width is the breakpoint, and it belongs to
+the content. A layout rule that names a phone is a rule that will be wrong somewhere else.
+
+For each screen answer, explicitly: what remains visible · what collapses · what moves · what
 becomes a drawer · what becomes a menu · what scrolls horizontally inside its own container ·
-what is progressively disclosed · what changes priority.
+what is progressively disclosed · what changes priority · **and what a multi-control row becomes
+when it no longer fits** — keep the columns, stack, regroup selectively, or go full-width.
+
+> **The design-phase determination, in one question:** *does the proposed arrangement remain
+> usable across the materially relevant width range?* If the answer depends on available space —
+> it almost always does — the dependency is part of the design decision, recorded with it, not a
+> detail discovered during implementation. `.form-grid` in the starter is the worked example:
+> `auto-fit` + `minmax(<the declared minimum>, 1fr)`, which states the requirement rather than
+> the device, and `rung: starter/tests/functional/responsive-fit.functional.spec.ts` checks it.
 
 The decisions follow from the journeys, not from the viewport: the scenario a mobile user
 actually performs keeps its one-interaction access; everything else may step back. "Make it

@@ -155,7 +155,7 @@ export const scales = {
   spacing: {"0":"0px","1":"4px","2":"8px","3":"12px","4":"16px","5":"24px","6":"32px","7":"48px","8":"64px"},
   typography: {"fontFamilyBase":"system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif","fontFamilyMono":"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace","size":{"caption":"12px","body":"14px","bodyLg":"16px","h3":"20px","h2":"24px","h1":"30px","hero":"38px"},"lineHeight":{"caption":"16px","body":"20px","bodyLg":"24px","h3":"28px","h2":"32px","h1":"38px","hero":"46px"},"weight":{"body":"400","medium":"500","subheading":"600","heading":"700"}},
   motion: {"duration":{"instant":"90ms","fast":"160ms","base":"260ms","slow":"420ms"},"easing":{"out":"cubic-bezier(0.16,1,0.3,1)","inOut":"cubic-bezier(0.65,0,0.35,1)","in":"cubic-bezier(0.55,0,1,0.45)"},"note":"Every animation must collapse to its END STATE under prefers-reduced-motion. Motion never gates interactivity."},
-  layout: {"minSupportedWidth":"320px","contentMaxWidth":"1200px","minTouchTarget":"44px","bottomChromeHeight":"0px","bottomChromeClearance":"0px","note":"bottomChromeClearance is the ONLY number a screen may use to clear a fixed bottom bar. Never hand-pick padding."},
+  layout: {"minSupportedWidth":"320px","contentMaxWidth":"1200px","minTouchTarget":"44px","minFieldWidth":"16rem","bottomChromeHeight":"0px","bottomChromeClearance":"0px","note":"bottomChromeClearance is the ONLY number a screen may use to clear a fixed bottom bar. Never hand-pick padding. minFieldWidth is the ONLY number a layout may use to decide when a multi-control row must stop being a row (DR-8) - one source, so the CSS and the spec that checks it cannot disagree."},
 } as const;
 
 /**

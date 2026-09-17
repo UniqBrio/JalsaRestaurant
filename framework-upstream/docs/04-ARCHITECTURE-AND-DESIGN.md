@@ -210,7 +210,14 @@ A list or table view is never shipped bare. It carries, through the shared imple
 (CP-23), one search box across the module's key fields, the contextual filters its data
 supports, the date presets where the data is dated (Today · This week · Last week · This
 month · Custom range), and ascending/descending sort on the relevant columns — with the count
-shown as *matching / total* so a narrowed list never reads as missing data. These are not
+shown as *matching / total* so a narrowed list never reads as missing data.
+
+**Where those filters sit depends on the surface (DR-7, 12-Sep-2026).** On a list or card view
+they stay in the toolbar. On a **multi-column data table** the per-field filters move into the
+column headers, separate from the sort affordance, and the toolbar keeps only what crosses
+columns — search and dates. The filters' *behaviour* is identical either way and comes from the
+same shared state; only the placement changes. A toolbar that grows a chip group per field
+pushes the data below the fold, and the data is the reason anyone filtered. These are not
 per-module decisions: a user who has learned one list has learned them all, and the module's
 only job is to say which fields are searchable, which filters apply, and which columns sort.
 

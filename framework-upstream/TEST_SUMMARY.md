@@ -16,6 +16,522 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Gate run - 2026-09-14 - VERDICT: FAIL
+
+Steps: 13 pass, 1 fail, 0 blocked.
+Time: 58.6s total - slowest G8 Functional / integration (22.3s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (215ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (154ms)
+- **G3 Theme assets present per theme** - PASS (126ms)
+- **G4 No hard-coded colours** - PASS (187ms)
+- **G5 Types** - PASS (3.3s)
+- **G6 Lint** - PASS (7.1s)
+- **G7 Unit + pure specs** - PASS (8.9s)
+- **G8 Functional / integration** - FAIL (22.3s)
+
+```
+Error: Process from config.webServer was not able to start. Exit code: 1
+[WebServer] ⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: An Application Control policy has blocked this file.
+[WebServer] Error: Turbopack is not supported on this platform (win32/x64) because native bindings are not available. Only WebAssembly (WASM) bindings were loaded, and Turbopack requires native bindings.
+```
+
+- **G9 Automation addressability** - PASS (147ms)
+- **G10 Backward compatibility (fixtures)** - PASS (15.7s)
+- **G11 Wide tables are configurable** - PASS (126ms)
+- **G12 Installable as an application** - PASS (137ms)
+- **G13 Approved design still being built** - PASS (110ms)
+- **G14 Supabase reads survive table growth** - PASS (138ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 13 pass, 0 fail, 0 blocked.
+Time: 2m 44s total - slowest G8 Functional / integration (2m 12s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (312ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (171ms)
+- **G3 Theme assets present per theme** - PASS (147ms)
+- **G4 No hard-coded colours** - PASS (171ms)
+- **G5 Types** - PASS (2.9s)
+- **G6 Lint** - PASS (4.6s)
+- **G7 Unit + pure specs** - PASS (5.7s)
+- **G8 Functional / integration** - PASS (2m 12s)
+- **G9 Automation addressability** - PASS (160ms)
+- **G10 Backward compatibility (fixtures)** - PASS (17.0s)
+- **G11 Wide tables are configurable** - PASS (359ms)
+- **G12 Installable as an application** - PASS (400ms)
+- **G13 Approved design still being built** - PASS (247ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 42s total - slowest G8 Functional / integration (2m 13s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (152ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (107ms)
+- **G3 Theme assets present per theme** - PASS (114ms)
+- **G4 No hard-coded colours** - PASS (126ms)
+- **G5 Types** - PASS (2.5s)
+- **G6 Lint** - PASS (3.7s)
+- **G7 Unit + pure specs** - PASS (5.0s)
+- **G8 Functional / integration** - PASS (2m 13s)
+- **G9 Automation addressability** - PASS (137ms)
+- **G10 Backward compatibility (fixtures)** - PASS (16.5s)
+- **G11 Wide tables are configurable** - PASS (117ms)
+- **G12 Installable as an application** - PASS (127ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 57s total - slowest G8 Functional / integration (2m 31s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (155ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (110ms)
+- **G3 Theme assets present per theme** - PASS (109ms)
+- **G4 No hard-coded colours** - PASS (155ms)
+- **G5 Types** - PASS (2.3s)
+- **G6 Lint** - PASS (4.1s)
+- **G7 Unit + pure specs** - PASS (5.3s)
+- **G8 Functional / integration** - PASS (2m 31s)
+- **G9 Automation addressability** - PASS (134ms)
+- **G10 Backward compatibility (fixtures)** - PASS (13.9s)
+- **G11 Wide tables are configurable** - PASS (132ms)
+- **G12 Installable as an application** - PASS (137ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 54s total - slowest G8 Functional / integration (2m 27s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (244ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (126ms)
+- **G3 Theme assets present per theme** - PASS (155ms)
+- **G4 No hard-coded colours** - PASS (143ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (3.2s)
+- **G7 Unit + pure specs** - PASS (6.9s)
+- **G8 Functional / integration** - PASS (2m 27s)
+- **G9 Automation addressability** - PASS (132ms)
+- **G10 Backward compatibility (fixtures)** - PASS (12.9s)
+- **G11 Wide tables are configurable** - PASS (122ms)
+- **G12 Installable as an application** - PASS (122ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 29s total - slowest G8 Functional / integration (2m 05s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (152ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (108ms)
+- **G3 Theme assets present per theme** - PASS (145ms)
+- **G4 No hard-coded colours** - PASS (122ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (3.1s)
+- **G7 Unit + pure specs** - PASS (6.4s)
+- **G8 Functional / integration** - PASS (2m 05s)
+- **G9 Automation addressability** - PASS (124ms)
+- **G10 Backward compatibility (fixtures)** - PASS (11.4s)
+- **G11 Wide tables are configurable** - PASS (114ms)
+- **G12 Installable as an application** - PASS (124ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 33s total - slowest G8 Functional / integration (2m 08s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (177ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (114ms)
+- **G3 Theme assets present per theme** - PASS (111ms)
+- **G4 No hard-coded colours** - PASS (130ms)
+- **G5 Types** - PASS (2.3s)
+- **G6 Lint** - PASS (3.2s)
+- **G7 Unit + pure specs** - PASS (6.3s)
+- **G8 Functional / integration** - PASS (2m 08s)
+- **G9 Automation addressability** - PASS (122ms)
+- **G10 Backward compatibility (fixtures)** - PASS (11.6s)
+- **G11 Wide tables are configurable** - PASS (125ms)
+- **G12 Installable as an application** - PASS (130ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 36s total - slowest G8 Functional / integration (2m 11s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (158ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (109ms)
+- **G3 Theme assets present per theme** - PASS (120ms)
+- **G4 No hard-coded colours** - PASS (157ms)
+- **G5 Types** - PASS (2.7s)
+- **G6 Lint** - PASS (3.0s)
+- **G7 Unit + pure specs** - PASS (5.1s)
+- **G8 Functional / integration** - PASS (2m 11s)
+- **G9 Automation addressability** - PASS (120ms)
+- **G10 Backward compatibility (fixtures)** - PASS (13.3s)
+- **G11 Wide tables are configurable** - PASS (121ms)
+- **G12 Installable as an application** - PASS (124ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 40s total - slowest G8 Functional / integration (2m 14s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (178ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (156ms)
+- **G3 Theme assets present per theme** - PASS (123ms)
+- **G4 No hard-coded colours** - PASS (171ms)
+- **G5 Types** - PASS (2.9s)
+- **G6 Lint** - PASS (3.5s)
+- **G7 Unit + pure specs** - PASS (5.7s)
+- **G8 Functional / integration** - PASS (2m 14s)
+- **G9 Automation addressability** - PASS (134ms)
+- **G10 Backward compatibility (fixtures)** - PASS (12.9s)
+- **G11 Wide tables are configurable** - PASS (129ms)
+- **G12 Installable as an application** - PASS (126ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 53s total - slowest G8 Functional / integration (2m 23s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (181ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (123ms)
+- **G3 Theme assets present per theme** - PASS (131ms)
+- **G4 No hard-coded colours** - PASS (168ms)
+- **G5 Types** - PASS (3.3s)
+- **G6 Lint** - PASS (5.5s)
+- **G7 Unit + pure specs** - PASS (6.6s)
+- **G8 Functional / integration** - PASS (2m 23s)
+- **G9 Automation addressability** - PASS (121ms)
+- **G10 Backward compatibility (fixtures)** - PASS (13.3s)
+- **G11 Wide tables are configurable** - PASS (133ms)
+- **G12 Installable as an application** - PASS (157ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-13 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 3m 40s total - slowest G8 Functional / integration (3m 12s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (155ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (114ms)
+- **G3 Theme assets present per theme** - PASS (107ms)
+- **G4 No hard-coded colours** - PASS (161ms)
+- **G5 Types** - PASS (2.6s)
+- **G6 Lint** - PASS (4.2s)
+- **G7 Unit + pure specs** - PASS (5.1s)
+- **G8 Functional / integration** - PASS (3m 12s)
+- **G9 Automation addressability** - PASS (196ms)
+- **G10 Backward compatibility (fixtures)** - PASS (14.8s)
+- **G11 Wide tables are configurable** - PASS (133ms)
+- **G12 Installable as an application** - PASS (151ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 53s total - slowest G8 Functional / integration (2m 21s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (225ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (170ms)
+- **G3 Theme assets present per theme** - PASS (158ms)
+- **G4 No hard-coded colours** - PASS (191ms)
+- **G5 Types** - PASS (3.2s)
+- **G6 Lint** - PASS (4.4s)
+- **G7 Unit + pure specs** - PASS (6.4s)
+- **G8 Functional / integration** - PASS (2m 21s)
+- **G9 Automation addressability** - PASS (174ms)
+- **G10 Backward compatibility (fixtures)** - PASS (16.5s)
+- **G11 Wide tables are configurable** - PASS (166ms)
+- **G12 Installable as an application** - PASS (181ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 3m 03s total - slowest G8 Functional / integration (2m 35s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (195ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (130ms)
+- **G3 Theme assets present per theme** - PASS (121ms)
+- **G4 No hard-coded colours** - PASS (138ms)
+- **G5 Types** - PASS (3.1s)
+- **G6 Lint** - PASS (4.5s)
+- **G7 Unit + pure specs** - PASS (6.3s)
+- **G8 Functional / integration** - PASS (2m 35s)
+- **G9 Automation addressability** - PASS (126ms)
+- **G10 Backward compatibility (fixtures)** - PASS (13.0s)
+- **G11 Wide tables are configurable** - PASS (149ms)
+- **G12 Installable as an application** - PASS (139ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 12s total - slowest G8 Functional / integration (1m 50s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (156ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (107ms)
+- **G3 Theme assets present per theme** - PASS (111ms)
+- **G4 No hard-coded colours** - PASS (122ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (2.8s)
+- **G7 Unit + pure specs** - PASS (4.7s)
+- **G8 Functional / integration** - PASS (1m 50s)
+- **G9 Automation addressability** - PASS (117ms)
+- **G10 Backward compatibility (fixtures)** - PASS (10.9s)
+- **G11 Wide tables are configurable** - PASS (115ms)
+- **G12 Installable as an application** - PASS (120ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 2m 43s total - slowest G8 Functional / integration (2m 17s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (232ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (147ms)
+- **G3 Theme assets present per theme** - PASS (139ms)
+- **G4 No hard-coded colours** - PASS (155ms)
+- **G5 Types** - PASS (2.7s)
+- **G6 Lint** - PASS (3.6s)
+- **G7 Unit + pure specs** - PASS (6.3s)
+- **G8 Functional / integration** - PASS (2m 17s)
+- **G9 Automation addressability** - PASS (140ms)
+- **G10 Backward compatibility (fixtures)** - PASS (12.8s)
+- **G11 Wide tables are configurable** - PASS (115ms)
+- **G12 Installable as an application** - PASS (124ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 32s total - slowest G8 Functional / integration (1m 09s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (174ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (124ms)
+- **G3 Theme assets present per theme** - PASS (107ms)
+- **G4 No hard-coded colours** - PASS (121ms)
+- **G5 Types** - PASS (2.2s)
+- **G6 Lint** - PASS (2.8s)
+- **G7 Unit + pure specs** - PASS (6.3s)
+- **G8 Functional / integration** - PASS (1m 09s)
+- **G9 Automation addressability** - PASS (122ms)
+- **G10 Backward compatibility (fixtures)** - PASS (11.0s)
+- **G11 Wide tables are configurable** - PASS (119ms)
+- **G12 Installable as an application** - PASS (117ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 38s total - slowest G8 Functional / integration (1m 14s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (182ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (127ms)
+- **G3 Theme assets present per theme** - PASS (151ms)
+- **G4 No hard-coded colours** - PASS (133ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (3.1s)
+- **G7 Unit + pure specs** - PASS (5.3s)
+- **G8 Functional / integration** - PASS (1m 14s)
+- **G9 Automation addressability** - PASS (143ms)
+- **G10 Backward compatibility (fixtures)** - PASS (12.4s)
+- **G11 Wide tables are configurable** - PASS (114ms)
+- **G12 Installable as an application** - PASS (128ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 46s total - slowest G8 Functional / integration (1m 20s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (158ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (109ms)
+- **G3 Theme assets present per theme** - PASS (122ms)
+- **G4 No hard-coded colours** - PASS (128ms)
+- **G5 Types** - PASS (2.7s)
+- **G6 Lint** - PASS (3.1s)
+- **G7 Unit + pure specs** - PASS (5.4s)
+- **G8 Functional / integration** - PASS (1m 20s)
+- **G9 Automation addressability** - PASS (148ms)
+- **G10 Backward compatibility (fixtures)** - PASS (13.1s)
+- **G11 Wide tables are configurable** - PASS (134ms)
+- **G12 Installable as an application** - PASS (134ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-12 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 51s total - slowest G8 Functional / integration (1m 32s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (164ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (115ms)
+- **G3 Theme assets present per theme** - PASS (107ms)
+- **G4 No hard-coded colours** - PASS (127ms)
+- **G5 Types** - PASS (2.3s)
+- **G6 Lint** - PASS (4.0s)
+- **G7 Unit + pure specs** - PASS (5.1s)
+- **G8 Functional / integration** - PASS (1m 32s)
+- **G9 Automation addressability** - PASS (114ms)
+- **G10 Backward compatibility (fixtures)** - PASS (6.9s)
+- **G11 Wide tables are configurable** - PASS (122ms)
+- **G12 Installable as an application** - PASS (135ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-11 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 25s total - slowest G8 Functional / integration (1m 08s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (158ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (108ms)
+- **G3 Theme assets present per theme** - PASS (107ms)
+- **G4 No hard-coded colours** - PASS (118ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (3.5s)
+- **G7 Unit + pure specs** - PASS (4.5s)
+- **G8 Functional / integration** - PASS (1m 08s)
+- **G9 Automation addressability** - PASS (122ms)
+- **G10 Backward compatibility (fixtures)** - PASS (6.4s)
+- **G11 Wide tables are configurable** - PASS (124ms)
+- **G12 Installable as an application** - PASS (128ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-11 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 41s total - slowest G8 Functional / integration (1m 21s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (176ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (177ms)
+- **G3 Theme assets present per theme** - PASS (198ms)
+- **G4 No hard-coded colours** - PASS (155ms)
+- **G5 Types** - PASS (2.6s)
+- **G6 Lint** - PASS (3.3s)
+- **G7 Unit + pure specs** - PASS (5.8s)
+- **G8 Functional / integration** - PASS (1m 21s)
+- **G9 Automation addressability** - PASS (199ms)
+- **G10 Backward compatibility (fixtures)** - PASS (7.8s)
+- **G11 Wide tables are configurable** - PASS (120ms)
+- **G12 Installable as an application** - PASS (120ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## Gate run - 2026-09-11 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 1m 28s total - slowest G8 Functional / integration (1m 10s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (158ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (113ms)
+- **G3 Theme assets present per theme** - PASS (111ms)
+- **G4 No hard-coded colours** - PASS (122ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (3.5s)
+- **G7 Unit + pure specs** - PASS (4.5s)
+- **G8 Functional / integration** - PASS (1m 10s)
+- **G9 Automation addressability** - PASS (119ms)
+- **G10 Backward compatibility (fixtures)** - PASS (6.2s)
+- **G11 Wide tables are configurable** - PASS (118ms)
+- **G12 Installable as an application** - PASS (136ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
 ## Gate run - 2026-09-11 - VERDICT: PASS
 
 Steps: 12 pass, 0 fail, 0 blocked.
@@ -1118,3 +1634,208 @@ _One or more classes could NOT be verified. This is a decision for the owner, no
 
 ---
 
+
+## v2.11.0 - DR-7 column-header filter
+
+### New behaviour rungs + FAIL-FIRST evidence
+FAIL-FIRST: starter/tests/unit/column-filter.unit.spec.ts - 1 of 7 failed: "FILTERING DOES NOT DISTURB THE SORT", with "expected 'module', received undefined"
+Injection: `sort: undefined` added to the filter update. The other 6 passed, so the failure is
+attributable to that assertion alone - nothing else in the unit tier asserts that a sort survives
+a filter change.
+
+FAIL-FIRST: starter/tests/unit/column-filter.unit.spec.ts - 1 of 7 failed: "two values in one field are OR, not AND", with "expected 3 rows, received 0"
+Injection: OR turned into AND within one field (`[...set].every(...)` in place of `.has(...)`) -
+the shape of every multi-select filter that silently shows nothing. A FIRST attempt targeted
+`.some(`, which does not appear in the filter function, so NO test failed; that ineffective
+injection is recorded here rather than counted as evidence, because a probe that changed nothing
+proves nothing.
+
+NOT OBSERVED FAILING: the `clearField` isolation test - its first run failed with "TypeError: list.clearField is not a function"
+which is a missing-symbol failure, not a behaviour failure: it proves the hook lacked the method,
+not that the isolation rule can break. Recorded as the weaker evidence it is.
+
+### What is NOT covered
+No render-tier or functional-tier rung exists for the menu itself - open, keyboard, Escape, or the
+44px coarse-pointer target. `test:render` is ungated (RC-016), so a rung there would not run in
+the gate that guards this repository. The library row is PARTIAL for this reason among others.
+
+## v2.12.0 - DR-8 adaptive arrangement, CP-32 canonical vs presentation
+
+### New behaviour rungs + FAIL-FIRST evidence
+FAIL-FIRST: starter/tests/functional/responsive-fit.functional.spec.ts - 1 of 3 failed: "item-category-trigger is 127px inside a 288px form at 320px - below the 256px floor"
+Injection: `.form-grid` changed to `grid-template-columns: 1fr 1fr` - a desktop arrangement kept
+at every width, which is the defect class exactly. The other 2 tests passed, so the failure is
+attributable to the cramping assertion alone. Note what did NOT fire: narrow-width.functional
+(the overflow spec) stayed GREEN throughout the injection, because two 127px fields in a 288px
+form do not overflow anything. That is the gap this rung exists to close.
+
+FAIL-FIRST: scripts/audits/check-presentation-labels.mjs - 2 violations on the pre-change tree, 0 after: ItemForm.tsx|119|value:s and ItemsScreen.tsx|134|value:it.status
+Both were real defects in the framework's own reference implementation - the starter rendered
+`active` and `archived` to users. 65 files, 452 text regions, 84 canonical values scanned with
+ZERO false positives.
+
+NOT OBSERVED FAILING: the first version of that detector resolved type bindings per-file and
+therefore found only 1 of the 2 defects - it missed `{it.status}` because `Item` is declared in
+types.ts and rendered in ItemsScreen.tsx, which is the ORDINARY shape and so most real cases.
+Recorded because a detector that finds half the instances of what it claims to find is the kind
+of green that is worse than no gate. Fixed by collecting canonical property names tree-wide;
+bare identifiers stay file-local, since a global set of names like `s` would flag everything.
+
+FAIL-FIRST: starter/tests/unit/presentation.unit.spec.ts - 2 of 7 failed on first run, and ONE was a real code defect: humanise("sent_to_WhatsApp") returned "Sent to Whats App"
+The camelCase split in `humanise` corrupted a product name - precisely the trap DR-1 and
+text-format.ts exist to prevent, reintroduced in a new file. The split was REMOVED rather than
+the assertion relaxed: it only ever handled camelCase, which is not a canonical shape by the
+audit's own definition. The second failure was a wrong expectation of mine about sort order
+("2","3","1", not "1","2","3") and is recorded as such - a test corrected, not evidence.
+
+### What is NOT covered
+Helper and validation text expanding without clipping is part of DR-8 and is NOT asserted: the
+reference form has no helper or error text, and an assertion over an empty set is a green light
+for nothing. Carried as review until a worked example exists. Whether a stacked group still
+READS as a group is design review by nature, and DR-8 declares it so.
+
+## v2.13.0 - CP-33 / RC-018: implementing a design that was supplied
+
+### New behaviour rungs + FAIL-FIRST evidence
+FAIL-FIRST: scripts/design-fidelity.test.sh - 2 of 12 failed: cases "B navigation row with no status" and "C feature omission", both with "no finding matching /NO STATUS/"
+Injection: the MUST-PRESERVE status check in check-design-contract.mjs replaced with `if (false)`.
+The other 10 passed, so both failures are attributable to the status rule alone - which is the
+one rule that makes silent omission impossible.
+
+FAIL-FIRST: scripts/design-fidelity.test.sh - 1 of 12 failed: case "A theme drift (maroon -> cream)", with "no finding matching /MATERIAL DESIGN CHANGE/"
+Injection: the brand-colour comparison replaced with `if (false)`. 11 passed. This is the
+headline case - a whole-theme substitution caught by ONE comparison, which works only because
+binding rule 6 already put colour in exactly one file.
+
+NOT OBSERVED FAILING: scripts/design-ingest.mjs has no injected-defect run of its own. Its
+behaviour is asserted through design-fidelity cases D, F, F2, G and H (unreadable source exits 3,
+conflicts surfaced not resolved, both palettes reported separately, a 40-artifact corpus
+inventoried, structure extracted where <nav> scanning finds nothing). A real defect WAS found in
+it during this run and is recorded below rather than counted as fail-first evidence.
+
+### A defect the tool found in itself, before it was trusted
+The first run of design-ingest on the real corpus reported "0 page(s)" while printing a full
+product palette - it parsed every page and never pushed them into the inventory. A plausible
+undercount of exactly the kind the tool exists to prevent, caught only because the two numbers
+contradicted each other on screen. Fixed by pushing the artifact at the end of the loop.
+
+### What is NOT covered
+This layer makes the ACCOUNTING honest, not the fidelity. Nothing here proves the built
+navigation actually has the named sections, that a screen resembles its mock-up, or that an
+implemented feature behaves as designed - those need the running application
+(preview-smoke-verifier) or a human. What it removes is SILENCE: a design decision can no longer
+be absent, only accounted for.
+
+## v2.13.1 - the design-contract audit could not read its own template
+
+FAIL-FIRST: scripts/audits/check-design-contract.mjs - running it on the REAL Jalsa contract reported "NO CANONICAL BRAND COLOUR DECLARED - the drift check cannot run", and 13 unresolved rows passed in silence
+Two defects, both found by using the tool rather than by reasoning about it:
+  1. The brand regex required the hex to follow the colon with only whitespace, so it could not
+     read `**Brand colour (canonical hex):** `#7a1c24``  - the form its OWN template writes. A
+     drift check that cannot parse its own template is a drift check that never runs, and it
+     would have reported a clean contract forever.
+  2. `unresolved` is a member of the valid status set, so 13 unresolved MUST-PRESERVE rows
+     produced no findings at all. Accounted for is not the same as settled; implementation must
+     not begin on top of one. It is now a ratchet signature that counts DOWN as decisions are
+     made, rather than a blank-only check.
+
+AFTER: the same contract against a cream token file reports
+"MATERIAL DESIGN CHANGE: contract #7a1c24 vs tokens #f5ead8" - the reported Jalsa defect,
+detected mechanically, end to end. The 12-case suite still passes.
+
+## v3.0.0 - RC-019: the commit guards were bypassed by the commonest commit shape
+
+### New behaviour rungs + FAIL-FIRST evidence
+FAIL-FIRST: .claude/hooks/adapter.test.sh - 2 of 13 failed: "git add IN THE SAME COMMAND does not bypass the guards" and "commit -am does not bypass the guards", both "expected 2, got 0"
+Injection: the single line setting GUARD_WORKTREE removed, restoring the bypass. The other 11
+passed, so both failures are attributable to that line alone. Exit 0 is the bypass itself -
+the adapter allowing a commit that the guard, run by hand on the same tree, blocks.
+
+HOW IT WAS FOUND (not by a test): a guard printed "BLOCKED [G1]" and the commit in the same
+command succeeded and pushed. guard:test passed throughout and would never have caught it - it
+executes the guards directly, never through the adapter against an unstaged tree.
+
+### Two defects in the fix itself, both caught by running it
+1. The adapter regex was written through a shell heredoc and the \b escapes became literal
+   BACKSPACE bytes, so the file would not parse. All 10 adapter cases failed with exit 1 -
+   loudly, which is the only reason it took a minute rather than a day.
+2. The new fixtures over-escaped their JSON payload, so the adapter received malformed input
+   and correctly waved it through. The cases passed for the wrong reason until the escaping
+   was corrected - and correcting it with a blanket replacement then broke an UNRELATED case
+   that legitimately contained the same sequence, which the syntax check caught.
+
+### What is NOT covered
+The adapter parses a command string, not an AST, so it cannot distinguish a git command from a
+string that contains one. A command whose text mentions both `git add` and `git commit` now
+runs the guards against the real tree and may block. That false positive is deliberate and
+stated: loud and escapable beats a silent bypass of the entire guard layer.
+
+## v4.0.0 - RC-020: the design gate reads the code, and recorded is not resolved
+
+### New behaviour rungs + FAIL-FIRST evidence
+FAIL-FIRST: scripts/design-fidelity.test.sh - 5 of 39 failed under injection: "A nav A,B,C required; code has A,C; C-row says implemented -> MISSING", "A ...and it BLOCKS (expected exit 2, got 0)", "B feature B required, absent, marked implemented", "D application tree unreadable", "D2 an evidence kind the audit cannot evaluate"
+Injection: `resolveRef` made to return ok:true unconditionally - "evidence is believed". Exactly the
+five cases that depend on evidence resolution failed and the other 34 passed, so the failures are
+attributable to the resolution rule alone. Exit 0 under injection IS the previous behaviour: a false
+"implemented" producing a clean verdict.
+
+FAIL-FIRST: scripts/design-fidelity.test.sh case C - "still exit 2 AFTER --write-baseline" is the assertion that a baseline cannot approve an unresolved row; under the v2.13 audit the same sequence exited 0 (recorded in the validation that preceded this change)
+
+FAIL-FIRST: scripts/design-fidelity.test.sh case I - "logo-copy.png byte-identical" and "logo.png REQUIRES VISUAL INSPECTION" both failed on the first run: directory order made the REFERENCED logo the duplicate of an unreferenced copy, and class E vanished (0 of 3 image cases passed)
+Fixed by grouping images by hash first and choosing the referenced file as the survivor.
+
+NOT OBSERVED FAILING: case H (DOCX) against a Word-authored file - the fixture is built by a .NET zip writer, which names the entry `word\document.xml`; the extractor was extended to tolerate either separator, and the real corpus (four Word-authored DOCX, 387-2,281 words each) extracts through the forward-slash path. The backslash path is exercised by the fixture only.
+
+### Three defects in the change, each found by running it, none by reading it
+1. Five "passes" cases exited 3: the scratch app had no ratchet baseline and the ratchet correctly
+   said BLOCKED. The FIXTURE was wrong (an adopting app always carries one); the rule was right.
+2. The image survivor bug above - a plausible inventory with the one material image misfiled.
+3. The DOCX fixture yielded 8 words and landed in class B, whose lede was not printed, so the
+   case read "not extracted" when it was partially extracted. B rows now print their lede.
+
+### What is NOT covered
+`manual:<who> <date>` is accepted as evidence for what only eyes can verify. It is counted and
+printed, never hidden - and it is still a person's word. The audit resolves the app from the
+working directory; the gate runner's --app flag does not reach G13 (nor G9, G11, G12), so the
+gate is run FROM the application. No evidence kind renders the application: `route:` proves a
+page file or a link exists, not that the page resembles its mock-up.
+
+## v5.0.0 - CP-34: Supabase large-data safety, gate G14
+
+### New behaviour rungs + FAIL-FIRST evidence
+FAIL-FIRST: starter/tests/unit/supabase-safety.unit.spec.ts - 3 of 16 failed under injection: "Expected: 103, Received: 50" (reads to completion at a page size above the cap), "Expected: 4, Received: 3" (four calls for 45 rows at 20), and the short-page case
+Injection: `if (rows.length < opts.pageSize) return out;` added to pageAllByKey - short-page
+termination, the pagination "fix" that reproduces the truncation inside itself. 103 rows became
+50, which IS the incident. The other 13 passed; the failures are attributable to the termination
+rule alone. Cap in the test project: 50 (starter/.env.test).
+
+FAIL-FIRST: scripts/supabase-safety.test.sh - 7 of 31 failed under injection 1 ("every read believed bounded"): "SAFE-BY-FILTER needs constraint + max rows + authority", "an annotated max AT the cap is BROKEN NOW", "an annotated max at 80% of the cap is BREAKS SOON", "12 --warn-at not honoured", "13 low cap did not expose limit(50)" and two exit-code cases
+FAIL-FIRST: scripts/supabase-safety.test.sh - 3 of 31 failed under injection 2 ("prohibited-pattern flags disabled"): "10 an estimated count cannot establish completeness", "Content-Range /* read as truncation evidence", "12 a read outside the data layer is rejected even when bounded"
+Under injection 2 the offset, short-page and N+1 cases STILL passed - those reads were already hard
+as unbounded, and the flag names reached the report through the blocking signature. Recorded so
+the attribution is not overstated: injection 2 isolates the three flags that apply to otherwise-SAFE reads.
+
+NOT OBSERVED FAILING: starter/tests/functional/load-failed.functional.spec.ts - the browser cannot launch on the authoring machine ("browserType.launch: spawn UNKNOWN"; @next/swc "blocked by an Application Control policy")
+A spec that passed that same morning (narrow-width, 108-case tier green at v2.12.0) fails
+identically, so the block is environmental. The defect the spec pins is not hypothetical: the
+pre-change ItemsScreen did `catch { setRows([]) }` and rendered "No items yet - Add the first
+item" after a 500, which is read directly from the diff. The spec must be run on a machine that
+can launch Chromium before this version is merged; gate G8 reports FAIL here for that reason.
+
+### Three defects in the change found by running it
+1. The ESLint boundary flagged `status.from('active')` in an existing spec. A receiver blocklist
+   cannot know what `status` is; the rule now matches the CHAIN SHAPE and the audit agrees.
+2. `failed` already named the error-toast helper in ItemsScreen; the new state is `loadFailed`.
+3. The scratch app lacked a ratchet baseline; every "passes" case exited 3. The ratchet was right.
+
+### What is NOT covered
+The audit reads source with a regex. A query assembled across statements, or through a wrapper
+the app wrote, is invisible unless the wrapper is named in .supabase-safety.json. Whether an
+annotated maximum is TRUE is a person's judgement. Write paths are not classified.
+
+### A fourth defect, found while staging
+`starter/.env.test` - the file that carries the low cap - was gitignored by `.env.*`, and the
+unit spec defaulted to 50 when the variable was absent, so a fresh clone would have run the
+helper at 50 in the spec and the application at 1,000, with nothing saying so. `.gitignore` now
+excepts `.env.test` (test configuration, no secrets by construction) and the spec asserts the
+variable is PRESENT, not merely defaulted.

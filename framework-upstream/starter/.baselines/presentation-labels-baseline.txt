@@ -1,0 +1,5 @@
+# PRESENTATION LABELS BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# Signature: <path>|<line>|<what>. A canonical (machine-cased) union value rendered as user-facing text (CP-32).
+# Regenerate: node scripts/audits/check-presentation-labels.mjs --write-baseline
+# Generated: 2026-09-13 - 0 entries

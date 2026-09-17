@@ -1,6 +1,10 @@
 # 00 — Overview
 
 > Read this first. It is the map.
+>
+> **In a hurry, or new?** [`1_AppDevelopmentSteps.md`](../1_AppDevelopmentSteps.md) is the same
+> journey in plain English, without the reasoning — set up an app, build a change, keep up with
+> the framework. Come back here for *why*.
 
 ---
 
@@ -54,6 +58,10 @@ Both are explained in [01-SDLC.md](./01-SDLC.md) and
 | [23-DESIGN-CRAFT.md](./23-DESIGN-CRAFT.md) | The bar: what separates working from crafted — and the anti-gimmick rule. |
 | [24-DESIGN-PLANNING.md](./24-DESIGN-PLANNING.md) | The method: discovery, IA-first, the pipeline, scoring, the iteration loop. |
 | [25-ANALYTICS-AND-DASHBOARDS.md](./25-ANALYTICS-AND-DASHBOARDS.md) | Dashboards as configuration: metric model, honesty rules, choosing a visualization, drill-down. |
+| [26-DESIGN-DECISIONS.md](./26-DESIGN-DECISIONS.md) | The judgement layer under 23 and 24: evidence classification, conflicting sources, decision classes, risk-calibrated depth, the authority separation, escalation, failure modes. Its §0 maps what it does **not** restate. |
+| [workflows/design-phase.md](../workflows/design-phase.md) | The runbook that executes it — D0 frame → D9 deliver. Entered from Track A A3 and Track B B4. |
+| [27-STACK-SELECTION.md](./27-STACK-SELECTION.md) | Which frontend architecture a new app gets: Category A (Expo universal) vs B (Next.js web), the hybrid case, and the rule that an EXISTING app is evaluated and never auto-rewritten. The decision is executable - `scripts/lib/stack-select.mjs`. |
+| [28-SUPABASE-LARGE-DATA-SAFETY.md](./28-SUPABASE-LARGE-DATA-SAFETY.md) | No Supabase read may assume one request holds an unbounded number of rows: aggregate, bound, or keyset-page to completion (empty-page termination, never short-page); a filter is not a bound; raising `max-rows` is the prohibited fix; load-failed is not empty. Gate G14, low-cap test project. CP-34 |
 
 ### Appearance — colours, themes, contrast, assets
 | | |
@@ -152,12 +160,26 @@ pass) · the starter's own toolchain (`starter/package.json` declares it as rang
 produces one and G5-G8 can run at all) · the run log
 (`run-log.mjs`, which reads the clock so no duration is ever recalled) · the concurrent check
 runner (`par.mjs`) · the executable review matrix (`review-plan.mjs`) · the close-out renderer
-(`close-out.mjs`) · the theme build and its checks (`theme-build.test.sh` proves the build is a
+(`close-out.mjs`) · the searchable select (DR-5 — `starter/src/lib/select-options.ts` pure,
+`SearchableSelect.tsx` the control; it refuses a `+ Add` that duplicates an existing option by
+case or spacing alone, which is how one list ends up holding "Mumbai" and "mumbai") · the
+promotion parking lot's capture tool (`capture-candidate.mjs`, which
+parks a lesson at n=1 and is structurally unable to promote — `capture-candidate.test.sh` proves
+the framework does not move even at n=2) · the theme build and its checks (`theme-build.test.sh` proves the build is a
 function of its inputs, not of the directory it was invoked from) · the shell→interpreter path
 boundary (`lib/shpath.sh`, CP-31 — `shpath.test.sh` sweeps every harness for the raw-path form
 that made three suites accuse correct code, and plants a violation to prove the sweep fires) ·
 the audits (`check-hardcoded-colors` · `check-testid-coverage` · `check-rule-coverage` ·
 `check-column-control` · `check-fixture-leak` · `check-dead-weight` · `check-backward-compat` ·
+`check-presentation-labels` (CP-32 - a database value reaching the screen as a label) ·
+`check-design-contract` (gate **G13**, RC-018/RC-020 - when a design was SUPPLIED, every material
+decision in it is implemented with evidence resolved against the code, or deferred/changed with
+authority; `unresolved` blocks and cannot be baselined) · `scripts/design-ingest.mjs` (the
+supplied-design inventory: eight artifact classes, the product palette and the tool's own
+document tokens reported separately, INGESTION: COMPLETE or INCOMPLETE and meant) ·
+`templates/docs/DESIGN_CONTRACT.md` (copied into the app; design-phase D10) ·
+`check-supabase-reads` (gate **G14**, CP-34 - every Supabase read classified by what happens when
+the table grows; unbounded reads are hard findings) ·
 `check-pwa-baseline`) · the commit guards
 under `hooks/` · and the evolution tooling (`lineage.mjs` · `upgrade.mjs` · `conformance.mjs`),
 with shared engines in `lib/` (`ratchet` · `color` · `layout` · `lineage`).

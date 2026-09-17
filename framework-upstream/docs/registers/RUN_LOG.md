@@ -9,6 +9,25 @@
 > the costume of a record — which is precisely what [RC-008](./ROOT_CAUSE_REGISTER.md) cost
 > this framework: "run reports carry stage timings" was a rule for three versions and produced
 > **not one measured number**, because the only party asked to honour it was a narrator.
+>
+> ### Reading the Total column (v2.7.0)
+>
+> Rows from v2.7.0 read **`12m active · 3h 38m elapsed`**. Earlier rows carry one figure, and it
+> is the **elapsed** one.
+>
+> They differ because an agent-run session spends much of its wall clock waiting for a person to
+> read something and reply. R-006 recorded **3h 38m** for about fifteen minutes of work — the
+> requester stepped away between two messages — and a column that silently measures a lunch
+> break cannot answer the one question it exists for: *was it the machine or the agent?*
+>
+> **Active is a lower-bound estimate, not a measurement.** It sums the gaps between the marks
+> the script leaves as it runs, counting at most 10 minutes of any single gap; work done between
+> two marks further apart than that is not counted at all. A run with too few marks gets
+> **`active: no marks`** rather than a flattering number — the same rule as everything else
+> here: a figure nobody measured is never printed beside figures that were.
+>
+> **Elapsed is still recorded, always.** The honest answer to "how long did this take?" is
+> different for the machine and for the calendar, so the row carries both.
 
 ```bash
 node scripts/run-log.mjs start --type CHANGE --action "sign-out lands on the wrong screen" --scale micro
@@ -66,6 +85,23 @@ should start by reading this table rather than by guessing which part felt slow.
 
 | ID | Action | Type | Scale | Started | Ended | Total | Stages | Gate | Verdict | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
+| R-023 | Supabase large-data safety as a reusable framework capability | FRAMEWORK | n/a | 2026-09-14 16:17 | 2026-09-14 16:45 | 28m elapsed · active: no marks | - | 58.6s | BLOCKED | - |
+| R-022 | Close the six proven design-fidelity gaps: evidence-backed status, executable gate, traceability, ingestion classes, drift classification, assertion reconciliation | FRAMEWORK | n/a | 2026-09-13 15:28 | 2026-09-13 22:00 | 6h 32m elapsed · active: no marks | - | 2m 44s | PASS | - |
+| R-021 | Validate the design-fidelity pipeline end to end: which stages are executable, which are documentation | FRAMEWORK | n/a | 2026-09-13 15:17 | 2026-09-13 15:22 | 5m elapsed · active: no marks | - | 2m 42s | PASS | - |
+| R-020 | RC-019: close the commit-guard bypass | FRAMEWORK | n/a | 2026-09-13 15:10 | 2026-09-13 15:10 | 0s elapsed · active: no marks | - | 2m 42s | PASS | - |
+| R-019 | Repair two defects in the v2.13.0 design-contract audit, found by running it on the real corpus | FRAMEWORK | n/a | 2026-09-13 14:55 | 2026-09-13 14:57 | 2m elapsed · active: no marks | - | 2m 57s | PASS | - |
+| R-018 | Design-to-implementation fidelity: why an approved design can be silently replaced during implementation | FRAMEWORK | n/a | 2026-09-13 14:35 | 2026-09-13 14:52 | 18m elapsed · active: no marks | - | 2m 57s | PASS | - |
+| R-017 | DR-8 adaptive arrangement + CP-32 canonical vs presentation: two defect classes traced to the reference implementation and to verification that asked the wrong question | FRAMEWORK | n/a | 2026-09-13 13:55 | 2026-09-13 14:34 | 40m elapsed · active: no marks | - | 2m 54s | PASS | back-filled start |
+| R-016 | Implement Member Records using the repository's established architecture, preserving the design decisions; implement DR-7 column-header filter as the smallest reusable component | NEW | scoped | 2026-09-13 13:31 | 2026-09-13 13:51 | 15m active · 21m elapsed | ground 2m · build 3m · verify 15m | 2m 29s | PASS | - |
+| R-015 | Design a Customer/Member Management module: registration, list, search, filtering, view details, edit details, validation, success/error states, responsive mobile/tablet/desktop | NEW | scoped | 2026-09-13 13:20 | 2026-09-13 13:26 | 6m active · 6m elapsed | ground 4m · verify 2m | 2m 40s | PASS | Member module design + prototype; 0 questions; CP-26 assertion took 3 iterations |
+| R-014 | Design the Login/Authentication module: username-password login, forgot password, first-time login credentials / first-time password setup | NEW | scoped | 2026-09-13 13:11 | 2026-09-13 13:16 | 5m active · 5m elapsed | ground 1m · plan 1m · build 2m · verify 47s | 2m 40s | PASS | Login module design + prototype; no framework or app code modified |
+| R-013 | Proceed with the next queued SDCL item: Stack-Selection Policy - make stack selection deterministic, context-aware and reusable | FRAMEWORK | scoped | 2026-09-13 12:59 | 2026-09-13 13:09 | 10m active · 10m elapsed | ground 1m · build 2m · verify 7m | 2m 40s | PASS | stack selection + guide rule |
+| R-012 | Implement only the changes recommended as ADOPT or ADOPT CONDITIONALLY: B1 fail-first names the failure, B2 isolation, B3 numeric evidence labels, C verification semantics, D evidence categories, E scope control | FRAMEWORK | scoped | 2026-09-13 12:39 | 2026-09-13 12:52 | 14m active · 14m elapsed | ground 2m · build 6m · verify 6m | 2m 53s | PASS | B1/B2/B3/C/D/E only; 9 candidates not adopted |
+| R-011 | Add this in design phase of this SDLC workflow: SDLC Design Decision Knowledge Base v1.0 (42 sections) | FRAMEWORK | scoped | 2026-09-13 12:18 | 2026-09-13 12:38 | 20m active · 21m elapsed | ground 3m · build 52s · verify 10m · gate 6m | 3m 40s | PASS | docs/26 + design-phase runbook |
+| R-010 | the run log should measure actual active work time, not the time I spend thinking or waiting between messages | FRAMEWORK | scoped | 2026-09-12 23:10 | 2026-09-12 23:21 | 11m active · 11m elapsed | - | 2m 53s | PASS | RC-017: active beside elapsed |
+| R-009 | Column-level filtering: for data tables with multiple columns, provide a small filter control in each relevant column header. Filters must be independent, combinable, clearly show active filters, and allow individual or Clear all removal. Keep filtering separate from sorting and avoid large filter panels or toolbars. | FRAMEWORK | micro | 2026-09-12 18:51 | 2026-09-12 22:29 | 3h 38m | - | 3m 03s | PASS | DR-7; CP-23 amended for placement only |
+| R-008 | When a set of filters or categories does not fit comfortably on the screen, use a visible button that opens a compact sheet or grid. Avoid horizontal scrolling. Prioritize one-hand usability, fast discovery, and minimal interaction. | FRAMEWORK | micro | 2026-09-12 14:36 | 2026-09-12 14:44 | 9m | - | 2m 12s | PASS | DR-6 + its executable half |
+| R-007 | build the reusable searchable dropdown per DR-5: search, auto-focus, existing options, + Add, persistence, keyboard, a11y, both themes | NEW | scoped | 2026-09-12 13:56 | 2026-09-12 14:20 | 24m | - | 2m 43s | PASS | DR-5 built; RC-016 found and recorded |
 | R-006 | Audit log whenever RBAC is enabled: super admin creates an account, assigns a role, customizes features. Reusable component, table view with search, filter by date and module, and sorting | NEW | full-scale | 2026-09-08 13:45 | 2026-09-08 13:54 | 8m | ground 6m · verify 2m · gate 14s | 6.6s | BLOCKED | v1.28.0; CP-27 audit trail; 19/19 audit spec with 2 injected defects observed failing; gate BLOCKED on G5-G8 pre-existing |
 | R-005 | Remove the request pre-sorter: it cannot classify reliably when one chat carries more than one request | FRAMEWORK | scoped | 2026-09-08 12:46 | 2026-09-08 12:48 | 2m | ground 9s · build 42s · verify 59s · gate 13s | 6.3s | BLOCKED | v1.27.0; pre-sorter withdrawn; gate BLOCKED on G5-G8 pre-existing |
 | R-004 | Validation testing time is high and unmeasured (each correction tested individually); and Supabase soft-deletes where the frontend expects a hard delete | FRAMEWORK | scoped | 2026-09-08 12:22 | 2026-09-08 12:29 | 7m | ground 44s · plan 52s · build 3m · verify 2m · gate 7s | 6.2s | BLOCKED | v1.26.0; CP-26 delete contract, per-commit verification, request pre-sorter; gate BLOCKED on G5-G8 pre-existing |

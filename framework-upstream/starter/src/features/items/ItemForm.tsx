@@ -19,12 +19,13 @@
  */
 import React, { useState } from 'react';
 import { Dialog } from '../../components/Dialog';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import type { Option } from '../../lib/select-options';
+import { itemStatus } from './types';
 import type { Item, ItemDraft, ItemStatus } from './types';
 
-const STATUSES: readonly ItemStatus[] = ['active', 'archived'];
-
 export function ItemForm({
-  open, existing, draft, busy, onSave, onClose,
+  open, existing, draft, busy, onSave, onClose, categories = [], onCreateCategory,
 }: {
   open: boolean;
   /** Present -> edit mode, populated from this record. Absent -> create mode. */
@@ -34,16 +35,25 @@ export function ItemForm({
   busy: boolean;
   onSave: (draft: ItemDraft) => void;
   onClose: () => void;
+  /** The category set this app already knows. Supplied by the screen; the form does not fetch. */
+  categories?: readonly Option[];
+  /** Persist a newly added category to the app's own store - see SearchableSelect's note. */
+  onCreateCategory?: (label: string) => Option | Promise<Option>;
 }) {
   const mode = existing ? 'edit' : 'create';
   const [name, setName] = useState(draft?.name ?? existing?.name ?? '');
   const [status, setStatus] = useState<ItemStatus>(draft?.status ?? existing?.status ?? 'active');
-  const dirty = name !== (existing?.name ?? '') || status !== (existing?.status ?? 'active');
+  const [categoryId, setCategoryId] = useState<string | null>(
+    draft?.categoryId ?? existing?.categoryId ?? null,
+  );
+  const dirty = name !== (existing?.name ?? '')
+    || status !== (existing?.status ?? 'active')
+    || categoryId !== (existing?.categoryId ?? null);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || busy) return;
-    onSave({ name: name.trim(), status });
+    onSave({ name: name.trim(), status, categoryId });
   };
 
   return (
@@ -78,23 +88,45 @@ export function ItemForm({
             Cancel
           </button>
         </div>
+        {/* DR-5's worked example, and rendered in EDIT mode only for the reason the header
+            gives: in create mode the name field is followed DIRECTLY by Save, and a control
+            between them is a Tab the keyboard journey does not press. A category is not a
+            decision on a new record, exactly as status is not. */}
+        {/* DR-8: these two edit-only controls share a row while the space allows it and stack
+            when it does not - decided by `.form-grid` from the available width, not by a device
+            breakpoint. Create mode is untouched: there, Name is followed DIRECTLY by Save, and
+            that tab order is a contract this layout must not quietly lengthen. */}
         {mode === 'edit' && (
+          <div className="form-grid">
+          <SearchableSelect
+            label="Category"
+            testId="item-category"
+            options={categories}
+            value={categoryId}
+            onChange={(o) => setCategoryId(o?.id ?? null)}
+            onCreateOption={onCreateCategory}
+            placeholder="Search or add a category…"
+            {...(onCreateCategory ? {} : { storageKey: 'reference.categories' })}
+          />
           <fieldset className="field">
             <legend className="field__label">Status</legend>
             <div className="field__group">
-              {STATUSES.map((s) => (
-                <label key={s}>
+              {/* CP-32: `value` is canonical and drives the testid, the check and the state;
+                  `label` is the only thing rendered. They are deliberately not one string. */}
+              {itemStatus.options().map(({ value, label }) => (
+                <label key={value}>
                   <input
                     type="checkbox"
-                    data-testid={`item-status-${s}`}
-                    checked={status === s}
-                    onChange={() => setStatus(s)}
+                    data-testid={`item-status-${value}`}
+                    checked={status === value}
+                    onChange={() => setStatus(value)}
                   />{' '}
-                  {s}
+                  {label}
                 </label>
               ))}
             </div>
           </fieldset>
+          </div>
         )}
       </form>
     </Dialog>

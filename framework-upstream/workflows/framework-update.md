@@ -184,11 +184,32 @@ state, do not confirm that you issued the command. Change one variable at a time
 **Evidence or it did not happen.** Any claimed sweep includes the exact search command and its
 match count. "I checked everywhere" is not a finding.
 
+**A GAP found during a run is recorded in that run and fixed in another.** Recording is
+mandatory; fixing requires separate authorisation. A run that repairs everything it notices has
+no boundary, and its cost lands on whoever asked for the one thing it was actually for — RC-015,
+where a half-hour "tooltip" was fifteen minutes of tooltip and fifteen of adjacent repairs. The
+`debt` field of the close-out record is where the GAP goes; a second run is where it is closed.
+
 **Consistency sweep, as the last step of every run.** The runbooks, the reference docs and the
 checklists must still agree on the gate list, the paths, the registry lifecycle wording and the
 automation boundary. A worked example describing an older flow teaches the wrong flow, with
 confidence. Every reference document is either updated or explicitly declared "no change
 needed".
+
+**And the plain-English guide is part of that sweep.** If the change alters what somebody
+actually *does* — a new command, a changed step, a new rule they must follow, a thing that now
+refuses them — update [`1_AppDevelopmentSteps.md`](../1_AppDevelopmentSteps.md) in the same run,
+**in plain words**:
+
+- Short sentences. No jargon, no version numbers, no file paths unless they must type one.
+- Say what to do and what happens, not how it is implemented.
+- If a rule now blocks something, say what to do instead.
+- If the change is invisible to a person doing normal work, say "no change needed" and move on —
+  that guide is capped by usefulness, not completeness, and padding it is how it stops being read.
+
+It is the only document written for somebody who has not read the other twenty-six. A framework
+that improves while its one readable page goes stale has improved for the people who already
+knew, which is nobody who needed the page.
 
 **Self-modification is allowed and bounded.** This file updates its own governed table, routes
 and editing rules the same way it updates anything else — version-noted and diffed. An updater

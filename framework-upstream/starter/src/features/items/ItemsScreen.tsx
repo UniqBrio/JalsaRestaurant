@@ -26,6 +26,7 @@ import { ToastHost, useToasts } from '../../components/ToastHost';
 import { useListControls } from '../../hooks/useListControls';
 import { classifyError, userMessageFor } from '../../lib/errors.taxonomy';
 import { ItemForm } from './ItemForm';
+import { itemStatus } from './types';
 import * as api from './items.api';
 import type { Item, ItemDraft } from './types';
 import '../../components/components.css';
@@ -43,9 +44,14 @@ export function ItemsScreen() {
   const toasts = useToasts();
   const list = useListControls(rows, LIST);
 
+  // CP-34 / docs/28 §9: LOAD FAILED is not EMPTY. This used to read `catch { setRows([]) }`, and
+  // the screen then said "No items yet - Add the first item" after a failed read: a statement
+  // about the user's business that the system did not know. `failed` is its own state, with its
+  // own words and a retry, and the empty state is reached only when the read SUCCEEDED.
+  const [loadFailed, setLoadFailed] = useState(false);
   const reload = useCallback(async () => {
-    try { setRows((await api.list()) ?? []); }
-    catch { setRows([]); }
+    try { setRows((await api.list()) ?? []); setLoadFailed(false); }
+    catch { setLoadFailed(true); }
     finally { setLoaded(true); }   // the loader terminates, whatever happened (CP-3)
   }, []);
   useEffect(() => { void reload(); }, [reload]);
@@ -117,7 +123,17 @@ export function ItemsScreen() {
         onSort={list.sortBy} onClear={list.clearAll} testId="list"
       />
 
-      {loaded && rows.length === 0 ? (
+      {loaded && loadFailed ? (
+        // The read did not succeed. Say that, and offer the one action that can change it.
+        // Never the empty state: "no items" is a claim about the data, and we have no data.
+        <div className="items__empty" data-testid="list-failed" role="alert">
+          <p>These items could not be loaded.</p>
+          <button type="button" className="btn--primary" data-testid="list-failed-retry"
+            onClick={() => { setLoaded(false); void reload(); }}>
+            Try again
+          </button>
+        </div>
+      ) : loaded && rows.length === 0 ? (
         <div className="items__empty" data-testid="list-empty">
           <p>No items yet.</p>
           {/* An empty state that only says "nothing here" leaves the user with no next step. */}
@@ -131,7 +147,9 @@ export function ItemsScreen() {
           {visible.map((it) => (
             <li key={it.id} className="items__row" data-testid={`item-row-${it.id}`}>
               <span className="items__name">{it.name}</span>
-              <span className="items__status">{it.status}</span>
+              {/* CP-32: the canonical value stays on the record and in the testid; what the user
+                  reads is the declared label. */}
+              <span className="items__status">{itemStatus.label(it.status)}</span>
               <button type="button" className="btn" data-testid={`item-edit-${it.id}`}
                 onClick={() => setEditing({ open: true, existing: it })}>
                 Edit

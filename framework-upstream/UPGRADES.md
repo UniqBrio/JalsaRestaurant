@@ -12,6 +12,508 @@
 
 ---
 
+## 5.0.0 — 2026-09-14 — MAJOR
+
+**No Supabase read may assume one request holds an unbounded number of rows - and the gate now reads every read to make sure**
+
+PostgREST answers an unbounded read with HTTP 200 and the first max-rows rows - 1,000 by default, project-wide, every table, view and set-returning RPC - with no error. A count, a total or a 'who is missing' computed from that array is right until the day the table passes the cap, then confidently wrong, and the code that does it passed every test it was ever given because no fixture is that big. An application on this framework shipped exactly that, and the framework had no rule naming it, no sanctioned read shape, no guard, and a reference screen that modelled the smaller version of the same lie: `catch { setRows([]) }` followed by 'No items yet - Add the first item'. This version makes the engineering standard 'The Supabase 1,000-Row Limit' a framework capability rather than an application's lesson: three sanctioned shapes in order of preference (aggregate in the database; bound the list below the cap with a deterministic order and one extra row for hasMore; keyset-page to completion on a unique indexed key), with termination ONLY on an empty page - never on a short one, because a short page is exactly what a capped response looks like and exactly what a low-cap test produces. A filter is not a bound: `academy_id = X` is unbounded if one academy can exceed the cap, so a filter counts only with a SUPABASE-BOUND annotation naming the constraint, the maximum and who authorised it. Raising max-rows is the prohibited fix. Load-failed is not empty. It is a MAJOR by this framework's own definition: a gate step was added that can block, and its unbounded-read findings can never be baselined.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **RC-021 - an absence of evidence rendered as evidence of absence: at scale (the row cap) and in the small (a failed read shown as an empty dataset).**.
+
+### Added
+- docs/28-SUPABASE-LARGE-DATA-SAFETY.md - the standard: why, why dangerous, the three shapes, the prohibited fix, the prohibited patterns, a filter is not a bound, the data-layer boundary, the truncation guard, the four UI states, low-cap testing, where it sits in the SDLC
+- CP-34 in CANONICAL_PATTERNS.md
+- starter/src/lib/supabase-safety.ts - pageAllByKey (fresh query per page, cursor at the last key, empty-page termination only, throws on error, never partial, composite keys via keyOf + sameKey), readBounded (one extra row for hasMore, refuses a page size the cap reaches first), assertNotCapped (the truncation guard), LoadState (loading · present · empty · failed · incomplete). No Supabase import: typed against the shape of a query so it compiles here and in any app, and every rule is unit-tested with a fake
+- scripts/audits/check-supabase-reads.mjs - gate G14: every read classified BROKEN NOW · BREAKS SOON · SAFE-BY-FILTER · SAFE · UNKNOWN with file, line, table/RPC, filter, max rows, shape, pagination, aggregation, risk and remedy; unbounded reads, offset traversal, short-page termination, estimated-count completeness, Content-Range-as-evidence, N+1, outside-the-data-layer and a raised max-rows are HARD and never baselined; BREAKS SOON (declared max at or over the warn threshold, default 70%, configurable) is the ratcheted early warning; .supabase-safety.json configures cap, threshold, data layer and helper names
+- scripts/supabase-safety.test.sh - 31 cases over source, including the configurable boundary and the ESLint rule (fails open if the starter has no node_modules); in guard:test
+- starter/tests/unit/supabase-safety.unit.spec.ts - 16 cases at the low cap
+- starter/tests/functional/load-failed.functional.spec.ts - a failed read shows list-failed with a retry, never list-empty
+- starter/eslint.config.js - no-restricted-syntax outside DATA_LAYER, matching the chain shape `.from(...).select|insert|update|upsert|delete(` and `.rpc(`
+- starter/.env.test - PUBLIC_SUPABASE_MAX_ROWS=50; publicConfig.supabaseMaxRows in config.ts; the variable carried through next.config.mjs
+- SDLC touchpoints: feature.md A3.3b (name the data volume and the shape) and A5 (sanctioned shape, data layer, fixture larger than the cap), test-gate T2.1a, CODE_REVIEW_CHECKLIST, docs/26 §22-27, templates/code/README, docs/00, the manifest
+- Cases FW-SB-001..009; RC-021
+
+### Fixed
+- The reference list screen rendered the EMPTY state - 'No items yet - Add the first item' - after a failed read. It now renders list-failed with 'Try again', and reaches the empty state only when the read succeeded
+
+### Stated as honest debt, not papered over
+- The audit is a regex over source, not a type checker: a query assembled across statements or through an app-written wrapper is invisible unless the wrapper is named in .supabase-safety.json keysetHelpers. Write paths are not classified.
+- Whether an annotated SUPABASE-BOUND maximum is TRUE is a person's judgement; the audit checks that it is stated and authorised, and compares it to the cap.
+- The functional rung for load-failed was NOT executed on the authoring machine: an Application Control policy now blocks @next/swc and the Chromium launch, and a spec green that morning fails identically. G8 reports FAIL for that reason. It must be run on a machine that can launch a browser before merge.
+- RC-016 remains open: the gate runs test:unit and test:functional and never test:render.
+
+### App action required
+**This is the migration.** (1) Gate step G14 classifies every `.from(`/`.rpc(` read in the app. An app with no Supabase reads passes with one loud line. An app WITH reads will see every unbounded one as a HARD finding on the first run - that is the standard telling the truth about reads that were always unsafe past the cap. For each: aggregate, bound below the cap with an order, or page with `pageAllByKey` from `src/lib/supabase-safety.ts` (copy it from the starter; it has no dependencies). A read genuinely bounded by a business constraint gets a `// SUPABASE-BOUND: <constraint> | max <N> rows | <who> <date>` line above it. (2) ESLint now rejects `.from(...).select(...)` and `.rpc(` outside the data layer; set `DATA_LAYER` in eslint.config.js and `dataLayer` in `.supabase-safety.json` to your app's actual directories - the starter's are a default, not an assumption. (3) Add `PUBLIC_SUPABASE_MAX_ROWS` to `next.config.mjs` and set it to 50 in `.env.test`; any list or export you add gets a fixture larger than that. (4) A screen that renders an empty state after a failed read is a defect under this version; the reference screen shows the shape (`list-failed` with a retry). upgrade.mjs writes the G14 baseline on apply, so the build stays green on day one - except for hard findings, which are the point.
+
+---
+## 4.0.0 — 2026-09-13 — MAJOR
+
+**The design gate reads the code, not the contract - and recorded is no longer mistaken for resolved**
+
+Validation of the v2.13 design-fidelity layer returned PARTIALLY VALIDATED with six proven gaps, and one cause behind all six: the layer verified the ACCOUNTING and called it fidelity. A row saying `implemented` was believed, so a feature omitted from the code plus a false word produced 'complete and consistent'. Eight unresolved rows could be baselined into exit 0 - documenting uncertainty was being counted as resolving it. The runbook said GATE 3 blocks, and nothing executed the sentence. The ingest tool put 63 of 77 artifacts in one bucket, 'inspect by hand', when 53 were input material nothing referenced - honesty undifferentiated to the point of noise, so nobody inspected the one that mattered. The drift vocabulary defined MINOR VARIATION and nothing could emit it. And the requester's '12 menus' against the flowchart's thirteen was handled by a person remembering to notice. This version makes each of those a rule with an exit code: `implemented` requires Evidence the audit resolves against the application tree (file/route/testid/text/spec, or a named person and date), plus a Verified-by; hard findings - blank, unresolved, false or unsupported implemented, unauthorised change, unresolved conflict, brand mismatch - exit 2 whatever the baseline says; the audit is gate step G13; the contract row IS the trace (source -> decision -> evidence -> verification); ingestion classifies every artifact A-H and extracts Markdown, JSON, CSV and DOCX with stock tooling; drift is produced per row by readable rules, with a declared variance an IMPLEMENTATION DETAIL when its area is ceded and a MINOR VARIATION otherwise; and a requester assertion against an authoritative artifact is an ASSERTION row that blocks until resolved with a stated precedence. It is a MAJOR by this framework's own definition - a gate step was added that can block, and findings that used to be baselinable no longer are.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **RC-020 - a check that reads a declaration about the thing instead of the thing.**.
+
+### Added
+- Gate step G13 in scripts/gate-runner.mjs - the design contract is executed, not read
+- Evidence resolution in check-design-contract.mjs: file: route: testid: text: spec: manual:<who> <date>, resolved against the application tree; UNKNOWN when it cannot be evaluated, never a pass
+- Per-row drift classification - SAME · IMPLEMENTATION DETAIL · MINOR VARIATION · MATERIAL DESIGN CHANGE · MISSING · UNKNOWN · CONFLICTING - each produced by a rule stated in the file header
+- HARD vs SOFT findings: hard exit 2 regardless of baseline; soft (declared minor variation, pending verification, owned open unknown) are ratcheted - recorded, visible, allowed to shrink
+- Section 9 ASSERTION kind with a Precedence column: a requester claim against an authoritative artifact blocks until resolved on authority/scope/freshness/provenance/evidence
+- design-ingest: eight artifact classes (A parsed · B partial · C unsupported · D needs extraction · E needs visual inspection · F duplicate · G unreferenced input · H generated); Markdown, JSON, CSV and DOCX extraction; hash-grouped duplicates with the REFERENCED file as survivor; the medium's own readme quoted as scope evidence in a conflict; INGESTION: COMPLETE/INCOMPLETE
+- scripts/design-fidelity.test.sh grown from 12 to 39 cases, covering A-I of the validation brief
+- Cases FW-FID-007..013; RC-020
+
+### Fixed
+- A false `implemented` no longer passes: a reference that does not resolve makes the row MISSING and blocks (RC-020)
+- `unresolved` can no longer be baselined into green; a baseline records, it does not approve
+- The contract row now carries the whole trace: source -> decision -> implementation evidence -> verification
+- On the reference corpus: 77 artifacts = 17 parsed · 1 needs visual inspection · 1 duplicate · 53 unreferenced input · 5 generated · 0 unsupported · 0 needing extraction - previously '14 parsed, 63 inspect by hand'
+- design-phase D3 Triangulate names the requester-vs-artifact case; D10 and feature.md A3.0 now describe the executed gate rather than a sentence
+- 1_AppDevelopmentSteps.md tells a person, in plain words, what happens when somebody already designed the app
+- docs/00-OVERVIEW.md registers design-ingest and the contract template, which v2.13.0 had left unregistered
+
+### Stated as honest debt, not papered over
+- `manual:<who> <date>` is accepted as evidence for what only eyes can verify - a logo, a screen's likeness to its mock-up. It is counted and printed, never hidden, and it is still a person's word. No evidence kind renders the application.
+- The audit resolves the application from the working directory; the gate runner's --app flag does not reach G13 (nor G9, G11, G12). The gate is run FROM the application.
+- `route:` proves a page file or a link exists, not that the page resembles its design. `text:` proves a label string exists somewhere in src, not that it is the navigation label.
+- Image artifacts are classified by reference and hash only; nothing looks inside them. Class E is the honest name for that.
+- RC-016 remains open: the gate runs test:unit and test:functional and never test:render.
+
+### App action required
+**This is the migration, and it touches only apps built from a supplied design.** (1) G13 is a new gate step: an app with no `docs/DESIGN_CONTRACT.md` passes it with one loud line and needs to do nothing. (2) An app WITH a contract must move its MUST-PRESERVE table to six columns - `# | Decision | Source | Status | Evidence | Verified by` - and its section 9 to six - `Item | Kind | Sources | Owner | Precedence | Status` (templates/docs/DESIGN_CONTRACT.md). (3) Every `implemented` row needs Evidence that resolves against the code and a Verified-by; every `unresolved` row will now BLOCK until it is settled - a baseline no longer covers it, on purpose. (4) `deferred`/`blocked` need an owner named in Evidence; `changed` needs a section-8 row. Expect the first run after upgrading to block; that is the gate telling the truth about what was previously accepted on a word.
+
+---
+## 3.0.0 — 2026-09-13 — MAJOR
+
+**Every commit guard was bypassed by the one-liner everybody types, and guard:test could never have found it**
+
+A guard printed BLOCKED [G1] and the commit in the same command succeeded and pushed. The two lines contradicted each other in one terminal, which is the only reason this was noticed at all. The cause: .git/hooks/pre-commit is not installed, so the only enforcement is the PreToolUse adapter, and that adapter runs BEFORE the command while the guard reads `git diff --cached`. When the command stages its own work - `git add -A && git commit`, or `commit -am` - the index is EMPTY at the moment the guard runs, CHANGED is empty, and the script exits before any guard function is reached. That shape is not an edge case; it is what people actually type, so the bypass was the common path and the guarded path the exception. What makes this an S1 rather than a bug: `npm run guard:test` passed throughout and always would have, because it executes the guards directly and never through the adapter against an unstaged tree. The layer was inert and every signal said it was healthy. This is also the SECOND appearance of the class here - the push mode was fixed for exactly this reason, and the comment explaining it sits four lines above the branch that had the identical defect for commits. One mode was fixed; nobody looked at its sibling.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **RC-019 - a checker that inspects state the command has not produced yet. Any pre-execution hook reading mutable state has this class.**.
+
+### Fixed
+- GUARD_WORKTREE: the adapter detects a command that stages its own work and tells the guard the CHANGE is the working tree (git diff HEAD plus untracked), not the index
+- staged_diff() follows all three modes - otherwise the guards read the index they were told to ignore
+- G3's added-spec detection follows all three modes - an untracked new spec was invisible to the guard that exists to catch exactly that file
+- v2.13.1 was committed unguarded and is missing its test cases; FW-GUARD-001..003 and this entry are the repair
+
+### Stated as honest debt, not papered over
+- The adapter parses a command STRING, not an AST, so it cannot tell a git command from a string that contains one. A command whose text mentions both `git add` and `git commit` now runs the guards against the real tree and may block. Deliberate and stated: a loud, escapable false positive beats a silent bypass of the whole layer - it was hit while writing the test for it.
+- `.git/hooks/pre-commit` is still not installed in this repository, so enforcement outside the agent remains absent. `npm run guard:install` exists and was not run here.
+- RC-016 remains open: the gate runs test:unit and test:functional and never test:render.
+
+### App action required
+**This is the migration.** Commits that previously succeeded may now be blocked, because guards that were being skipped now run. Nothing about the guards themselves changed - G1-G9 and their escape tokens are exactly as documented. If a commit starts failing, the guard was always meant to fire and did not: satisfy it, or use that guard's own escape token with a justification. There is still no global bypass. Apps that already install `.git/hooks/pre-commit` were never affected; apps relying on the agent adapter were unguarded on any command that staged its own work.
+
+---
+## 2.13.1 — 2026-09-13 — PATCH
+
+**The drift check could not read its own template, and reported nothing with total confidence**
+
+v2.13.0 shipped a design-contract audit whose headline job is catching a brand substitution. Run against the real Jalsa contract minutes later, it said 'NO CANONICAL BRAND COLOUR DECLARED' - because its regex required the hex to follow the colon with only whitespace, and the template it ships with writes '**Brand colour (canonical hex):** `#7a1c24`'. It could not parse its own template. Nothing would have failed; it would have reported a clean contract forever, which is the exact failure mode the framework's fifth binding rule is about. The second defect is subtler and worse in the long run: `unresolved` is a legitimate status, so thirteen unresolved MUST-PRESERVE rows passed in silence. Accounted for is not the same as settled, and implementation must not begin on top of one. Both were found by USING the tool on a real corpus rather than reasoning about it - which is the only reason this entry exists on the same day as the feature.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **A detector never run against real input. Its own template was the input it could not parse.**.
+
+### Fixed
+- The brand-colour match tolerates markdown emphasis and backticks, so it can read the contract template it ships with
+- An `unresolved` MUST-PRESERVE row is now a ratchet signature rather than a silent pass - accounted for, but not settled
+
+### App action required
+Nothing. The audit arrives baselined; an app with unresolved rows is baselined at that count and the ratchet counts down as they are settled.
+
+---
+## 2.13.0 — 2026-09-13 — MINOR
+
+**The runbook told the implementer that visual style binds nothing - and two applications were rebuilt in the agent's taste**
+
+An approved design corpus was handed to implementation twice - Jalsa and, earlier, RosiFit - and twice what came back had a different brand, a different navigation and a changed information architecture. Both times it was treated as a UI bug in that application, which is why it happened again. The cause is not that anyone ignored the design. Design-phase D5 read 'Preferences (bind nothing): layout, visual style, interaction taste', unconditionally; to an agent implementing a supplied design that is an explicit statement that navigation, brand and interaction bind nothing, so substituting its own palette was COMPLIANCE with the runbook rather than a violation of it. Two smaller holes made it survivable: D1's retrieval list named only repository evidence, so a folder of supplied artifacts was not a source class and D3's retrieve action never fired for it; and D2's conversions table guarded only against inflating weak evidence into strong, with no row for the reverse - an approved design decision demoted to an implementation preference - which is exactly the move that happened. There is also a trap that makes the corpus actively misleading: a generated design export carries TWO design systems, and the wrong one is the more discoverable. Measured on the real Jalsa folder, the _ds stylesheet declares --color-accent #c67139 on cream while #7a1c24 maroon appears 219 times across six product screens and zero times in either the stylesheet or the page titled 'Reusable Design Standards'. An agent trusting the folder named like a design system implements the DOCUMENT'S chrome with perfect fidelity and ships the wrong-coloured application - which is very likely the literal mechanism of the reported light theme.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **RC-018 - a rule that is correct in its original context and licenses the opposite in another. D5 was written for designs being decided, and was read by agents implementing designs already approved.**.
+
+### Added
+- workflows/design-phase.md D10 - the supplied-design order of operations: source -> authority -> ingestion -> inventory -> contract -> implementation -> traceability -> fidelity -> drift -> accept/change/escalate. Includes the two-design-systems trap with the measured numbers
+- docs/registers/CANONICAL_PATTERNS.md CP-33 - you choose HOW; you do not quietly choose WHAT
+- docs/registers/ROOT_CAUSE_REGISTER.md RC-018
+- scripts/design-ingest.mjs - inventories a corpus at scale: what parsed and what did NOT, candidate inventories from repeated label groups (which found a 13-section navigation where <nav>/<ul> scanning found zero), and the product palette and document tokens reported SEPARATELY. Exits 3 on an unreadable source, 1 on a conflict, and never resolves one
+- scripts/audits/check-design-contract.mjs - ratchet, in audit:all. The load-bearing rule is that a MUST-PRESERVE row must read implemented/deferred/changed/blocked/unresolved; blank is a violation
+- scripts/design-fidelity.test.sh - 12 cases, in guard:test
+- templates/docs/DESIGN_CONTRACT.md - the contract belongs to the APPLICATION; the framework owns the template, the tool and the ratchet
+- workflows/feature.md A3.0 - GATE 3 does not pass while a MUST-PRESERVE row is blank
+- Cases FW-FID-001..006
+
+### Fixed
+- design-phase D5: the preference clause is now conditional - 'when nobody has approved them'. An approved design's material decisions are hard constraints. What changes a subject's status is the approval, not the subject
+- design-phase D1: supplied design artifacts are the FIRST entry in the retrieval list, not absent from it
+- design-phase D2: the conversions table gained 'an approved design decision -> an implementation preference', the direction it never guarded
+- design-ingest reported '0 page(s)' while printing a full product palette - it parsed every page and never added them to the inventory. Caught only because the two numbers contradicted each other on screen
+
+### Stated as honest debt, not papered over
+- This layer makes the ACCOUNTING honest, not the fidelity. It does not prove the built navigation has the named sections, that a screen resembles its mock-up, or that a feature behaves as designed - those need the running application or a human. What it removes is silence.
+- check-design-contract cannot read the application's rendered UI; the brand check works only because colour lives in one file, and has no equivalent for navigation or screens.
+- design-ingest's candidate inventories are CANDIDATES - it names repeated label groups and their counts and deliberately does not decide which one is the navigation.
+- Binary artifacts (logos, .docx requirements, pasted screenshots) are listed as NOT PARSED and must be inspected by hand. 59 of the 77 artifacts in the reference corpus fall in this class.
+- RC-016 remains open: the gate runs test:unit and test:functional and never test:render.
+
+### App action required
+Nothing required unless a design is supplied. When one is, workflows/design-phase.md D10 is the order of operations and workflows/feature.md A3.0 is the gate: run `npm run design:ingest -- <folder>`, declare source authority, copy templates/docs/DESIGN_CONTRACT.md into the app as docs/DESIGN_CONTRACT.md, and run `npm run audit:design` before substantial implementation. Apps with no supplied design are unaffected - the audit reports 'no contract' loudly and passes, because a gate that blocked every ordinary application would be switched off within a day.
+
+---
+## 2.12.0 — 2026-09-13 — MINOR
+
+**Two defects the framework taught by example - a form that fits without adapting, and a database value shown to a customer**
+
+Both were found in a prototype and both turned out to be in the reference implementation itself, which is the part every scaffolded app copies. ItemsScreen rendered `{it.status}` and ItemForm rendered `{s}`, so the starter shipped `active` and `archived` to users while DR-1 asked every other string to be sentence-cased; and the starter had no adaptive multi-column form ANYWHERE, so docs/24's responsive planning had nothing to point at and every app invented its own arrangement. The reason neither was caught is the same in both cases: the framework verified the wrong thing, in a way that looks like coverage. `narrow-width.functional.spec.ts` asks whether the page scrolls sideways - a necessary question that a two-column form at 320px answers with a confident NO while being two 127px fields. And DR-1's rung tests `sentenceCase()` in isolation, proving the utility works, not that anything calls it. A passing check over the wrong question is worse than no check, because it is counted as coverage. The second correction is deliberately shaped so the RIGHT path is the SHORT one: `{item.status}` won because it was fewer characters than a lookup, and any rule asking people to type more forever to avoid a defect they cannot see will lose. `presentation()` makes the map total by construction, so a new state fails the build until someone names it - the question gets asked when the state is invented, not when a customer reports reading it.
+
+Full analysis: `docs/registers/ROOT_CAUSE_REGISTER.md` **Verification that asked a necessary question and was counted as if it asked the sufficient one. Overflow was treated as the definition of responsive; a utility's unit test was treated as proof the utility is used.**.
+
+### Added
+- docs/registers/DESIGN_RULES.md DR-8 - an arrangement is a function of available space and what the content needs, never of a device name. The permitted outcomes are keep / stack / regroup / full-width, and the content decides which
+- docs/registers/CANONICAL_PATTERNS.md CP-32 - canonical value and presentation label are two strings, declared apart
+- starter/src/lib/presentation.ts - the map is Record<T, string> over the union, so totality is a BUILD error rather than a review item
+- scripts/audits/check-presentation-labels.mjs - ratchet, wired into audit:all. Reads only JSX CHILDREN regions, so a canonical data-testid (which must stay canonical) is never flagged. Escape: PRESENTATION-NA:
+- starter/tests/functional/responsive-fit.functional.spec.ts - a width sweep asserting no control is cramped, no label clipped, every button operable; each with a companion 'something was measured' assertion so an empty selector cannot pass in silence
+- starter/tests/unit/presentation.unit.spec.ts - 7 cases, the load-bearing one being that the canonical value is UNCHANGED
+- .form-grid in components.css - DR-8 in one declaration, auto-fit + minmax, no media query
+- layout.minFieldWidth in design/tokens.json - read by both the generated CSS and the spec that polices it
+- Cases FW-RESP-001..003 and FW-PRES-001..003
+
+### Fixed
+- The reference implementation stopped showing canonical values to users: ItemsScreen and ItemForm now render declared labels while the value, the testid and the state stay canonical
+- Ordinary buttons had no minimum height and rendered at 39px - tabs and the two menus already carried the named target, the control users press most did not
+- The searchable-select trigger met the touch target only under a coarse-pointer query, so a touchscreen laptop got 34px; it now carries the minimum unconditionally, and the literal 44px beside it became the token
+- humanise() split camelCase and turned sent_to_WhatsApp into 'Sent to Whats App' - the exact corruption text-format.ts exists to prevent, reintroduced in a new file and caught by its own spec before it shipped
+- docs/24 §7 decided responsive behaviour per device class; it now decides by available space and names the design-phase determination
+- docs/26 §22-27 pointed only at DR-6 for responsive; it now carries DR-8 and both design-phase determinations
+- PRODUCT_LEXICON said 'a database column name is not a user-facing word' as prose for as long as it existed; it now names CP-32 as the mechanism
+
+### Stated as honest debt, not papered over
+- Helper and validation text expanding without clipping is part of DR-8 and is NOT asserted - the reference form has none to measure, and an assertion over an empty set proves nothing. Review until a worked example exists.
+- Whether a stacked group still READS as a group is design review; no scanner can judge it. Declared in DR-8.
+- check-presentation-labels cannot see a value that reaches the screen through a name nothing types, or anything computed (a ternary, a template literal, a helper). It is a FLOOR and says so.
+- RC-016 is still open: the gate runs test:unit and test:functional and never test:render.
+
+### App action required
+Nothing required. Both arrive baselined: `check-presentation-labels` is a new ratchet (an app with existing raw values is baselined at its current count and can only improve), `.form-grid` and `presentation()` are opt-in, and `layout.minFieldWidth` is a new token with a default. An app adopting DR-8 wraps a control group in `.form-grid`; an app adopting CP-32 declares `presentation<T>({...})` beside its union. Existing callers are unaffected - `clearAll`, `sentenceCase` and every canonical value are untouched.
+
+---
+## 2.11.0 — 2026-09-13 — MINOR
+
+**The filter moves into the column it filters - and the shared hook grows the clear it was missing, instead of one table growing a private one**
+
+DR-7 says filtering and sorting are separate affordances and the filter belongs in the column header. The register had carried it as a GAP with a real cost attached: the only multi-column table in the repository put every filter in a toolbar above the table, so a user narrowing 'Screen / module' had to leave the column, find the chip, and trust that it applied to the column they were looking at. Building the control is the easy half. The half that decides whether this is a framework change or a fork is `clearField`: the header control needs 'Clear this filter' for ONE column, `useListControls` had only `clearAll`, and the tempting move is a three-line loop over `toggleFilter` inside AuditLogTable. That leaves the gap in place for every app that upgrades and gives this table a private filter model - which is the exact failure CP-23 exists to prevent, arriving as a helpful local fix. So the hook was refined and the component holds no state at all. The register row is PARTIAL, not READY, and says why in the row: one column of one table, a flat list of string options, no numeric or date columns, no mobile sheet. DR-6/DR-7 composition on a 360px screen remains a queued GAP and was not touched.
+
+### Added
+- starter/src/components/ColumnFilter.tsx - DR-7's control. Holds NO filter state: it takes `selected` and calls `onToggle`/`onClear`, so the header cannot start disagreeing with the list beside it. Escape is consumed in the CAPTURE phase on document, because React's stopPropagation does not reach a Dialog's own document listener and the menu would otherwise close the whole dialog around it. The active count is in the aria-label, not only the badge.
+- starter/tests/unit/column-filter.unit.spec.ts - seven tests over the pure logic: own-field narrowing, OR within a field, AND across fields, clearField isolation, empty selection, and BOTH directions of filter/sort independence
+- .colfilter* styles in starter/src/components/components.css - semantic tokens only, 44px targets under coarse pointer
+- Cases FW-COLF-001..003
+
+### Fixed
+- useListControls gained clearField - the REFINE the component needed, made in the shared hook rather than worked around in the caller
+- AuditLogTable renders the module filter inside its own <th> and passes filters={[]} to the toolbar, so there is one filter affordance per field, not two driving the same state
+- FRAMEWORK_MANIFEST.md's compact docs list stopped at 25 and now names 26 and 27 (consistency sweep)
+
+### Stated as honest debt, not papered over
+- COMPONENT_LIBRARY's DR-7 row is PARTIAL, deliberately not READY: one column of one table, flat list of string options. Promotion criteria are not met and the row says so.
+- DR-6/DR-7 composition below 360px is still a queued GAP - a filter sheet component is not built.
+- RC-016 remains open: the gate runs test:unit and test:functional and never runs test:render, the tier DR-3 names as its rung. Untouched here; fixing it turns fixtures green to red and is a MAJOR.
+
+### App action required
+Nothing required. `ColumnFilter` is new and opt-in; `useListControls` gained `clearField` alongside `clearAll`, which is additive - existing callers are unaffected. An app wanting column-header filters imports the component and passes the hook's state; an app happy with the toolbar changes nothing.
+
+---
+## 2.10.0 — 2026-09-13 — MINOR
+
+**Stack selection becomes a function with five outcomes - and the scaffolder stops silently answering the question for you**
+
+`npm run new:app` copies starter/, which is Next.js + React + TypeScript + Supabase. That is Category B, and it was produced every time, whatever the product actually needed, with nothing anywhere saying so. A team building a mobile-first installable application would have received a web application with a DOM component library and found out late - which is exactly what the policy's own design-system rule warns against making the foundation of a React Native application. The policy is written as a function rather than a paragraph because a paragraph is not deterministic: two readers get two answers and the one under time pressure gets the familiar one. Five outcomes, and two of them are the reason it is worth having: ASK, when installability or native distribution is unknown, because a selector that always returns a category decides an architecture from absent information and 'it picked Next.js' becomes indistinguishable from 'it knew Next.js was right'; and EXISTING, which stops - the policy prefers a stack, it does not authorise a rewrite, and a function that could order one would eventually order a bad one. The distinction the whole thing turns on is that mobile-responsive is not mobile-first universal: mobileWeb is deliberately NOT a universal signal, and case 2 exists to catch it if that ever changes.
+
+### Added
+- scripts/lib/stack-select.mjs - the decision as a pure function: A (Expo universal), B (Next.js web), HYBRID (evaluate a split, never adopt one automatically), EXISTING (evaluate, never rewrite), ASK (the one question that separates the paths). Plus renderRecord(), which builds §8's record from the same inputs the decision used, so the record cannot disagree with the decision it documents
+- scripts/stack-select.test.sh - the policy's seven cases, executed, wired into npm run guard:test
+- docs/27-STACK-SELECTION.md - the policy, and an explicit note that where it and the function disagree, the function is what runs and the disagreement is a defect
+- A COMPONENT_LIBRARY subsection for the Expo stack with every UI row GAP - including the honest nuance that check-contrast is already stack-neutral and the token file's .ts half is portable, while G5-G8 are not
+- Cases FW-STACK-001..005 and FW-GUIDE-001
+
+### Fixed
+- new-app.mjs declares Category B at the end of a scaffold and refuses --category A with the reason, the GAP row, and what to do instead
+- workflows/framework-update.md: the consistency sweep now explicitly covers 1_AppDevelopmentSteps.md - in plain words, no jargon, no version numbers, and 'no change needed' is a valid answer, because that guide is capped by usefulness rather than completeness
+- 1_AppDevelopmentSteps.md gains the one question as Step 2, in laymen's terms, and the steps renumbered around it. Applied in the same run as the rule that requires it
+
+### Stated as honest debt, not papered over
+- Category A has no implementation and none is being written speculatively - it is a second reference implementation to maintain forever, and it should be driven by a real product that needs it. The GAP rows say so rather than leaving the absence to be discovered
+- The selector reads the context it is GIVEN. Nothing retrieves SEO importance or PWA intent from project artifacts automatically, so the inputs are a human's reading of the request - which is why the ASK outcome exists rather than a confident default over unknowns
+- HYBRID returns 'evaluate a split' and deliberately stops short of recommending one. Whether two codebases are worth their maintenance is a judgement about a team and a product, and a function that answered it would be answering something it cannot see
+
+### App action required
+Nothing changes for an existing application - the selector returns EXISTING and stops, and no migration is proposed or performed. For a NEW app there is one question to answer before scaffolding: will people install this, or go to the app stores, or is a mobile browser enough? A mobile browser is Category B, which is what `new:app` builds. Installable or app-store means Category A, which this framework cannot build yet - `new:app --category A` REFUSES with an explanation rather than handing over a web tree under that name. The plain-English guide now opens with that question as its Step 2.
+
+---
+## 2.9.0 — 2026-09-13 — MINOR
+
+**Fail-first must name the failure - because the framework's own fixtures said 'red first', and five results in a week were green for a reason nobody had looked at**
+
+Guard G3's own message has asked for '<the failure it produced>' since it was written, and the check accepted anything after the colon. So 'FAIL-FIRST: x - red first' passed - and that is literally what three of this repository's own guard fixtures said. The cost showed up five times in one week, in three shapes, every one of which satisfied fail-first as it then stood: a sweep whose regex the shell had mangled matched zero lines in both the broken and the fixed tree and read as clean (RC-012); an injected defect that died with a syntax error, so the 'it can fail' probe passed against a tool that never executed (v1.36.0); and twice a new check passing on an OLDER check's identical exit 2 (v2.1.0, v2.2.0). Proving a test CAN go red is not proving it went red for the stated reason. The rule already existed - what was missing was that the enforcement matched the instruction. Net change: one regex tightened, one guard message extended, three documentation blocks, one runbook line. No new phase, no new file, no new checklist item, no scoring; the screen checklist is untouched at 20 and still full.
+
+### Added
+- G3 now verifies the failure DESCRIPTION, not just the token: a digit or a quoted fragment, plus a refusal list of the placeholder phrases actually observed standing in for evidence. Seven new reachability cases covering both refusals, the three accepted signal shapes, the NOT-OBSERVED-FAILING exemption, and the original no-evidence block
+- docs/15 §6 - the three questions for a new behaviour rung (did it fail · what did the failure SAY · could anything else have produced it), the conditional isolation rule for a shared failure signal, and the table of the three vacuous-pass shapes seen this week
+- docs/26 §5b - six evidence kinds with BOOKKEEPING named as the one that is never evidence of the property, and the rule to prefer a weaker explicit source over a stronger inferred one. §5c - a number in a register states measured / derived / estimate-with-bound / unknown
+- workflows/framework-update.md - a GAP found during a run is recorded in that run and fixed in another; recording is mandatory, fixing needs separate authorisation
+- Cases FW-FF-001..002, FW-EVID-001, FW-NUM-001, FW-SCOPE-001
+
+### Fixed
+- Three fixtures in guard-reachability.test.sh used 'red first' to get past G3 while testing other guards. They now carry a real signal - the framework's own tests were the first thing the tightened rule caught
+
+### Stated as honest debt, not papered over
+- B1 and B3 raise the cost of the specific mistakes that happened five times; they do not make them impossible. A determined author can still quote a plausible failure, and no scanner can tell an 11m that was measured from an 11m that was guessed. §5c says so in the text rather than implying a guarantee - claiming enforcement that does not exist is the failure mode the whole file is about
+- B2's isolation rule is documentation, not a check. Whether a failure signal is shared with an existing check is a judgement about the surrounding code, and a scanner that tried to decide it would produce exactly the confident wrong answers this release is reducing
+- NINE of the fifteen candidate behaviours in the review were deliberately NOT adopted - already enforced elsewhere, or unactionable as separate rules. The analysis is in the session record rather than in the repository, which is the one piece of this work with no home in the registers
+
+### App action required
+One thing to know if you use the commit guards: `FAIL-FIRST:` lines must now carry an observable signal - an exit code, a count, a measurement, or the message in quotes. `red first` and a bare `failed` are refused. Quoting is always available, so the rule is always satisfiable, and `NOT OBSERVED FAILING:` is unchanged and exempt because it records a reason rather than a failure. Existing TEST_SUMMARY.md rows are untouched: the guard only reads lines a commit ADDS, so nothing already in your ledger is re-judged.
+
+---
+## 2.8.0 — 2026-09-13 — MINOR
+
+**The design phase gets its judgement layer - and half the knowledge base turned out to already exist here under different names**
+
+Two artifacts arrived for the design phase: a Design Decision Knowledge Base and its Master Execution Prompt. Adding them verbatim would have been the easy answer and the wrong one. Read against what exists, roughly half the knowledge base restated mechanisms this framework already had: retrieve-before-asking, materiality, question selection and safe inference are docs/24 §2's Infer / Investigate / Ask / Never-assume table; design states are §8; responsive is §7; design-system governance is §6 plus the COMPONENT_LIBRARY reuse check; lightweight/standard/deep execution is the scale lanes; 'unknowns are never filled in silently' is /request R2 writing the literal word unknown. A second vocabulary for one concern is a defect by this framework's own rule - two names produce two answers - so the overlapping sections became POINTERS and only what was new was written out. One expected conflict turned out not to be one: the knowledge base warns against numerical UX scoring, and docs/24 §11 already grades by verdict (PASS / NEEDS-IMPROVEMENT / CRITICAL) rather than by weights, so the two agree.
+
+### Added
+- docs/26-DESIGN-DECISIONS.md - the reasoning knowledge base. What it adds beyond what existed: evidence classification and the conversions that cause damage (existing behaviour -> requirement, API capability -> authorisation, preference -> requirement, correlation -> causation), conflicting-source resolution, decision classes worth a playbook, risk-calibrated depth as a SECOND axis beside the scale lanes, the four-way authority separation (requester is not the decision owner is not action authority is not specialist expertise), the escalation contract, analytics as descriptive not causal, and the failure-mode list
+- workflows/design-phase.md - the runbook: D0 frame, D1 retrieve, D2 classify, D3 materiality into one of six actions, D4 ask well, D5 separate constraints from preferences, D6 choose depth and design, D7 verify, D8 escalate as a package, D9 deliver. Deliberately NOT a slash command: the design phase is a step inside a track, and /design already names the Claude Design canvas
+
+### Fixed
+- workflows/feature.md A3 and workflows/enhance.md B4 now enter the design phase through the runbook rather than describing it twice
+
+### Stated as honest debt, not papered over
+- docs/26's value depends on being read at the right moment, and nothing mechanical enforces that - it is reference material, correctly, but that means it carries the same weakness as any prose rule. The tracks now point at it from the two places design work actually starts, which is the cheapest available mitigation and is not the same as enforcement
+- The knowledge base's decision classes (§11-13) name twelve high-priority classes; five already have blessed answers here (CP-26, CP-27, CP-28, DR-5/6/7) and the rest have none. That is a real gap, recorded rather than filled: writing seven playbooks speculatively is exactly the rule-budget failure this framework refuses
+
+### App action required
+Nothing required; no gate, script or seed file changes. If you run design work, docs/26 is the judgement layer - what counts as evidence, who is allowed to decide, how deep to go - and workflows/design-phase.md is the order of operations that uses it. Its §0 is worth reading first: it maps what the knowledge base deliberately does NOT restate and where each of those concerns already lives, so you are never following two sets of words for one rule.
+
+---
+## 2.7.0 — 2026-09-12 — MINOR
+
+**The run log was measuring the requester's lunch break - and the test written to stop it guessing caught the first draft guessing**
+
+R-006 recorded 3h 38m beside a gate figure of 3m 03s. The work was about fifteen minutes; the requester stepped away between two messages. `end` computed endedAt - startedAt, which is honest wall clock and the wrong measure for this system: an agent-run session spends most of its wall clock waiting for a human to read something and reply, and that waiting sits INSIDE the run rather than between runs. Every row overstated, by an amount that varied with how busy the requester was that afternoon - worse than a constant error, because it makes two rows incomparable. And the cost is precise rather than cosmetic: the column's stated purpose is 'was it the machine or the agent?', its companion gate figure is measured and small, and RC-015's analysis had to reconstruct that answer from git timestamps because the row could not give it. Now `stage` and `tick` leave timestamps, `end` sums the gaps between them clamping each to ten minutes, and the row reads '12m active · 3h 38m elapsed'. Full analysis: docs/registers/ROOT_CAUSE_REGISTER.md RC-017.
+
+### Added
+- `run-log.mjs tick` - one timestamp, nothing else. It deliberately carries no message: a tick with a message becomes a second narration channel competing with the stage list, and the stage list is the one people read
+- Active time beside elapsed in the Total cell - NOT a new column, because adding one to an append-only register is a format change that would strand every existing row. Old rows stay valid and the register header says which figure they carry
+- RC-017 and cases FW-TIME-001..003
+
+### Fixed
+- `stage` re-marked with the same name no longer drops the data point: the stage list stays clean, but the activity trail keeps the evidence that someone was working at that moment
+- workflows/request.md R1 now asks for ticks as the run proceeds, and says what the figure is worth without them
+
+### Stated as honest debt, not papered over
+- Active is a LOWER-BOUND ESTIMATE and is labelled as one everywhere it appears - in the script, in the register header, and on stdout at `end`. Work between two marks more than ten minutes apart is not counted, so a run that ticks twice in three hours gets a poor bound
+- The trail is only as good as the marking, and the runbook asking for ticks is a prompt, not a mechanism - the same class of weakness this framework usually refuses. It is accepted knowingly here: the alternative considered was inferring activity from file mtimes, which trades a STATED weakness for a hidden one, and a hidden one is what RC-008 already cost this framework once
+
+### App action required
+Nothing breaks. Rows written before this version carry one figure and it is the ELAPSED one; the register header now says so, so an old row is never misread as an active one. If you use the run log, add `node scripts/run-log.mjs tick` as you work - after a gate run, after a fix - because the active figure is built from those marks and from nothing else. A run that marks nothing still logs, and records `active: no marks` rather than a number nobody measured. `--idle-gap <minutes>` changes the clamp if ten does not suit your sessions.
+
+---
+## 2.6.0 — 2026-09-12 — MINOR
+
+**A filter belongs in the column it filters - and five of the six things the directive asked for were already built**
+
+An owner directive on column-level filtering: a small control in each relevant column header, filters independent and combinable, active ones clearly shown, individual and Clear all removal, filtering kept separate from sorting, and no large filter panels or toolbars. The reuse check changed the shape of the work entirely. Reading src/lib/list-controls.ts and ListControls.tsx first: independent and combinable already exists and is unit-tested - OR within a field, AND across fields; Clear all is already there and already always visible once anything is active; active filters are already aria-pressed chips that clear individually; the count already reads matching / total; and sorting is already a separate control in a fixed composition order. Five of the six asks were built, enforced and covered by CP-23's rung. Writing them again as a new rule would have spent the rule budget restating what a passing test already guarantees, and left two copies to drift. What was genuinely missing is one thing: PLACEMENT. And that part collided with a shipped pattern rather than extending it - CP-23 renders every per-field filter as a chip group in a toolbar above the list, which is precisely the toolbar the directive says to avoid. That conflict was put to the owner rather than resolved quietly, and the answer was additive: the toolbar keeps what crosses columns, the per-field filters move into the headers.
+
+### Added
+- DR-7 - on a multi-column data table a filter sits in the column it filters, in a control distinct from the sort affordance. One arrow that both sorts and opens a filter menu makes every attempt at either a coin-flip risk of the other, and the user stops using both. The row states explicitly which five behaviours it does NOT restate and where they are already enforced
+- A COMPONENT_LIBRARY GAP row for the header control, which says in the row itself that the behaviour already exists and only the control is missing - so the first app to build one wires it to the existing state rather than inventing a second filter model
+- Cases FW-COLFILTER-001..002
+
+### Fixed
+- CP-23 amended in place, dated, with its superseded language kept verbatim as the register requires. The amendment is scoped to WHERE the filters sit; their behaviour and their rung are untouched, and a non-table list keeps the toolbar exactly as before
+- docs/04-ARCHITECTURE-AND-DESIGN.md and the COMPONENT_LIBRARY List controls row now say where filters sit by surface. Both were found by the consistency sweep rather than by memory, and either would have kept teaching the superseded placement with confidence
+
+### Stated as honest debt, not papered over
+- Placement is design review, declared: no scanner can tell a header-mounted control from a toolbar one, so DR-7's own half is unenforced by anything mechanical. The five behaviours it leans on ARE enforced, which is the opposite of the usual situation and worth noticing
+- The header control is a GAP with no code. Building it inside a run about a design principle is the anti-pattern RC-015 added a rail against - it is a component build and belongs in its own run, exactly as the searchable select did
+- DR-6's filter sheet and DR-7's header control are now two GAP rows that will meet: a multi-column table on a phone needs both answers at once, and nobody has designed how they compose. Named now, while it is cheap, rather than discovered by the first app that hits it
+
+### App action required
+Nothing breaks and nothing is required. Your filters behave exactly as before - same state, same logic, same rung - so a list or card view is untouched and keeps its toolbar. If you have a MULTI-COLUMN DATA TABLE, DR-7 now says the per-field filters belong in the column headers and the toolbar keeps only search and dates; moving them is a TECH_DEBT row with its cost, not an emergency. When you do build the header control, drive the EXISTING list-controls filter state with it - the behaviour is already correct, and a second filter model behind the headers is how one table starts filtering differently from the list beside it.
+
+---
+## 2.5.0 — 2026-09-12 — MINOR
+
+**A set of filters that does not fit gets a button and a sheet - and the half of that which is two numbers is now executed, not remembered**
+
+An owner directive: when filters or categories do not fit comfortably on screen, use a visible button opening a compact sheet or grid rather than a horizontally scrolling row, and prioritise one-hand reach, fast discovery and fewest taps. The reuse check found exactly one existing piece - screen checklist item 11, 'at the narrowest supported width, one-handed: no horizontal scroll, touch targets >= 44px'. So the prohibition existed and the REPLACEMENT did not: nothing anywhere said what to use instead, and CP-23 requires contextual filters without a word about what happens when they outgrow the width. The defect is worth stating precisely, because it does not announce itself. A scrolling row fits the designer's screen, so nothing looks wrong; the options past the right edge are not harder to reach, they are never used, by anyone, ever - and that arrives in the numbers as 'nobody wants that filter' rather than 'nobody could see it'. Whether a page overflows at 360px is not a judgement, it is two numbers, and comparing two numbers is what a machine is for - so that half stopped being a checklist item somebody remembers to look at and became a spec that runs on every push.
+
+### Added
+- DR-6 - a set of filters or categories that does not fit gets a VISIBLE, LABELLED button carrying the current choice and the option count, opening a compact one-screen grid; choosing applies immediately and closes, because a second tap to confirm a single choice is the interaction the rule exists to remove. Priority order stated: one-hand reach, fast discovery, fewest taps
+- starter/tests/functional/narrow-width.functional.spec.ts - DR-6's mechanical half and screen checklist item 11's, executed at 360x640: the document may never be wider than its viewport, with a 1px tolerance for sub-pixel rounding and nothing more
+- A COMPONENT_LIBRARY GAP row for the filter sheet, and cases FW-NARROW-001..002
+
+### Stated as honest debt, not papered over
+- The REPLACEMENT half of DR-6 is design review, declared: no scanner can tell a findable sheet from an unfindable one, and the sheet itself is a GAP with no code behind it. Building it inside a run about a design principle would be the anti-pattern RC-015 added a rail against - it is a component build and belongs in its own run, exactly as the searchable select did
+- The spec asserts the document does not overflow; it cannot assert that a NESTED element scrolls sideways inside its own box - an `overflow-x: auto` container hides from this measurement by design, and that is the legitimate escape for a wide table (screen checklist item 12 allows exactly that). A row of filters using it to dodge the rule would pass. Named here rather than implied away
+
+### App action required
+Nothing is required. If you have a horizontally scrolling row of filters or categories, DR-6 now says what to replace it with, and the replacement itself is a COMPONENT_LIBRARY GAP - the first app that needs one builds it to DR-6 and contributes back, so the second app does not rebuild it. Adopting it is a TECH_DEBT row with its cost, not an emergency. One thing worth copying regardless: `starter/tests/functional/narrow-width.functional.spec.ts` is four assertions and catches a class of defect that is invisible on a desktop viewport.
+
+---
+## 2.4.0 — 2026-09-12 — MINOR
+
+**DR-5 gets its implementation - and, looking for somewhere to put its contrast assertion, the contrast tier turned out to be a rung the gate has never run**
+
+v2.3.0 stated DR-5 and recorded its search, + Add and persistence halves as a COMPONENT_LIBRARY GAP, because no searchable select existed in starter/ at all. This builds it: a pure logic module, the control, styles on semantic tokens, and the worked example wired into the reference form. CONTRIBUTE, per the framework-update runbook's capability decision - it is a baseline concern that did not exist, so it is generalised, placed in the stack's implementation location and its GAP row flipped to READY in this run. The defect the whole thing is shaped around is the duplicate: a list that can grow will be offered 'Mumbai' when it already holds 'mumbai ', and then holds both - two values a human reads as one, which a report later splits across a capital letter. So comparison is normalised and storage is not: + Add is refused when a normalised match exists, and the stored label keeps the user's own capitalisation, because lower-casing it would turn PDF, WhatsApp and every customer's name into a typo. The second half of this entry was not planned. Looking for where DR-5's contrast clause belonged, starter/tests/render/ was run directly and FAILED - a dark-theme tab below 4.5:1 - minutes after the gate had reported 12 PASS. The gate runs test:unit and test:functional and nothing runs test:render, which is the tier DR-3 names as its own rung. RC-016.
+
+### Added
+- starter/src/lib/select-options.ts - the pure half: normalised comparison, filtering, duplicate refusal, and arrow bounds that STOP rather than wrap, because a list that wraps sends a user holding the down arrow back to the top and they overshoot every time
+- starter/src/components/SearchableSelect.tsx - role=combobox with focus never leaving the input, aria-activedescendant, + Add, an honest persistence port, and Escape consumed in the capture phase
+- Styles on semantic tokens only; the active row uses the primarySurface / onPrimarySurface PAIR rather than a tint of its own, because a highlight picked to look right in the light theme is where pale-on-pale first appears in the dark one
+- starter/tests/unit/select-options.unit.spec.ts (15) and starter/tests/functional/select.functional.spec.ts (11 per project, including computed contrast in both themes); tests/render/contrast-util.ts extracts the contrast maths so there is one implementation rather than two
+- The worked example: a Category field on the reference form, EDIT mode only - because ItemForm's header makes tab order part of its contract, and in create mode the name field is followed directly by Save. Status was already rendered edit-only for the same reason; the precedent decided this, not preference
+- RC-016 and case FW-RUNG-001
+
+### Fixed
+- DR-5's rung is now real and named: the GAP row is READY, and the rule cites the unit and functional specs that execute it
+- DR-5's contrast case is in the FUNCTIONAL tier, not beside the other contrast assertions, because the gate does not run the render tier - placing it there would have been a rung nothing executes, which is the thing this framework exists to refuse
+
+### Stated as honest debt, not papered over
+- RC-016 is RECORDED, NOT FIXED: nothing runs test:render, and that tier is currently red (a dark-theme tab below 4.5:1) and flaky (two runs of identical code gave one failure then two). Gating it is a green -> red MAJOR that needs the tab palette fixed first, and doing it inside a run about a dropdown is the anti-pattern RC-015 added a rail against
+- check-rule-coverage.mjs counts a rung by whether a path is NAMED, not by whether any gate step reaches it. That is why DR-3 has read as enforced while its tier went unrun. A check cross-referencing every rung: path against what the gate executes would close the class, and is the right next run
+- onCreateOption is untested end to end - the reference wires the storageKey fallback, because the starter has no backend to persist a category to. The pure half is covered and the port is one call, but nobody has watched a real store round-trip
+
+### App action required
+Nothing is required, and one thing is now available. `SearchableSelect` and `select-options.ts` arrive as seed files; if you have a dropdown that is not searchable, adopting it is a TECH_DEBT row with its cost, not an emergency. When you do wire it up: `onCreateOption` is what makes an added option reach ANOTHER user - point it at your own store. `storageKey` is a per-browser fallback that survives a reload for one person on one device and reaches nobody else, and it is documented as a fallback rather than described as persistence. Worth knowing about your own specs: if you have anything under tests/render/, check whether your gate runs it - ours does not, and had not for the whole life of the tier.
+
+---
+## 2.3.0 — 2026-09-12 — MINOR
+
+**Two owner design directives - and the finding that most of the first one was already enforced**
+
+Two directives arrived: messages must be plain and non-technical with focused inputs, the right keypad and Go/Enter submitting; and every dropdown must be searchable, focused, growable via + Add, persistent, and readable. The instruction was explicit - keep what already exists, add only what does not - so the first work was to look rather than to write. Most of the first directive was already enforced, in four different places: screen checklist item 1 already requires a numeric input mode, item 4 and CP-16 already require the first field focused with a searchable dropdown focusing its search input, CP-22 already requires Enter to activate and submit AND asserts it end to end against the DATA in keyboard.functional.spec.ts, and the copy-gate reviewer already blocks raw machine detail reaching a user - constraint names, error codes, undefined, stack traces. Writing three new rules over that would have spent the rule budget to say what four mechanisms already say, and left five places to drift apart. So one rule was added for the one real gap - brevity and business language, which no scanner can judge - and it cross-references the rest instead of restating it. The dropdown directive is a genuinely new concern with a harder answer: there is no searchable select in starter/ at all. DR-5 states the rule in full, and its search, + Add and persistence halves are recorded as a COMPONENT_LIBRARY GAP row rather than as a rung that does not exist.
+
+### Added
+- DR-4 - a message is in the user's business language and as short as it can be while still saying what happens next, with three cheap tests (read it aloud to a customer; every word in the lexicon or ordinary speech; does it say what to do NEXT). It explicitly does not restate the technical half, which the copy-gate reviewer already blocks, and it names where the focus/keypad and Go/Enter rules already live
+- DR-5 - every dropdown is searchable and can grow: focused with the cursor live so the first keystroke filters instead of being swallowed, showing existing options BEFORE a keystroke, offering + Add on no match, persisting what is added through the same validation as any stored term, and carrying declared contrast pairs in both themes, because a filtered list is where pale-on-pale first appears
+- A COMPONENT_LIBRARY GAP row for the searchable select, and cases FW-COPY-001..002 and FW-DROP-001..003
+
+### Stated as honest debt, not papered over
+- DR-5's search, + Add and persistence halves have no code behind them. A production searchable select - filtering, keyboard model, + Add, persistence, both themes, a11y - is a feature-sized build and belongs in its own run, not bolted onto a directive about design rules. Building it here would have been the exact anti-pattern v2.1.0 added a rail against: work that is not the requester's request, charged to the requester's run. The GAP row is the framework's own mechanism for this and it is used rather than worked around
+- DR-4's brevity-and-tone half is prose-only and knowingly so: a scanner cannot tell a terse label from a curt one, and a check that failed on every short string would be switched off within a day
+
+### App action required
+Read DR-4 and DR-5 at your next design run - docs/24 already routes every design pass through DESIGN_RULES.md, so nothing new to wire up. Nothing in your code changes and no gate becomes stricter. The one thing to know: if your app needs a dropdown, DR-5 now says what it must do, and COMPONENT_LIBRARY carries it as a GAP - the first app to build one builds it to DR-5 and contributes it back, so the second app does not rebuild it. If you already have a dropdown that is not searchable, that is a TECH_DEBT row with its cost, not an emergency.
+
+---
+## 2.2.0 — 2026-09-12 — MINOR
+
+**The fixture that can see the last two releases - because audit:compat could not, and said PASS twice anyway**
+
+v2.0.0 added guard G9 and v2.1.0 added the open-run upgrade refusal. Both release notes cited a passing `npm run audit:compat` as evidence that no existing app goes green -> red. Both citations were worthless, and both said so in their own debt section: no fixture carried a docs/registers/RUN_LOG.md or a .run-log.json, so every new rail failed open on all three fixtures and the green tick measured nothing whatever. Two releases running, a check was quoted as proof of exactly the thing it could not see. The fourth fixture, `adopted`, is an app that has taken the registers and keeps its run log. Its checks are deliberately pointed the SAFE way: not 'the rails block' - the guard and upgrade suites already prove that - but 'an app doing the right thing stays green', so a future release that over-tightens either rail reddens a fixture instead of reddening somebody's real repository.
+
+### Added
+- fixtures/adopted - a fourth conformance app carrying docs/registers/RUN_LOG.md with real rows, registered in fixtures/expected-verdicts.json as required PASS
+- Six conformance checks for it: G9 blocks a code change with no row, G9 is SATISFIED by one, an upgrade during an open run is refused on a clean tree and names the run, and a closed run restores normal service. The marker is committed before the upgrade assertion, because an uncommitted one makes the tree dirty and the older dirty-tree refusal returns the same exit 2 - the precise vacuous pass that happened while writing v2.1.0
+- Cases FW-FIX-001..002, and a note in fixtures/README.md that a fixture which cannot go red proves nothing
+
+### Fixed
+- 1_AppDevelopmentSteps.md gains Part 4 - what to do with a problem you are NOT fixing today: the TECH_DEBT.md row, column by column, what belongs there and what does not, /triage for working the queue, and the rule that clearing debt is its own run. The 'what it costs' column is called out as the one that matters, because a row without it never wins an argument against a feature
+
+### Stated as honest debt, not papered over
+- The adopted fixture proves the rails do not over-fire for an app that behaves correctly. It does NOT prove they fire for every shape of misbehaviour - that remains the guard and upgrade suites' job, and the split is deliberate: a fixture that tried to be a guard suite would duplicate it and drift
+- Three other DoD items still have no rung and are invisible to check-rule-coverage.mjs, which scans only the three register files. Recorded in v2.0.0 and still open
+
+### App action required
+Nothing. This is framework-level test coverage only: a fourth fixture app under fixtures/ and the conformance checks that drive it. No gate, guard, script, seed file or workflow that an application touches has changed, and nothing is added to an app's own workflow.
+
+---
+## 2.1.0 — 2026-09-12 — MINOR
+
+**The framework may no longer improve itself on the requester's time**
+
+An owner asked why adding a tooltip to a Reset button took over half an hour. Reconstructed from the app's own commit timestamps, three things happened inside one run and only one was the tooltip: 09:59 a first pass, 10:09 a framework upgrade across ELEVEN minor versions, 10:20 the tooltip, 10:30 a type error fixed that the newly-arrived gates had just surfaced. Against this repository's measured figures - audit:all 17.7s, guard:test 60.2s, gate 8.6s - the entire mechanical stack is about 90 seconds. So roughly 15 minutes was the upgrade and roughly 10 was its fallout: problems belonging to neither the tooltip nor the upgrade, found at the worst possible moment, with the requester waiting for all of it. The tempting conclusion - make the testing lighter - is wrong by an order of magnitude: the gates were 5% of that run. upgrade.mjs --apply already refused a DIRTY TREE, on the reasoning that an upgrade must be one clean revertable commit. Nobody had made the same argument in the time dimension. Now it refuses while a run is open, names the run, and takes --during-run for the feature that genuinely cannot ship without it. Full analysis: docs/registers/ROOT_CAUSE_REGISTER.md RC-015.
+
+### Added
+- scripts/upgrade.mjs refuses --apply while .run-log.json exists, naming the open run and what to do about it; --during-run is the one escape, for the feature that genuinely cannot ship without the upgrade
+- Four cases in scripts/upgrade.test.sh - it blocks, it names the run, the escape works, and with no run open nothing changes - plus FW-RUN-001..003 and RC-015
+
+### Fixed
+- 1_AppDevelopmentSteps.md Part 3 now says the between-tasks rule is enforced rather than trusted, and gives the measured reason: ~90 seconds of checks against ~15 minutes of upgrade and ~10 of fallout
+
+### Stated as honest debt, not papered over
+- Only the upgrade is mechanised. The same class - work that is not the requester's work, charged to the requester's run - also covers a browser harness rebuilt per change (that run built one from scratch), a refactor taken 'while we are in here', and a doc sweep. Those stay with the scale lane, which already selects two agents for a change like this rather than eight. Naming the class rather than pretending one rail closes it
+- No fixture carries .run-log.json, so audit:compat is blind to this change exactly as it was blind to G9 in v2.0.0. Two releases have now cited a green compat run that proved nothing. A fourth fixture that has adopted the registers and the run log would have made both honest, and it is the single highest-value thing left undone in the fixture set
+
+### App action required
+Nothing to change, one habit to keep. Upgrade BETWEEN tasks: `npm run framework:upgrade` as its own run, then start the feature. If a run is open the upgrade now refuses and names the run you are in the middle of, which is the reminder rather than an obstacle. `--during-run` is there for the feature that truly cannot ship without the upgrade; using it leaves an auditable line. An app that already upgrades between tasks - the correct way - sees no change at all.
+
+---
+## 2.0.0 — 2026-09-11 — MAJOR
+
+**Two ledgers side by side, one guarded and one not - and only the guarded one was still being kept**
+
+An app owner asked why a tooltip change took half an hour, and the run log could not answer: docs/registers/RUN_LOG.md held ONE row, dated three days earlier, while three runs shipped that morning - and that row was closed with '-' in Stages, Gate, Verdict and Notes. The Definition of Done has asked for a closed run log since the log existed, and nothing ever checked: grep over pre-commit-guard.sh and gate-runner.mjs for run-log or RUN_LOG returned nothing at all. TEST_SUMMARY.md in the same repo, maintained by the same people over the same weeks, stayed current - because G2 blocks a code change that does not add a gate-run line. Two append-only ledgers, identical in every respect except that one had a guard, and the unguarded one went stale in three days. That is CLAUDE.md's first idea with a control group, and it is the most direct evidence this framework has produced for its own founding claim. Full analysis: docs/registers/ROOT_CAUSE_REGISTER.md RC-014.
+
+### Added
+- Guard G9 in scripts/hooks/pre-commit-guard.sh, modelled directly on G2 because G2 is the thing that demonstrably worked. Application code staged without a new '| R-' row in docs/registers/RUN_LOG.md is BLOCKED; 'RUNLOG-NA:' is the one-guard escape; absent register fails open and audibly
+- Four cases in guard-reachability.test.sh, which CLAUDE.md rule 1 requires of every new guard, and cases FW-RUNLOG-001..003
+- RC-014
+
+### Fixed
+- The Definition of Done's run-log item now names its rung. It had asked for a specific committed artifact, with nothing checking, for its whole life - which is the one thing check-rule-coverage.mjs exists to count
+
+### Stated as honest debt, not papered over
+- check-rule-coverage.mjs scans CANONICAL_PATTERNS.md, ROOT_CAUSE_REGISTER.md and DESIGN_RULES.md - checklists/ is NOT in its scope, verified by reading the source. So the DoD's rungless item was invisible to the very audit built to find rungless rules, and its backlog of zero was never evidence about checklists. Widening that audit has its own blast radius (every judgement-only DoD item would report as debt), so it is recorded here rather than done quietly in a release about something else
+- No fixture carries docs/registers/RUN_LOG.md, so audit:compat cannot see this class of change at all. A fourth fixture that has adopted the registers would have turned this green tick red, which is the whole point of having fixtures
+
+### App action required
+THIS IS A MAJOR. A new blocking guard, G9: staging application source with docs/registers/RUN_LOG.md present and no new '| R-' row is now BLOCKED. Migration, and it is small: either close your run properly - node scripts/run-log.mjs end --verdict <PASS|FAIL|BLOCKED>, which is what you should be doing - or, while you adopt, put 'RUNLOG-NA: <reason>' in the commit message, which excuses G9 and nothing else and leaves an auditable line in git history. An app with NO docs/registers/RUN_LOG.md is unaffected: G9 fails open and says so on stderr, because an app that has not adopted the register is not committing a violation. Per docs/22 the skew policy gives you a quarter; there is no reason it should take one.
+
+---
+## 1.36.1 — 2026-09-11 — PATCH
+
+**A plain-English path through the framework - and two steps nobody could have followed, found by checking a real scaffolded app**
+
+Everything here was written for someone who already knows why it exists. 1_AppDevelopmentSteps.md is the same journey with the reasoning removed: create an app, build a change, upgrade, capture a lesson. It links to docs/02 and docs/01 rather than restating them, so there is one canonical version of each step and one short version that points at it. The part worth recording is not the document, it is what writing it found. Every command and path in it was checked by scaffolding a real app and running them, rather than by reading the docs that describe them - and two steps turned out to be unfollowable. docs/02 step 7 told app developers to run `npm run guard:install` and `npm run guard:test`: both are FRAMEWORK scripts, a scaffolded app has neither, and in workspace mode it has no local scripts/hooks/ either. An app's guards are wired by .claude/settings.json, which the scaffolder already writes, so the real instruction is 'check it is committed'. And step 8 says to create the registers by copying them - true, and easy to read as 'they are already there', which is how a first draft of the new guide told people to fill in a docs/registers/ENVIRONMENTS.md that does not exist yet. Both are the same shape as RC-013: prose that was never executed against the thing it describes.
+
+### Added
+- 1_AppDevelopmentSteps.md - set-up once (9 steps), the build loop (/request, gate, merge), upgrading between tasks, capturing a lesson, a command table split by WHICH FOLDER you run it in, and a short list of the ways this goes wrong. Registered in FRAMEWORK_MANIFEST.md and linked from the top of docs/00-OVERVIEW.md
+
+### Fixed
+- docs/02 step 7 no longer tells an app developer to run two scripts that do not exist in an app. It now says the guards are already wired by .claude/settings.json and gives the one command that proves it, with a note saying why the framework scripts are not the app's
+
+### Stated as honest debt, not papered over
+- The new guide restates commands that live in package.json and in the runbooks, so it is a second place that can drift. It is kept short and points at the canonical documents for exactly that reason, but nothing compares them - the same class as the ci/ template and its installed copy, recorded in v1.35.0 and still open. A check that a named command exists in package.json would cover both
+
+### App action required
+Nothing. No gate, script, baseline or seed file changes. If you onboard someone, 1_AppDevelopmentSteps.md is the file to hand them. If you followed docs/02 step 7 and wondered why `npm run guard:install` did not exist in your app, that was this - your guards were already on, via .claude/settings.json; confirm with `git ls-files .claude/settings.json`.
+
+---
+## 1.36.0 — 2026-09-11 — MINOR
+
+**Capture is automated; promotion is not - and the suite asserts the absence of the capability, not its presence**
+
+The expensive part of the promotion loop was never the edit. It was that a lesson found on a Tuesday, in an app, in a session that then ended, was gone by Thursday - so the same defect class got paid for twice, at full price, months apart. `npm run capture` makes recording it immediate. What it deliberately CANNOT do is the design: there is no code path in it that edits a rule, a checklist, a canonical pattern, a gate or a workflow. promote.md Filter 3 is the rule of three - a lesson becomes a framework rule on the SECOND sighting from a DIFFERENT app - and the screen checklist is capped at 20 items and declared FULL, so every rule admitted without evidence of generality spends a budget a later, better rule then cannot. A cron job that turned each bug into an SDLC edit would mint rules with no rung, no case and no version bump: precisely the 'rule that nothing executes' this framework exists to refuse, only at machine speed and wearing the authority of having been written by a script. So the cheap half is automated and the load-bearing half - the judgement - stays where it was.
+
+### Added
+- scripts/capture-candidate.mjs - parks a lesson in CANDIDATES.md at n=1, newest-first, renumbering nothing. Mechanises promote.md Filter 2 (the lexicon grep: a rule naming a business concept is app-specific by definition, refused with exit 2, with --allow-lexicon-word excusing that ONE check per CLAUDE.md rule 2) and REPORTS Filter 3 without acting on it. Filter 1, the path test, is deliberately NOT mechanised: it needs judgement about where a change came from, and a wrong automatic answer there is worse than none, because it looks like a verdict. Dry run by default. npm run capture
+- scripts/capture-candidate.test.sh - 14 assertions, wired into npm run guard:test (now 15 suites). Its central case is a NEGATIVE: given n=2 from a different app, seven governed files - the patterns register, the screen checklist, VERSION, UPGRADES, the candidates register and both promotion runbooks - must be byte-identical afterwards. A capability nothing asserts the absence of is one that arrives later, quietly, in a refactor
+- Cases FW-CAND-001..004; a --register override so the suite drives the real code against a scratch file rather than mutating the live register to prove it mutates registers correctly
+
+### Fixed
+- workflows/promote.md now names the command at both filters it touches, and says at Filter 3 why the promotion itself is not automated. The runbook is canonical; a tool the runbook does not mention is a tool nobody finds
+
+### Stated as honest debt, not papered over
+- Filter 1 (is this framework-origin behaviour at all?) stays human. Most candidates should die there, and an automatic wrong answer at that filter would park app-only lessons as framework candidates, which costs more than the capture saves
+- The lexicon grep reads PRODUCT_LEXICON.md with a line-shaped regex. An app whose lexicon is prose rather than a list or table yields no words, so Filter 2 passes silently for that app. It fails OPEN by design - refusing every capture because a lexicon could not be parsed would make the tool unusable - but that is a heuristic degrading quietly, and it is named here rather than implied
+
+### App action required
+Nothing. No gate, baseline, seed file or generated artifact changes. If you want the capture loop, it is `npm run capture -- --rule "<domain-free rule>" --app <name> --apply` from the framework, and a second sighting from a DIFFERENT app is `--sighting-of CAND-00N --app <that-app> --apply`, which marks the row ELIGIBLE and tells you to run /promote then /framework-update. It will not promote for you, and that is the feature.
+
+---
 ## 1.35.0 — 2026-09-11 — MINOR
 
 **A decision recorded only in a comment, in a file nothing ran - and the CI that could not see the class it was written for**

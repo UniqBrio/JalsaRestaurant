@@ -181,6 +181,30 @@ echo "uncommitted" > "$app/scratch.txt"
 d=$(mktemp -d); mkdir -p "$d/x"
 ( cd "$d/x" && node "$fw/scripts/upgrade.mjs" --framework "$fw" >/dev/null 2>&1 ); expect "refuses an app with no lineage" 2 $?
 
+# An upgrade taken DURING a feature run charges its cost to that run. Measured: a 31-minute
+# tooltip was ~90s of gates, ~15min of an eleven-version upgrade taken mid-task, and ~10min of
+# fallout when the newly arrived gates found a type error unrelated to the tooltip. The refusal
+# lives in upgrade.mjs and not in a commit guard because the upgrade WAS its own clean commit -
+# it was the run around it that cost the time, and no commit guard can see a run.
+fw=$(mkfw); app=$(mkapp "$fw"); bump "$fw"
+printf '{"type":"CHANGE","action":"a tooltip on the Reset button","startedAt":"2026-09-11T10:03:00Z","stages":[]}\n' > "$app/.run-log.json"
+# COMMITTED before the assertion, and this is the whole point of the fixture: an uncommitted
+# marker makes the tree dirty, so the DIRTY-TREE rail fires with the same exit 2 and the case
+# passes green against a tree that has no open-run rail at all. It did exactly that on the
+# first draft. A clean tree leaves exit 2 attributable to one rail only.
+( cd "$app" && git add -A >/dev/null && git commit -qm "open run" >/dev/null )
+( cd "$app" && node "$fw/scripts/upgrade.mjs" --framework "$fw" --apply >/dev/null 2>&1 ); expect "apply REFUSES while a run is open" 2 $?
+out="$( cd "$app" && node "$fw/scripts/upgrade.mjs" --framework "$fw" --apply 2>&1 )"
+grep -q 'a tooltip on the Reset button' <<<"$out"; check "...and names the open run, so the message is actionable" $?
+
+# The escape: one flag, one refusal - for the feature that genuinely cannot ship without it.
+( cd "$app" && node "$fw/scripts/upgrade.mjs" --framework "$fw" --apply --during-run >/dev/null 2>&1 ); expect "--during-run excuses THIS refusal" 0 $?
+
+# ...and with no run open, nothing changes. A rail that fires when it should not is a rail
+# people route around, and then it protects nothing at all.
+fw=$(mkfw); app=$(mkapp "$fw"); bump "$fw"
+( cd "$app" && node "$fw/scripts/upgrade.mjs" --framework "$fw" --apply >/dev/null 2>&1 ); expect "no open run -> upgrade proceeds normally" 0 $?
+
 echo "an upgrade never overwrites what the app GENERATED from its own tokens"
 # THE RULE: an artifact generated from an app-owned source is app-owned too. `design/tokens.json`
 # was on that list and the files rendered from it were not, so an upgrade classified them

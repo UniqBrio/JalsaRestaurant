@@ -187,5 +187,38 @@ rl end --verdict PASS >/dev/null 2>&1
 ok $? 0 "an unstaged run still writes its row"
 grep_ok "its Stages cell is a dash, not a fabricated split" '\| unstaged run \|.*\| - \|'
 
+# 16. ACTIVE TIME. The column existed to answer "was it the machine or the agent?" and could
+#     not, because it was measuring the requester's lunch break too: R-006 logged 3h 38m for
+#     about fifteen minutes of work. Elapsed stays; active is added beside it.
+fresh_log
+rl start --type NEW --action "active run" >/dev/null 2>&1
+rl tick >/dev/null 2>&1
+rl tick >/dev/null 2>&1
+rl end --verdict PASS >/dev/null 2>&1
+grep_ok "a marked run records BOTH active and elapsed" '\| active run \|.*active ·.*elapsed \|'
+
+# 17. THE HONESTY HALF, and the one that matters. Too few marks means no figure - not a
+#     flattering one. A number nobody measured must never sit beside numbers that were.
+fresh_log
+rl start --type BUG --action "unmarked run" >/dev/null 2>&1
+rl end --verdict PASS >/dev/null 2>&1
+grep_ok "an unmarked run says 'active: no marks' instead of guessing" '\| unmarked run \|.*active: no marks'
+grep_no "...and never prints an active figure it cannot support" '\| unmarked run \|.*[0-9]+m active'
+
+# 18. A back-filled run has no trail at all, so it gets no active figure either - the same rule
+#     that already forbids inventing its start time.
+fresh_log
+rl end --started "2026-09-12T09:00:00Z" --type CHANGE --action "backfilled run" --verdict PASS >/dev/null 2>&1
+grep_ok "a back-filled run gets no active figure" '\| backfilled run \|.*active: no marks'
+
+# 19. The clamp is what makes the estimate a LOWER bound. With a 1-minute idle gap, a run whose
+#     marks are seconds apart is counted in full; the cap only ever removes time, never adds it.
+fresh_log
+rl start --type NEW --action "clamped run" >/dev/null 2>&1
+rl tick --idle-gap 1 >/dev/null 2>&1
+rl tick --idle-gap 1 >/dev/null 2>&1
+rl end --idle-gap 1 --verdict PASS >/dev/null 2>&1
+grep_ok "a tight run is counted in full - the clamp only removes idle" '\| clamped run \|.*active ·'
+
 echo "  ---- $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

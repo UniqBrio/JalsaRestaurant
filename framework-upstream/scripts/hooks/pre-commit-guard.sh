@@ -44,8 +44,19 @@ MSG_FILE="${1:-.git/COMMIT_EDITMSG}"
 # is staged - the change is the commit range being pushed. Reading only the index at push time
 # finds an empty diff and exits before any guard runs, which silently disables every guard in
 # exactly the mode the adapter went to the trouble of wiring up.
+#
+# THE THIRD MODE, AND IT WAS A REAL BYPASS (RC-019). An adapter that inspects the INDEX before
+# running the command sees an empty index whenever staging happens inside that same command:
+#     git add -A && git commit -F msg
+# The index is empty when the guard runs, CHANGED is empty, and every guard below is skipped in
+# silence - on precisely the one-liner people actually type. GUARD_WORKTREE says "this command
+# stages its own changes, so the CHANGE is the working tree, not the index".
 if [ -n "${PRE_PUSH_RANGE:-}" ]; then
   CHANGED="$(git diff --name-only "$PRE_PUSH_RANGE" 2>/dev/null)"
+elif [ -n "${GUARD_WORKTREE:-}" ]; then
+  CHANGED="$(printf '%s\n%s\n' \
+    "$(git diff HEAD --name-only 2>/dev/null)" \
+    "$(git ls-files --others --exclude-standard 2>/dev/null)" | grep -v '^$' | sort -u)"
 else
   CHANGED="$(git diff --cached --name-only)"
 fi
@@ -60,6 +71,13 @@ escape_text() {
 }
 staged_diff()  {
   if [ -n "${PRE_PUSH_RANGE:-}" ]; then git diff -U0 "$PRE_PUSH_RANGE" -- "$1" 2>/dev/null
+  elif [ -n "${GUARD_WORKTREE:-}" ]; then
+    # Tracked changes against HEAD, plus an untracked file rendered as all-added - otherwise a
+    # brand-new TEST_SUMMARY or spec is invisible to the very guards that look for new content.
+    git diff -U0 HEAD -- "$1" 2>/dev/null
+    if git ls-files --others --exclude-standard -- "$1" 2>/dev/null | grep -q .; then
+      sed 's/^/+/' "$1" 2>/dev/null
+    fi
   else git diff --cached -U0 -- "$1" 2>/dev/null; fi
 }
 has_token()    { escape_text | grep -q "$1"; }
@@ -106,23 +124,80 @@ guard_fail_first() {
   local added
   if [ -n "${PRE_PUSH_RANGE:-}" ]; then
     added="$(git diff --name-only --diff-filter=A "$PRE_PUSH_RANGE" 2>/dev/null | grep -E '\.(spec|test)\.[tj]sx?$' || true)"
+  elif [ -n "${GUARD_WORKTREE:-}" ]; then
+    # A brand-new spec is UNTRACKED when the command stages its own work, so --diff-filter=A
+    # against the index finds nothing and G3 excuses the very file it exists to catch.
+    added="$( { git diff HEAD --name-only --diff-filter=A 2>/dev/null; \
+                git ls-files --others --exclude-standard 2>/dev/null; } \
+              | grep -E '\.(spec|test)\.[tj]sx?$' || true)"
   else
     added="$(git diff --cached --name-only --diff-filter=A | grep -E '\.(spec|test)\.[tj]sx?$' || true)"
   fi
   [ -z "$added" ] && return 0
-  staged_diff TEST_SUMMARY.md | grep -qE '^\+(FAIL-FIRST:|NOT OBSERVED FAILING:)' && return 0
-  {
-    echo "BLOCKED [G3] New test file(s) added with no fail-first evidence:"
-    echo "$added" | sed 's/^/    /'
-    echo "  A test never observed failing is not evidence that it CAN fail. It may be asserting"
-    echo "  the same misunderstanding the code encodes."
-    echo "  Run it against the pre-fix tree (or inject the defect and revert) and add to TEST_SUMMARY.md:"
-    echo "      FAIL-FIRST: <spec> - <the failure it produced>"
-    echo "  If that state cannot be reconstructed, record the honest negative instead:"
-    echo "      NOT OBSERVED FAILING: <spec> - <why>"
-    echo "  Genuine exception: 'FAILFIRST-NA: <reason>'."
-  } >&2
-  return 2
+
+  local evidence
+  evidence="$(staged_diff TEST_SUMMARY.md | grep -E '^\+(FAIL-FIRST:|NOT OBSERVED FAILING:)' || true)"
+  if [ -z "$evidence" ]; then
+    {
+      echo "BLOCKED [G3] New test file(s) added with no fail-first evidence:"
+      echo "$added" | sed 's/^/    /'
+      echo "  A test never observed failing is not evidence that it CAN fail. It may be asserting"
+      echo "  the same misunderstanding the code encodes."
+      echo "  Run it against the pre-fix tree (or inject the defect and revert) and add to TEST_SUMMARY.md:"
+      echo "      FAIL-FIRST: <spec> - <the failure it produced>"
+      echo "  If that state cannot be reconstructed, record the honest negative instead:"
+      echo "      NOT OBSERVED FAILING: <spec> - <why>"
+      echo "  Genuine exception: 'FAILFIRST-NA: <reason>'."
+    } >&2
+    return 2
+  fi
+
+  # --- The line must NAME the failure, not merely claim one --------------------------------
+  #
+  # WHY THIS HALF EXISTS
+  #   The message above has asked for "<the failure it produced>" since G3 was written, and the
+  #   check accepted anything after the colon - so "FAIL-FIRST: x - red first" passed, and that
+  #   is what the fixtures actually said. Five results in one week were green or red for a
+  #   reason nobody had looked at: a sweep whose regex matched zero lines, an injected defect
+  #   that died with a syntax error so the tool never ran, and twice a new check passing on an
+  #   OLDER check's identical exit 2. Every one of them satisfied fail-first.
+  #
+  #   Proving a test CAN go red is not proving it went red for the stated reason. Naming the
+  #   failure is what makes the difference visible - you cannot write "exit 2" twice without
+  #   noticing that the rail beside it returns the same thing.
+  #
+  # WHAT COUNTS
+  #   A number (exit code, count, line, measurement) or a quoted fragment of the real message.
+  #   Quoting is always available, so the rule is always satisfiable - see docs/15 §6.
+  #   `NOT OBSERVED FAILING:` is exempt: it records a REASON, not a failure.
+  local ff weak
+  ff="$(printf '%s\n' "$evidence" | grep -E '^\+FAIL-FIRST:' || true)"
+  if [ -n "$ff" ]; then
+    # Weak = the phrases actually seen standing in for evidence, or no signal at all.
+    weak="$(printf '%s\n' "$ff" \
+      | grep -viE '^\+FAIL-FIRST:.*[-—:].*([0-9]|"[^"]+"|'"'"'[^'"'"']+'"'"')' \
+      || true)"
+    weak="$weak$(printf '%s\n' "$ff" \
+      | grep -iE '[-—:][[:space:]]*"?(red|red first|it failed|failed|fails|was red|test failed|error)"?[[:space:]]*$' \
+      || true)"
+    if [ -n "$(printf '%s' "$weak" | tr -d '[:space:]')" ]; then
+      {
+        echo "BLOCKED [G3] fail-first evidence does not NAME the failure:"
+        printf '%s\n' "$weak" | sed 's/^+/    /'
+        echo "  'red first' says a failure happened. It does not say WHICH, so it cannot show the"
+        echo "  failure belonged to THIS check - and a new check passing on an older check's"
+        echo "  identical exit code is the way that goes wrong (RC-012, and twice since)."
+        echo "  Record an observable signal: an exit code, a count, or the message in quotes."
+        echo "      FAIL-FIRST: tests/unit/pricing.unit.spec.ts - \"expected 1200, received 0\""
+        echo "      FAIL-FIRST: scripts/ratchet.test.sh - exit 0, not 2 (guard unwired from main)"
+        echo "  If the failure signal is shared with an existing check, isolate it first"
+        echo "  (escape tokens, a clean precondition, or assert on the message) - docs/15 §6."
+        echo "  Genuine exception: 'FAILFIRST-NA: <reason>'."
+      } >&2
+      return 2
+    fi
+  fi
+  return 0
 }
 
 # --- G4: theme artifacts are regenerated, not hand-edited ---------------------------------
@@ -143,6 +218,39 @@ guard_theme_sync() {
 }
 
 # --- G5: documentation follows behaviour, in the same commit -------------------------------
+# --- G9: the run left a row in the run log ---------------------------------------------------
+# WHY THIS EXISTS
+#   `checklists/DEFINITION_OF_DONE.md` has asked for a closed run log since the log existed, and
+#   nothing ever checked. Observed in a real app: RUN_LOG.md held ONE row, dated 08-Sep, while
+#   three runs shipped on 11-Sep - and that one row was closed with no verdict, no gate figure
+#   and no stages.
+#
+#   TEST_SUMMARY.md does not decay this way, and the reason is not that people care more about
+#   it: it is that G2 blocks without it. Two ledgers, one guarded and one not, kept side by side
+#   for weeks, is as clean an experiment as this framework will ever get - and the unguarded one
+#   emptied out. That is CLAUDE.md's first idea, measured.
+#
+#   The row matters because it is the only record of what a run COST. Without it "make this
+#   faster" is a conversation about impressions, and the first question - was it the tooling or
+#   the agent? - has no answer.
+guard_run_log() {
+  has_token 'RUNLOG-NA:' && { echo "[G9] escaped via RUNLOG-NA" >&2; return 0; }
+  code_changed || return 0
+  # Fails OPEN and audibly where there is no log: an app that has not adopted the register is
+  # not committing a violation, and a guard that blocks it would be uninstalled by lunchtime.
+  [ -f docs/registers/RUN_LOG.md ] || { echo "[G9] SKIPPED - no docs/registers/RUN_LOG.md" >&2; return 0; }
+  staged_diff docs/registers/RUN_LOG.md | grep -qE '^\+\|[[:space:]]*R-[0-9]' && return 0
+  {
+    echo "BLOCKED [G9] Application code changed without a new row in docs/registers/RUN_LOG.md."
+    echo "  Close the run:  node scripts/run-log.mjs end --verdict <PASS|FAIL|BLOCKED>"
+    echo "  If no run was opened, that IS the finding - the duration is now a recalled number."
+    echo "  Open one at the START next time; back-fill this one with --started <ISO>, which"
+    echo "  marks the row as back-filled rather than quietly presenting it as measured."
+    echo "  Genuine exception: 'RUNLOG-NA: <reason>'."
+  } >&2
+  return 2
+}
+
 guard_docs_touched() {
   has_token 'DOCS-NA:' && { echo "[G5] escaped via DOCS-NA" >&2; return 0; }
   code_changed || return 0
@@ -293,6 +401,7 @@ main() {
   guard_gate_ledger || return $?
   guard_fail_first  || return $?
   guard_theme_sync  || return $?
+  guard_run_log     || return $?
   guard_docs_touched|| return $?
   return 0
 }

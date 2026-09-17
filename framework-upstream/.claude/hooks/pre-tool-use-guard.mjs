@@ -126,6 +126,17 @@ fs.writeFileSync(msgFile, isCommit ? escapeTextForCommit() : '', 'utf8');
 const env = { ...process.env };
 if (isPush) env.PRE_PUSH_RANGE = pushRange();
 
+/*
+ * RC-019. This hook runs BEFORE the command, so it inspects the index as it stands now. A
+ * command that stages its own changes - `git add -A && git commit -F msg`, or `commit -am` -
+ * therefore presents an EMPTY index to the guard, every guard finds no change, and the commit
+ * sails through in silence. It is the shape people actually type, so the bypass was the common
+ * path rather than an edge case. Tell the guard to read the working tree instead.
+ */
+const STAGES_ITS_OWN = /\bgit\s+add\b/.test(command)
+  || /\bcommit\b[^\n]*\s-[A-Za-z]*a/.test(command);
+if (isCommit && STAGES_ITS_OWN) env.GUARD_WORKTREE = '1';
+
 const result = spawnSync('bash', [guard, msgFile], {
   cwd: repoRoot,
   env,

@@ -71,6 +71,10 @@
       — the duration is computed from the clock, and the gate's own cost is lifted from
       `TEST_SUMMARY.md`. A run left open records nothing; `run-log.mjs status` says what is open.
       *An unclosed run is not a fast run — it is an unmeasured one.*
+      `rung: scripts/hooks/pre-commit-guard.sh` **G9** — code cannot be committed without a new
+      `R-` row. This item was prose-only until v1.36.2, and in that time a real app shipped three
+      runs in a morning against a log whose newest row was three days old, while `TEST_SUMMARY.md`
+      beside it stayed current because G2 blocks without it. Two ledgers, one guarded, one not.
 
 ## The learning check
 - [ ] **Would a correctly functioning process have caught this?**

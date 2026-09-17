@@ -1,0 +1,5 @@
+# DESIGN CONTRACT BASELINE - accepted, temporary debt. Not an allowlist: this file may only shrink.
+# A NEW signature BLOCKS. A signature fixed but still listed here ALSO BLOCKS (regenerate).
+# Signature: <contract>|<what>|<finding>. An approved design decision unaccounted for (RC-018).
+# Regenerate: node scripts/audits/check-design-contract.mjs --write-baseline
+# Generated: 2026-09-13 - 0 entries

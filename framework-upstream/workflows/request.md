@@ -47,6 +47,14 @@ The `--type` is the classification below, so this line and the table share one v
 is evidence of what was asked, and a tidied restatement quietly loses the mismatch between ask
 and delivery that makes the row worth keeping. Scale can be declared later at `end`.
 
+**Then mark the run as you work it** — `node scripts/run-log.mjs stage <name>` at each stage
+boundary, and `node scripts/run-log.mjs tick` in between: after a gate run, after a fix, any
+time real work just happened. The row's **active** figure is built from those marks and from
+nothing else. A run that marks nothing records `active: no marks` rather than a flattering
+number, which is correct and also useless — elapsed alone once recorded **3h 38m for about
+fifteen minutes of work**, because the requester stepped away between two messages, and a
+column measuring somebody's lunch break cannot answer *was it the machine or the agent?*
+
 > **A mechanical pre-sorter was tried here and withdrawn in v1.27.0.** It classified a single
 > sentence, and a real chat carries several requests at once — so its input was ambiguous
 > exactly when the stakes were highest, and a confident wrong route costs an entire track. It
@@ -83,11 +91,16 @@ build a feature with no application under it, so initialization comes first:
    one-paragraph brief comes from ONE-LINE GOAL. An application is a *list* of features, and
    a list belongs to triage: note the remaining wants in EXPLICITLY OUT as later `/request`
    runs, never as one request file trying to bind a whole product.
-2. Continue into [docs/02-PROJECT-INITIALIZATION.md](../docs/02-PROJECT-INITIALIZATION.md) —
+2. **Select the stack before scaffolding** — [docs/27](../docs/27-STACK-SELECTION.md), decided by
+   `scripts/lib/stack-select.mjs` rather than by habit. Category B (Next.js) is what `new:app`
+   produces; Category A (Expo/React Native) is refused because no implementation exists here yet.
+   The selector returns **ASK** when installability or native distribution is unknown — that one
+   question decides the architecture, so it is worth asking and nothing else is.
+3. Continue into [docs/02-PROJECT-INITIALIZATION.md](../docs/02-PROJECT-INITIALIZATION.md) —
    scaffold (`npm run new:app`), then the day-one steps in order.
-3. Move the request file into the new app's `requests/` folder — its first ledger entry, the
+4. Move the request file into the new app's `requests/` folder — its first ledger entry, the
    "why" of the first build.
-4. Run Track A **inside the new app** with that file; its first gate restates the FIELDS as
+5. Run Track A **inside the new app** with that file; its first gate restates the FIELDS as
    always. A fresh scaffold has empty registers and no sibling screens — the starter's
    reference implementation is the sibling pattern, and that is expected, not a blocker.
 

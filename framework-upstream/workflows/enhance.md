@@ -111,6 +111,12 @@ recommendation, log it to the ASSUMPTIONS ledger, proceed — hard-stop question
 
 ## B4 — Plan → GATE
 
+**If the change touches anything rendered**, run the decision half through
+[workflows/design-phase.md](./design-phase.md) before writing the plan — retrieve before asking,
+classify the evidence, and let risk rather than size choose the depth. A correction is where the
+cheap path is most tempting and where "existing behaviour" is most often mistaken for an approved
+requirement ([docs/26 §5](../docs/26-DESIGN-DECISIONS.md)).
+
 A short plan, but it must contain all three of:
 
 1. **What changes** — files and behaviour.

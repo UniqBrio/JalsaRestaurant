@@ -14,33 +14,10 @@
  *   Run this across each state a line can render in - empty, loading, error, populated,
  *   and every status variant. The classic escape is a state QA never had data for.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { measure, parse, ratio } from './contrast-util';
 
 const THEMES = ['light', 'dark'] as const;
-
-function srgb(c: number) { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }
-function lum([r = 0, g = 0, b = 0]: number[]) { return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b); }
-function ratio(fg: number[], bg: number[]) {
-  const [hi, lo] = lum(fg) > lum(bg) ? [lum(fg), lum(bg)] : [lum(bg), lum(fg)];
-  return (hi + 0.05) / (lo + 0.05);
-}
-const parse = (s: string) => (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-
-/** Walk ancestors until a non-transparent background is found - that is what the eye sees. */
-async function measure(page: Page, selector: string) {
-  return page.$eval(selector, (el) => {
-    const fg = getComputedStyle(el).color;
-    let node: Element | null = el;
-    let bg = 'rgba(0, 0, 0, 0)';
-    while (node) {
-      const c = getComputedStyle(node).backgroundColor;
-      if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) { bg = c; break; }
-      node = node.parentElement;
-    }
-    if (bg === 'rgba(0, 0, 0, 0)') bg = getComputedStyle(document.body).backgroundColor;
-    return { fg, bg, text: (el.textContent ?? '').trim() };
-  });
-}
 
 /** Every text element a change touches goes in this list, with the state that produces it. */
 const TARGETS = [

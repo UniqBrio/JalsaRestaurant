@@ -159,6 +159,7 @@ the narration explains it.
 |---|---|---|
 | **T2.0** | Types clean | The deploy build strips types without checking them. This is the only compile gate. A new type-suppression is a defect; touching a suppressed file is the moment to remove its exemption. |
 | **T2.0b** | Second-runtime check | Any code EXCLUDED from the main type-checker (cloud functions, workers) is checked by its own tool. **An exclusion without a named replacement is coverage deletion.** An absent runtime reports BLOCKED, never a silent pass. |
+| **T2.1a** | Supabase reads survive growth (G14) | Every read classified by what happens past the cap; an unbounded read is a hard finding, never baselined. Runs early because it reads source only and is cheap - and because the defect it finds passes every later tier at fixture size. CP-34. |
 | **T2.1** | Unit + pure specs | No server, no credentials — so they run in every environment, which means they always actually run. Put enforcement rungs here. |
 | **T2.2** | Functional | Behaviour against real components. |
 | **T2.3** | Copy gate | Every new/changed string reviewed. **Freeze-rule diff check:** every reworded *shipped* string must trace to an explicit request, a copy-migration pass, or the string having been the bug. Anything else reverts. This is the one that catches drive-bys, and neither of its failure modes shows up as a red test. |

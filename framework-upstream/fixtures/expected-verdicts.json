@@ -3,6 +3,7 @@
   "verdicts": {
     "minimal": "PASS",
     "with-debt": "PASS",
-    "diverged": "PASS"
+    "diverged": "PASS",
+    "adopted": "PASS"
   }
 }

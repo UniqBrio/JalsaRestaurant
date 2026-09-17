@@ -175,6 +175,33 @@ if (!APPLY) {
 }
 
 /* ---- apply ---- */
+
+/* An upgrade taken DURING a feature run is the most expensive thing this framework has
+ * measured. A tooltip run took 31 minutes: ~90 seconds of gates, ~15 minutes of an
+ * eleven-version upgrade taken mid-task, and ~10 minutes of the fallout when the newly arrived
+ * gates found a type error that had nothing to do with the tooltip. The requester waited for
+ * all of it.
+ *
+ * The refusal belongs HERE, not in a commit guard. The upgrade was already its own clean
+ * commit - it was the RUN it sat inside that cost the time, and a commit guard cannot see a
+ * run. `.run-log.json` can: it exists exactly while a run is open.
+ *
+ * This is the same argument as the dirty-tree refusal below, in the time dimension rather than
+ * the file dimension: an upgrade must be one clean revertable thing, and a run in progress is
+ * neither clean nor revertable. */
+const OPEN_RUN = path.join(APP, '.run-log.json');
+if (fs.existsSync(OPEN_RUN) && !argv.includes('--during-run')) {
+  let open = {};
+  try { open = JSON.parse(fs.readFileSync(OPEN_RUN, 'utf8')); } catch { /* shape is advisory */ }
+  console.error('\nBLOCKED: a run is open - upgrading now would charge its cost to that run.');
+  if (open.action) console.error(`  Open since ${open.startedAt}: ${open.type || 'RUN'} - "${open.action}"`);
+  console.error('  Finish it first:  node scripts/run-log.mjs end --verdict <PASS|FAIL|BLOCKED>');
+  console.error('  Then upgrade as its own run. New gates arriving mid-task find problems that');
+  console.error('  belong to neither the task nor the upgrade, and the requester waits for both.');
+  console.error('  If this feature genuinely CANNOT ship without the upgrade: --during-run');
+  process.exit(2);
+}
+
 try {
   const dirty = execFileSync('git', ['status', '--porcelain'], { cwd: APP, encoding: 'utf8' }).trim();
   if (dirty) {

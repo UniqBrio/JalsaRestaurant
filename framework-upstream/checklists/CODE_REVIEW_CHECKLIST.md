@@ -10,6 +10,11 @@
       remembered per browser) — CP-21. The automated gate sees only literal `<th>` tables, so a
       table built by mapping over a column definition is **this checklist's job, not the gate's**.
       A column the table is unreadable without is marked `required`: reorderable, never hideable.
+- [ ] **Every Supabase read in the diff has a shape the cap cannot break** - aggregation, a bound
+      below the cap with an order, or `pageAllByKey` - and a filter is treated as a bound ONLY with
+      a `SUPABASE-BOUND:` annotation whose maximum you believe. G14 sees `.from(`/`.rpc(` chains it
+      can read; a read through an app-written wrapper, or assembled across statements, is **this
+      checklist's job**. A failed read that would render as "no data" is a defect (CP-34, docs/28).
 
 ## Before reading the code
 - [ ] Do I know what this is supposed to do? If not, ask before reviewing.

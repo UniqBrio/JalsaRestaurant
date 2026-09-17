@@ -59,6 +59,223 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-021 — The reference list screen said "No items yet — Add the first item" after a failed read, and the framework had no rule for the row cap that makes the same lie at scale
+
+**Date:** 14-Sep-2026  ·  **Severity:** S2 (an application on this framework told its owner that most members had stopped attending; the number was the first 1,000 rows of a larger table, returned with HTTP 200)  ·  **Modules:** `starter/src/features/items/ItemsScreen.tsx`, the data-access layer as a whole
+
+**Symptom** — In a deployed application, attendance figures collapsed on the day the table passed a thousand rows. No error anywhere. In this repository, the reference screen every app copies did `catch { setRows([]) }` and then rendered the EMPTY state — a statement about the user's business — after a 500.
+
+**Root cause** — Two faces of one class: *an absence of evidence rendered as evidence of absence.* PostgREST answers an unbounded read with the first `max-rows` rows and no error, so a count, a total or a "who is missing" computed from the array is silently wrong once the table grows — and the code that does it passed every test it was given, because no fixture is that large. The framework had no rule naming this, no sanctioned read shape, no guard, and its own reference implementation modelled the smaller version of the defect.
+
+**Fix** — docs/28 and CP-34: three sanctioned read shapes (aggregate · bounded+ordered · keyset to completion with **empty-page termination only**), a dependency-free helper (`pageAllByKey`, `readBounded`, `assertNotCapped`, `LoadState`), gate step **G14** classifying every `.from(`/`.rpc(` read with unbounded reads as HARD findings that no baseline absorbs, a configurable data-layer boundary enforced by ESLint and G14, a low-cap test project (50), and the reference screen's `list-failed` state with a retry.
+
+**The half that matters: stop on EMPTY, never on SHORT.** A page shorter than the page size looks like the last page. It is also exactly what a capped response looks like, and exactly what a low-cap test produces. Injecting short-page termination into the helper made the unit spec fail with *Expected 103, Received 50* — the incident, reproduced inside the fix.
+
+**Files** — `docs/28-SUPABASE-LARGE-DATA-SAFETY.md` · `starter/src/lib/supabase-safety.ts` · `scripts/audits/check-supabase-reads.mjs` · `scripts/supabase-safety.test.sh` · `starter/tests/unit/supabase-safety.unit.spec.ts` · `starter/tests/functional/load-failed.functional.spec.ts` · `starter/eslint.config.js` · `starter/.env.test` · `starter/src/lib/config.ts` · `scripts/gate-runner.mjs`
+
+**How to verify** — `npm run test:unit` (16 cases at cap 50) · `bash scripts/supabase-safety.test.sh` (31 cases over source, including the ESLint boundary) · `npm run gate` → G14.
+
+**Recurrence risk** — The audit is a regex over source: a read assembled across statements or through an app-written wrapper is invisible unless the wrapper is named in `.supabase-safety.json`. `manual` judgement remains for whether an annotated maximum is TRUE. And the functional rung for load-failed could not be executed on the authoring machine (see process check).
+
+**Prevention** — `rung: scripts/supabase-safety.test.sh` in `npm run guard:test`; G14 in `npm run gate` and `npm run audit:all` (CI).
+
+**Process check** — **Yes, four times.** (1) The first ESLint rule flagged `status.from('active')` in the presentation spec — a receiver blocklist cannot know what `status` is — so the rule now matches the CHAIN SHAPE (`.from(…)` followed by `.select/.insert/.update/.upsert/.delete`), and the audit was changed to agree. (2) A name collision: `failed` already existed in the screen as the error-toast helper. (3) The scratch app in the shell suite lacked a ratchet baseline, so every "passes" case exited 3 — the ratchet was right. (4) The functional spec for the new `list-failed` state could not run: an Application Control policy on the authoring machine now blocks `@next/swc` and the Chromium launch (`browserType.launch: spawn UNKNOWN`), and a spec that passed that morning fails identically. Recorded as NOT OBSERVED FAILING, not hidden.
+
+---
+
+## RC-020 — "implemented" was believed: the design gate read the contract and never the code
+
+**Date:** 13-Sep-2026  ·  **Severity:** S2 (no user affected; the layer built to stop silent design substitution could be satisfied by a false word, and a validation run proved it in one case)  ·  **Modules:** `scripts/audits/check-design-contract.mjs`, `scripts/design-ingest.mjs`, `scripts/gate-runner.mjs`, `workflows/design-phase.md`
+
+**Symptom** — A synthetic contract listed features A, B, C as `implemented`. The synthetic implementation contained A and C. The audit reported "complete and consistent". Separately: eight `unresolved` MUST-PRESERVE rows were baselined and the audit exited 0; a corpus of 77 artifacts was summarised as "14 parsed, 63 inspect by hand" when 53 of the 63 were input material nothing referenced; the drift vocabulary defined MINOR VARIATION and nothing could produce it; `audit:design` ran in `audit:all` and not in the gate; the runbook said GATE 3 blocks and nothing executed that sentence.
+
+**Root cause** — Six gaps, one cause: **the layer verified the accounting and called it fidelity.** Each status was a word in a table, and the audit checked that the word was in the allowed set. That converted silent drift into a *false statement* - better than silence, and not detection. The design-ingest tool had the twin defect: it classified by "could I parse this file" rather than "does the design reference this file", so honesty became noise (63 files to inspect, nobody inspects 63, so nobody inspected the 1 that mattered). And the ratchet, correctly built to let a backlog only shrink, was letting *uncertainty* be baselined as if it were a known violation - documenting that a decision is unresolved was being counted as resolving it.
+
+**Fix** —
+1. `implemented` requires Evidence the audit **resolves against the application tree** - `file:` `route:` `testid:` `text:` `spec:` `manual:<who> <date>` - plus a Verified-by. A reference that does not resolve makes the row MISSING and blocks; a reference the audit cannot evaluate makes it UNKNOWN and blocks. `deferred`/`blocked` need an owner; `changed` needs a §8 authoriser.
+2. Findings are HARD (blank, unresolved, false or unsupported `implemented`, unauthorised change, unresolved CONFLICT/ASSERTION, brand mismatch) or SOFT (a declared MINOR VARIATION, a pending verification, an open unknown with an owner). **Hard findings exit 2 whatever the baseline says.** RECORDED ≠ RESOLVED ≠ AUTHORISED ≠ VERIFIED, and the audit knows the difference.
+3. Gate step **G13** in `gate-runner.mjs`. The sentence in the runbook is now a step with an exit code.
+4. Traceability is the table: `# | Decision | Source | Status | Evidence | Verified by` - source → decision → implementation → verification, in one row.
+5. Ingestion classifies every artifact A–H, extracts Markdown, JSON, CSV and DOCX (zip, stock tooling), groups duplicates by hash with the *referenced* file as survivor, and prints INGESTION: COMPLETE or INCOMPLETE. On the reference corpus: 77 = 17 parsed · 1 needs visual inspection · 1 duplicate · 53 unreferenced input · 5 generated.
+6. Drift is produced per row by rules: a declared variance `~ <area>: <what>` is an IMPLEMENTATION DETAIL when `<area>` is named in the flexibility section and a MINOR VARIATION otherwise; deferred/blocked with an owner is MISSING (accounted, visible, not blocking); unresolved is UNKNOWN.
+7. A requester assertion that contradicts an artifact declared authoritative is an `ASSERTION` row in §9: it blocks until `resolved` **with a stated precedence** (authority · scope · freshness · provenance · evidence - never frequency, never who said it). D3's Triangulate row names this case.
+
+**Files** — `scripts/audits/check-design-contract.mjs` · `scripts/design-ingest.mjs` · `scripts/design-fidelity.test.sh` · `scripts/gate-runner.mjs` · `templates/docs/DESIGN_CONTRACT.md` · `workflows/design-phase.md` · `workflows/feature.md`
+
+**How to verify** — `bash scripts/design-fidelity.test.sh` — 39 cases. Injecting "evidence is believed" (`resolveRef` returning ok unconditionally) fails exactly the five evidence-dependent cases (A, A-blocks, B, D, D2) and none of the other 34.
+
+**Recurrence risk** — The class is *a check that reads a declaration about the thing instead of the thing*. What remains declared: `manual:<who> <date>` is accepted as evidence for what only eyes can verify (a logo, a mock-up's likeness) - it is counted and printed, never hidden, and it is still a person's word. And the audit resolves the app from the working directory, so the gate is run FROM the application; the runner's `--app` does not reach it (nor G9, G11, G12).
+
+**Prevention** — `rung: scripts/design-fidelity.test.sh`, in `npm run guard:test`; G13 in `npm run gate`.
+
+**Process check** — **Yes, three times.** The image classifier marked the *referenced* logo as a duplicate of an unreferenced upload because directory order decided the survivor - caught only by reading the debug output rather than the pass count. The DOCX fixture built by a .NET zip writer used a backslash entry name and the extractor called it "no extractor available" - a real-world shape, so the extractor now tolerates both. And the first run of the "passes" cases returned exit 3, not 0: the scratch app had no ratchet baseline, and the ratchet was right to say BLOCKED - the fixture was wrong, not the rule.
+
+---
+
+## RC-019 — Every commit guard was bypassed by the one-liner everybody types, and the bypass was found only because a guard said BLOCKED and the commit went through anyway
+
+**Date:** 13-Sep-2026  ·  **Severity:** S1 (the entire commit-guard layer was inert on the most common commit shape; G1–G9 were skipped in silence, and nothing said so)  ·  **Modules:** `.claude/hooks/pre-tool-use-guard.mjs`, `scripts/hooks/pre-commit-guard.sh`
+
+**Symptom** — A commit was made with `git add -A && git commit -F msg`. Running the guard by hand against the same tree printed **BLOCKED [G1]**. The commit succeeded anyway, and was pushed. Nothing in the output said a guard had been skipped.
+
+**Root cause** — `.git/hooks/pre-commit` is not installed in this repository, so the *only* enforcement is the PreToolUse adapter. That adapter runs **before** the command it is inspecting, and the guard reads `git diff --cached`. When the command stages its own work, **the index is empty at the moment the guard runs**. `CHANGED` is empty, the guard exits 0 at line 63 before any guard function is reached, and the commit proceeds.
+
+The shape that triggers it — `git add -A && git commit`, or `commit -am` — is not an edge case. It is the one-liner people actually type, so **the bypass was the common path and the guarded path was the exception.**
+
+This is the second time the same class has appeared here. The push mode was fixed for exactly this reason ("reading only the index at push time finds an empty diff and exits before any guard runs"), and the comment saying so sits four lines above the branch that had the identical defect for commits. One mode was fixed; the sibling was not looked at.
+
+**Fix** — `GUARD_WORKTREE`. The adapter detects that the command stages its own work and tells the guard the CHANGE is the working tree, not the index: `git diff HEAD` plus untracked files. `staged_diff()` and G3's added-spec detection follow the same three modes — otherwise the guards would read the index they were told to ignore, and a brand-new spec (untracked) would be invisible to the guard that exists to catch it.
+
+**The half that matters: it fails LOUD, not silent.** The adapter cannot tell a git command from a string that merely contains one, so a command whose *text* mentions `git add` and `git commit` now runs the guards against the real tree and may block. That is a false positive, and it is the right trade: a loud, escapable false positive replaces a silent bypass of the whole layer. This limitation is stated rather than hidden — it was hit while writing the test for it.
+
+**Files** — `.claude/hooks/pre-tool-use-guard.mjs` · `scripts/hooks/pre-commit-guard.sh` · `.claude/hooks/adapter.test.sh`
+
+**How to verify** — `bash .claude/hooks/adapter.test.sh` — 13 cases, three new: staging in the same command blocks, `commit -am` blocks, and **a clean tree staged in the same command still passes** (a guard that blocks an empty commit is a guard people disable).
+
+**Recurrence risk** — The class is *a checker that inspects state the command has not produced yet*. Any pre-execution hook reading mutable state has it. The residual risk is named above: the adapter parses a command string, and a string is not an AST.
+
+**Prevention** — `rung: .claude/hooks/adapter.test.sh`, in `npm run guard:test`.
+
+**Process check** — **Yes, and it is the uncomfortable one.** The bypass was not found by a test or a review. It was found because a guard printed BLOCKED in the same terminal output as a successful commit, and the two lines contradicted each other. Nothing in the framework would have reported it: `guard:test` passed throughout, because it executes the guards directly and never through the adapter with an unstaged tree. **Every commit in this session that used `git add -A && git commit` in one command was unguarded**, which includes v2.13.1 — it is missing its test cases, and G1 would have said so.
+
+---
+
+## RC-018 — The runbook told the implementer that visual style binds nothing, and two applications were rebuilt in the agent's taste
+
+**Date:** 13-Sep-2026  ·  **Severity:** S2 (two delivered applications diverged substantially from an approved design; one shipped a different brand, a different navigation and a different information architecture)  ·  **Modules:** `workflows/design-phase.md`, the design phase as a whole
+
+**Symptom** — An approved design corpus was exported and handed to implementation. What came back had a different visual identity, a changed navigation structure, a changed IA, and omitted features. It happened on **Jalsa Restaurant** and, earlier, on **RosiFit** — so it is a process defect, not a project one. The visible symptoms (a maroon identity rendered light, a section count that did not match) were treated as UI bugs twice, which is why it recurred.
+
+**Root cause** — Three, and none of them is "the agent ignored the design":
+
+1. **D5 classified the design as a preference.** The line read *"Preferences (bind nothing): layout, visual style, interaction taste"*, unconditionally. To an agent implementing a supplied design, that is an explicit statement that navigation, brand and interaction bind nothing. **Substituting its own palette was not a violation of the runbook; it was compliance with it.** This is the whole defect in one line, and no amount of prose added elsewhere would have outranked it.
+2. **D1's retrieval list contained only repository evidence** — requirements, existing UI, the design system, schema, registers, tests. A supplied artifact folder was not a source class, so D3's *retrieve* action never fired for it. What is not on the list does not get retrieved.
+3. **D2's conversions table only guarded one direction.** It forbids inflating weak evidence into strong (preference → requirement). It had no row for the reverse — **an approved design decision demoted to an implementation preference** — which is exactly what happened.
+
+**The trap that made it worse** — A generated design corpus contains **two** design systems, and the wrong one is the more discoverable. The product's brand is drawn on the screens as literal values; the design tool's own document styling sits in a `_ds/` folder beside a page titled "Reusable Design Standards". Measured on the Jalsa corpus: the stylesheet declares `--color-accent: #c67139` (terracotta on cream), while `#7a1c24` (maroon) appears **219 times across six product screens and zero times in the stylesheet or in the "Design Standards" page**. An agent that trusted the folder named like a design system would implement the document chrome's palette with perfect fidelity — which is very likely the literal mechanism of the reported "yellow/light theme".
+
+**Fix** — D5's preference clause is now conditional (*when nobody has approved them*); an approved design's material decisions are hard constraints. D1 lists supplied artifacts first. D2 gained the missing conversion. New **D10** carries the supplied-design order of operations, and CP-33 the pattern. `scripts/design-ingest.mjs` inventories a corpus and reports the two palettes **separately, refusing to choose**; `check-design-contract.mjs` ratchets the contract.
+
+**The half that matters: omission becomes impossible to do silently.** Every MUST-PRESERVE row must carry `implemented | deferred | changed | blocked | unresolved`. Blank is a violation. A designed feature may be *accounted for* — never absent. `changed` requires a named authoriser, which is what converts a silent substitution into a decision.
+
+**Files** — `workflows/design-phase.md` · `scripts/design-ingest.mjs` · `scripts/audits/check-design-contract.mjs` · `scripts/design-fidelity.test.sh` · `templates/docs/DESIGN_CONTRACT.md` · `docs/registers/CANONICAL_PATTERNS.md`
+
+**How to verify** — `bash scripts/design-fidelity.test.sh` — 12 cases: theme drift, navigation and feature omission, change without authority, unreadable source (exit 3), a claim with no extraction, conflicting sources surfaced rather than resolved, both palettes reported separately, a 40-artifact corpus inventoried, structure extracted where `<nav>` scanning finds nothing, and an absent contract reported rather than silently green. Case **E** asserts that implementation freedom SURVIVES — a check that flags every difference is switched off within a week.
+
+**Recurrence risk** — The class is *a rule that is correct in its original context and licenses the opposite in another*. D5 was written for designs being decided and was read by agents implementing designs already approved. The residual risk is stated plainly: this makes the ACCOUNTING honest, not the fidelity. Nothing here proves the built navigation has those sections or that a screen resembles its mock-up; that needs the running application or a human. What it removes is *silence*.
+
+**Prevention** — `rung: scripts/design-fidelity.test.sh`, in `npm run guard:test`; `scripts/audits/check-design-contract.mjs` in `npm run audit:all`.
+
+**Process check** — **Yes,** and it found two things this analysis would otherwise have asserted wrongly. First, `design-ingest` reported "0 pages" while happily printing a product palette — it parsed pages and never pushed them into the inventory, a plausible-looking undercount of exactly the kind the tool exists to prevent. Second, the maroon-versus-cream conflict was *measured*, not recalled: the requester described "12 main menus", and the design's own flowchart says **thirteen**, named. Both corrections came from running the tool on the real corpus rather than reasoning about it.
+
+---
+
+## RC-017 — The run log measured the requester's lunch break: 3h 38m recorded for about fifteen minutes of work
+
+**Date:** 12-Sep-2026  ·  **Severity:** S3 (no user affected; every duration in the register overstated its run, and the column exists to answer one question it could not answer)  ·  **Modules:** `scripts/run-log.mjs`, `docs/registers/RUN_LOG.md`
+
+**Symptom** — R-006 recorded **3h 38m** beside a gate figure of 3m 03s. The actual work was roughly fifteen minutes; the requester stepped away between two messages.
+
+**Root cause** — `end` computed `endedAt - startedAt`: honest wall clock, and the wrong measure for this system. An agent-run session spends most of its wall clock **waiting for a human to read something and reply**, and that waiting sits inside the run rather than between runs. So every row overstated, by an amount that varied with how busy the requester was that afternoon — which is worse than a constant error, because it makes rows incomparable.
+
+The cost is specific: the column's stated purpose is *was it the machine or the agent?* Its companion gate figure is measured and small (~90s). A column that silently includes a lunch break cannot answer that, and RC-015's whole analysis had to reconstruct the answer from git timestamps instead of reading it off the row.
+
+**Fix** — `stage` and `tick` leave timestamps; `end` sums the gaps between them, **clamping each to 10 minutes**, and records `12m active · 3h 38m elapsed`. Elapsed is unchanged and always present — the honest answer differs for the machine and for the calendar, so the row carries both.
+
+**The half that matters: it refuses to guess.** A run with no marks from inside it records `active: no marks`. `start` and `end` deliberately do **not** count as evidence — they prove the run began and finished, not that anyone worked in between.
+
+**Files** — `scripts/run-log.mjs` · `scripts/run-log.test.sh` · `docs/registers/RUN_LOG.md` · `workflows/request.md`
+
+**How to verify** — `bash scripts/run-log.test.sh` — 37 cases, four of them new: both figures on a marked run, `active: no marks` on an unmarked one, no active figure on a back-filled one, and the clamp only ever removing time.
+
+**Recurrence risk** — The class is *a measure whose units are right and whose boundaries are wrong*. The trail is only as good as the marking: a run that ticks twice in three hours gets a poor lower bound, and the runbook asking for ticks is a prompt, not a mechanism. That is honest debt, recorded — the alternative, inferring activity from file mtimes, trades a stated weakness for a hidden one.
+
+**Prevention** — `rung: scripts/run-log.test.sh` (cases 16–19), in `npm run guard:test`.
+
+**Process check** — **Yes,** and the interesting part is *how*: the first draft of case 17 **failed**, because `start` and `end` were each leaving a mark, so a run that did nothing still produced an active figure — one clamped gap, a number derived entirely from the cap. The test written to prove the honesty rule caught the implementation breaking it, in the same run. That is the fourth time this week a first draft passed or failed for the wrong reason, and the third caught only by deliberately checking.
+
+---
+
+## RC-016 — The computed-contrast tier is a rung the gate has never run, and it is currently red
+
+**Date:** 12-Sep-2026  ·  **Severity:** S3 (no user is affected today; a rule that names this tier as its enforcement is enforced by nothing, and one of its assertions has been failing unseen)  ·  **Modules:** `scripts/gate-runner.mjs`, `starter/tests/render/`
+
+**Symptom** — Found while building the searchable select: looking for where DR-5's contrast clause should be asserted, `starter/tests/render/contrast.render.spec.ts` was run directly and **failed** — `.tab-row__tab[aria-selected="true"]` below 4.5:1 in the dark theme. The gate had reported 12 PASS minutes earlier.
+
+**Root cause** — The gate runs `test:unit` at G7 and `test:functional` at G8. **Nothing runs `test:render`.** The script exists in `starter/package.json`, the `render` project exists in `playwright.config.ts`, and no gate step, guard or CI line invokes either. So the whole computed-contrast tier has never executed as part of any verdict.
+
+That matters beyond one red assertion: **DR-3 names this tier as its rung** — *"`rung: starter/tests/render/contrast.render.spec.ts` (computed contrast on the selected and unselected tab, both themes)"*. The rung exists, is well written, and is not run. `check-rule-coverage.mjs` counts a rung by whether the path is *named*, not by whether anything executes it, so the rule reads as enforced and the backlog reads as zero.
+
+**Fix** — **Not fixed in this run, deliberately.** Adding `test:render` to the gate turns the gate red on the pre-existing dark-theme tab failure, which is a green → red transition for every app — a MAJOR with a migration step, and it needs the tab palette fixed first. Doing that inside a run about a dropdown is the anti-pattern RC-015 added a rail against.
+
+What this run did instead: DR-5's contrast assertion was placed in the **functional** tier, where the gate actually runs it, with a comment saying why it is not beside the other contrast assertions.
+
+**Files** — none changed for this entry; `starter/tests/functional/select.functional.spec.ts` carries the note.
+
+**How to verify** — `cd starter && npm run test:render` — observe the dark-theme tab failure the gate has never reported. Then `grep -n "test:render" scripts/gate-runner.mjs ci/github-actions-ci.yml` — no match.
+
+**Recurrence risk** — The class is *a named rung that nothing invokes*. One other tier is worth checking the same way before trusting it: nothing runs `test:all` either, so any spec outside `tests/unit/` and `tests/functional/` is in the same position. Also observed: the tab-unselected assertion **flakes** — two runs of identical code gave one failure then two — so whoever gates this tier inherits a flake as well as a red.
+
+**Prevention** — `rung:` — **none yet, and that is the honest answer.** The gap is that `check-rule-coverage.mjs` verifies a path is named, not that it is reachable from a gate step. A check that cross-references every `rung:` path against what the gate actually executes would close the whole class, and is the right next run.
+
+**Process check** — **Yes.** The framework's first idea is that a rule names the thing that runs it; the audit built to count that has been counting *names*. This was found by accident, while looking for somewhere to put a new assertion — not by any gate, which is exactly the point.
+
+---
+
+## RC-015 — A half-hour tooltip: the framework improved itself on the requester's time
+
+**Date:** 11-Sep-2026  ·  **Severity:** S3 (nothing shipped broken; a one-line change took ~31 minutes and the requester waited for all of it)  ·  **Modules:** `scripts/upgrade.mjs`
+
+**Symptom** — An owner asked why adding a tooltip to a Reset button took over half an hour.
+
+**Root cause** — Three things happened inside one run, and only one of them was the tooltip. Reconstructed from the app's commit timestamps: 09:59 first pass · **10:09 framework upgrade, 1.25.0 → 1.36.1, eleven minor versions** · 10:20 the tooltip · **10:30 a type error fixed that the newly-arrived gates had surfaced**. Measured against this repo's own figures — `audit:all` 17.7s, `guard:test` 60.2s, `gate` 8.6s — the mechanical stack is **~90 seconds**. So roughly 15 minutes was the upgrade and roughly 10 was its fallout: problems belonging to neither the tooltip nor the upgrade, found at the worst possible moment.
+
+Nothing forbade it. `upgrade.mjs --apply` already refused a **dirty tree** — "an upgrade must be ONE clean, revertable commit" — which is the same argument in the file dimension. Nobody had made it in the time dimension.
+
+A secondary cost: the run also built a browser harness from scratch (`.harness/serve.mjs`, `.harness/reset-tooltip.mjs`) to watch the tooltip work. Good instinct, rebuilt per change — a reusable capability paid for again.
+
+**Fix** — `--apply` refuses while `.run-log.json` exists, names the open run, and offers `--during-run` for the feature that genuinely cannot ship without the upgrade.
+
+**Why not a commit guard** — because the upgrade **was already its own clean commit**. It was the *run* around it that cost the time, and no commit guard can see a run. The open-run marker can: it exists exactly while a run is open. Placing this rail in a guard would have produced a check that passes on the very case that prompted it.
+
+**Files** — `scripts/upgrade.mjs` · `scripts/upgrade.test.sh` · `1_AppDevelopmentSteps.md`
+
+**How to verify** — `bash scripts/upgrade.test.sh` — 46/46. With an open run committed, `--apply` exits 2 and names the run; `--during-run` passes; with no run open, nothing changes.
+
+**Recurrence risk** — The class is *work that is not the requester's work, charged to the requester's run*. The same shape covers a harness rebuilt per change, a refactor taken "while we are in here", and a doc sweep. Only the upgrade is mechanised here; the rest is the scale lane's job, and `review-plan.mjs` already selects two agents for a change like this rather than eight.
+
+**Prevention** — `rung: scripts/upgrade.mjs` (the open-run refusal), four cases in `scripts/upgrade.test.sh`.
+
+**Process check** — **Yes.** The fail-first run is the entry worth reading twice: the first draft of the blocking case **passed against the pre-fix tree**, because writing the marker left the tree dirty and the older dirty-tree rail returned the same exit 2. A green case, a real-looking assertion, and no evidence whatever. Committing the marker first isolated the new rail and the case then failed pre-fix at exit 0 — the upgrade proceeding, exactly as it did on the day. That is the third vacuous pass caught in this repository in one week (RC-012's sweep, v1.36.0's injection, this): **when a new check shares an exit code with an older one, a passing test proves nothing until the older one is ruled out.**
+
+---
+
+## RC-014 — Two ledgers side by side: the guarded one stayed current, the unguarded one emptied out
+
+**Date:** 11-Sep-2026  ·  **Severity:** S3 (nothing shipped broken; the cost is that no run's duration is trustworthy, so every conversation about speed is a conversation about impressions)  ·  **Modules:** `checklists/DEFINITION_OF_DONE.md`, `scripts/hooks/pre-commit-guard.sh`, `docs/registers/RUN_LOG.md`
+
+**Symptom** — An app owner asked why a tooltip change took half an hour, and found the run log could not answer: `docs/registers/RUN_LOG.md` held **one** row, dated 08-Sep, while three runs shipped on 11-Sep. The one row it did have was closed with `-` in Stages, Gate, Verdict and Notes.
+
+**Root cause** — The Definition of Done has asked for a closed run log since the log existed, and **nothing checked**. No guard, no gate step — `grep -rn 'run-log\|RUN_LOG' scripts/hooks/pre-commit-guard.sh scripts/gate-runner.mjs` returned nothing.
+
+`TEST_SUMMARY.md` did not decay the same way, and not because anyone cared about it more: **G2 blocks a code change that does not add a gate-run line.** Two append-only ledgers, the same repo, the same authors, the same weeks — one guarded and one not. The guarded one stayed current and the unguarded one went stale within three days. That is CLAUDE.md's first idea with a control group.
+
+**Fix** — Guard **G9**, modelled directly on G2: application code staged without a new `| R-` row in `RUN_LOG.md` is BLOCKED, with `RUNLOG-NA:` as the one-guard escape. It fails **open and audibly** where no log exists, because an app that has not adopted the register is not committing a violation and a guard that blocks it gets uninstalled by lunchtime.
+
+The DoD item now names its rung, so `check-rule-coverage.mjs` counts it as enforced rather than as honest prose-only debt.
+
+**Files** — `scripts/hooks/pre-commit-guard.sh` · `scripts/hooks/guard-reachability.test.sh` · `checklists/DEFINITION_OF_DONE.md`
+
+**How to verify** — `npm run guard:test`. The G9 block: code changed with a `RUN_LOG.md` present and no new row → exit 2. Observed at **exit 0** against the pre-fix tree — the run shipped and nothing noticed, which is the defect exactly.
+
+**Recurrence risk** — The class is *a Definition-of-Done item with no rung*. Every other DoD item was re-read during this fix; the run-log line was the only one asking for a specific committed artifact with nothing checking for it. Items that are genuinely judgement — "both themes verified visually", "the failure path was exercised" — cannot have a rung and are not this class.
+
+**Prevention** — `rung: scripts/hooks/pre-commit-guard.sh` (G9), with four cases in `guard-reachability.test.sh`: it blocks, a row satisfies it, no log fails open, and the token excuses only it.
+
+**Process check** — **Yes,** and the framework already had the mechanism: `check-rule-coverage.mjs` exists precisely to count rules with no rung. The DoD's run-log line carried no `rung:` marker for its whole life and the audit's backlog is zero, which means the checklist's items were never in the audit's scope. That gap is real and is **not** closed by this entry — recorded as debt in v1.36.2 rather than quietly fixed, because widening that audit is a change with its own blast radius.
+
+---
+
 ## RC-013 — The starter's "no lockfile, on purpose" was a comment in an uninstalled CI file, and the scaffolder copied whatever `npm install` left behind
 
 **Date:** 11-Sep-2026  ·  **Severity:** S3 (nothing was broken; every app scaffolded from a checkout where anyone had run `npm install` in `starter/` would have been silently born pinned, and would have committed the pin)  ·  **Modules:** `scripts/new-app.mjs`, `.gitignore`, `ci/`

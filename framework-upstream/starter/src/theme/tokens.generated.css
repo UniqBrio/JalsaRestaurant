@@ -47,9 +47,10 @@
   --layout-min-supported-width: 320px;
   --layout-content-max-width: 1200px;
   --layout-min-touch-target: 44px;
+  --layout-min-field-width: 16rem;
   --layout-bottom-chrome-height: 0px;
   --layout-bottom-chrome-clearance: 0px;
-  --layout-note: bottomChromeClearance is the ONLY number a screen may use to clear a fixed bottom bar. Never hand-pick padding.;
+  --layout-note: bottomChromeClearance is the ONLY number a screen may use to clear a fixed bottom bar. Never hand-pick padding. minFieldWidth is the ONLY number a layout may use to decide when a multi-control row must stop being a row (DR-8) - one source, so the CSS and the spec that checks it cannot disagree.;
 
   /* --- LIGHT (default, always fully defined) --- */
   --background: #FFFFFF;

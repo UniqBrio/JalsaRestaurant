@@ -488,6 +488,11 @@
 .confirm__actions { display: flex; justify-content: flex-end; gap: var(--spacing-2); margin-top: var(--spacing-4); }
 .confirm__cancel, .confirm__ok, .btn, .btn--primary, .btn--quiet, .btn--danger {
   padding: var(--spacing-2) var(--spacing-4);
+  /* DR-8: a control is operable or it is not, and 39px was neither decided nor visible. Tabs
+     and the two menus already carried the named minimum; ordinary buttons did not, so the
+     reference implementation shipped the one control type users press most at under the
+     target. Unconditional, not behind a coarse-pointer query: a mouse is helped by it too. */
+  min-block-size: var(--layout-min-touch-target);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -520,3 +525,128 @@
 .field__input { padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background); color: var(--text-body); font: inherit; }
 .field__group { display: flex; gap: var(--spacing-3); }
 .field__mode { color: var(--text-muted); font-size: var(--font-size-caption); }
+
+/* --- SearchableSelect (DR-5) ---------------------------------------------------------------
+   Semantic tokens only. The active row deliberately uses the primarySurface / onPrimarySurface
+   PAIR rather than a tint of its own: a highlight colour picked to look right in the light theme
+   is exactly where pale-on-pale first appears in the dark one, and a filtered list is the place
+   users read fastest and notice least. */
+.sselect { display: flex; flex-direction: column; gap: 0.25rem; position: relative; }
+
+.sselect__label { color: var(--text-body); font-size: 0.875rem; }
+
+.sselect__trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  /* The named minimum UNCONDITIONALLY, not only under a coarse pointer (DR-8). A laptop with a
+     touchscreen reports a fine pointer and is operated with a thumb anyway, and this is the
+     control DR-5 puts on every screen - the one worth being sure about. */
+  width: 100%; min-block-size: var(--layout-min-touch-target);
+  padding: 0.5rem 0.75rem; text-align: start;
+  background: var(--surface); color: var(--text-body);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.sselect__trigger:hover:not(:disabled) { border-color: var(--border-strong); }
+.sselect__trigger:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.sselect__trigger:disabled { color: var(--text-disabled); cursor: not-allowed; }
+
+/* The placeholder is muted, never disabled-grey: disabled-grey on a control the user CAN use
+   reads as "you may not touch this", which is a lie the styling tells. */
+.sselect__value--empty { color: var(--text-muted); }
+.sselect__caret { color: var(--text-muted); }
+
+.sselect__panel {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--surface-raised); overflow: hidden;
+}
+
+.sselect__input {
+  padding: 0.5rem 0.75rem; border: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface-raised); color: var(--text-body); font: inherit;
+}
+.sselect__input::placeholder { color: var(--text-muted); }
+.sselect__input:focus { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+
+.sselect__list { max-height: 15rem; overflow-y: auto; margin: 0; padding: 0.25rem; list-style: none; }
+
+.sselect__opt {
+  padding: 0.5rem 0.75rem; border-radius: 4px; cursor: pointer;
+  color: var(--text-body);
+}
+.sselect__opt.is-active { background: var(--primary-surface); color: var(--on-primary-surface); }
+.sselect__opt[aria-selected='true'] { font-weight: 600; }
+
+/* + Add is an ACTION among choices, so it is marked as different in weight and a rule above it -
+   not by colour alone, which a colour-blind user does not receive (screen checklist item 10). */
+.sselect__opt--add { font-weight: 600; border-bottom: 1px solid var(--border); border-radius: 4px 4px 0 0; }
+
+.sselect__empty { padding: 0.5rem 0.75rem; color: var(--text-muted); }
+
+/* Touch targets stay at the named minimum on a phone (screen checklist item 11). The literal
+   44px that stood here was the number the token exists to stop anyone typing twice. */
+@media (pointer: coarse) {
+  .sselect__opt, .sselect__trigger, .sselect__input { min-height: var(--layout-min-touch-target); }
+  .sselect__opt { display: flex; align-items: center; }
+}
+
+/* --- ColumnFilter (DR-7) -------------------------------------------------------------------
+   Semantic tokens only. The active trigger uses the primarySurface / onPrimarySurface PAIR
+   rather than a tint of its own - a filtered column must read as filtered in both themes, and
+   a header is small type on a tinted ground, which is where pale-on-pale shows up first. */
+.colfilter { position: relative; display: inline-flex; margin-inline-start: var(--spacing-1); }
+
+.colfilter__trigger {
+  min-width: 28px; min-height: 28px; padding: 0 6px;
+  display: inline-grid; place-items: center;
+  background: transparent; color: var(--text-muted);
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  font: inherit; font-size: var(--font-size-caption); cursor: pointer;
+}
+.colfilter__trigger:hover { background: var(--surface); }
+.colfilter__trigger:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.colfilter__trigger.is-active {
+  background: var(--primary-surface); color: var(--on-primary-surface);
+  border-color: var(--border-strong); font-weight: 600;
+}
+
+.colfilter__menu {
+  position: absolute; inset-block-start: calc(100% + 4px); inset-inline-start: 0; z-index: 20;
+  min-width: 200px; display: grid; gap: 2px; padding: var(--spacing-2);
+  background: var(--surface-raised); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-raised);
+}
+.colfilter__opt, .colfilter__clear {
+  display: flex; align-items: center; gap: var(--spacing-2);
+  min-height: 36px; padding: 6px var(--spacing-2); text-align: start;
+  background: transparent; border: 0; border-radius: var(--radius-sm);
+  color: var(--text-body); font: inherit; font-size: var(--font-size-caption); cursor: pointer;
+}
+.colfilter__opt:hover, .colfilter__clear:hover { background: var(--surface); }
+.colfilter__opt:focus-visible, .colfilter__clear:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.colfilter__opt[aria-pressed='true'] { font-weight: 600; }
+.colfilter__clear { border-top: 1px solid var(--border); border-radius: 0 0 var(--radius-sm) var(--radius-sm); color: var(--text-link); }
+.colfilter__empty { margin: 0; padding: 6px var(--spacing-2); color: var(--text-muted); font-size: var(--font-size-caption); }
+
+@media (pointer: coarse) {
+  .colfilter__trigger { min-width: 44px; min-height: 44px; }
+  .colfilter__opt, .colfilter__clear { min-height: 44px; }
+}
+
+/* --- Adaptive field grouping (DR-8) --------------------------------------------------------
+   THE RULE, IN ONE DECLARATION
+   An arrangement is a function of AVAILABLE SPACE and what the controls need - never of a
+   device name. `auto-fit` + `minmax(MIN, 1fr)` says exactly that: lay these out in as many
+   columns as fit while each stays at least MIN wide, and when they cannot, stack them. There
+   is no media query here on purpose. A `@media (max-width: 768px)` rule describes a screen;
+   this describes the CONTENT'S requirement, so it is still correct inside a narrow dialog on a
+   wide monitor, inside a split pane, and at a zoom level nobody tested.
+
+   MIN is `--layout-min-field-width`, from design/tokens.json, which is also the number the
+   responsive-fit spec reads. One source: the layout and the check that polices it cannot drift
+   apart into a rule that passes because both sides moved. */
+.form-grid {
+  display: grid;
+  gap: var(--spacing-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--layout-min-field-width), 100%), 1fr));
+  align-items: start;
+}

@@ -50,6 +50,7 @@ const STATIC_PUBLIC: Readonly<Record<string, string | undefined>> = {
   PUBLIC_APP_URL: process.env.PUBLIC_APP_URL,
   PUBLIC_API_URL: process.env.PUBLIC_API_URL,
   PUBLIC_BUILD_ID: process.env.PUBLIC_BUILD_ID,
+  PUBLIC_SUPABASE_MAX_ROWS: process.env.PUBLIC_SUPABASE_MAX_ROWS,
 };
 const read = (name: string): string | undefined => {
   const v = name in STATIC_PUBLIC ? STATIC_PUBLIC[name] : process.env[name];
@@ -86,6 +87,14 @@ export const publicConfig = Object.freeze({
    * the mechanism behind guarded stale-build recovery. Never hand-set it.
    */
   buildId: read('PUBLIC_BUILD_ID') ?? 'dev',
+  /**
+   * The PostgREST row cap this application runs against - 1,000 unless the project changed it,
+   * and DELIBERATELY LOW (50) in the test project so that a read which is safe only while the
+   * table is small is exposed by a fifty-one-row fixture (docs/28 §10). Every helper in
+   * supabase-safety.ts and the G14 audit read it from here. Raising it in production is the
+   * prohibited fix and G14 reports it.
+   */
+  supabaseMaxRows: Number(read('PUBLIC_SUPABASE_MAX_ROWS') ?? 1000),
 });
 
 /**

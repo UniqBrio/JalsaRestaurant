@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { sha } from './lib/lineage.mjs';
 
 const FW = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FIXTURES = ['minimal', 'with-debt', 'diverged'];
+const FIXTURES = ['minimal', 'with-debt', 'diverged', 'adopted'];
 const results = [];
 const argv = process.argv.slice(2);
 const OUT = path.resolve(FW, arg('--out', '.gate-logs/conformance.json'));
@@ -129,6 +129,84 @@ async function runFixture(name) {
     // If the seed happens to be unchanged this run, "no review needed" is also correct.
     check('modified file routed to review OR seed unchanged',
       /REVIEW REQUIRED/.test(out2) || fs.existsSync(path.join(app, '.framework/incoming/src/lib/dates.ts')) || !seedChanged);
+  }
+
+  // ---- the ADOPTED fixture: an app that keeps its registers, and must stay green ----------
+  //
+  // WHY THIS FIXTURE EXISTS
+  //   v2.0.0 added guard G9 (code must not ship without a run-log row) and v2.1.0 added the
+  //   open-run upgrade refusal. Both releases cited `audit:compat` as evidence that no existing
+  //   app goes green -> red. Both citations were WORTHLESS: no fixture carried a RUN_LOG.md or a
+  //   .run-log.json, so every rail failed open on all three and the green tick measured nothing.
+  //   Two releases in a row quoted a passing check that could not see the change it shipped.
+  //
+  //   The direction matters. These checks do NOT exist to prove the rails block - the guard and
+  //   upgrade suites do that. They exist so that an app which has adopted the registers and does
+  //   the right thing STAYS PASSING, and so that a future release which over-tightens either
+  //   rail turns this fixture red instead of turning a real app red.
+  if (name === 'adopted') {
+    const guard = path.join(FW, 'scripts/hooks/pre-commit-guard.sh');
+    const runLog = path.join(app, 'docs/registers/RUN_LOG.md');
+    check('the fixture really did adopt the run log', fs.existsSync(runLog));
+
+    // Rule 3: no bash is a tooling absence, not a violation. Say so and pass, rather than
+    // failing a fixture for the container's shortcomings.
+    const bashOk = sh('bash', ['-c', 'exit 0'], app).status === 0;
+    if (!bashOk || !fs.existsSync(guard)) {
+      check('guard checks SKIPPED - no bash or no guard (tooling, not a verdict)', true);
+    } else {
+      const msg = path.join(app, '.git', 'COMMIT_EDITMSG');
+      // Every OTHER guard is released by its own token, so an exit here is attributable to G9
+      // and nothing else. Without this the first check below passes on the test-case guard's
+      // exit 2 and proves nothing about G9 - it did exactly that on the first attempt, which is
+      // the same shape as RC-015's vacuous pass and the reason that lesson is written down.
+      const isolate = [
+        'feat: a change in the adopted fixture',
+        '',
+        'CASES-NA: isolating G9',
+        'LEDGER-NA: isolating G9',
+        'DOCS-NA: isolating G9',
+        'FAILFIRST-NA: isolating G9',
+        'TYPES-NA: isolating G9',
+        'THEME-NA: isolating G9',
+      ].join('\n');
+      const runGuard = () => {
+        fs.writeFileSync(msg, `${isolate}\n`);
+        return sh('bash', [guard, msg], app).status;
+      };
+
+      // 1. A run that leaves no row is BLOCKED. This is the v2.0.0 behaviour, now visible to
+      //    compat: if a later release removes or weakens G9, this flips and the fixture reddens.
+      fs.appendFileSync(path.join(app, 'src/lib/dates.ts'), '\nexport const adopted = 1;\n');
+      sh('git', ['add', '-A'], app);
+      check('G9 blocks application code with no run-log row', runGuard() === 2);
+
+      // 2. ...and an app that DOES log its run passes. The half that protects real apps: a rail
+      //    nothing can satisfy is a rail that gets uninstalled, and then it protects nobody.
+      fs.appendFileSync(runLog,
+        '| R-003 | the change this fixture just made | CHANGE | micro | 2026-09-12 10:00 | 2026-09-12 10:03 | 3m | - | PASS | PASS | - |\n');
+      sh('git', ['add', '-A'], app);
+      check('G9 is satisfied by a real row - an adopted app stays green', runGuard() === 0);
+      sh('git', ['commit', '-qm', 'adopted change with its row'], app);
+    }
+
+    // 3. The v2.1.0 rail, likewise made visible: an upgrade taken while a run is OPEN is
+    //    refused and names the run. The marker is COMMITTED first - left dirty, the older
+    //    dirty-tree refusal returns the same exit 2 and this check would pass against a tree
+    //    with no open-run rail at all. That exact vacuous pass happened while writing v2.1.0.
+    fs.writeFileSync(path.join(app, '.run-log.json'),
+      `${JSON.stringify({ type: 'CHANGE', action: 'an open run in the adopted fixture', startedAt: '2026-09-12T10:00:00Z', stages: [] }, null, 2)}\n`);
+    sh('git', ['add', '-A'], app); sh('git', ['commit', '-qm', 'open a run'], app);
+    const upOpen = sh(process.execPath, [path.join(FW, 'scripts/upgrade.mjs'), '--framework', FW, '--apply'], app);
+    check('an upgrade during an OPEN run is refused, on a clean tree',
+      upOpen.status === 2 && /an open run in the adopted fixture/.test(`${upOpen.stdout}${upOpen.stderr}`));
+
+    // 4. ...and closing the run restores normal service. Without this the fixture would pass
+    //    just as happily if the rail refused every upgrade forever.
+    fs.rmSync(path.join(app, '.run-log.json'));
+    sh('git', ['add', '-A'], app); sh('git', ['commit', '-qm', 'close the run'], app);
+    const upClosed = sh(process.execPath, [path.join(FW, 'scripts/upgrade.mjs'), '--framework', FW, '--apply'], app);
+    check('with the run closed, the upgrade proceeds again', upClosed.status === 0);
   }
 
   const failed = checks.filter((c) => !c.ok);
