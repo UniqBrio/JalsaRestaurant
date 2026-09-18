@@ -34,3 +34,31 @@
  * screen, which is the correct trade against hiding navigation.
  */
 export const CHIP_NAV_WRAP = 'flex flex-wrap gap-2';
+
+/**
+ * Pins a chip NAVIGATION beneath the Owner header, from `md` up (Standard 1.2).
+ *
+ * THE OFFSET, AND WHY IT IS WRITTEN LIKE THAT
+ *   `calc(7rem + 1px)` is the Owner header, exactly. The 7rem is its two rows — `py-3` plus
+ *   `min-h-11`, then `min-h-11` — so the offset tracks the header under text zoom rather than
+ *   drifting away from it. The `+ 1px` is the header's own `border-b`, which does not scale and
+ *   which a first attempt forgot, leaving the row tucked a pixel under the border.
+ *
+ * WHY ONLY FROM `md`
+ *   The header is 7rem + 1px at every width from 768px UP, because its identity row only begins
+ *   to wrap below that. Below `md` no single offset is correct, and pinning a ten-chip row there
+ *   is the wrong trade anyway: measured, it leaves a 320x568 phone 28px of content. So below
+ *   `md` the row keeps the behaviour it shipped with.
+ *
+ * WHY IT LIVES HERE AND NOT IN A CLASS ATTRIBUTE
+ *   `settings-sticky-subnav.render.spec.ts` measures the real header and asserts it equals this
+ *   offset. A spec carrying its own copy of the string would measure the copy, and the offset
+ *   could drift from the header with the suite still green — which is the whole reason
+ *   `CHIP_NAV_WRAP` above is a constant too.
+ *
+ * `-my-2` hands the padding back to the flow, so at rest the row sits exactly where it always
+ * did and only its scrolled behaviour changes. `z-20` is below the header's `z-30`, and far
+ * below sheets (`z-50`) and toasts (`z-60`).
+ */
+export const CHIP_NAV_STICKY_MD =
+  'md:sticky md:top-[calc(7rem+1px)] md:z-20 md:-my-2 md:bg-[var(--background)] md:py-2';

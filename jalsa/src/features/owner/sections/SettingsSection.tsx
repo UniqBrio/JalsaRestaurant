@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/cn';
-import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
+import { CHIP_NAV_WRAP, CHIP_NAV_STICKY_MD } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
@@ -61,8 +61,22 @@ export function SettingsSection(props: OwnerSectionProps) {
           label, was present in the DOM and reachable only by a scroll gesture nothing on the
           screen suggested was available. A filter strip may scroll sideways; a NAVIGATION may
           not, because each chip is a different destination and one nobody can see is one
-          nobody can reach. See `src/lib/chip-nav.ts`. */}
-      <nav className={CHIP_NAV_WRAP} aria-label="Settings sections">
+          nobody can reach. See `src/lib/chip-nav.ts`.
+          AND IT STAYS PUT WHILE THE PAGE MOVES, from `md` up. Settings panels run to several
+          screens, and a sub-navigation that has scrolled off the top is one the owner has to
+          scroll BACK to before they can change their mind — so in practice they do not change
+          their mind, they give up and scroll. `CHIP_NAV_STICKY_MD` pins it beneath the Owner
+          header at `calc(7rem + 1px)`: the header's two rem-derived rows plus its own 1px
+          `border-b`, which a first attempt forgot, tucking the row a pixel underneath it. The
+          offset is a constant rather than a literal because
+          `settings-sticky-subnav.render.spec.ts` measures the REAL header and asserts they
+          agree — a spec carrying its own copy would measure the copy.
+
+          BELOW `md` NOTHING CHANGES. The row stays in normal flow exactly as it shipped: pinning
+          a ten-chip row on a 320x568 phone leaves 28px of content, measured. `z-20` is below the
+          header's `z-30` and far below sheets (`z-50`) and toasts (`z-60`), so nothing overlays
+          them. */}
+      <nav className={cn(CHIP_NAV_WRAP, CHIP_NAV_STICKY_MD)} aria-label="Settings sections">
         {allowed.map((p) => (
           <Chip
             key={p.key}
