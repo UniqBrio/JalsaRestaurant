@@ -6,9 +6,10 @@ import { cn } from '@/lib/cn';
 import { ACTION_BAR_STACK } from '@/lib/action-bar';
 import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
-import { OfflineBanner, PartialNotice } from '@/components/ui/states';
+import { OfflineBanner, OfflineGate, PartialNotice } from '@/components/ui/states';
 import type { GuestPayload } from '@/lib/db/guest-view';
 import { useLiveData } from '@/hooks/useLiveData';
+import { browserOffline } from '@/lib/connectivity';
 import { draftedCount, effectiveQty, withDraft, withoutDraft, type CartDraft } from '@/lib/cart-draft';
 import { WelcomeScreen, MenuScreen, CartScreen } from './GuestOrdering';
 import { PlacedScreen, StatusScreen } from './GuestProgress';
@@ -56,7 +57,7 @@ export interface GuestScreenProps {
 }
 
 export function GuestApp({ table, initial }: { table: string; initial: GuestPayload }) {
-  const { data, staleReason, send } = useLiveData<GuestPayload>(
+  const { data, staleReason, send, refresh } = useLiveData<GuestPayload>(
     `/api/guest/state?table=${encodeURIComponent(table)}`,
     initial
   );
@@ -79,6 +80,30 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
    * not silently re-hide a total the guest switched on.
    */
   const [showTotal, setShowTotal] = React.useState(() => initial.features.orderTotal);
+
+  /*
+    THE GATE AT THE DOOR, AND ONLY AT THE DOOR.
+
+    `true` when the browser said it had no connection AT MOUNT — arriving with nothing loaded.
+    Letting that through to the menu means letting somebody tap an order that cannot be sent and
+    learn it from silence.
+
+    It is a mount-time snapshot on purpose. Losing the signal WHILE ordering must not take the
+    screen away: the cart is server-held, `useLiveData` keeps the last good payload, and
+    `OfflineBanner` says so without blocking anything. A gate that re-asserted itself on every
+    `offline` event would throw away a customer's half-built round for a ten-second dead spot in
+    a dining room, which is the failure this deliberately does not have.
+
+    `useSyncExternalStore` rather than an effect: the browser's connectivity is external state,
+    and `getServerSnapshot` returns false so the server never renders the gate — the server only
+    runs at all when the request reached it, which means the phone was online.
+  */
+  const arrivedOffline = React.useSyncExternalStore(
+    () => () => {},
+    () => browserOffline(),
+    () => false
+  );
+  const [gateCleared, setGateCleared] = React.useState(false);
 
   /**
    * WHAT THE PHONE BELIEVES IS IN THE CART, before the server has confirmed it.
@@ -232,6 +257,36 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
   }
 
   const back = backTarget(phase);
+
+  /* Arrived with no connection: the gate, until they clear it. "Try again" re-reads the
+     browser's own state and re-fetches — no timer, no polling, no delay. If the connection is
+     genuinely still down the next read fails and the banner says so, which is the honest
+     outcome rather than a spinner that never resolves. */
+  if (arrivedOffline && !gateCleared) {
+    return (
+      <OfflineGate
+        /* The number the owner already configured, from the payload the server already sent.
+           No new field, no new fetch — and a telephone call is the one channel still open from
+           a screen that exists because the data network is not. */
+        callNumber={data.callNumber}
+        /* The owner's own switch, read — not a new one. An owner who has turned Call captain off
+           across the guest surface must not meet it here either. */
+        captainAvailable={data.features.callCaptain}
+        onRetry={() => {
+          /* RE-CHECK, then RESUME — not a re-navigation.
+             `refresh()` re-reads `/api/guest/state` on the cookie this phone already holds, so
+             the table, the bill and the session are revalidated by the existing path and NO new
+             session can be minted. A `window.location.reload()` here would work too and would be
+             wrong: it throws away the payload already in hand for a round trip that answers the
+             same question. Still offline: nothing happens and the screen stays, which is the
+             honest outcome rather than a spinner that never resolves. */
+          if (browserOffline()) return;
+          setGateCleared(true);
+          void refresh();
+        }}
+      />
+    );
+  }
 
   return (
     <BottomBarSpace.Provider value={setBarSpace}>

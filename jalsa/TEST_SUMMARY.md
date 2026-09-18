@@ -7,6 +7,306 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-18 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.
+Time: 27.9s total - slowest G6 Lint (9.1s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (56ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (51ms)
+- **G3 Theme assets present per theme** - PASS (50ms)
+- **G4 No hard-coded colours** - PASS (70ms)
+- **G5 Types** - PASS (7.2s)
+- **G6 Lint** - PASS (9.1s)
+- **G7 Unit + pure specs** - PASS (8.2s)
+- **G8 Functional / integration** - BLOCKED (-) - functional tier: the only configured database is production and a guest QR page load creates a guest session, which is a write to live data. No non-production secret key is present in this container.
+- **G9 Automation addressability** - PASS (56ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (56ms)
+- **G12 Installable as an application** - PASS (62ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+> **SCOPE OF THIS COMMIT (18-Sep-2026).** Only the QR connectivity workstream is here. Fourteen
+> other workstreams were built in the same session and are NOT in this commit, so their entries
+> are not in this file and the run-log numbering has gaps where they belong. They append normally
+> when they land.
+
+## Feature - 18-Sep-2026 - QR connectivity gate, round 3: three clauses, and the loop
+
+### The loop, stated first
+
+Submitted three times. Built twice (R-046, R-048). **Both builds are uncommitted**, as every
+submission in the series instructed. So the requester's review cannot contain them, the review
+reports the gate missing, and the request returns. Against anything they can look at they are
+right: `HEAD` carries one pushed commit from today, production runs `8de0da7`, and fifteen
+workstreams exist only in an ephemeral container. Building a third time does not close that; only
+a decision about delivery does, and that decision is the requester's.
+
+### The three clauses that were genuinely new
+
+| Clause | What changed |
+|---|---|
+| "Jalsa logo/icon" | The `⚡` glyph became `/brand/jalsa-badge.png` — the mark `design/tokens.json` declares |
+| "Where the existing Captain request mechanism is available" | The action is now gated on the owner's `callCaptain` switch AND a configured number, not only the number |
+| "no duplicate sessions **and no duplicate bills**" | A case of its own: a bill is opened by a write; the retry path reads |
+
+**Which image, decided by evidence rather than by preference.** `data.logoUrl` is an owner-uploaded
+file on a REMOTE host — unreachable from a screen that exists because the network is unreachable,
+so it would render broken on the one screen that must not. `/brand/jalsa-badge.png` is same-origin
+and `public/sw.js` already serves `/brand/*` cache-first with runtime fill. It is a plain `<img>`,
+not `next/image`, because the optimizer serves from `/_next/image` — another round trip this screen
+cannot make. It sits inside the existing circle, so a miss reads as a tinted circle rather than a
+broken-image glyph. And it is asserted to actually load: `alt=""` means a 404 would leave nothing
+on screen to say anything was wrong.
+
+### Everything else was already built, and was not rebuilt
+
+All eleven test obligations were covered by R-046 and R-048. Rebuilding them would have been the
+third construction of the same thing.
+
+### Tests
+
+| Tier | File | Cases |
+|---|---|---|
+| unit | `tests/unit/connectivity.unit.spec.ts` | 33 -> 39 (1 superseded, skipped, kept) |
+| render | `tests/render/offline-gate.render.spec.ts` | 42 -> 47 |
+
+Four defects injected, all observed failing.
+
+### Gate
+
+**BLOCKED** - 11 pass, 0 fail, 1 blocked (G8 functional). `audit:all` 10/10, `guard:test` 15/15,
+tsc clean, eslint clean, production build clean, unit + render **1241 passed, 1 skipped**.
+
+### Definition of done
+
+| item | verdict |
+|---|---|
+| Implements the request, no unrequested scope | done - three clauses; QR route, validation, session handling, combobox and heard_about untouched |
+| Canonical pattern per concern | done - the `<img>` brand idiom already used in GuestQueue and GuestClosure |
+| No colour literals | gate: PASS (G4) |
+| Dead weight deleted | done - the `⚡` glyph and its typography exception |
+| Dependencies | N/A: none introduced |
+| Every state looked at | done - offline (with and without a captain), invalid QR, unreachable, not-configured, mid-session banner |
+| Failure path exercised | done - a missing brand file is a case, and it fires |
+| Writes | N/A: this change writes nothing |
+| Screen checklist | done - six widths, with and without the captain action |
+| Both themes verified | done - 10 computed-contrast cases (the glyph target retired: it is now an image, measured as a box) |
+| Permissions | N/A: reads the owner's existing switch, adds none - RBAC_MATRIX unchanged, stated out loud |
+| Tenant scoping | N/A: no query touched |
+| No secret in client code | done |
+| Cases added; delta stated | done - unit 33 -> 39, render 42 -> 47, verified against the files |
+| Fail-first evidence | done - four injected, four observed failing |
+| The gate ran | done - BLOCKED, G8 named |
+| Module document updated | done - this entry |
+| Feature register | N/A: Jalsa has no FEATURES register |
+| Root-cause entry | N/A: not a fix |
+| Limitations entry | N/A: the offline.html limit is already recorded and restated in the request file |
+| Decision record | done - the local-badge decision, above and in `states.tsx` |
+| Changelog line | done - the run log note |
+| Tier | T1 |
+| Run closed out | done - R-049, BLOCKED |
+| Test files append-only | done - appended; round 1's case 12 stays skipped and kept |
+| Would a correct process have caught this? | **This one is a process finding, and it is not the application's.** Three rounds were spent on one requirement because completed work never reached the person reviewing it. No gate in this framework asks "can the requester actually see the last run's output?" - and until one does, "do not push" plus a fresh container is a silent delivery failure that looks exactly like a missing feature. Worth a framework-update run of its own. |
+
+---
+
+## Feature - 18-Sep-2026 - QR connectivity gate, round 2: the two things round 1 left
+
+### The premise, checked first
+
+The request opens: *"The previous findings did NOT implement an offline connectivity gate."*
+**They did** — R-046, earlier today, and it is sitting uncommitted along with fourteen other
+workstreams. Against what is DEPLOYED the premise is correct, which is the more useful way to read
+it: **nothing built today has been pushed**, so from outside this container the gate does not
+exist. Stating that was the first obligation of a round-2 run, before proposing anything.
+
+Six of the eleven test obligations were already met. This run is the other five, plus two real
+gaps the first round left.
+
+### Gap 1 — "Call captain" was missing, and round 1's reasoning was half right
+
+Round 1 was offered the button optionally, found that the only mechanism it could use posts to
+`/api/guest/ask`, and left it off: from a screen that exists BECAUSE the server is unreachable,
+that request cannot arrive, and a button reporting "your captain has been called" when nothing
+left the phone makes somebody wait for a person who was never told.
+
+Right about that mechanism. **Wrong about the screen.** A telephone call does not use the data
+network. `callNumber` was already on the guest payload, and the surface already renders it as a
+`tel:` link in two other places (`TableInactive`, the help sheet). So the action is real, reuses an
+existing idiom, creates no second request mechanism and pretends nothing — which is exactly the
+"handle that honestly" branch the request asks for.
+
+Where the restaurant has configured no number, **no button is rendered** and the note changes.
+A dead `tel:` link on a screen about things not working is the same lie in a different shape.
+
+| | |
+|---|---|
+| Primary | `Try again` — re-reads `/api/guest/state` on the cookie already held. A read: no session can be minted, and the payload in hand is not thrown away for a reload |
+| Secondary | `Call captain` — `tel:` on `data.callNumber`. No fetch, no grant, no new field |
+| Neither | posts. The one captain-request endpoint still has exactly its three existing callers, all in the help sheet |
+
+### Gap 2 — nothing had ever measured the screen
+
+Round 1 produced **23 unit cases and no render cases**. "No horizontal scrolling, no clipped text,
+no oversized illustration" was a claim about a 64px circle, a heading, three paragraphs and two
+actions in a `max-w-[26rem] px-6 min-h-dvh` column — and **320px had never been measured**.
+
+`tests/render/offline-gate.render.spec.ts`: 42 cases across 320x568, 360x640, 375x667, 390x844,
+430x932 and 768x1024, with and without a configured number, plus 12 computed-contrast cases in
+both themes. Five defects injected; four observed failing, one recorded as an honest negative.
+
+**The measurement mistake worth keeping:** the vertical-fit case first computed
+`shell.height - innerHeight`, which is ALWAYS 0 — `min-h-dvh` makes the box exactly the viewport
+whenever the content is shorter, so it was measuring the container rather than what fills it and
+would have passed whatever was put inside. It now sums the children and their gaps, and fires at
+45px on a 320x568 screen.
+
+### Tests
+
+| Tier | File | Cases |
+|---|---|---|
+| unit | `tests/unit/connectivity.unit.spec.ts` | 23 -> 33 (1 superseded and skipped, kept) |
+| render | `tests/render/offline-gate.render.spec.ts` (new) | 42 |
+
+Obligations 1, 8, 9, 10 and 11 now have cases; 2-7 already did. Round 1's case 12 is **skipped and
+kept**, never rewritten - `jalsa/CLAUDE.md`: test files are append-only. The promise underneath it
+is restated against the button that now exists.
+
+### What is NOT fixed, and cannot be from this application
+
+**On a genuine first scan while offline, none of this runs.** `public/sw.js` answers a failed
+navigation with `/offline.html`, which is GENERATED by the root `scripts/theme-build.mjs` - a
+framework-sync file this request forbids touching. It says **"You are offline"**: close in
+substance, different in words. `OfflineGate` covers the case where the document was served and the
+connection died before or during hydration. On a first-ever visit with no service worker installed,
+the browser's own error page appears and no web application can prevent that.
+
+**The apostrophe.** The requester writes "You're" with a typographic apostrophe. The shipped
+strings use ASCII, the guest surface contains no U+2019 anywhere, and the freeze rule applies -
+so they were left as they ship rather than changed for typography alone. Raised, not decided
+silently.
+
+### Gate
+
+**BLOCKED** - 11 pass, 0 fail, 1 blocked (G8 functional). `audit:all` 10/10, `guard:test` 15/15,
+tsc clean, eslint clean, production build clean, unit + render **1229 passed, 1 skipped**.
+
+### Definition of done
+
+| item | verdict |
+|---|---|
+| Implements the request, no unrequested scope | done - two gaps and five test obligations; the QR route, its validation and its session handling are untouched |
+| Canonical pattern per concern | done - the `tel:` idiom already used twice on this surface |
+| No colour literals | gate: PASS (G4) |
+| Dead weight deleted | N/A: nothing superseded in source |
+| Dependencies | N/A: none introduced - asserted, four connectivity packages banned by name |
+| Every state looked at | done - offline, invalid QR, unreachable, not-configured and mid-session banner are five distinct screens, asserted |
+| Failure path exercised | done - the retry's still-offline branch is the case that keeps the screen |
+| Writes | N/A: this change writes nothing; `tel:` is not a request |
+| Screen checklist | done - the offline gate, with and without a number, at six widths |
+| Both themes verified | done - 12 computed-contrast cases, light and dark, proved able to fail |
+| Permissions | N/A: reads nothing, grants nothing - RBAC_MATRIX unchanged, stated out loud |
+| Tenant scoping | N/A: no query touched |
+| No secret in client code | done |
+| Cases added; delta stated | done - unit 23 -> 33, render +42, verified against the files |
+| Fail-first evidence | done - five injected, four observed failing, one honest negative with its reason |
+| The gate ran | done - BLOCKED, G8 named |
+| Module document updated | done - this entry |
+| Feature register | N/A: Jalsa has no FEATURES register |
+| Root-cause entry | N/A: not a fix |
+| Limitations entry | N/A: the offline.html limit is already recorded in the round-1 request file and restated above |
+| Decision record | done - the `tel:` vs `/api/guest/ask` decision, above and in `connectivity.ts` |
+| Changelog line | done - the run log note |
+| Tier | T1 - one customer-facing state, no data, no money, no permission |
+| Run closed out | done - R-048, BLOCKED |
+| Test files append-only | done - case 12 skipped and kept |
+| Would a correct process have caught this? | Yes, partly, and it is worth saying: round 1 shipped a visual state with **zero render cases**, and the responsive claim went unmeasured for a whole run. A framework note is warranted - a request with named viewport widths should not close without a case at each of them. |
+
+---
+
+## Feature - 18-Sep-2026 - QR offline gate: telling a dead network from a bad answer
+
+### Four of the five states already existed
+
+| State | Already handled by |
+|---|---|
+| Offline at the QR, service worker installed | `public/offline.html`, precached by `public/sw.js` |
+| Invalid / unknown QR | `UnknownTable` - a designed screen, already distinct from offline |
+| Backend unreachable, customer online | `attempt()` -> `UnreachableState` |
+| Connection lost mid-session | `OfflineBanner` - `navigator.onLine`, both window events, cleanup, non-blocking |
+
+### The gap that was real
+
+**`useLiveData` could not tell a network failure from a server failure.** It threw on `!res.ok`
+and caught a dead network in the same `catch`, so an HTTP 500 from a broken query and a phone in
+a lift produced one sentence between them. The request's central rule - report connectivity
+failures as offline, never label server errors as offline - had nothing to act on.
+
+`src/lib/connectivity.ts` is that classifier. Two signals, in order: `navigator.onLine === false`
+is decisive when false; when true it proves nothing (it is true on a captive portal), so the
+request is still made and the SHAPE of its failure decides - `fetch` rejects with a TypeError when
+no response arrived, and resolves with a status when one did. No probe, no extra endpoint, no
+delay for an online customer.
+
+On the send path the `try` wraps the `fetch` ALONE, so a response that arrived and said 500 sits
+outside it and can never be dressed up as a connectivity problem.
+
+### THE BLOCKER: the screen a customer actually sees cannot be changed from here
+
+`public/offline.html` - what the service worker serves when a scan cannot reach the server - is
+GENERATED by `scripts/theme-build.mjs` at the **repository root**, which this request names
+read-only. Its wording is hardcoded in that generator, not driven by `design/tokens.json`, and
+hand-editing the output is refused by the `theme-sync` audit. It reads **"You are offline"** /
+*"This page could not be loaded because the device has no connection."* with a **Try again**
+button - close in substance to the requested copy, different in words. **Changing it is a
+framework change, not a Jalsa change.**
+
+A second limitation: on a first-ever visit while offline no service worker is installed yet, so
+the browser's own error page appears and no Jalsa screen runs at all. No web app can avoid that.
+
+### Two honesty decisions
+
+**No "Call captain" button on the gate.** The captain-call mechanism posts to the server; on a
+screen that exists because the server cannot be reached, that button cannot work. The copy points
+at the person instead.
+
+**The gate is a mount-time snapshot, not a subscription.** Losing the signal while ordering must
+not take the screen away - the cart is server-held and the banner already covers it. A gate that
+re-asserted on every `offline` event would discard a half-built round for a ten-second dead spot.
+
+### An incident worth recording
+
+Reverting an injected defect with `git checkout -- GuestApp.tsx` restored that file to HEAD and
+**destroyed four uncommitted workstreams' changes to it** - quick-add, promotions, craving and
+this run's gate. The file had never been committed, so git held no copy. It was recovered from a
+scratchpad snapshot plus the specs that source-pin the wiring, and the full unit tier at **738
+passed** is what proves the recovery rather than a claim. On a tree this deep in uncommitted work,
+`git checkout --` is not an undo.
+
+### What was run
+
+| Rung | Result |
+|---|---|
+| `tests/unit/connectivity.unit.spec.ts` (new, 23 cases) | **23 passed** |
+| Full unit tier | **738 passed** |
+| Full render tier | **372 passed** |
+| `npx tsc --noEmit` / `npm run lint` | clean |
+| `DIST_DIR=.next-X npm run build` | exit 0 |
+| `npm run audit:all` / `npm run guard:test` | **10/10** / **15/15** |
+| `node scripts/gate-runner.mjs --cwd jalsa --skip G8` | **BLOCKED** - 11 pass, 0 fail, 1 blocked |
+
+### Not verified
+
+No browser was put into offline mode. The gate, the retry and the wording were not seen on a
+phone, and the service-worker path - the one a real scan takes - was not exercised at all.
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
 Time: 28.1s total - slowest G6 Lint (9.9s).
 Application steps ran in .
 

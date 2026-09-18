@@ -1,6 +1,15 @@
 'use client';
 
 import * as React from 'react';
+import {
+  OFFLINE_BODY,
+  OFFLINE_CALL,
+  OFFLINE_CALL_NOTE,
+  OFFLINE_HINT,
+  OFFLINE_NO_NUMBER,
+  OFFLINE_RETRY,
+  OFFLINE_TITLE,
+} from '@/lib/connectivity';
 import Image from 'next/image';
 import { cn } from '@/lib/cn';
 import { Button } from './button';
@@ -274,5 +283,114 @@ export function UnreachableState({ surface, detail }: { surface: 'guest' | 'staf
         Try again
       </Button>
     </Frame>
+  );
+}
+
+/**
+ * The connectivity gate at the door — a whole screen, not a banner.
+ *
+ * WHY A SCREEN AND NOT THE BANNER ABOVE
+ *   `OfflineBanner` is the right answer once somebody is INSIDE: they have a menu on screen, a
+ *   cart the server is holding, and losing the signal for ten seconds should not take any of it
+ *   away. This is the other case — arriving with nothing loaded — where letting them through to
+ *   a menu means letting them tap an order that cannot be sent and learn it from silence.
+ *
+ * WHY THERE IS NO "CALL CAPTAIN" BUTTON
+ *   The captain-call mechanism posts to the server. On a screen that exists because the server
+ *   cannot be reached, that button is one that cannot work, and a control that fails silently is
+ *   worse than none (Standard 5.6). The copy points at the person instead, which is the thing
+ *   that is always still true in a restaurant.
+ *
+ * WHAT IT REFUSES TO SAY
+ *   Not "mobile data is off". A browser cannot tell mobile data from Wi-Fi, a captive portal
+ *   from a working network, or airplane mode from a dead router. It names both options and lets
+ *   the person look at their own phone.
+ */
+export function OfflineGate({
+  onRetry,
+  callNumber,
+  captainAvailable = true,
+}: {
+  onRetry?: () => void;
+  callNumber?: string;
+  /**
+   * Whether the restaurant offers Call captain at all — the owner's own `callCaptain` switch.
+   *
+   * TWO CONDITIONS, not one, and they answer different questions. `captainAvailable` is whether
+   * this restaurant offers the action; `callNumber` is whether there is anything to dial. An
+   * owner who has switched Call captain off across the guest surface must not meet it here, and
+   * an owner who has it on but has configured no number must not be given a dead link.
+   */
+  captainAvailable?: boolean;
+}) {
+  /* Trimmed before it is used: a number that is whitespace or an empty string is no number, and
+     `tel:` with nothing after it opens the dialler on an empty field. */
+  const dial = captainAvailable ? (callNumber ?? '').replace(/\s+/g, '') : '';
+  return (
+    <main
+      className="mx-auto flex min-h-dvh w-full max-w-[26rem] flex-col justify-center gap-4 px-6 text-center"
+      data-testid="guest-offline-gate"
+    >
+      {/*
+        THE JALSA MARK, so this reads as the application rather than as a browser error page.
+
+        WHY THE LOCAL BADGE AND NOT THE RESTAURANT'S UPLOADED LOGO
+          `data.logoUrl` is an owner-uploaded file on a REMOTE host. On a screen that exists
+          because the network cannot be reached, that request cannot complete — it would put a
+          broken image on the one screen that must not look broken. `/brand/jalsa-badge.png` is
+          the mark `design/tokens.json` declares, it is same-origin, and `public/sw.js` serves
+          `/brand/*` cache-first with runtime fill, so it is in the cache after any earlier visit.
+
+        THE CIRCLE STAYS, and is why this is safe. If the image is ever missing the container is
+        still a deliberate-looking tinted circle rather than a broken-image glyph.
+      */}
+      <span
+        aria-hidden
+        className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-sunken)]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- a static brand file, deliberately
+            not next/image: the optimizer serves from /_next/image, which is a network round trip
+            this screen by definition cannot make. */}
+        <img src="/brand/jalsa-badge.png" alt="" aria-hidden className="h-10 w-10 object-contain" />
+      </span>
+      <h1 className="type-h2 font-semibold">{OFFLINE_TITLE}</h1>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">{OFFLINE_BODY}</p>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">{OFFLINE_HINT}</p>
+      {/*
+        THE TWO ACTIONS, in the order of what they can actually achieve.
+
+        Stacked full-width rather than side by side: at 320px two buttons in a row give each
+        about 130px, and "Call captain" does not fit one. A column has no width at which it is
+        wrong, and this screen is never the one to be clever on.
+      */}
+      <div className="mt-2 flex flex-col gap-2">
+        <button
+          type="button"
+          data-testid="guest-offline-retry"
+          onClick={() => (onRetry ? onRetry() : window.location.reload())}
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-6 type-body font-semibold text-[var(--on-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+        >
+          {OFFLINE_RETRY}
+        </button>
+
+        {/* The secondary, and the only thing here that does not need the network. See the note
+            on OFFLINE_CALL: this is a telephone call, NOT the `/api/guest/ask` request, which
+            could not arrive from this screen and must not claim to have. */}
+        {dial ? (
+          <a
+            data-testid="guest-offline-call"
+            href={`tel:${dial}`}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-strong)]/40 px-6 type-body font-semibold text-[var(--text-body)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+          >
+            {OFFLINE_CALL}
+          </a>
+        ) : null}
+      </div>
+
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        Your table and your bill are held on our side, not on your phone — nothing is lost.{' '}
+        {dial ? OFFLINE_CALL_NOTE : OFFLINE_NO_NUMBER}
+      </p>
+    </main>
   );
 }

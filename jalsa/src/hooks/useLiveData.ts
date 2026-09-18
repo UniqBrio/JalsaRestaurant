@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { handleError } from '@/lib/errors';
+import { failureMessage, isNetworkFailure, OFFLINE_BODY, OFFLINE_TITLE } from '@/lib/connectivity';
 import { newGate, begin, end } from './refresh-gate';
 import { echoedState } from '@/lib/write-echo';
 import { staleNotice } from '@/lib/stale-notice';
@@ -77,7 +78,13 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
         // tenth. What changes is only what the GUEST is told, and when.
         handleError(err, 'live.refresh');
         failures.current += 1;
-        setStaleReason(staleNotice(failures.current));
+        /* WHOSE FAULT IT WAS decides what the guest reads. A dead network and an HTTP 500 used
+           to arrive in this same catch and produce the same sentence — so a phone in a lift was
+           told "something went wrong" and an outage was blamed on the customer's signal. The
+           data on screen is untouched either way: this changes the NOTICE, never the payload. */
+        setStaleReason(
+          isNetworkFailure(err) ? `${OFFLINE_TITLE}. ${OFFLINE_BODY}` : staleNotice(failures.current)
+        );
       }
       // Deliberately NOT a `finally { return ... }`: a return inside finally discards any
       // exception the block was unwinding. Everything above is caught, so this line is reached
@@ -132,12 +139,25 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
 
   const send = useCallback(
     async <R>(path: string, payload: unknown): Promise<R> => {
-      const res = await fetch(path, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      /* THE TRANSPORT FAILURE IS CAUGHT HERE AND NOWHERE ELSE.
+         `fetch` rejects only when no response arrived — no route, DNS gone, connection reset.
+         That is the one failure the guest can act on, and it is the only one converted. A
+         response that arrived and said 500 does not come through this catch, so a server error
+         can never be dressed up as a connectivity problem. */
+      let res: Response;
+      try {
+        res = await fetch(path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        throw new Error(failureMessage(err, 'That did not go through.'));
+      }
       const parsed = (await res.json()) as R & { message?: string; state?: unknown };
+      /* A response ARRIVED, so whatever it says is the server's answer and never a connectivity
+         problem. The network case cannot reach this line at all — `fetch` rejects before it,
+         and the wrapper below is what classifies that. */
       if (!res.ok) throw new Error(parsed.message ?? 'That did not go through.');
 
       /* If the write ANSWERED with the new state, that is the answer — apply it and stop.

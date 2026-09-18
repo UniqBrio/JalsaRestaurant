@@ -5,6 +5,102 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa QR connectivity gate, ROUND 3 (`tests/unit/connectivity.unit.spec.ts` 33 -> 39,
+`tests/render/offline-gate.render.spec.ts` 42 -> 47).
+
+THE LOOP IS NOW THE FINDING, and it is recorded before the evidence because it matters more than
+the evidence. This requirement has been submitted three times and built twice. Every submission
+reports it missing, and every submission ends `Do NOT commit or push` — which has been honoured,
+so the work has never left this container and the requester's review cannot contain it. They are
+not wrong: `HEAD` carries one pushed commit from today and production runs `8de0da7`. Fifteen
+workstreams exist only here. No amount of building inside that loop closes it, so it is raised to
+the requester rather than resolved unilaterally.
+
+THREE CLAUSES WERE GENUINELY NEW in the third submission, and are this run's actual work — the
+rest was already built and was NOT rebuilt.
+
+(A) The Jalsa mark in place of the `⚡` glyph. Injecting the owner's REMOTE `logo_url` in its
+place: **2 failed, 37 passed** — the point being that a remote host is unreachable from a screen
+that exists because the network is, so `data.logoUrl` would put a broken image on the one screen
+that must not look broken. The local badge is same-origin and `public/sw.js` already serves
+`/brand/*` cache-first. (B) "Call captain" conditioned on the captain MECHANISM being available —
+the owner's existing `callCaptain` switch — not merely on a number existing. Removing that
+condition: **1 failed, 38 passed**. (C) "No duplicate BILLS", new wording beside sessions. Giving
+the retry path a write: **2 failed, 37 passed**. (D) RENDER — the mark pointed at a file that is
+not there: **6 failed, 41 passed**, which is the case that matters, because `alt=""` means a 404
+would leave nothing on screen to say anything was wrong.
+
+39 unit (1 skipped) + 47 render passed with the change intact; the whole unit+render tier is
+**1241 passed, 1 skipped**. tsc clean, eslint clean, production build clean, audit:all 10/10,
+guard:test 15/15.
+Gate for this change: **BLOCKED** - 11 pass, 0 fail, 1 blocked (G8). Full account in
+jalsa/TEST_SUMMARY.md, "Feature - 18-Sep-2026 - QR connectivity gate, round 3".
+
+---
+
+FAIL-FIRST: jalsa QR connectivity gate, ROUND 2 (`tests/unit/connectivity.unit.spec.ts` amended,
+`tests/render/offline-gate.render.spec.ts` new).
+
+THE PREMISE WAS CHECKED BEFORE ANYTHING WAS BUILT, and it was wrong about this tree: the request
+opens "The previous findings did NOT implement an offline connectivity gate", and R-046 built it
+earlier today. It is uncommitted, along with fourteen other workstreams, which is almost certainly
+why it looks absent — against what is DEPLOYED the premise is correct. Six of the request's eleven
+test obligations were already covered; the run is the other five plus two real gaps.
+
+RENDER, five defects: (A) the two actions laid out as a `flex-row` instead of a column — at 320px
+each gets about 130px and "Call captain" is clipped: **6 failed, 36 passed**. (B) a 96px
+illustration, 30% of a 320px viewport: **5 failed, 37 passed**. (C) `w-full` removed from the call
+action: **NOT OBSERVED FAILING** — and the reason is worth keeping, because it makes the case look
+stronger than it is: a `flex-col` container stretches its children by default, so the width comes
+from the COLUMN and the class is decoration. The case now asserts the direction beside the
+measurement it causes, which is the thing that can actually go wrong. (D) the column made taller
+than a 320x568 screen: **1 failed, 45px of overflow** — and this one took two attempts to observe.
+The first measurement was `shell.height - innerHeight`, which is ALWAYS 0, because `min-h-dvh`
+makes the box exactly the viewport whenever the content is shorter. It was measuring the container
+instead of what fills it, and would have passed whatever was put inside. Now it sums the children
+and their gaps. (E) a low-contrast primary action: **2 failed, 40 passed**.
+
+UNIT, one reversal and three faulty assertions of my own, all found by running them: round 1's
+case 12 asserted that NO Call captain button is offered, which this request reverses — it is
+**skipped and kept**, never rewritten, with the promise underneath it ("nothing here may claim to
+have sent something it could not send") restated against the button that now exists. The three
+faulty ones were mine, not the code's: a slice that ran to the end of the FILE rather than the end
+of the function, a negative assertion that matched the comment explaining why the thing is NOT
+done, and a count of `/api/guest/ask` that said 1 where the help sheet legitimately has 3.
+
+THE DESIGN DECISION THIS ROUND TURNS ON: "Call captain" here is a `tel:` link, not the
+`/api/guest/ask` request. Round 1 left the button off because that request cannot arrive from a
+screen that exists because the server is unreachable — right about the mechanism, wrong about the
+screen. **A telephone call does not use the data network**, `callNumber` was already on the guest
+payload, and the surface already renders it as a `tel:` link in two other places. No number
+configured means no button, not a dead one.
+
+32 unit (1 skipped) + 42 render passed with the change intact; the whole unit+render tier is
+**1229 passed, 1 skipped**. tsc clean, eslint clean, production build clean, audit:all 10/10,
+guard:test 15/15.
+Gate for this change: **BLOCKED** - 11 pass, 0 fail, 1 blocked (G8). Full account in
+jalsa/TEST_SUMMARY.md, "Feature - 18-Sep-2026 - QR connectivity gate, round 2".
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/connectivity.unit.spec.ts - three defects, each reverted. (A)
+`isNetworkFailure` made to return true for every Error, so a 500 would be reported as offline:
+**3 failed, 20 passed**. (B) the poll's classification removed, restoring the single shared
+sentence: **1 failed, 22 passed**. (C) the entry gate given a live `offline` subscription so it
+re-asserts mid-session and takes a half-built order away: **1 failed, 22 passed**. 23 passed with
+the change intact.
+INCIDENT DURING THIS RUN, recorded because it nearly cost work: reverting defect C with
+`git checkout -- GuestApp.tsx` restored that file to HEAD and destroyed FOUR uncommitted
+workstreams' changes to it (quick-add, promotions, craving, and this run's gate) - the file had
+never been committed, so git held no copy of them. Recovered from a scratchpad snapshot plus the
+specs, which source-pin the exact wiring; the full unit tier passing at 738 is what proves the
+recovery, not a claim. The lesson is narrow and sharp: on a tree where a file carries several
+uncommitted changes, `git checkout --` is not an undo, it is a delete.
+Gate for this change: **BLOCKED** - 11 pass, 0 fail, 1 blocked (G8 functional). Full account in
+jalsa/TEST_SUMMARY.md, "Feature - 18-Sep-2026 - QR offline gate".
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/staff-access-tabs.unit.spec.ts - four injected defects on the
 Owner > Staff access/availability organisation, each reverted. (A) `hasAccess` narrowed to
 `p.hasPin && p.onDuty`, folding availability into access: **3 failed**, including case 6
