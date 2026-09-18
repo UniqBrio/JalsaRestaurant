@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, Chip, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
+import { Combobox } from '@/components/ui/combobox';
 import { Field, Input } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
@@ -41,7 +42,6 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
   const [cancelTarget, setCancelTarget] = React.useState<{ id: string; name: string; qty: number } | null>(null);
   const [cancelReason, setCancelReason] = React.useState<string>(CANCEL_REASONS[0]);
   const [detaching, setDetaching] = React.useState<{ table: string; amountLabel: string } | null>(null);
-  const [staffQuery, setStaffQuery] = React.useState('');
   /* Correcting the captain or waiter on a bill — running or closed. Behind a grant, because on a
      closed bill it moves an unsettled tip with the name. See reassignBillStaff. */
   const [reassign, setReassign] = React.useState<'captain' | 'waiter' | null>(null);
@@ -172,59 +172,58 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                 staff, the Cashier — under a heading that said "Captain on B-1043", and the write
                 behind it checked nothing, so an unsettled tip could be moved to a cleaner. The
                 same predicate runs on the server (see reassignBillStaff). */}
+            {/*
+              SEARCH ONLY — no `allowCreate`. A staff member is created in the Staff section,
+              with a role, a PIN and a permission set; offering to conjure one from a
+              reassignment box would be inventing a person to hold a tip.
+
+              What this replaced was a hand-rolled search box above a filtered list of buttons —
+              the third implementation of one interaction, and the one the standardisation
+              exists to remove. NOTHING about the write changed: the same
+              `eligibleForBillRole` decides who may appear (and the same predicate still runs on
+              the server in `reassignBillStaff`), the same `staffId` goes to the same action, the
+              captain/waiter distinction is still `reassign`, and the tip-moved sentence is
+              untouched.
+            */}
             <Field label="Find a name" htmlFor="owner-reassign-search">
-              <Input
+              <Combobox
                 id="owner-reassign-search"
-                data-testid="owner-reassign-search"
-                value={staffQuery}
-                placeholder={reassign === 'waiter' ? 'Waiters' : 'Captains'}
-                onChange={(e) => setStaffQuery(e.target.value)}
+                testId="owner-reassign-search"
+                value=""
+                disabled={busy}
+                placeholder={reassign === 'waiter' ? 'Search waiters' : 'Search captains'}
+                emptyLabel={reassign === 'waiter' ? 'No waiter matches' : 'No captain matches'}
+                options={eligibleForBillRole(
+                  reassign ?? 'captain',
+                  data.staff,
+                  (reassign === 'waiter' ? selected.spine.waiter : selected.spine.captain)
+                    ? (data.staff.find(
+                        (s) => s.name === (reassign === 'waiter' ? selected.spine.waiter : selected.spine.captain)
+                      )?.id ?? null)
+                    : null
+                ).map((p) => ({ value: p.id, label: p.name, hint: p.role }))}
+                onValueChange={(staffId) => {
+                  const role = reassign;
+                  const person = data.staff.find((p) => p.id === staffId);
+                  if (!role || !person) return;
+                  runBusy(async () => {
+                    const res = await send<{ tipMoved: number }>('/api/owner/action', {
+                      action: 'reassign-bill-staff',
+                      billId: selected.id,
+                      role,
+                      staffId,
+                    });
+                    toast.show(
+                      res.tipMoved > 0
+                        ? `${selected.code}: ${role} is now ${person.name} — ${rupees(res.tipMoved)} of unsettled tip moved with it`
+                        : `${selected.code}: ${role} is now ${person.name}`,
+                      { tone: 'success' }
+                    );
+                    setReassign(null);
+                  });
+                }}
               />
             </Field>
-            <ul className="m-0 mt-3 flex list-none flex-col gap-1.5 p-0">
-              {eligibleForBillRole(
-                reassign ?? 'captain',
-                data.staff,
-                (reassign === 'waiter' ? selected.spine.waiter : selected.spine.captain)
-                  ? (data.staff.find(
-                      (s) => s.name === (reassign === 'waiter' ? selected.spine.waiter : selected.spine.captain)
-                    )?.id ?? null)
-                  : null
-              )
-                .filter((p) => p.name.toLowerCase().includes(staffQuery.trim().toLowerCase()))
-                .map((p) => (
-                  <li key={p.id}>
-                    <Button
-                      data-testid={`owner-reassign-to-${p.id}`}
-                      variant="quiet"
-                      disabled={busy}
-                      className="w-full justify-between"
-                      onClick={() => {
-                        const role = reassign;
-                        if (!role) return;
-                        runBusy(async () => {
-                          const res = await send<{ tipMoved: number }>('/api/owner/action', {
-                            action: 'reassign-bill-staff',
-                            billId: selected.id,
-                            role,
-                            staffId: p.id,
-                          });
-                          toast.show(
-                            res.tipMoved > 0
-                              ? `${selected.code}: ${role} is now ${p.name} — ${rupees(res.tipMoved)} of unsettled tip moved with it`
-                              : `${selected.code}: ${role} is now ${p.name}`,
-                            { tone: 'success' }
-                          );
-                          setReassign(null);
-                        });
-                      }}
-                    >
-                      <span>{p.name}</span>
-                      <span className="type-caption font-normal opacity-70">{p.role}</span>
-                    </Button>
-                  </li>
-                ))}
-            </ul>
           </Sheet>
 
           {/* THE GROUP, AND WHAT EACH TABLE ON IT ATE.

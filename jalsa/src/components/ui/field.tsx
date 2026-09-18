@@ -59,7 +59,13 @@ export function Field({
   );
 }
 
-const controlClass =
+/**
+ * The one control skin: Input, Textarea, Select and Combobox all wear it.
+ *
+ * Exported since 18-Sep-2026 so `combobox.tsx` can be the same control rather than a lookalike.
+ * A second copy of these classes is a second thing to forget when the focus ring changes.
+ */
+export const controlClass =
   'w-full min-h-11 rounded-[var(--radius-md)] border border-[var(--border-strong)]/35 bg-[var(--surface)] ' +
   'px-3.5 type-body text-[var(--text-body)] placeholder:text-[var(--text-disabled)] ' +
   'transition-colors hover:border-[var(--border-strong)]/60 ' +

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet';
+import { Combobox } from '@/components/ui/combobox';
 import { Field, Input } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
@@ -343,20 +344,32 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
             </div>
 
             <Field label="Category" required htmlFor="owner-exp-cat">
-              <Input
+              {/*
+                SEARCH + CREATE, and the CONTRACT IS UNCHANGED: an expense category is a string
+                on `expense.category`, not a foreign key. There is no category table here and
+                this change did not add one.
+
+                So `onCreate` returning the name is not a local pretence — it IS the whole write
+                path for this field, exactly as the datalist it replaced was. The value persists
+                when the expense is saved, and until then nothing claims otherwise.
+
+                What went is the native datalist element: drawn by the browser, styled by the
+                browser, different on every engine, and with no `Add "…"` row to tell anyone
+                that typing a new category was allowed at all.
+              */}
+              <Combobox
                 id="owner-exp-cat"
-                list="owner-exp-categories"
+                testId="owner-expense-category"
                 value={editing.category}
-                onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-                data-testid="owner-expense-category"
+                onValueChange={(category) => setEditing({ ...editing, category })}
+                options={[...new Set([...EXPENSE_CATEGORIES, ...data.expenses.map((e) => e.category)])]
+                  .filter(Boolean)
+                  .map((c) => ({ value: c, label: c }))}
+                placeholder="Search or add a category"
+                emptyLabel="No matching categories"
+                allowCreate
+                onCreate={async (name) => name}
               />
-              {/* A datalist rather than a closed dropdown: the list covers the common case and
-                  typing a new category creates it in place, without leaving the task (3.2). */}
-              <datalist id="owner-exp-categories">
-                {[...new Set([...EXPENSE_CATEGORIES, ...data.expenses.map((e) => e.category)])].map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
             </Field>
 
             <Field label="Note" htmlFor="owner-exp-note">

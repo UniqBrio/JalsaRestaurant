@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
+import { Combobox } from '@/components/ui/combobox';
 import { Field, Input, Select, Toggle } from '@/components/ui/field';
 import { Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
@@ -1013,20 +1014,23 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     ) : null}
                   </span>
                   <span className="flex items-center gap-2">
-                    <Select
-                      aria-label={`Printer for ${c.name}`}
+                    {/* SEARCH ONLY — no `allowCreate`. A printer is a machine on a network
+                        with an address and a paper width; it is added in the Machines section,
+                        not conjured from a routing row. The option list is `kotPrinters`, so it
+                        is however many machines exist: nothing here is sized to a count. */}
+                    <Combobox
+                      ariaLabel={`Printer for ${c.name}`}
+                      testId={`owner-print-route-${c.id}`}
                       value={claimed?.id ?? ''}
                       disabled={!canEdit || busy}
-                      onChange={(e) => route(c.name, e.target.value)}
-                      data-testid={`owner-print-route-${c.id}`}
-                    >
-                      <option value="">{fallback ? `${fallback.name} (unrouted)` : 'No machine'}</option>
-                      {kotPrinters.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.station} · {p.name}
-                        </option>
-                      ))}
-                    </Select>
+                      onValueChange={(printerId) => route(c.name, printerId)}
+                      options={[
+                        { value: '', label: fallback ? `${fallback.name} (unrouted)` : 'No machine' },
+                        ...kotPrinters.map((p) => ({ value: p.id, label: p.name, hint: p.station })),
+                      ]}
+                      placeholder="Search machines"
+                      emptyLabel="No matching machines"
+                    />
                   </span>
                 </li>
               );

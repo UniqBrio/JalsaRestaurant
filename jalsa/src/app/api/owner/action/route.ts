@@ -198,9 +198,12 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         })
       );
 
-    case 'add-category':
-      await addCategory({ name: input.name, actor });
-      return ok({ done: true });
+    case 'add-category': {
+      // The id comes back so the Add-item combobox can select the category it just created,
+      // in the same form, before the item is saved.
+      const categoryId = await addCategory({ name: input.name, actor });
+      return ok({ done: true, id: categoryId });
+    }
 
     case 'upsert-table':
       await upsertTable({

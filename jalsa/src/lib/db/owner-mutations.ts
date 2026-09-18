@@ -83,12 +83,59 @@ export async function upsertMenuItem(input: {
   return { id: data.id as string };
 }
 
-export async function addCategory(input: { name: string; actor: Actor }): Promise<void> {
+/**
+ * Add a category, or hand back the one that already means this.
+ *
+ * WHY IT RETURNS THE ID (18-Sep-2026)
+ *   It returned `void`, which was enough while the only caller was a settings form that
+ *   re-read the console afterwards. The Add-item combobox cannot work that way: it has to
+ *   SELECT the category it just created, in the same form, before the item is saved. A picker
+ *   that creates a row and then cannot name it leaves the item pointing at nothing.
+ *
+ * WHY A DUPLICATE IS NOT AN ERROR
+ *   `menu_category_name_unique` is on `(restaurant_id, lower(btrim(name)))`, so the database
+ *   already decides that `Desserts`, `desserts` and ` Desserts ` are one category. Two people
+ *   typing it in the same second is not a mistake either of them made, and neither is a second
+ *   tap on a slow connection. On 23505 this re-reads and returns the existing id — the same
+ *   insert-then-re-read idiom `ensureOpenBill` uses for two phones at one table.
+ *
+ *   The combobox's own exact-match guard hides the Add row when the name is already on screen.
+ *   This is the guard for the case the screen could not see.
+ */
+export async function addCategory(input: { name: string; actor: Actor }): Promise<string> {
   demand(input.actor, 'menu.category');
   const restaurantId = await currentRestaurantId();
-  const { error } = await db().from('menu_category').insert({ restaurant_id: restaurantId, name: input.name });
-  if (error) throw error;
-  await audit({ action: 'Menu category', detail: `${input.name} added`, actor: input.actor });
+  const name = input.name.trim();
+  // The same bounds the column's own check constraint states. Refused here so the person gets a
+  // sentence rather than a constraint violation.
+  if (name.length < 1 || name.length > 60) {
+    throw new Error('A category name is between 1 and 60 characters.');
+  }
+
+  const { data, error } = await db()
+    .from('menu_category')
+    .insert({ restaurant_id: restaurantId, name })
+    .select('id')
+    .single();
+
+  if (error) {
+    if (error.code !== '23505') throw error;
+    const existing = await db()
+      .from('menu_category')
+      .select('id')
+      .eq('restaurant_id', restaurantId)
+      .ilike('name', name)
+      .maybeSingle();
+    if (existing.error) throw existing.error;
+    const id = (existing.data?.id as string | undefined) ?? null;
+    if (!id) throw error;
+    // Not audited: nothing was added. An audit row saying "added" for a category that already
+    // existed is a register telling the owner something untrue.
+    return id;
+  }
+
+  await audit({ action: 'Menu category', detail: `${name} added`, actor: input.actor });
+  return data.id as string;
 }
 
 /* ── Tables ────────────────────────────────────────────────────────────── */

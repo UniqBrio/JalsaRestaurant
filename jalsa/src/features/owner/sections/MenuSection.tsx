@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
+import { Combobox } from '@/components/ui/combobox';
 import { Sheet } from '@/components/ui/sheet';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
@@ -290,18 +291,33 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                 />
               </Field>
               <Field label="Category" required htmlFor="owner-item-cat" className="min-w-[10rem] flex-1">
-                <Select
+                {/*
+                  SEARCH + CREATE. The stored value is still `category_id` and only ever
+                  `category_id` — the combobox displays names and returns ids, which is the
+                  whole reason the picker could change without a migration.
+
+                  `onCreate` awaits the SERVER. The new category exists as a row, with an id
+                  the server chose, before it is selected here; if the write fails the box stays
+                  open with the reason on it and nothing is selected. An optimistic select would
+                  be a menu item saved against a category that does not exist.
+                */}
+                <Combobox
                   id="owner-item-cat"
+                  testId="owner-item-category"
                   value={editing.categoryId}
-                  onChange={(e) => setEditing({ ...editing, categoryId: e.target.value })}
-                  data-testid="owner-item-category"
-                >
-                  {data.categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
+                  onValueChange={(categoryId) => setEditing({ ...editing, categoryId })}
+                  options={data.categories.map((c) => ({ value: c.id, label: c.name }))}
+                  placeholder="Search or add a category"
+                  emptyLabel="No matching categories"
+                  allowCreate={data.grants.includes('menu.category')}
+                  onCreate={async (name) => {
+                    const res = await send<{ id: string }>('/api/owner/action', {
+                      action: 'add-category',
+                      name,
+                    });
+                    return res.id;
+                  }}
+                />
               </Field>
               <Field label="Food type" required htmlFor="owner-item-type" className="min-w-[9rem] flex-1">
                 <Select

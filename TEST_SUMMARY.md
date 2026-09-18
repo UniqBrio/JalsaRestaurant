@@ -5,6 +5,35 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/combobox.unit.spec.ts and jalsa/tests/unit/combobox-migration.unit.spec.ts
+- two injected defects, each reverted.
+(A) the Expenses > Category migration reverted to the native `<datalist>` it replaced:
+**3 failed, 13 passed** - "the three old implementations are gone" on `no datalist element`,
+"the four migrated owner fields use the shared component" on `expense category renders it`, and
+"creation is allowed on the two data-entry fields and nowhere else" on
+`expense category allows create`.
+(B) `comboboxExactMatch` made case-SENSITIVE (the `.toLowerCase()` dropped from both sides), so
+typing `desserts` against an existing `Desserts` would offer to create a duplicate the database
+would then refuse: **2 failed, 10 passed** - "the duplicate guard ignores case and surrounding
+space" and "matching and the duplicate guard agree on the same string".
+With both reverted: **28 passed**. Full suite on the isolated tree: **628 passed** (unit +
+render), 0 failed.
+
+THE GUEST BOUNDARY IS A RATCHET, NOT AN OMISSION. The sixth migrated field - Guest > "How did
+you hear about us?" - is held back with its own workstream: `listHeardSources` selects
+`guest_session.heard_about`, and 20260918030000_jalsa_guest_heard_about is not applied to
+production, so shipping the field would throw on the guest's first screen (jalsa/CLAUDE.md
+guardrail 6). The four cases covering it are named in the last test of
+combobox-migration.unit.spec.ts, which asserts the field's ABSENCE and fails the moment the
+guest workstream lands.
+
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no seeded database was reachable. No browser
+interaction case was executed against a running application; the interaction guarantees above
+are source-level assertions, and are recorded as such rather than as a rendered pass.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/indoor-queue.unit.spec.ts - the queue-closed guard removed from
 `guestJoinQueue` in jalsa/src/lib/db/mutations.ts (the two lines reading the `queue` setting and
 throwing `QUEUE_CLOSED`), then reverted: **2 failed, 20 passed**. Case 2 "a CLOSED queue refuses a
