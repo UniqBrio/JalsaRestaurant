@@ -5,6 +5,82 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/staff-access-tabs.unit.spec.ts - four injected defects on the
+Owner > Staff access/availability organisation, each reverted. (A) `hasAccess` narrowed to
+`p.hasPin && p.onDuty`, folding availability into access: **3 failed**, including case 6
+"access must be decided by the PIN alone". (B) the Available section dropped from the section
+list: **1 failed** - "tabs sit above the list, and Available comes before Unavailable".
+(C) role grouping replaced with `[['All staff', members]]`, flattening the list: **2 failed**,
+including case 8 "role grouping is preserved INSIDE each section". (D) `CHIP_NAV_WRAP` set back
+to the pre-fix scrolling value: **1 failed** - "the tab row is the existing chip NAVIGATION".
+19 passed with the change intact.
+NOT OBSERVED FAILING: the 8 Staff-tab cases appended to
+jalsa/tests/render/settings-submenu.render.spec.ts - run against defect (D) above, **8 passed**.
+Two chips this short occupy about 270px of the 328px content box at 360px, so they fit whether
+the row wraps or scrolls; the defect is real but cannot express itself through THESE labels. It
+is caught at the unit tier instead (row D), and the container's own observed-failing evidence is
+the ten-label block at the top of that same render file (17-Sep: 15 failed, 4 passed). The eight
+are kept as a FORWARD guarantee - a third tab, a longer label or a three-digit count would be
+caught there and nowhere else. Recorded verbatim in the spec header.
+Gate for this change: **BLOCKED** - 11 pass, 0 fail, 1 blocked (G8 functional, no sanctioned
+seeded database in this container). Full account in jalsa/TEST_SUMMARY.md,
+"Change - 18-Sep-2026 - Owner > Staff organised by application access".
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/restaurant-details.unit.spec.ts - three injected losses on the
+Restaurant details redesign, each reverted: `hr_email` dropped from the save patch, a test id
+renamed, and the old wrapping flex row restored. **1 failed, 9 passed** each time, 10 passed
+with the redesign intact.
+NOT OBSERVED FAILING as a fix: jalsa/tests/render/restaurant-details.render.spec.ts - **1 failed,
+18 passed** against the old shape, and the one failure was the class-drift check rather than a
+layout assertion. Measured, not assumed: the old `flex-wrap` + `min-w-[14rem]` row wrapped
+correctly at 320px. The spec is a regression guard on the new grid, not evidence of an overflow
+that existed. Full account in jalsa/TEST_SUMMARY.md, "Gate run - 2026-09-18 (fifth)".
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/guest-phase.unit.spec.ts and
+jalsa/tests/unit/guest-session-wiring.unit.spec.ts - the two new specs for the single-QR /
+sequential-customer session model. Observed failing 18-Sep-2026: **9 failed, 10 passed** with
+`decideGuestPhase` rewritten to the shipped table-first rule, and **5 failed, 3 passed** with
+`src/` stashed. Full account in jalsa/TEST_SUMMARY.md under "Gate run - 2026-09-18 (third)".
+
+NOT OBSERVED FAILING: 3 of the wiring cases passed pre-change because the new visit route is an
+untracked file and survived the stash. Recorded rather than counted as coverage.
+
+---
+
+FAIL-FIRST: the four pre-commit-review cases added to
+jalsa/tests/unit/combobox-migration.unit.spec.ts on 18-Sep-2026 — the polled-payload scan, focus
+restored on close, focus-to-open removed, and the listbox owning its options. Each fix was
+reverted in turn and its case observed failing: **1 failed, 16 passed** each time, 17 passed with
+all four in place. Full account in jalsa/TEST_SUMMARY.md under "Gate run - 2026-09-18 (second)".
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/combobox.unit.spec.ts and
+jalsa/tests/unit/combobox-migration.unit.spec.ts - the two new specs for the shared Jalsa
+combobox and the five fields migrated onto it. Both observed failing on 18-Sep-2026; the full
+evidence is in jalsa/TEST_SUMMARY.md under "Gate run - 2026-09-18".
+
+  - combobox.unit: THREE deliberate defects, each reverted, 12 passed each time afterwards.
+    Search made case-sensitive: **6 failed, 6 passed**. The duplicate guard made case- and
+    space-sensitive: **2 failed, 10 passed**. Matching only at the start of a label:
+    **2 failed, 10 passed**.
+  - combobox-migration.unit: **7 failed, 6 passed** with `src/` stashed.
+
+NOT OBSERVED FAILING: the 6 migration cases that passed pre-change did so because
+`git stash push -- src/` does not stash untracked files, so the new component survived into the
+"pre-change" tree. They guard regressions in a file that existed in both; they are not evidence
+of the defect. Recorded rather than counted as coverage.
+
+These lines are at the repository root for the same reason as the ones below them: guard G3
+reads TEST_SUMMARY.md relative to the working-tree root and cannot see a nested application's
+ledger.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/bill-share.unit.spec.ts and
 jalsa/tests/unit/bill-detail-wiring.unit.spec.ts - the two new specs for the bill-detail screen
 opened from Closed today. Both observed failing on 17-Sep-2026; the full evidence is in
