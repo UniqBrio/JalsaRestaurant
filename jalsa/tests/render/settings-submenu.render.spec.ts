@@ -63,7 +63,11 @@ const CHIP =
 
 interface Box { label: string; x: number; right: number; y: number; width: number; scrollWidth: number; clientWidth: number }
 
-async function measureAt(page: import('@playwright/test').Page, width: number): Promise<{
+async function measureAt(
+  page: import('@playwright/test').Page,
+  width: number,
+  labels: readonly string[] = LABELS
+): Promise<{
   boxes: Box[];
   navScroll: number;
   navClient: number;
@@ -114,7 +118,7 @@ async function measureAt(page: import('@playwright/test').Page, width: number): 
         docClient: document.documentElement.clientWidth,
       };
     },
-    { navClass: CHIP_NAV_WRAP, chipClass: CHIP, labels: [...LABELS] }
+    { navClass: CHIP_NAV_WRAP, chipClass: CHIP, labels: [...labels] }
   );
 }
 
@@ -220,4 +224,62 @@ for (const nav of SIBLINGS) {
       ).toEqual([]);
     });
   }
+}
+
+/* ── The Staff access tabs, through the same probe ─────────────────────────────────────────── */
+
+/**
+ * `Owner → Staff` gained two chips — Has access / No access — on 18-Sep-2026, using THIS
+ * container and THIS chip.
+ *
+ * WHY THEY ARE MEASURED HERE RATHER THAN IN A FILE OF THEIR OWN
+ *   A second spec would be a second way of testing one thing, which this repository calls a
+ *   defect. The container and the chip are shared, so what is genuinely new is only the labels —
+ *   and the ten above are longer and more numerous than these two, so passing there already
+ *   implies passing here at every width. What these cases add is the guarantee that the STAFF
+ *   labels specifically, counts and all, are never clipped or pushed off a 360px screen.
+ *
+ * The counts are two digits on purpose: the widest they can get on a real roster.
+ *
+ * FAIL-FIRST (18-Sep-2026) — **NOT OBSERVED FAILING**, and the reason is the honest one.
+ *   `CHIP_NAV_WRAP` was set back to the pre-fix scrolling value
+ *   (`j-scroll-x flex gap-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`) and these
+ *   eight cases were run against it: **8 passed**. Two chips this short occupy about 270px of
+ *   the 328px content box at 360px, so they fit whether the row wraps or scrolls — the defect
+ *   is real but cannot express itself through THESE labels.
+ *
+ *   The same injection was caught, in the same run, by
+ *   `tests/unit/staff-access-tabs.unit.spec.ts` — "the tab row is the existing chip NAVIGATION"
+ *   pins the exported value and went red (1 failed, 18 passed). And the ten-label cases at the
+ *   top of this file carry the container's own observed-failing evidence from 17-Sep
+ *   (15 failed, 4 passed).
+ *
+ *   So these eight are kept as a FORWARD guarantee, not as the container's regression test: a
+ *   third tab, a longer label, or a three-digit count would be caught here and nowhere else.
+ */
+const STAFF_TABS = ['Has access · 26', 'No access · 26'] as const;
+
+for (const width of WIDTHS) {
+  test(`both Staff access tabs are whole and on screen at ${width}px`, async ({ page }) => {
+    const { boxes, navScroll, navClient, docScroll, docClient } = await measureAt(page, width, STAFF_TABS);
+
+    expect(boxes, 'both tabs must exist').toHaveLength(STAFF_TABS.length);
+
+    const outside = boxes.filter((b) => b.right > width || b.x < 0);
+    expect(
+      outside.map((b) => `${b.label} (x ${b.x} → ${b.right}, viewport ${width})`),
+      'neither tab may sit outside the viewport'
+    ).toEqual([]);
+
+    const clipped = boxes.filter((b) => b.scrollWidth > b.clientWidth + 1);
+    expect(clipped.map((b) => b.label), 'neither label may be cut, counts included').toEqual([]);
+
+    expect(navScroll, 'the tab row must not scroll sideways').toBeLessThanOrEqual(navClient + 1);
+    expect(docScroll, 'and the page must not either').toBeLessThanOrEqual(docClient + 1);
+
+    // A tab is a thumb target: `Chip` carries `min-h-11`, and this is what proves it survived.
+    for (const b of boxes) {
+      expect(b.width, `${b.label} must stay a real target at ${width}px`).toBeGreaterThan(80);
+    }
+  });
 }

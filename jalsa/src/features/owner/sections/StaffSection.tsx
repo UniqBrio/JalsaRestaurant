@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/cn';
+import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet';
@@ -54,8 +55,41 @@ export function StaffSection({ data, send, runBusy, busy, go, arg }: OwnerSectio
     (p) => !q || `${p.name} ${p.role} ${p.standingTables.join(' ')}`.toLowerCase().includes(q)
   );
 
-  const byRole = new Map<string, StaffMember[]>();
-  for (const p of people) byRole.set(p.role, [...(byRole.get(p.role) ?? []), p]);
+  /*
+    ── ACCESS AND AVAILABILITY ARE TWO DIFFERENT FACTS ──────────────────────────────────────
+    Both already exist on the row and the screen already shows both; what was missing was a way
+    to ask the first question without reading twenty-six rows.
+
+      ACCESS       `hasPin` — `!!staff.pin_hash`. This screen already calls it "Can sign in" /
+                   "No PIN yet", and already calls issuing one "Give them the app". Having the
+                   app IS having a PIN, in the application's own words, so nothing is inferred
+                   here and no second definition is introduced.
+
+      AVAILABILITY `onDuty` — the "In today" / "Out today" toggle on the same row.
+
+    They are INDEPENDENT. A captain who is out today has not lost their access, so they stay
+    under Has access and simply sort below. That is the whole reason the split is two levels
+    rather than one list ordered by something.
+
+    NOT `staff_permission`: the app calls that MODULE access — what a person may do once they
+    are in — and names it differently on this very row. It answers a different question.
+  */
+  const [access, setAccess] = React.useState<'has' | 'none'>('has');
+
+  const hasAccess = people.filter((p) => p.hasPin);
+  const noAccess = people.filter((p) => !p.hasPin);
+  const shown = access === 'has' ? hasAccess : noAccess;
+
+  // Available first, then unavailable. Both are rendered; nobody is hidden for being out.
+  const available = shown.filter((p) => p.onDuty);
+  const unavailable = shown.filter((p) => !p.onDuty);
+
+  /** The existing role grouping, applied WITHIN a section rather than to the whole list. */
+  const groupByRole = (members: StaffMember[]): Array<[string, StaffMember[]]> => {
+    const byRole = new Map<string, StaffMember[]>();
+    for (const p of members) byRole.set(p.role, [...(byRole.get(p.role) ?? []), p]);
+    return [...byRole.entries()];
+  };
 
   // Opens showing the person's CURRENT grants, never a preset standing in for them. The preset
   // buttons are an action INSIDE the panel — applying one is a decision, not a default.
@@ -82,128 +116,191 @@ export function StaffSection({ data, send, runBusy, busy, go, arg }: OwnerSectio
         ) : null}
       </div>
 
-      {[...byRole.entries()].map(([role, members]) => (
-        <section key={role}>
-          <SectionLabel>
-            {role} · {members.length}
-          </SectionLabel>
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {members.map((p) => (
-              <li key={p.id}>
-                <Card className="flex flex-wrap items-center gap-3">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full type-body font-bold',
-                      p.onDuty
-                        ? 'bg-[var(--primary)] text-[var(--on-primary)]'
-                        : 'bg-[var(--surface-sunken)] text-[var(--text-muted)]'
-                    )}
-                  >
-                    {p.initials || p.name.charAt(0)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block type-body font-semibold">{p.name}</span>
-                    <span className="block type-caption text-[var(--text-muted)]">
-                      {p.liveTables.length
-                        ? `On ${p.liveTables.join(', ')} right now`
-                        : p.standingTables.length
-                          ? `${p.standingTables.join(', ')} (standing)`
-                          : 'No tables assigned'}
-                    </span>
-                  </span>
+      {/*
+        THE TWO SUBTABS — a filter over what this screen already holds, and nothing more.
 
-                  <Pill tone={p.hasPin ? 'success' : 'warning'}>{p.hasPin ? 'Can sign in' : 'No PIN yet'}</Pill>
+        `CHIP_NAV_WRAP` rather than a new tab component: this is a NAVIGATION between two views,
+        which is exactly what that constant exists for, and it answers the whole responsive
+        requirement without a line of new CSS. It WRAPS instead of scrolling sideways, and `Chip`
+        already carries `min-h-11` and `whitespace-nowrap` — so at 320px the second tab drops to
+        its own line at full tap size rather than being clipped, truncated or hidden behind a
+        scroll gesture with no affordance. That last failure is why the constant was written.
 
-                  {canDuty ? (
-                    <Button
-                      data-testid={`owner-duty-${p.id}`}
-                      size="sm"
-                      variant={p.onDuty ? 'quiet' : 'secondary'}
-                      disabled={busy}
-                      onClick={() =>
-                        runBusy(async () => {
-                          await send('/api/owner/action', {
-                            action: 'set-on-duty',
-                            staffId: p.id,
-                            onDuty: !p.onDuty,
-                          });
-                          toast.show(`${p.name} marked ${p.onDuty ? 'out' : 'in'} for today`);
-                        })
-                      }
-                    >
-                      {p.onDuty ? 'In today' : 'Out today'}
-                    </Button>
-                  ) : null}
+        Counts come from `people`, the SEARCH-FILTERED list, so the number on a tab always equals
+        what opening it shows. A count of the whole roster beside a filtered list is a number that
+        disagrees with the screen under it.
+      */}
+      <nav className={CHIP_NAV_WRAP} aria-label="Staff by application access">
+        <Chip on={access === 'has'} onClick={() => setAccess('has')} data-testid="owner-staff-tab-has">
+          Has access · {hasAccess.length}
+        </Chip>
+        <Chip on={access === 'none'} onClick={() => setAccess('none')} data-testid="owner-staff-tab-none">
+          No access · {noAccess.length}
+        </Chip>
+      </nav>
 
-                  {canPerms ? (
-                    <Button
-                      data-testid={`owner-perms-${p.id}`}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openPerms(p)}
-                    >
-                      Module access
-                    </Button>
-                  ) : null}
+      {shown.length === 0 ? (
+        <Card data-testid="owner-staff-empty">
+          <p className="m-0 type-body">
+            {access === 'has'
+              ? q
+                ? 'Nobody matching that search can sign in yet.'
+                : 'Nobody can sign in yet. Use “Give them the app” on someone in No access to issue their first PIN.'
+              : q
+                ? 'Everyone matching that search already has app access.'
+                : 'Everyone has app access.'}
+          </p>
+        </Card>
+      ) : null}
 
-                  {canPin ? (
-                    <Button
-                      data-testid={`owner-pin-${p.id}`}
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() =>
-                        runBusy(async () => {
-                          const res = await send<{ pin: string }>('/api/owner/action', {
-                            action: 'issue-pin',
-                            staffId: p.id,
-                          });
-                          setIssuedPin({ name: p.name, pin: res.pin });
-                        })
-                      }
-                    >
-                      {p.hasPin ? 'Reissue PIN' : 'Give them the app'}
-                    </Button>
-                  ) : null}
+      {/* Available first. Each section is skipped entirely when empty, so a heading never
+          stands over nothing — and the other section still renders, because being out today
+          is not a reason to disappear from the roster. */}
+      {([
+        ['Available today', available],
+        ['Unavailable today', unavailable],
+      ] as const).map(([heading, members]) =>
+        members.length === 0 ? null : (
+          <section
+            key={heading}
+            className="flex flex-col gap-2"
+            /* On the SECTION, not on `SectionLabel`: that component accepts only `children` and
+               `className`, so a test id passed to it is silently dropped and the audit would be
+               satisfied by an attribute that never reaches the DOM. */
+            data-testid={`owner-staff-${heading === 'Available today' ? 'available' : 'unavailable'}`}
+          >
+            <SectionLabel>
+              {heading} · {members.length}
+            </SectionLabel>
 
-                  {canPaperwork ? (
-                    <Button
-                      data-testid={`owner-paperwork-${p.id}`}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setPaperworkFor(p)}
-                    >
-                      Paperwork
-                    </Button>
-                  ) : null}
-
-                  {canEdit ? (
-                    <>
-                      <Button
-                        data-testid={`owner-edit-staff-${p.id}`}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditing({ id: p.id, name: p.name, role: p.role, mobile: p.mobile })}
+          {/* The role grouping the screen has always had — applied inside this section rather
+              than to the whole roster, so "CHEF · 2" now means two chefs who are in today and
+              can sign in, not two chefs somewhere in a list of twenty-six. */}
+          {groupByRole(members).map(([role, inRole]) => (
+            <section key={role}>
+              <SectionLabel>
+                {role} · {inRole.length}
+              </SectionLabel>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {inRole.map((p) => (
+                  <li key={p.id}>
+                    <Card className="flex flex-wrap items-center gap-3">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'flex h-10 w-10 shrink-0 items-center justify-center rounded-full type-body font-bold',
+                          p.onDuty
+                            ? 'bg-[var(--primary)] text-[var(--on-primary)]'
+                            : 'bg-[var(--surface-sunken)] text-[var(--text-muted)]'
+                        )}
                       >
-                        Edit
-                      </Button>
-                      <Button
-                        data-testid={`owner-remove-${p.id}`}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setRemoving(p)}
-                      >
-                        Remove
-                      </Button>
-                    </>
-                  ) : null}
-                </Card>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+                        {p.initials || p.name.charAt(0)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block type-body font-semibold">{p.name}</span>
+                        <span className="block type-caption text-[var(--text-muted)]">
+                          {p.liveTables.length
+                            ? `On ${p.liveTables.join(', ')} right now`
+                            : p.standingTables.length
+                              ? `${p.standingTables.join(', ')} (standing)`
+                              : 'No tables assigned'}
+                        </span>
+                      </span>
+
+                      <Pill tone={p.hasPin ? 'success' : 'warning'}>{p.hasPin ? 'Can sign in' : 'No PIN yet'}</Pill>
+
+                      {canDuty ? (
+                        <Button
+                          data-testid={`owner-duty-${p.id}`}
+                          size="sm"
+                          variant={p.onDuty ? 'quiet' : 'secondary'}
+                          disabled={busy}
+                          onClick={() =>
+                            runBusy(async () => {
+                              await send('/api/owner/action', {
+                                action: 'set-on-duty',
+                                staffId: p.id,
+                                onDuty: !p.onDuty,
+                              });
+                              toast.show(`${p.name} marked ${p.onDuty ? 'out' : 'in'} for today`);
+                            })
+                          }
+                        >
+                          {p.onDuty ? 'In today' : 'Out today'}
+                        </Button>
+                      ) : null}
+
+                      {canPerms ? (
+                        <Button
+                          data-testid={`owner-perms-${p.id}`}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openPerms(p)}
+                        >
+                          Module access
+                        </Button>
+                      ) : null}
+
+                      {canPin ? (
+                        <Button
+                          data-testid={`owner-pin-${p.id}`}
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() =>
+                            runBusy(async () => {
+                              const res = await send<{ pin: string }>('/api/owner/action', {
+                                action: 'issue-pin',
+                                staffId: p.id,
+                              });
+                              setIssuedPin({ name: p.name, pin: res.pin });
+                            })
+                          }
+                        >
+                          {p.hasPin ? 'Reissue PIN' : 'Give them the app'}
+                        </Button>
+                      ) : null}
+
+                      {canPaperwork ? (
+                        <Button
+                          data-testid={`owner-paperwork-${p.id}`}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPaperworkFor(p)}
+                        >
+                          Paperwork
+                        </Button>
+                      ) : null}
+
+                      {canEdit ? (
+                        <>
+                          <Button
+                            data-testid={`owner-edit-staff-${p.id}`}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditing({ id: p.id, name: p.name, role: p.role, mobile: p.mobile })}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            data-testid={`owner-remove-${p.id}`}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setRemoving(p)}
+                          >
+                            Remove
+                          </Button>
+                        </>
+                      ) : null}
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          </section>
+        )
+      )}
 
       {/* Add / edit */}
       <Sheet

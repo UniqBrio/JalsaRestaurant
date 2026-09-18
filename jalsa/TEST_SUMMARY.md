@@ -4,6 +4,975 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 28.1s total - slowest G6 Lint (9.9s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (50ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (51ms)
+- **G4 No hard-coded colours** - PASS (74ms)
+- **G5 Types** - PASS (7.6s)
+- **G6 Lint** - PASS (9.9s)
+- **G7 Unit + pure specs** - PASS (7.2s)
+- **G8 Functional / integration** - BLOCKED (-) - E2E/functional tier requires a seeded database; this change is a client-side filter over a payload the screen already holds and is covered at the unit and render tiers.
+- **G9 Automation addressability** - PASS (56ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.0s)
+- **G11 Wide tables are configurable** - PASS (63ms)
+- **G12 Installable as an application** - PASS (72ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Change - 18-Sep-2026 - Owner > Staff organised by application access, then by availability
+
+### What changed, and what deliberately did not
+
+The Staff list was one flat roster grouped only by role, so "who still needs the app?" meant
+reading 26 rows for a pill. It now opens on two chips — **Has access · N** / **No access · N** —
+and each tab splits into **Available today** / **Unavailable today**, with the existing role
+grouping preserved *inside* each section rather than applied to the whole list.
+
+**Nothing below the tabs changed.** The row, its pill, its toggle, and all five actions — Module
+access, Give them the app, Paperwork, Edit, Remove — keep their markup and their behaviour. The
+change is a client-side filter over a payload the screen already receives; no query, no schema,
+no permission and no route was touched.
+
+### The source of truth, found rather than invented
+
+The requester warned against inferring access from role, and against inferring it from the PIN
+**unless the application explicitly defines the PIN as the access criterion**. It does:
+
+| Question | Existing field | How the app already words it |
+|---|---|---|
+| Has access? | `StaffMember.hasPin` — `queries.ts:576`, `hasPin: !!s.pin_hash` | the row's pill reads **"Can sign in" / "No PIN yet"**; the action reads **"Give them the app" / "Reissue PIN"** |
+| Available today? | `StaffMember.onDuty` — `queries.ts:575`, `onDuty: s.on_duty` | the row's toggle reads **"In today" / "Out today"** |
+| Role | the existing `byRole` map, now built per section | `{role} · {n}` heading, unchanged |
+
+`staff_permission` is deliberately **not** the criterion. The app calls that **Module** access —
+what a person may do once inside — and names it differently on the same row. Using it here would
+answer a different question and would put every seeded chef under HAS ACCESS while their own row
+says "No PIN yet".
+
+### Fail-first evidence
+
+| # | Defect injected | Observed |
+|---|---|---|
+| A | `hasAccess` narrowed to `people.filter((p) => p.hasPin && p.onDuty)` — availability folded into access | **3 failed**, including case 6 *"access must be decided by the PIN alone"* |
+| B | the section list reduced to `['Unavailable today', [] as StaffMember[]]` — Available dropped | **1 failed** — *"tabs sit above the list, and Available comes before Unavailable"* |
+| C | role grouping replaced with `[['All staff', members]]` — the list flattened | **2 failed**, including case 8 *"role grouping is preserved INSIDE each section"* |
+| D | `CHIP_NAV_WRAP` set back to the pre-fix scrolling value | **1 failed** at the unit tier — *"the tab row is the existing chip NAVIGATION"* (18 passed) |
+
+**NOT OBSERVED FAILING — the eight render cases, under defect D: 8 passed.** Two chips this
+short occupy about 270px of the 328px content box at 360px, so they fit whether the row wraps or
+scrolls; the defect is real but cannot express itself through *these* labels. It is caught at the
+unit tier instead (row D above), and the container's own observed-failing evidence is the
+ten-label block at the top of the same render file (17-Sep: 15 failed, 4 passed). The eight are
+kept as a **forward** guarantee — a third tab, a longer label, or a three-digit count would be
+caught there and nowhere else. Recorded verbatim in the spec's header.
+
+### What was run
+
+| Rung | Result |
+|---|---|
+| `tests/unit/staff-access-tabs.unit.spec.ts` (new, 19 cases) | **19 passed** |
+| Full unit tier | **591 passed** |
+| Full render tier (incl. 8 new Staff-tab cases at every width) | **316 passed** |
+| `npx tsc --noEmit` | clean |
+| `npm run lint` (`--max-warnings 0`) | clean |
+| `DIST_DIR=.next-X npm run build` | exit 0 |
+| `npm run audit:all` | **10/10 passed**, every ratchet a clean gate |
+| `npm run guard:test` | **15/15 passed** |
+| `node scripts/gate-runner.mjs --cwd jalsa --skip G8` | **BLOCKED** — 11 pass, 0 fail, 1 blocked |
+
+**G8 is BLOCKED, not passed, and that is the honest verdict.** The functional tier needs a seeded
+database this container has no sanctioned target for; production is never an automated target. The
+change is covered at the unit and render tiers, but that is a statement about coverage, not a
+substitute for the rung that did not run.
+
+### Not verified
+
+The new organisation has not been seen in the running owner console — that needs a PIN and a
+database. Every assertion here is on the source and on the real stylesheet, not on the live
+screen.
+
+---
+
+## Bug - 18-Sep-2026 - Owner > Staff > Module access: "Something on our side failed"
+
+### Root cause, in two layers
+
+**LAYER 1 — the environment, proven against the live production schema.**
+`20260917120000_jalsa_drop_ambiguous_set_staff_pin.sql` exists in this repository and has
+**never been applied to production**. `set_staff_pin` still carries BOTH signatures there —
+`(p_staff uuid, p_pin text)` and `(p_staff uuid, p_pin text, p_provisional boolean)` — so
+PostgREST cannot choose and every call fails. Production's migration ledger stops at
+`20260916105856`; seven repo migrations are unapplied.
+
+**LAYER 2 — the message, which is the code defect and what this run fixed.**
+`db-errors.ts` was written on 17-Sep for exactly this fault and **still did not fire**. It listed
+the DATABASE's SQLSTATEs (`42725` and friends), but the application never speaks to Postgres
+directly: PostgREST resolves the overload itself and answers with its own `PGRST203`. That
+matched nothing, fell through to *"Nothing you did was lost — try again"*, and sent the owner to
+retry an action that can never succeed. **The one message written to say "retrying cannot help"
+could not fire for the one error it was written about.**
+
+### Evidence gathered before any code was changed
+
+| Checked | Finding |
+|---|---|
+| `staff_permission` / `audit_entry` schema vs the code | **exact match**, production |
+| The exact `setPermissions` statement sequence, replayed on the TEST project | **all three succeeded** (delete, 3-row insert, confidential audit) — then cleaned up |
+| RLS / FORCE / policies / triggers on `staff_permission` | identical posture to `setting`, which works. No drift |
+| Owner's own grants | 59 of 59, including `staff.perms` — so `demand` passes (and would be 403, not 500) |
+| Permission catalogue vs production keys | 59 vs 59 distinct. No unknown key |
+| `refreshNow` | catches everything, never throws — so the toast is the POST's own 500 |
+| `setPermissions` at HEAD vs working tree | byte-identical (md5) |
+| **Has this ever worked?** | **No.** Every `staff_permission` row still reads `granted_by = 'setup'`; **zero** `Permission` audit rows exist, while 72 other audit rows do — and every chef reads "No PIN yet" |
+| Other owner writes | working today — Settings 05:32, Staff 04:27 |
+
+Hypotheses eliminated with evidence: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S.
+T was the right family — a post-write step making a success look like a failure — but the culprit
+was the error CLASSIFIER, not the audit.
+
+### The fix
+
+Three PostgREST codes added to `SCHEMA_FAULTS` in `src/lib/db-errors.ts`: `PGRST202` (function
+absent from the schema cache), **`PGRST203`** (cannot choose between overloads — the 17-Sep fault
+as it actually arrives), `PGRST204` (column absent). Nothing else changed.
+
+Minimal because the predicate, the message and the handler were all already correct and already
+wired; the set they consult was simply written in the wrong vocabulary. **Nothing was hidden,
+swallowed, retried, delayed, or reported as success.**
+
+### Fail-first evidence
+
+The three `PGRST*` cases were run against the pre-fix `SCHEMA_FAULTS` set:
+**1 failed** — `PostgREST's own schema codes are recognised, not just the database's`
+("ambiguous function, as PostgREST reports it"). Restored; 12/12 green, and 28/28 alongside
+`errors.taxonomy` and `function-overloads`.
+
+### Tests
+
+`tests/unit/module-access.unit.spec.ts` — **12 cases**, covering the request's list: the panel
+opens on actual grants, one save carries the whole set, delete-then-insert creates missing rows
+and cannot duplicate, the write is scoped to one staff member, an empty set is a legitimate save,
+`staff.perms` is demanded server-side, identity is settled before the switch, the audit diffs
+before the delete, and the queue keys are ordinary catalogue entries.
+
+### Gates
+
+`audit:all` 10/10 · `guard:test` 15/15 · tsc · eslint · build · **572 unit** · **308 render** ·
+5 degraded functional — all PASS. Gate verdict **BLOCKED on G8 only**.
+
+### NOT VERIFIED, and what would settle it
+
+The Module access SAVE was not driven end to end, because that needs the app pointed at a
+non-production Supabase project and the only service-role key here is production's. Its exact
+statements succeed against a real database, so **no failure mechanism was found in
+`setPermissions` itself** — the proven failure is on the same Staff row's "Give them the app".
+Whether the reported click was that action, or whether Module access fails for a further reason,
+needs either the Vercel function log for the failing request or a test-project key.
+
+**No migration was written.** The one that is needed already exists and is unapplied — an
+environment action on a target this session must never write to.
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 23.4s total - slowest G6 Lint (10.5s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (52ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (48ms)
+- **G3 Theme assets present per theme** - PASS (50ms)
+- **G4 No hard-coded colours** - PASS (72ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (10.5s)
+- **G7 Unit + pure specs** - PASS (7.3s)
+- **G8 Functional / integration** - BLOCKED (-) - The functional tier needs a reachable non-production Supabase project; the only service-role key here is production's, which is never an automated target. Degraded functional ran separately: 5/5 PASS.
+- **G9 Automation addressability** - PASS (62ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (61ms)
+- **G12 Installable as an application** - PASS (69ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Feature - 18-Sep-2026 - Indoor Queue QR + waitlist management
+
+**Asked for:** a dedicated entrance QR, owner/captain open-close control, join → token → live
+position → welcomed to a table → ordinary ordering, a queue-closed screen that cancels nobody, and
+an operator view showing requests AND guests.
+
+### PHASE 1 found that most of it already existed
+
+Fourteen pieces were reused untouched: the `waitlist_entry` table, the shared `W-` number series,
+the entrance page with all four states, the cookie-isolated guest API, `readQueueEntry`'s position
+and estimate, **six granular queue permissions** (`queue.view/walkin/notify/seat/close/clear` —
+finer than the request assumed), the owner waitlist screen, `settings.queue.open`, the audit trail,
+`useLiveData`, the QR generator, party sizes `[1,2,3,4,5,6,8,10]` shown as `10+`, and the render
+order that already keeps a waiting party's token when the queue closes.
+
+**No migration.** Every column needed already exists and `queue.open` is a settings row.
+
+### The four gaps, and what closed them
+
+| Gap | Was | Now |
+|---|---|---|
+| **G1** | `guestJoinQueue` never read `queue.open`. Closure was enforced only by what `/q` rendered — so a tab opened before closing, a direct POST, or a tap in the same second all joined a closed queue | The mutation reads the switch and throws **before a token is taken**, so a refused join leaves no hole in the night's numbering. The route answers 409. A stale tab moves to the closed screen rather than toasting over a dead form |
+| **G2** | No entrance QR existed; `/api/owner/qr` refused without `?table=` | One generator, two codes: no table name means `/q`. An **Indoor queue code** card in Tables & QR with status, open/close, the image and print instructions |
+| **G3** | The headline read "N parties waiting" with the head count as a sub-note | "Waiting outside · 3 requests · 10 guests", and the tile agrees rather than saying something else |
+| **G4** | The queue screen ran its own `setInterval` — a second live-data idiom that polled with the phone in a pocket and blanked a party's token on one failed read | `useLiveData`, plus a local override so a poll already in flight cannot undo what this phone just did |
+
+### What was added
+
+`tests/unit/indoor-queue.unit.spec.ts` — **22 cases**, numbered against the request's list of 20.
+They split deliberately into the four gaps and the regressions that pin what was already correct
+(cookie isolation, the single token series, the party sizes, the ordering handoff).
+
+### Fail-first evidence
+
+| # | Defect injected | Observed |
+|---|---|---|
+| A | the closed check moved to AFTER `nextNumber('waitlist')` | **1 failed** - `2. a CLOSED queue refuses a new party` ("and runs before a token is taken") |
+| B | the entry branch gated on `queueOpen`, so closing hides a waiting party's own token | **1 failed** - `3+17. closing the queue touches no existing row` |
+| C | the entrance code started carrying `?token=` | **1 failed** - `19. the entrance code identifies a PLACE and nothing else` |
+| D | the headline reduced to the head count alone | **1 failed** - `7b. the operator sees REQUESTS and GUESTS` |
+
+All reverted; 22/22 green.
+
+**Two probe defects the spec found in itself first.** `codeOnly` refused `queue-closed.ts` —
+one exported line under a long note leaves less than the third it insists on, a guard right for a
+component and wrong for a constant; that case now reads raw with exact assertions. And the
+"carries no token" check was matching `@/theme/tokens.generated`, the colour import: it now reads
+the target expression rather than scanning the file.
+
+**One real defect the gates found.** `check-testid-coverage` BLOCKED on the new print anchor —
+`asChild` means the anchor handles the click, and the table-code sheet beside it has carried both
+ids since it was written. Fixed, not baselined.
+
+### Gates
+
+| Gate | Verdict |
+|---|---|
+| `npm run audit:all` | **PASS** - 10/10 (after the testid fix) |
+| `npm run guard:test` | **PASS** - 15/15 |
+| `tsc --noEmit` · `eslint src tests` | **PASS** |
+| build | **PASS** - `/q` and `/api/owner/qr` both emitted |
+| unit tier | **PASS** - 565 |
+| render tier | **PASS** - 308 |
+| degraded functional | **PASS** - 5 |
+| gate-runner `--skip G8` | **BLOCKED** - G8 only |
+
+### NOT EXECUTED
+
+No party was joined, welcomed or seated against a live database: that needs a non-production
+service-role key this container does not have. The state transitions are asserted from source and
+from the schema's own constraints. **No migration was required, so there was nothing to apply to
+the test project and production was not touched at all this run.**
+
+### Workstream isolation
+
+Eight files were modified, all of them queue: the guest queue route, the QR route, `GuestQueue`,
+the Settings entrance card, `WaitlistSection`, `guestJoinQueue`, the new shared sentence, and the
+new spec. No logo, combobox, `heard_about`, promotions, Uplift, payment, WhatsApp or staff-ordering
+file was touched this run.
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 23.4s total - slowest G6 Lint (10.0s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (55ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (59ms)
+- **G3 Theme assets present per theme** - PASS (48ms)
+- **G4 No hard-coded colours** - PASS (74ms)
+- **G5 Types** - PASS (2.6s)
+- **G6 Lint** - PASS (10.0s)
+- **G7 Unit + pure specs** - PASS (7.2s)
+- **G8 Functional / integration** - BLOCKED (-) - The full functional tier needs the app pointed at a reachable Supabase project; the only service-role key here belongs to production, which is never an automated target (ENVIRONMENTS.md). Degraded fun
+- **G9 Automation addressability** - PASS (59ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (58ms)
+- **G12 Installable as an application** - PASS (68ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Feature - 18-Sep-2026 - Customer promotions / specials
+
+**Asked for:** owner-defined reusable promotional sections, activated for the day from Day setup,
+shown to the guest above the menu, ordered through the existing flow, and attributed to Uplift
+only when the ORDER came from the promotion.
+
+### Four questions answered before any code (recorded in the request file)
+
+| | Finding | Answer |
+|---|---|---|
+| Max active | The design's artboard shows four strips but defines no maximum in prose | **5**, the stated default; the refusal sentence ships verbatim |
+| Where it lives | There is no section called "Administration" | **A panel inside Settings**, so Day setup's button reads **Open settings** rather than the request's illustrative "Open administration" |
+| Attribution | `item_source` (`menu`/`quick_add`) was added one day earlier and answers exactly this question | **Extend it** with `promotion` plus a nullable FK; value shortened to `promotion` the way `customer_quick_add` became `quick_add` |
+| Item picker | The shared combobox is single-select and five call sites old | **Composed, not forked** — it is the "add one more" control, chips beside it, chosen items filtered out of its options |
+
+### What was added
+
+| Rung | Tier | Cases |
+|---|---|---|
+| `tests/unit/promotions.unit.spec.ts` | unit | 29 |
+| `tests/render/promotions.render.spec.ts` | render | 35 |
+
+The 29 unit cases are numbered against the request's own list of 25.
+
+### Four assertions in `quick-add.unit.spec.ts` were RE-EXPRESSED, not weakened
+
+The quick-add spec (written the previous day) correctly noticed that promotions generalised the
+code it pinned. Each was rewritten to assert the SAME guarantee against the generalised code, with
+the reason written in beside it:
+
+- `let source: 'menu' | 'quick_add' = 'menu'` → a regex on the initialiser. The union gained a
+  third member; what is asserted — the default is `menu` — is unchanged.
+- `.eq('source','quick_add')` → `.neq('source','menu')`. The attribution floor generalised from
+  one affordance to every affordance. Same floor, stated once.
+- the `itemSource` mention count → one accumulation per figure, named by its own accumulator.
+  Counting mentions was never the point and the promotion breakdown added legitimate ones.
+- `commit(itemId, next, wasQuick)` → a regex admitting the fourth argument. The case is about the
+  flag surviving the tap-collapse, which it still does.
+
+### Fail-first evidence
+
+| # | Defect injected | Observed |
+|---|---|---|
+| A | the promotion claim is accepted without checking the promotion is live | **1 failed** - `19. a promotion claim is verified in full before it is recorded` |
+| B | every promotion is sent to the phone, active or not | **1 failed** - `11+12. only live promotions reach a phone at all` |
+| C | uplift groups all promotions into one bucket instead of by name | **1 failed** - `20. uplift groups promotion revenue by promotion` |
+| D | activation demands `menu.item_edit`, collapsing the Administration/Day-setup split | **1 failed** - `8+9. activation is its own verb, on its own permission` |
+| E | the ordinary menu list starts passing a promotion id | **1 failed** - `18. ordering the same dish from the MENU carries no promotion attribution` |
+| F | the heading row loses `flex-wrap` | **1 failed at 320px** - `the supporting text sits beside the heading where there is room, and below where there is not` |
+
+All reverted; both rungs re-run green (29 unit, 35 render).
+
+**Two defects the render spec found in itself, before it could find any in the code.**
+1. It measured the menu's ABSOLUTE y and read 1135px for a block that is 330px tall — the probe
+   is appended to whatever `/` already rendered. Now measured relative to the promotion area.
+2. It asserted the heading and its supporting text share a line at 1024px. They do not, and
+   should not: the guest surface is capped by `--layout-guest-max-width`, so a desktop viewport
+   gives this block no more room than a large phone. The assertion was false, not the code.
+   It now uses a short promotion name for that case and says why.
+
+### Database verification, on the TEST project only
+
+`supabase/migrations/20260918070000_jalsa_promotions.sql` applied to `uxmyomxtosjlkvjxnvpy`:
+
+| Check | Before | After |
+|---|---|---|
+| `menu_item` / `kot_item` / `guest_cart_line` rows | 57 / 37 / 19 | **57 / 37 / 19** |
+| `promotion`, `promotion_item` | absent | **present, RLS on, no policy** |
+| `item_source` enum | `menu,quick_add` | **`menu,quick_add,promotion`** |
+| lines attributed to anything but `menu` | - | **0** |
+
+Then every guarantee was exercised in SQL and cleaned up:
+
+| Probe | Outcome |
+|---|---|
+| five promotions activated | accepted |
+| **the sixth** | **refused by the trigger** |
+| switch one off, another on | accepted |
+| **the same item added twice to one promotion** | **refused by the primary key** |
+| delete a promotion → its membership | **0 rows left** |
+| delete a promotion → the menu | **57 of 57 items intact** |
+| cleaned up | 0 promotions left, 0 memberships |
+
+**Production (`yxgxmbyilpivbmeemqkp`) re-checked afterwards:** no promotion tables, no
+`kot_item.source`/`promotion_id`/`promotion_name`, no `quick_add`, no `item_source` type,
+57 menu items, 41 kot items. Untouched.
+
+### Gates
+
+| Gate | Verdict |
+|---|---|
+| `npm run audit:all` (Jalsa) | **PASS** - 10/10 |
+| `npm run guard:test` (framework) | **PASS** - 15/15 |
+| `tsc --noEmit` · `eslint src tests` | **PASS** |
+| `DIST_DIR=.next-promo npm run build` | **PASS** |
+| unit tier, all specs | **PASS** - 543 |
+| render tier, all specs | **PASS** - 308 |
+| degraded functional (no database) | **PASS** - 5 |
+| `node scripts/gate-runner.mjs --cwd jalsa --skip G8` | **BLOCKED** - G8 only |
+
+### NOT EXECUTED, stated rather than claimed
+
+The full journey — owner creates a special, Day setup switches it on, a guest taps Add inside it,
+the line reaches a KOT and a bill, Uplift names it — was **not driven against a running database**.
+It needs the app pointed at a non-production Supabase project and this container holds only
+production's service-role key. The schema guarantees WERE exercised (above); the application
+logic is asserted from source. `G8` is **BLOCKED** and the gate verdict is BLOCKED.
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 23.4s total - slowest G6 Lint (11.1s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (53ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (50ms)
+- **G3 Theme assets present per theme** - PASS (47ms)
+- **G4 No hard-coded colours** - PASS (67ms)
+- **G5 Types** - PASS (2.3s)
+- **G6 Lint** - PASS (11.1s)
+- **G7 Unit + pure specs** - PASS (6.6s)
+- **G8 Functional / integration** - BLOCKED (-) - The full functional tier needs the app pointed at a reachable Supabase project; the only service-role key in this container belongs to production, which is never an automated target (ENVIRONMENTS.md).
+- **G9 Automation addressability** - PASS (55ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.0s)
+- **G11 Wide tables are configurable** - PASS (56ms)
+- **G12 Installable as an application** - PASS (68ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Feature - 18-Sep-2026 - The one-tap quick-add (requested as "+ Water bottle")
+
+**Asked for:** a one-tap water bottle on the guest home screen, as a real ORDER, resolved from
+the persisted menu item, reaching the same round, KOT, bill and GST, with only quick-add sales
+attributed to Uplift.
+
+### The finding that changed the shape of it
+
+`menu_item` holds **57 rows and not one is a water bottle** — 0 matches for water / bottle /
+mineral / aqua, in the production project AND the test project. Drinks holds three items: Badam
+Milk 25, Horlicks 25, Lime Tea 12. So the request's central instruction ("resolve the existing
+menu item by its persisted identity") had nothing to resolve, and its two prohibitions (no
+hardcoded price, no duplicate item) ruled out inventing one. Put to the requester with three
+options; they chose **the owner nominates the item from the Menu section**.
+
+Two more findings were put with it and answered:
+
+- **Uplift computes no revenue at all today.** It shows counts behind "Uplift is a comparison,
+  not a sum". Answer: stamp the item, add ONE tile, leave the unbuilt range comparison alone.
+- **Attribution today is per-ROUND** (`kot.source` = guest|captain|owner); `kot_item` had no
+  source column. Answer: add the smallest per-item field.
+
+All three answers are recorded verbatim in `requests/2026-09-18-water-bottle-quick-add.md`.
+
+### What was added
+
+| Rung | Tier | Cases |
+|---|---|---|
+| `tests/unit/quick-add.unit.spec.ts` | unit | 20 |
+| `tests/render/quick-add.render.spec.ts` | render | 40 |
+
+The 20 unit cases are numbered against the request's own list of 15.
+
+### Fail-first evidence
+
+| # | Defect injected | Observed |
+|---|---|---|
+| A | `setCartLine` trusts the browser's `quickAdd` claim without checking the nomination | **1 failed** - `11. a quick-add is attributed only after the server checks the nomination` |
+| B | the corrective update drops `.eq('source','quick_add')`, so attribution can climb back | **1 failed** - `11b. attribution can fall from quick_add to menu, never climb` |
+| C | the Uplift figure stops excluding cancelled lines | **1 failed** - `12. a cancelled quick-add line is not counted as revenue` ("cancelled lines are skipped") |
+| D | the affordance flag is dropped by the tap-collapse | **1 failed** - `13b. the affordance survives the collapse, and the last tap owns the row` |
+| E | the card's row loses `flex-wrap` (injected into the card AND the spec's pin, so it is the MEASUREMENT that fails) | **1 failed at 320px** - `the row wraps instead of squeezing the control when the name is long` |
+
+All reverted; the two rungs re-run green (20 unit, 40 render).
+
+**A defect the spec found in itself.** The first `fn()` body-extractor stopped at the first
+`\n}`, which in this codebase closes a multi-line PARAMETER block, not a body — it returned 54
+characters of signature and made 8 of 20 cases fail for a reason unrelated to the code they
+meant to read. Fixed to count braces, and then fixed again because a return annotation like
+`: Promise<{ kotCode: string }>` supplies a brace between the parameters and the body. Both
+corrections are written into the helper, because the next spec that reads a function body here
+will hit exactly the same two things.
+
+### Database verification, on the TEST project only
+
+`supabase/migrations/20260918060000_jalsa_quick_add.sql` applied to `uxmyomxtosjlkvjxnvpy`:
+
+| Check | Before | After |
+|---|---|---|
+| `menu_item` rows | 57 | **57** |
+| `kot_item` rows | 37 | **37** |
+| `guest_cart_line` rows | 19 | **19** |
+| `menu_item` columns | 17 | **18** |
+| `kot_item` columns | 14 | **15** |
+| `item_source` enum | absent | **`menu,quick_add`** |
+| rows stamped anything but `menu` | - | **0** (37 of 37 kot_item rows defaulted to `menu`) |
+
+Then the guarantee itself was exercised in SQL and cleaned up:
+
+| Probe | Outcome |
+|---|---|
+| first nomination | accepted |
+| **second nomination** | **refused, 23505 unique_violation** |
+| moving the nomination (clear, then set — what `setQuickAddItem` does) | accepted |
+| cleaned up | 0 still nominated |
+
+**Production (`yxgxmbyilpivbmeemqkp`) re-checked afterwards:** `quick_add` column absent,
+`kot_item.source` absent, `item_source` type absent, 57 menu items, 41 kot items. Untouched.
+
+### Gates
+
+| Gate | Verdict |
+|---|---|
+| `npm run audit:all` (Jalsa) | **PASS** - 10/10 |
+| `npm run guard:test` (framework) | **PASS** - 15/15 suites |
+| `tsc --noEmit` | **PASS** |
+| `eslint src tests` | **PASS** |
+| `DIST_DIR=.next-qa npm run build` | **PASS** |
+| unit tier, all specs | **PASS** - 514 |
+| render tier, all specs | **PASS** - 273 |
+| degraded functional (no database) | **PASS** - 5 |
+| `node scripts/gate-runner.mjs --cwd jalsa --skip G8` | **BLOCKED** - G8 only |
+
+### NOT EXECUTED, stated rather than claimed
+
+The full functional tier needs the app pointed at a reachable Supabase project, and the only
+service-role key in this container belongs to production, which is never an automated target.
+So the following were verified **from the source and from SQL**, not by driving the running app:
+
+- the round actually reaching the kitchen with a `quick_add` line on it
+- the Uplift tile rendering a figure from real closed bills
+- the owner's One tap column round-tripping through the console
+
+`G8` is therefore **BLOCKED** and the gate's verdict is BLOCKED. No flag here produces green.
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 21.7s total - slowest G6 Lint (10.1s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (52ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (48ms)
+- **G3 Theme assets present per theme** - PASS (47ms)
+- **G4 No hard-coded colours** - PASS (65ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (10.1s)
+- **G7 Unit + pure specs** - PASS (6.2s)
+- **G8 Functional / integration** - BLOCKED (-) - The full functional tier needs the app pointed at a reachable Supabase project. The only service-role key in this container belongs to the production project, which is never an automated target (ENVIR
+- **G9 Automation addressability** - PASS (53ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.0s)
+- **G11 Wide tables are configurable** - PASS (53ms)
+- **G12 Installable as an application** - PASS (62ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Change - 18-Sep-2026 - Owner > Settings > Restaurant details: replace the logo
+
+**Asked for:** show the stored logo, Browse to replace it, SVG/PNG/JPEG only, at most 15 MB,
+preview before saving, and never destroy the working logo when an upload fails.
+
+### What was added
+
+| Rung | Tier | Cases |
+|---|---|---|
+| `tests/unit/logo-upload.unit.spec.ts` | unit | 17 |
+| `tests/unit/logo-upload-wiring.unit.spec.ts` | unit | 17 |
+| `tests/render/logo-control.render.spec.ts` | render | 41 |
+
+Two assertions in `tests/unit/restaurant-details.unit.spec.ts` were amended, not removed, and
+the reason is written into the spec beside each:
+
+- the frozen sentence `Replacing the artwork is a file change` was a stated LIMITATION that this
+  change removes, not a shipped string being rewritten. Everything else that test froze is still
+  frozen, including `The badge printed on the QR stands, the bill and every HR document.`
+- `not.toMatch(/disabled={(?!busy})/)` now also admits `saving` and `saving || busy` - the logo
+  card's own save flag. What it asserts is absent is unchanged: a control disabled for any reason
+  OTHER than a save in flight.
+
+### Fail-first evidence
+
+Each rung was run against a tree carrying a deliberate defect, and the failures observed:
+
+| # | Defect injected | Observed |
+|---|---|---|
+| A | `inspectLogo` falls back to trusting the filename when the bytes match nothing | **3 failed** - `5. an unsupported file type is rejected` ("a PDF must be refused"), `5c. a name is never enough`, `5g. a truncated head is not mistaken for the format it is the start of` |
+| B | `LOGO_MAX_BYTES` raised to 50 MB | **2 failed** - `4. a file over 15 MB is rejected`, `the size label is readable at every scale the ceiling allows` |
+| C | the tidy-up loses its `startsWith(restaurantId + '/')` scope | **1 failed** - `9. the storage path is derived on the server and cannot be supplied by the caller` ("the old path must be checked against this restaurant before deletion") |
+| D | the old object is removed BEFORE `setRestaurantLogo` | **1 failed** - `6b. the old asset is removed only AFTER the repoint succeeded` ("deleting first is how a restaurant ends up with no logo at all") |
+| E | the text column loses `min-w-0` (injected into the card and into the spec's pin together, so it is the MEASUREMENT that fails, not the pin) | **2 failed at 768px** - `768px, a file picked: nothing crosses the card` ("caption must end inside the card at 768px"), `a long filename truncates rather than widening the card` |
+
+All defects were reverted and the three rungs re-run green (34 unit, 41 render).
+
+**Defect E is the reason `FILENAME` in the render spec is 100 characters.** At the 68-character
+name first written, dropping `min-w-0` changed nothing at any of the nine widths - the row is
+`flex-col` below `sm`, where `min-width: auto` does not apply to the cross axis, and above `sm`
+a 68-character name still fits. The rung was strengthened until it could actually fail, rather
+than recorded as covering something it did not.
+
+### Gates
+
+| Gate | Verdict |
+|---|---|
+| `npm run audit:all` (Jalsa) | **PASS** - 10/10 |
+| `npm run guard:test` (framework) | **PASS** - 15/15 suites, every guard executed |
+| `tsc --noEmit` | **PASS** |
+| `eslint src tests` | **PASS** |
+| `DIST_DIR=.next-logo npm run build` | **PASS** - `/api/owner/logo` in the route table |
+| unit tier, all specs | **PASS** - 494 |
+| render tier, all specs | **PASS** - 233 |
+| degraded functional (`tests/functional/degraded.functional.spec.ts`, no database) | **PASS** - 5 |
+| `node scripts/gate-runner.mjs --cwd jalsa --skip G8` | **BLOCKED** - see below |
+
+### NOT EXECUTED, and why - stated rather than claimed
+
+The end-to-end upload was **not run against any Supabase project**, so five of the twelve cases
+the request lists are recorded here as NOT EXECUTED, not as passing:
+
+- 6. existing logo remains unchanged after a failed upload *(order asserted from source; not run)*
+- 7. a successful upload updates the active logo *(wiring asserted from source; not run)*
+- 9. restaurant A cannot modify restaurant B's logo *(path derivation and the delete scope
+  asserted from source; not run)*
+- 11. the new logo persists after a reload *(not run)*
+- and the storage bucket itself: `supabase/migrations/20260918050000_jalsa_restaurant_branding_bucket.sql`
+  is **applied to no environment**.
+
+Two facts make this unrunnable here rather than merely skipped:
+
+1. The application needs `SUPABASE_SECRET_KEY` (service role) to reach storage at all - every
+   table has RLS on with no permissive policy, so a publishable key authorises nothing
+   (guardrail 3).
+2. This container holds exactly one such key and it belongs to the **production** project, which
+   `docs/registers/ENVIRONMENTS.md` names as never an automated target. There is no `.env.test`.
+
+`G8 Functional / integration` is therefore **BLOCKED**, and the gate's verdict is BLOCKED. That
+is the honest value, and no flag here can produce green.
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 21.6s total - slowest G6 Lint (9.6s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (57ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (51ms)
+- **G3 Theme assets present per theme** - PASS (51ms)
+- **G4 No hard-coded colours** - PASS (72ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (9.6s)
+- **G7 Unit + pure specs** - PASS (6.3s)
+- **G8 Functional / integration** - BLOCKED (-) - the functional tier needs a reachable Supabase project; the only service-role key in this container belongs to the production project, which is never an automated target (ENVIRONMENTS.md). The degrade
+- **G9 Automation addressability** - PASS (59ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (61ms)
+- **G12 Installable as an application** - PASS (72ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-18 (fifth) - VERDICT: BLOCKED
+
+Restaurant details, recomposed. Presentation only.
+
+- **Static + audits** 10/10 · **Types** PASS · **Lint** PASS · **Build** PASS ·
+  **Unit + render** **652/652** (+29).
+- **G8 Database-backed functional** - **BLOCKED**, unchanged: no test-project service-role key
+  exists in this container.
+
+WHAT THE RISK ACTUALLY WAS
+  `writeIdentity` does `update(input.patch)` with the form object, so every key in `form` IS a
+  database column. A key dropped while moving markup does not error, does not warn, and does not
+  save — the owner types, presses Save, reads a success toast, and the value is gone. All ten
+  are asserted by name, read AND bound AND settable, and the COUNT is asserted too so an
+  eleventh key would be caught as a column nobody migrated.
+
+AN HONEST CORRECTION TO WHAT THIS CHANGE FIXES
+  The render spec's fail-first came back **1 failed, 18 passed** against the shipped
+  `flex flex-wrap` + `min-w-[14rem]` shape — and the one failure was the class-drift check, not
+  a layout assertion. Measured rather than assumed: at 320px a card's inner width is about
+  256px, two 14rem (224px) children cannot both fit, and the row wrapped correctly. **The old
+  layout was not overflowing at these widths.** What it lacked was grouping and hierarchy —
+  eleven controls in one card, three abreast, with nothing saying that PAN and Who signs answer
+  different questions. That is what changed. The render spec is kept as a regression guard on
+  the new grid, and it is recorded here as a guard rather than as a fix.
+
+FAIL-FIRST: tests/unit/restaurant-details.unit.spec.ts - three injected losses, each reverted,
+10 passed each time afterwards: `hr_email` dropped from the patch (**1 failed, 9 passed**), a
+test id renamed (**1 failed, 9 passed**), and the wrapping flex row with its 14rem floor
+restored (**1 failed, 9 passed**).
+FAIL-FIRST: tests/render/restaurant-details.render.spec.ts - **1 failed, 18 passed**; see the
+correction above for why only one.
+
+_Merge blocked: database-backed functional validation._
+
+---
+
+## Gate run - 2026-09-18 (fourth) - VERDICT: BLOCKED
+
+Migration applied to TEST. Degraded functional tier run for real. Browser validation of the
+combobox still not possible, and NOT faked.
+
+- **Static + audits** 10/10 · **Types** PASS · **Lint** PASS · **Build** PASS ·
+  **Unit + render** **623/623**.
+- **G8 Degraded functional** - **PASS, 5/5, for real.** The degraded instance needs no database
+  (it boots against an address that refuses), so it runs here. Its stack trace shows the changed
+  path executing: `resolveGuest` -> `findTableByName` -> `currentRestaurantId` throwing, caught
+  by `attempt()`, designed outage screen rendered. The guest page still fails gracefully.
+- **G8 Database-backed functional** - **BLOCKED**, and the reason is now precise rather than
+  general (see below).
+
+MIGRATION, APPLIED TO TEST ONLY (uxmyomxtosjlkvjxnvpy, JalsaRestaurant-test)
+  Before: 70 sessions, 7 columns, 3 indexes, 5 constraints, no `heard_about`.
+  After:  70 sessions, 8 columns, 4 indexes, 6 constraints. 0 nulls, 70 defaulted to ''.
+  `heard_about text NOT NULL DEFAULT ''::text`;
+  `CHECK ((length(btrim(heard_about)) <= 60))`;
+  `CREATE INDEX ... (restaurant_id, heard_about) WHERE (heard_about <> ''::text)`.
+  Enforcement proven, not assumed: a 61-character write was REFUSED by the database with 23514,
+  and a 60-character write accepted. Both test values removed afterwards; 0 rows left dirty.
+  PRODUCTION (yxgxmbyilpivbmeemqkp) re-checked after the apply: `heard_about` does not exist
+  there. Untouched.
+
+WHY THE BROWSER VALIDATION STILL CANNOT RUN — the specific missing thing
+  The application reaches Supabase with `SUPABASE_SECRET_KEY` (service role), because RLS is on
+  with NO permissive policy: a publishable key authorises nothing, so the app cannot run on one.
+  This container holds exactly one such key, in `.env.local`, and it belongs to the project with
+  the only copy of real data. There is no `.env.test`, no test-project key in the environment,
+  and the Supabase tooling here exposes publishable keys only.
+
+  So pointing the running app at JalsaRestaurant-test is not possible, and pointing it at the
+  other project is what every standing instruction forbids. The seventeen combobox interaction
+  checks, the five field journeys and the seven-width dropdown check are therefore NOT DONE.
+  They are not partially done and they are not inferred. To unblock: the test project's
+  service-role key in `jalsa/.env.test`, or `SUPABASE_SECRET_KEY` overridden for one run.
+
+_Merge blocked: database-backed functional validation, for the reason above._
+
+---
+
+## Gate run - 2026-09-18 (third) - VERDICT: BLOCKED
+
+Single QR, sequential customers. The bill now belongs to the SESSION, not the table.
+
+- **Static + audits** 10/10 · **Types** PASS · **Lint** PASS · **Build** PASS (`/api/guest/visit`
+  registered) · **Unit + render** **623/623** (+27).
+- **G8 Functional / integration** - **BLOCKED**, unchanged.
+
+THE DEFECT, WHICH WAS A LIVE CROSS-CUSTOMER LEAK
+  Both resolvers picked the bill by TABLE and then WROTE it onto whichever session was asking:
+  `openBillForTable(table.id)` -> `session.bill_id = open.id` -> `phase: 'live'`. So after a
+  table turned over, customer 1's phone re-rendered onto customer 2's live bill - a stranger's
+  order list and total, with the ability to add rounds to it and request payment on it.
+  The receipt branch was the same assumption one level down: `lastClosedBillForTable` is the
+  right bill only while nobody else has eaten and paid at that table since.
+
+  The decision is now `src/lib/guest-phase.ts` - pure, no database, no clock - and both
+  resolvers call it through one `settle()`. The table is consulted in exactly one case, a
+  session with no bill at all, which is how a second phone joins the party already sitting there.
+  `lastClosedBillForTable` was deleted rather than left exported.
+
+FAIL-FIRST: tests/unit/guest-phase.unit.spec.ts - **9 failed, 10 passed** with
+`decideGuestPhase` rewritten to the shipped table-first rule, including both headline journeys
+(customer 1 keeping their receipt while customer 2 is live, and a phone staying on its own open
+bill).
+FAIL-FIRST: tests/unit/guest-session-wiring.unit.spec.ts - **5 failed, 3 passed** with `src/`
+stashed.
+NOT OBSERVED FAILING: 3 wiring cases passed pre-change because `git stash push -- src/` does not
+stash untracked files, so the new visit route survived into the "pre-change" tree. Recorded
+rather than counted as coverage.
+
+RUNTIME, AND WHAT IS STILL NOT PROVEN HERE
+  Every journey is asserted against the pure decision. NONE of it is asserted against a running
+  browser with two real sessions and a real database: that is the functional tier, which needs a
+  database this session must not point at. Two phones, one table, one closure has NOT been
+  observed end to end.
+
+_Merge blocked: G8 BLOCKED, and the 18-Sep heard_about migration is still unapplied._
+
+---
+
+## Gate run - 2026-09-18 (second) - VERDICT: BLOCKED
+
+Pre-commit review of the combobox work. Three defects found and corrected; one deploy-ordering
+blocker recorded and deliberately NOT corrected in code.
+
+- **Static + audits** - PASS. `audit:all` 10/10. **Types** PASS. **Lint** PASS. **Build** PASS.
+- **Unit + render** - PASS. **608/608** (+4 review cases).
+- **G8 Functional / integration** - **BLOCKED**, unchanged.
+
+WHAT THE REVIEW FOUND
+  1. `listHeardSources()` ran on EVERY `assembleGuestPayload`. That payload is the polled
+     `/api/guest/state`: an unbounded scan of every answer the restaurant has recorded, rebuilt
+     every few seconds for every phone, feeding a field that renders on one screen. Now gated on
+     `ctx.phase === 'welcome'`.
+  2. Focus was LOST after picking an option with a pointer. Radix restores focus to a popover's
+     trigger; this component has an Anchor and no trigger, by design, so there was nothing to
+     restore to and focus fell to `document.body`. `close()` now returns it to the input.
+  3. Focus-to-open had to go with it — it would have re-opened the list the instant an option
+     was chosen, and on a phone the software keyboard can cover a list that opens with it. The
+     list now opens on click, on typing, or on ArrowDown, which is also what the ARIA authoring
+     practices describe.
+  4. `role="listbox"` owned `<li>` elements rather than options, so the options were not
+     announced as one of N. The list items are `role="presentation"`.
+
+NOT CORRECTED IN CODE, ON PURPOSE — THE MIGRATION MUST LAND FIRST
+  `resolveGuest` and `currentGuestSession` both select `heard_about`. Against a database without
+  `20260918030000_jalsa_guest_heard_about.sql` applied, PostgREST answers 42703 and the WHOLE
+  guest surface fails — `/t/<table>` degrades to the unreachable screen. This is a deploy
+  ordering constraint, not a code defect, and the honest fix is to apply the migration before
+  the code ships rather than to soften the reads into a fallback that hides a missing column.
+
+FAIL-FIRST: the four review cases in tests/unit/combobox-migration.unit.spec.ts - each fix
+reverted in turn, each time **1 failed, 16 passed**, and 17 passed with all four in place.
+
+_Merge blocked: G8 BLOCKED, and the migration is unapplied._
+
+---
+
+## Gate run - 2026-09-18 - VERDICT: BLOCKED
+
+The shared combobox, and five fields migrated onto it.
+
+- **Static + audits** - PASS. `npm run audit:all` 10/10.
+- **Types** - PASS. **Lint** - PASS over `src/` and `tests/`.
+- **Production build** - PASS. Compiled; `/api/guest/heard` registered. `.next-cbx` removed and
+  `tsconfig.json` restored afterwards.
+- **Unit + render tiers** - PASS. **604/604** (up from 579; +25 unit).
+- **G8 Functional / integration** - **BLOCKED**, unchanged: the only app instance here points at
+  the project holding the only copy of real data.
+
+WHAT THIS TIER CANNOT TEST, STATED RATHER THAN FAKED
+  Arrow-key navigation, Enter-to-select, Escape-to-close, outside-click dismissal, the loading
+  and disabled states, and the dropdown's behaviour at the 13 widths all need the component
+  MOUNTED. The tier that mounts React is the functional one, and it needs a database this
+  session must not point at. A render probe could have rebuilt the markup by hand, but the list
+  is sized by `--radix-popover-trigger-width`, a value Radix computes at runtime — a hand-built
+  probe would have measured a lookalike and reported a pass about markup that does not ship.
+  Those cases are NOT covered. The matching rules they sit on top of are, as pure functions.
+
+  The migration `20260918030000_jalsa_guest_heard_about.sql` is **written and applied nowhere**.
+
+THE SAME COMMENT-VS-CODE TRAP, THREE TIMES, NOW FIXED PROPERLY
+  The testid audit flagged a paragraph in `combobox.tsx` for naming two element tags in prose,
+  and `combobox-migration.unit.spec.ts` first failed on the two files whose comments explain that
+  they deliberately do NOT allow creation. Matching raw text made deleting the explanation the
+  cheapest way to go green — the wrong thing to make cheap. The spec now strips comments before
+  asking, and asserts the strip left the code behind.
+
+FAIL-FIRST: tests/unit/combobox.unit.spec.ts - three deliberate defects, each reverted; 12
+passed each time afterwards.
+  - search made case-SENSITIVE: **6 failed, 6 passed**
+  - the duplicate guard made case- and space-sensitive: **2 failed, 10 passed**
+  - matching only at the START of a label: **2 failed, 10 passed**
+FAIL-FIRST: tests/unit/combobox-migration.unit.spec.ts - **7 failed, 6 passed** with `src/`
+stashed.
+NOT OBSERVED FAILING: the 6 that passed there did so for a reason worth recording rather than
+smoothing over — `git stash push -- src/` does not stash UNTRACKED files, so the new
+`combobox.tsx` survived into the "pre-change" tree. The cases about the component's own ARIA,
+its portal and its refusal to select on a failed create were therefore asked of a file that
+existed in both trees. They guard regressions; they are not evidence of the defect.
+
+_Merge blocked: G8 BLOCKED._
+
+---
+
+## Gate run - 2026-09-17 (third) - VERDICT: BLOCKED
+
+Closed today -> the bill, in full, with Print and Share to whatsapp.
+
+- **Static + audits** - PASS. `npm run audit:all` 10/10.
+- **Types** - PASS. **Lint** - PASS over all of `src/`.
+- **Unit + render tiers** - PASS. **579/579** (up from 559; +20 unit).
+- **G8 Functional / integration** - **BLOCKED**, same reason as the two runs below: the only app
+  instance here points at the project holding the only copy of real data.
+
+WHAT THE TESTID AUDIT CAUGHT, TWICE, AND IT WAS RIGHT BOTH TIMES
+  1. The share control was `Button asChild` wrapping an anchor. The audit reads the source, so
+     it saw an anchor with no id - and it was correct that the anchor is the element that ships.
+     Rewritten as a real anchor carrying `buttonVariants`, which is also better: middle-click,
+     long-press and "open in new tab" all work, and a screen reader announces a link.
+  2. Then it flagged the comment EXPLAINING that change, because a bare angle-bracket tag in
+     prose matches its element regex. Reworded. Noted in the file so the next person does not
+     rediscover it.
+
+TWO SPEC ASSERTIONS CORRECTED, RECORDED RATHER THAN QUIETLY WIDENED
+  1. `bill-share.unit` asserted the share URL contained no apostrophe. Wrong:
+     `encodeURIComponent` leaves `'` alone because it is legal in a query string, and nothing
+     truncates on it. The round-trip assertion is what actually proves the message arrives
+     whole, and it stays.
+  2. `bill-detail-wiring.unit` asserted the literal `>Print<`. The formatter breaks a multi-prop
+     button across lines, so that literal never appears in correctly formatted code. Matched
+     from the testid to the label instead.
+
+FAIL-FIRST: tests/unit/bill-share.unit.spec.ts - four deliberate defects, one per run, each
+reverted; the suite returned to 11 passed each time.
+  - cancelled lines billed to the guest (removed the skip): **1 failed, 10 passed**
+  - GST hard-coded instead of the bill's own totals rows: **3 failed, 8 passed**
+  - an open bill claiming it was paid (`if (true)`): **1 failed, 10 passed**
+  - the text not URL-encoded: **1 failed, 10 passed**
+FAIL-FIRST: tests/unit/bill-detail-wiring.unit.spec.ts - **8 failed, 1 passed** with
+BillDetailSheet.tsx replaced by a placeholder and Payments.tsx and globals.css checked out.
+NOT OBSERVED FAILING: the 1 that passed is the print-block scoping test - the pre-change block
+had no unscoped hide rule either, so it guards against a regression rather than proving a defect.
+
+_Merge blocked: G8 BLOCKED._
+
+---
+
+## Gate run - 2026-09-17 (second) - VERDICT: BLOCKED
+
+Record payment: the order details moved onto a left pane.
+
+- **Static + audits** - PASS. `npm run audit:all` 10/10.
+- **Types** - PASS. `tsc --noEmit` clean. **Lint** - PASS.
+- **Unit + render tiers** - PASS. **559/559** (up from 524; +8 unit, +27 render).
+- **G8 Functional / integration** - **BLOCKED**, unchanged and for the same reason as the run
+  below: the only app instance here points at the project holding the only copy of real data.
+  Not re-run. A step that did not run is BLOCKED and says why.
+
+WHAT THE RENDER SPEC FOUND, AND IT WAS A REAL DEFECT, NOT A TEST PROBLEM
+  `md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]` alone was not enough. Below `md` there was no
+  explicit column at all, so the grid got ONE `auto` track, `auto` sizes to max-content, and a
+  dish name with no space in it therefore set the dialog's width. The panes spilled out of the
+  dialog at **430, 390, 375, 360 and 320px** - every phone. Fixed by `grid-cols-1` at the base
+  (Tailwind emits `repeat(1, minmax(0, 1fr))`). No class-name assertion could have found this,
+  which is the whole argument for the render tier.
+
+TWO SPEC BUGS OF MY OWN, RECORDED RATHER THAN QUIETLY FIXED
+  1. `close-bill-order-pane.unit.spec.ts` first asserted the file contained no `send<` at all.
+     Wrong: the close-bill write has always used one. The assertion now counts sends (exactly
+     one) and names it, which is the claim actually worth making.
+  2. `close-bill-panes.render.spec.ts` first compared a pane's viewport x-coordinate against the
+     dialog's WIDTH. The dialog is centred, so its left edge is not 0 and the two numbers were
+     never comparable; it reported a spill at every width. It now measures the dialog's content
+     box and compares edges to edges.
+
+FAIL-FIRST: tests/unit/close-bill-order-pane.unit.spec.ts - **5 failed, 3 passed** against the
+pre-change tree (`git checkout` of CloseBillSheet.tsx): "the rounds must come from the bill",
+"the veg/non-veg mark", the money-pane testid, "the grid must be responsive", the empty-state
+testid.
+NOT OBSERVED FAILING: the 3 that passed are regression guards by construction - the parse-found-
+the-dialog sanity check (must pass on both trees or the suite is measuring the wrong file), the
+per-table list already being exactly one, and no data-layer import already being true.
+FAIL-FIRST: tests/render/close-bill-panes.render.spec.ts - **9 failed, 18 passed** with the
+component stashed and `GRID` set to the shipped `flex flex-col gap-4`: the class pin went red,
+and every side-by-side assertion from 768px up reported `both panes start on the same line
+(y 900 vs 936)`. The 18 that passed are the containment checks (a flex column contains fine) and
+the stacked checks at phone widths (a flex column does stack) - recorded rather than smoothed
+over, because they are not evidence of the defect.
+
+_Merge blocked: G8 BLOCKED._
+
+---
+
 ## Gate run - 2026-09-17 - VERDICT: BLOCKED
 
 Steps run directly rather than through `npm run gate`; the gate's own G8 was **stopped on
