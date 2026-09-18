@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, ChipRow, Pill, SectionLabel } from '@/components/ui/atoms';
 import { useToast } from '@/components/ui/toast';
+import { useLiveData } from '@/hooks/useLiveData';
+import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import type { QueueSelfView } from '@/lib/db/types';
 
 /**
@@ -20,8 +22,14 @@ import type { QueueSelfView } from '@/lib/db/types';
  *
  * THE SCREEN REFRESHES ITSELF BECAUSE THE PARTY IS STANDING UP
  *   Somebody holding this is in a doorway watching their place move. A screen they must pull to
- *   refresh is a screen they will refresh every ten seconds anyway. It polls on the same cadence
- *   as the rest of the guest surface.
+ *   refresh is a screen they will refresh every ten seconds anyway.
+ *
+ *   It does that through `useLiveData`, the application's ONE polling idiom (Standard 10.4).
+ *   Until 18-Sep-2026 this file ran its own `setInterval`, which was a second idiom and was
+ *   missing both of the behaviours the shared hook exists for: it kept polling with the phone in
+ *   a pocket at a doorway — the flattest battery in the building — and a single failed read set
+ *   the entry to null, blanking a party's own token because one request timed out. The hook
+ *   stops when hidden, re-reads on focus, and keeps the last good payload when a read fails.
  *
  * POSITION AND THE ESTIMATE COME FROM THE SERVER
  *   Both are computed in `readQueueEntry` against one clock, so the number on the phone and the
@@ -31,6 +39,7 @@ import type { QueueSelfView } from '@/lib/db/types';
  */
 
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 8, 10] as const;
+/** The guest surface's own cadence. A doorway is seconds-urgent, not milliseconds-urgent. */
 const POLL_MS = 10_000;
 
 export function GuestQueue({
@@ -39,18 +48,48 @@ export function GuestQueue({
   queueOpen,
   hoursRows,
   hoursNote,
+  logoUrl,
 }: {
   initial: QueueSelfView | null;
   waitLabel: string;
+  /** The restaurant's own logo, from `restaurant.logo_url` — read, not hardcoded. */
+  logoUrl: string;
   queueOpen: boolean;
   hoursRows: Array<{ day: string; hours: string; today: boolean }>;
   hoursNote: string;
 }) {
   const toast = useToast();
   const [showHours, setShowHours] = React.useState(false);
-  const [entry, setEntry] = React.useState<QueueSelfView | null>(initial);
   const [size, setSize] = React.useState<number>(2);
   const [busy, setBusy] = React.useState(false);
+
+  /*
+    THE SHARED HOOK HOLDS THE ROW, AND A LOCAL OVERRIDE HOLDS WHAT THIS PHONE JUST DID.
+
+    `useLiveData` owns the polled truth. `justDid` is the result of this phone's own join or
+    leave, which is newer than any poll in flight — without it, tapping Join and then receiving a
+    poll that started beforehand would flip the screen back to the join form for one cycle.
+    Cleared whenever the server's own answer catches up to it.
+  */
+  const live = useLiveData<{ entry: QueueSelfView | null }>('/api/guest/queue', { entry: initial }, POLL_MS);
+  const [justDid, setJustDid] = React.useState<{ entry: QueueSelfView | null } | null>(null);
+  const entry = justDid ? justDid.entry : live.data.entry;
+  const liveId = live.data.entry?.id ?? null;
+  const localId = justDid?.entry?.id ?? null;
+  // Adjusted during render rather than in an effect: the poll has agreed, so the override is
+  // spent. React 19 calls this twice; it is a pure comparison, so twice is the same as once.
+  if (justDid && liveId === localId) setJustDid(null);
+
+  /*
+    A TAB THAT WAS OPEN WHEN THE QUEUE CLOSED.
+
+    `queueOpen` is settled by the server render, so a phone that loaded this page while the queue
+    was open keeps showing the join form after it closes. The SERVER refuses that join (see
+    `guestJoinQueue`), and when it does, this screen must say the true thing rather than flash a
+    toast over a form that will never work again. One flag, set only by that refusal, and the
+    closed screen below reads it alongside the server's own answer.
+  */
+  const [closedSinceLoad, setClosedSinceLoad] = React.useState(false);
 
   const send = React.useCallback(async (payload: unknown) => {
     const res = await fetch('/api/guest/queue', {
@@ -62,22 +101,6 @@ export function GuestQueue({
     if (!res.ok) throw new Error(json.error?.message ?? 'That did not go through.');
     return json.entry ?? null;
   }, []);
-
-  // Poll only while there is something to watch. A party that has left, or been seated and has
-  // read the alert, is not kept on a timer.
-  const watching = entry !== null && (entry.state === 'waiting' || entry.state === 'ready');
-  React.useEffect(() => {
-    if (!watching) return;
-    const t = setInterval(() => {
-      void fetch('/api/guest/queue')
-        .then((r) => r.json())
-        .then((j: { entry?: QueueSelfView | null }) => setEntry(j.entry ?? null))
-        .catch(() => {
-          /* A dropped poll is not news. The next one will say the same thing or better. */
-        });
-    }, POLL_MS);
-    return () => clearInterval(t);
-  }, [watching]);
 
   /* ── 6c · the table is ready ─────────────────────────────────────────── */
   if (entry && entry.state === 'seated') {
@@ -185,7 +208,7 @@ export function GuestQueue({
             setBusy(true);
             void send({ action: 'leave' })
               .then((e) => {
-                setEntry(e);
+                setJustDid({ entry: e });
                 toast.show('You have left the queue', { tone: 'success' });
               })
               .catch((err: unknown) => toast.show(err instanceof Error ? err.message : 'That did not go through.', { tone: 'error' }))
@@ -199,18 +222,16 @@ export function GuestQueue({
   }
 
   /* ── 6d · the queue is closed ────────────────────────────────────────── */
-  if (!queueOpen) {
+  if (!queueOpen || closedSinceLoad) {
     return (
       <div className="flex flex-col gap-5" data-testid="guest-queue-closed">
         <div className="flex items-center gap-4">
-          <Image
-            src="/brand/jalsa-badge.png"
+          {/* eslint-disable-next-line @next/next/no-img-element -- owner-supplied remote artwork. */}
+          <img
+            src={logoUrl}
             alt=""
             aria-hidden
-            width={48}
-            height={48}
-            className="shrink-0 rounded-[var(--radius-md)]"
-            priority
+            className="h-12 w-12 shrink-0 rounded-[var(--radius-md)] object-contain"
           />
           <span>
             <span className="block type-h2">We have stopped taking the queue</span>
@@ -240,14 +261,12 @@ export function GuestQueue({
   return (
     <div className="flex flex-col gap-5" data-testid="guest-queue-join">
       <div className="flex items-center gap-4">
-        <Image
-          src="/brand/jalsa-badge.png"
+        {/* eslint-disable-next-line @next/next/no-img-element -- owner-supplied remote artwork. */}
+        <img
+          src={logoUrl}
           alt=""
           aria-hidden
-          width={48}
-          height={48}
-          className="shrink-0 rounded-[var(--radius-md)]"
-          priority
+          className="h-12 w-12 shrink-0 rounded-[var(--radius-md)] object-contain"
         />
         <span>
           <span className="block type-h2">Busy tonight</span>
@@ -282,8 +301,17 @@ export function GuestQueue({
         onClick={() => {
           setBusy(true);
           void send({ action: 'join', partySize: size })
-            .then((e) => setEntry(e))
-            .catch((err: unknown) => toast.show(err instanceof Error ? err.message : 'That did not go through.', { tone: 'error' }))
+            .then((e) => setJustDid({ entry: e }))
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : 'That did not go through.';
+              // The queue closed between this page loading and this tap. Show the closed screen,
+              // which explains and offers the hours, rather than a toast over a dead form.
+              if (message === QUEUE_CLOSED) {
+                setClosedSinceLoad(true);
+                return;
+              }
+              toast.show(message, { tone: 'error' });
+            })
             .finally(() => setBusy(false));
         }}
       >

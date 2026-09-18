@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { NotConfiguredState, UnreachableState } from '@/components/ui/states';
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
-import { readQueueEntry, listWaitlist, readAllSettings } from '@/lib/db/queries';
+import { readQueueEntry, listWaitlist, readAllSettings, readRestaurant } from '@/lib/db/queries';
 import { GuestQueue } from '@/features/guest/GuestQueue';
 
 /**
@@ -39,10 +39,12 @@ export default async function QueuePage() {
   const id = jar.get('jalsa_queue')?.value ?? null;
 
   const loaded = await attempt('queue.page', async () => {
-    const [waiting, settings, entry] = await Promise.all([
+    const [waiting, settings, entry, restaurant] = await Promise.all([
       listWaitlist(),
       readAllSettings(),
       id ? readQueueEntry(id) : Promise.resolve(null),
+      // The door code shows the restaurant's own logo, and the owner can replace it.
+      readRestaurant(),
     ]);
     const queue = (settings.queue ?? {}) as { open?: boolean };
     const hours = (settings.hours ?? {}) as {
@@ -61,11 +63,12 @@ export default async function QueuePage() {
         today: d.day === today,
       })),
       hoursNote: hours.note ?? '',
+      logoUrl: (restaurant.logo_url as string) || '/brand/jalsa-badge.png',
     };
   });
   if (!loaded.ok) return <UnreachableState surface="guest" {...(loaded.detail ? { detail: loaded.detail } : {})} />;
 
-  const { waiting, entry, queueOpen, hoursRows, hoursNote } = loaded.value;
+  const { waiting, entry, queueOpen, hoursRows, hoursNote, logoUrl } = loaded.value;
   const estimate = Math.max(5, Math.round((waiting * MINUTES_PER_PARTY) / 5) * 5);
   const waitLabel = waiting
     ? `About ${estimate} minutes right now.`
@@ -77,6 +80,7 @@ export default async function QueuePage() {
       <GuestQueue
         initial={entry}
         waitLabel={waitLabel}
+        logoUrl={logoUrl}
         queueOpen={queueOpen}
         hoursRows={hoursRows}
         hoursNote={hoursNote}

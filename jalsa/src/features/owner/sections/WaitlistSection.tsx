@@ -64,8 +64,15 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
   return (
     <div className="flex flex-col gap-4" data-testid="owner-waitlist">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <SectionLabel className="mb-0">
-          {queue.length === 1 ? '1 party waiting' : `${queue.length} parties waiting`}
+        {/*
+          TWO NUMBERS, NOT ONE. "10 waiting" hides whether that is one large party or five small
+          ones, and those need different tables and a different answer to "can we take more?".
+          The requester's own framing: 3 requests · 10 guests.
+        */}
+        <SectionLabel className="mb-0" data-testid="owner-queue-headline">
+          Waiting outside ·{' '}
+          {queue.length === 1 ? '1 request' : `${queue.length} requests`} ·{' '}
+          {heads === 1 ? '1 guest' : `${heads} guests`}
         </SectionLabel>
         <span className="flex items-center gap-2">
           {canClose ? (
@@ -103,9 +110,9 @@ export function WaitlistSection({ data, send, runBusy, busy }: OwnerSectionProps
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <MetricTile
-          label="Parties waiting"
+          label="Requests waiting"
           value={String(queue.length)}
-          note={`${heads} ${heads === 1 ? 'person' : 'people'}`}
+          note={`${heads} ${heads === 1 ? 'guest' : 'guests'} in total`}
           testId="owner-queue-parties"
         />
         <MetricTile

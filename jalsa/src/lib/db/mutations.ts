@@ -3,8 +3,9 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { billSeparability, canHoldBillRole, kitchenHasStarted, type KotStatus } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
+import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import { resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
-import { billTotals, chargeableLines, getBill, openBillForTable } from './queries';
+import { billTotals, chargeableLines, getBill, openBillForTable, readSettings } from './queries';
 import { BILL_STAFF_COLUMN, type Bill } from './types';
 
 /**
@@ -1231,6 +1232,30 @@ export async function guestJoinQueue(input: { partySize: number }): Promise<{ id
   if (!Number.isInteger(input.partySize) || input.partySize < 1 || input.partySize > 50) {
     throw new Error('Tell us how many of you there are.');
   }
+
+  /*
+    THE CLOSE IS ENFORCED HERE, NOT ONLY ON THE SCREEN.
+
+    Until 18-Sep-2026 this function never read the switch. `/q` rendered the closed screen and
+    that was the whole of the enforcement — which means it held only for a phone that loaded the
+    page AFTER the owner closed the queue. It did not hold for:
+
+      · a tab opened at 8:40 and tapped at 9:10, twenty minutes after closing
+      · a POST sent directly, which needs no page at all
+      · the party who tapped Join in the same second the owner closed
+
+    All three inserted a row, took a token out of the shared series, and appeared on the host's
+    screen as a party nobody agreed to take. Closing the queue is an operational decision about
+    how much the kitchen can finish; a decision that a stale tab can overrule is not a decision.
+
+    Read on the WRITE path rather than cached, because the value changes exactly when it matters.
+    The default is OPEN — `queue.open !== false`, matching `/q/page.tsx` — so a restaurant that
+    has never touched the switch behaves as it always has, and a missing settings row can never
+    silently lock the door.
+  */
+  const { open } = await readSettings('queue', { open: true });
+  if (open === false) throw new Error(QUEUE_CLOSED);
+
   const restaurantId = await currentRestaurantId();
   const token = await nextNumber('waitlist');
   const code = String(Math.floor(1000 + Math.random() * 9000));

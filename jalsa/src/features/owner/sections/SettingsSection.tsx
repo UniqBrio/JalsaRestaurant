@@ -516,6 +516,125 @@ function InvoicePanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
 /* ── Tables and QR ─────────────────────────────────────────────────────── */
 
+function IndoorQueueCard({
+  data,
+  send,
+  runBusy,
+  busy,
+}: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'>) {
+  const toast = useToast();
+  const [showQr, setShowQr] = React.useState(false);
+
+  const queue = (data.settings.queue ?? {}) as { open?: boolean };
+  // Open unless somebody closed it — the same default `/q` and `guestJoinQueue` both apply.
+  const open = queue.open !== false;
+  const canClose = data.grants.includes('queue.close');
+  const canSeeCode = data.grants.includes('tables.qr');
+  const waiting = data.waitlist.length;
+  const guests = data.waitlist.reduce((a, w) => a + w.partySize, 0);
+
+  return (
+    <Card className="flex flex-col gap-3" data-testid="owner-entrance-qr">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <SectionLabel className="mb-0">Indoor queue code</SectionLabel>
+        <Pill tone={open ? 'success' : 'warning'} data-testid="owner-entrance-status">
+          {open ? 'Open · taking parties' : 'Closed · not taking parties'}
+        </Pill>
+      </div>
+
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        One code for the door, not for a table. It encodes <code>{data.qrOrigin}/q</code> and nothing
+        else — no party, no token, no table — so the same card stands at the entrance every night.
+        Print it and put it where somebody waiting can reach it without asking.
+      </p>
+
+      {waiting ? (
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="owner-entrance-waiting">
+          Right now: <strong className="text-[var(--text-body)]">{waiting === 1 ? '1 request' : `${waiting} requests`}</strong>{' '}
+          · <strong className="text-[var(--text-body)]">{guests === 1 ? '1 guest' : `${guests} guests`}</strong> waiting
+          outside.
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {canSeeCode ? (
+          <Button data-testid="owner-entrance-qr-open" variant="secondary" onClick={() => setShowQr(true)}>
+            Show the code
+          </Button>
+        ) : null}
+        {canClose ? (
+          <Button
+            data-testid="owner-entrance-toggle"
+            variant={open ? 'ghost' : 'primary'}
+            disabled={busy}
+            onClick={() =>
+              runBusy(async () => {
+                await send('/api/owner/action', {
+                  action: 'write-setting',
+                  key: 'queue',
+                  value: { open: !open },
+                });
+                toast.show(
+                  open
+                    ? 'Queue closed — the door code says so, and everybody already waiting keeps their place'
+                    : 'Queue open — the door code is taking parties again',
+                  { tone: 'success' }
+                );
+              })
+            }
+          >
+            {open ? 'Close the queue' : 'Open the queue'}
+          </Button>
+        ) : null}
+      </div>
+
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        Closing stops NEW parties only. Everybody already waiting keeps their token and their place,
+        and the code starts taking parties again the moment you open it — it never has to be
+        reprinted.
+      </p>
+
+      <Sheet
+        open={showQr}
+        onOpenChange={setShowQr}
+        posture="modal"
+        title="The code at the door"
+        description="Printed once and stood at the entrance. It does not change when the queue opens or closes."
+        testId="owner-entrance-qr-sheet"
+        footer={
+          <Button data-testid="owner-entrance-qr-print" asChild>
+            {/* The anchor carries its own id as well as the button: `asChild` means the anchor IS
+                the element that handles the click, and the table-code sheet beside this one has
+                carried both since it was written. */}
+            <a
+              data-testid="owner-entrance-qr-print-link"
+              href="/api/owner/qr"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open the image to print
+            </a>
+          </Button>
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          {/* Unoptimised for the same reason the table codes are: generated per request, already
+              the size it prints at, and must never be served from a stale cache. */}
+          <Image
+            src="/api/owner/qr"
+            alt="QR code for the entrance queue"
+            width={260}
+            height={260}
+            unoptimized
+            className="rounded-[var(--radius-md)]"
+          />
+          <code className="type-caption text-[var(--text-muted)]">{data.qrOrigin}/q</code>
+        </div>
+      </Sheet>
+    </Card>
+  );
+}
+
 function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const [editing, setEditing] = React.useState<{
@@ -539,6 +658,8 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           table below does not break it.
         </p>
       </Card>
+
+      <IndoorQueueCard data={data} send={send} runBusy={runBusy} busy={busy} />
 
       {zones.map((zone) => (
         <Card key={zone} className="flex flex-col gap-2">

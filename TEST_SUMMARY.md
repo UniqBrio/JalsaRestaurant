@@ -5,6 +5,21 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/indoor-queue.unit.spec.ts - the queue-closed guard removed from
+`guestJoinQueue` in jalsa/src/lib/db/mutations.ts (the two lines reading the `queue` setting and
+throwing `QUEUE_CLOSED`), then reverted: **2 failed, 20 passed**. Case 2 "a CLOSED queue refuses a
+new party in the mutation, not only on the screen" failed on `the closed check exists -
+expect(received).toBeGreaterThan(expected) / Expected: > -1 / Received: -1` at
+indoor-queue.unit.spec.ts:107, and case 1 "an open queue accepts a join" failed with it. With the
+guard restored: **22 passed**. The injection targets the mutation deliberately - a guard that
+lived only in the screen would leave the two cases green while a second tab could still enqueue.
+Full suite on the isolated tree: **600 passed** (unit + render), 0 failed.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no sanctioned seeded database is reachable and
+no data-bearing journey was executed. Recorded as BLOCKED, never as a pass.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/staff-access-tabs.unit.spec.ts - four injected defects on the
 Owner > Staff access/availability organisation, each reverted. (A) `hasAccess` narrowed to
 `p.hasPin && p.onDuty`, folding availability into access: **3 failed**, including case 6

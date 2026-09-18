@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { handler, ok, fail, body } from '@/lib/route';
 import { guestJoinQueue, guestLeaveQueue } from '@/lib/db/mutations';
+import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import { readQueueEntry } from '@/lib/db/queries';
 
 /**
@@ -46,7 +47,18 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       const entry = await readQueueEntry(existing);
       if (entry && (entry.state === 'waiting' || entry.state === 'ready')) return ok({ entry });
     }
-    const { id } = await guestJoinQueue({ partySize: input.partySize });
+    /* A closed queue is refused by the MUTATION, not by this route — so a direct POST meets the
+       same rule a tap on the page does. 409, not 400: the request was well formed and would have
+       succeeded a minute earlier; what changed is the restaurant's state, not the input. */
+    let id: string;
+    try {
+      ({ id } = await guestJoinQueue({ partySize: input.partySize }));
+    } catch (err) {
+      if (err instanceof Error && err.message === QUEUE_CLOSED) {
+        return fail(409, { code: 'conflict', message: QUEUE_CLOSED });
+      }
+      throw err;
+    }
     jar.set(COOKIE, id, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: A_DAY });
     return ok({ entry: await readQueueEntry(id) });
   }
