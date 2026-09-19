@@ -33,6 +33,8 @@ export interface GuestSession {
   id: string;
   tableId: string;
   billId: string | null;
+  /** How this party says they found Jalsa. Empty until they answer; they need not. */
+  heardAbout: string;
 }
 
 export interface GuestContext {
@@ -42,6 +44,13 @@ export interface GuestContext {
   bill: Bill | null;
   /** Set on `recently_paid`: how long the receipt stays reachable after closure. */
   rescanMinutes: number;
+  /**
+   * How this party said they found Jalsa — '' until they answer, and they need not.
+   *
+   * On the SESSION rather than the bill because the question is asked on the landing screen,
+   * where no bill exists yet: a bill opens at the first round. See the migration's own note.
+   */
+  heardAbout: string;
 }
 
 /**
@@ -77,7 +86,7 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
   const rescanMinutes = typeof minutes === 'number' ? minutes : 15;
 
   if (!table.active) {
-    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes };
+    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '' };
   }
 
   // The cookie is minted by `src/middleware.ts` before this render begins, so on the guest page
@@ -88,13 +97,17 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
 
   const { data: existing } = await db()
     .from('guest_session')
-    .select('id,table_id,bill_id')
+    .select('id,table_id,bill_id,heard_about')
     .eq('token', token)
     .maybeSingle();
 
   let sessionId: string;
+  /* A phone that moves to another table gets a fresh session, so the answer below does not
+     follow onto someone else's table. Carried only where the session is. */
+  let heardAbout = '';
   if (existing && existing.table_id === table.id) {
     sessionId = existing.id as string;
+    heardAbout = (existing.heard_about as string) ?? '';
     await db().from('guest_session').update({ last_seen_at: new Date().toISOString() }).eq('id', sessionId);
   } else {
     // A phone that walks to a different table gets a different SESSION - reusing the row would
@@ -120,18 +133,18 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
   const open = await openBillForTable(table.id);
   if (open) {
     await db().from('guest_session').update({ bill_id: open.id }).eq('id', sessionId);
-    return { phase: 'live', sessionId, table, bill: open, rescanMinutes };
+    return { phase: 'live', sessionId, table, bill: open, rescanMinutes, heardAbout };
   }
 
   const closed = await lastClosedBillForTable(table.id);
   if (closed?.closedAt) {
     const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
     if (ageMinutes <= rescanMinutes) {
-      return { phase: 'recently_paid', sessionId, table, bill: closed, rescanMinutes };
+      return { phase: 'recently_paid', sessionId, table, bill: closed, rescanMinutes, heardAbout };
     }
   }
 
-  return { phase: 'welcome', sessionId, table, bill: null, rescanMinutes };
+  return { phase: 'welcome', sessionId, table, bill: null, rescanMinutes, heardAbout };
 }
 
 /**
@@ -185,7 +198,7 @@ export async function contextForSession(session: GuestSession): Promise<GuestCon
   const rescanMinutes = typeof minutes === 'number' ? minutes : 15;
 
   if (!row.active) {
-    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes };
+    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '' };
   }
 
   const open = await openBillForTable(table.id);
@@ -195,18 +208,32 @@ export async function contextForSession(session: GuestSession): Promise<GuestCon
     if (session.billId !== open.id) {
       await db().from('guest_session').update({ bill_id: open.id }).eq('id', session.id);
     }
-    return { phase: 'live', sessionId: session.id, table, bill: open, rescanMinutes };
+    return { phase: 'live', sessionId: session.id, table, bill: open, rescanMinutes, heardAbout: session.heardAbout };
   }
 
   const closed = await lastClosedBillForTable(table.id);
   if (closed?.closedAt) {
     const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
     if (ageMinutes <= rescanMinutes) {
-      return { phase: 'recently_paid', sessionId: session.id, table, bill: closed, rescanMinutes };
+      return {
+        phase: 'recently_paid',
+        sessionId: session.id,
+        table,
+        bill: closed,
+        rescanMinutes,
+        heardAbout: session.heardAbout,
+      };
     }
   }
 
-  return { phase: 'welcome', sessionId: session.id, table, bill: null, rescanMinutes };
+  return {
+    phase: 'welcome',
+    sessionId: session.id,
+    table,
+    bill: null,
+    rescanMinutes,
+    heardAbout: session.heardAbout,
+  };
 }
 
 /** The bill a guest session is allowed to act on - and no other. */
@@ -229,12 +256,17 @@ export async function attachBillToSession(sessionId: string, billId: string): Pr
 export async function currentGuestSession(): Promise<GuestSession | null> {
   const token = await readGuestToken();
   if (!token) return null;
-  const { data } = await db().from('guest_session').select('id,table_id,bill_id').eq('token', token).maybeSingle();
+  const { data } = await db()
+    .from('guest_session')
+    .select('id,table_id,bill_id,heard_about')
+    .eq('token', token)
+    .maybeSingle();
   if (!data) return null;
   return {
     id: data.id as string,
     tableId: data.table_id as string,
     billId: (data.bill_id as string) ?? null,
+    heardAbout: (data.heard_about as string) ?? '',
   };
 }
 

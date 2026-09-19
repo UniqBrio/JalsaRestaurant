@@ -7,16 +7,11 @@
  *   storing a display name where it used to store an id. None of that can be reached by a tier
  *   that cannot mount React, and all of it is exactly readable from the source.
  *
- * THE GUEST BOUNDARY, STATED RATHER THAN OMITTED
- *   The sixth migrated field — Guest > "How did you hear about us?" — is held back with its own
- *   workstream, because `listHeardSources` selects `guest_session.heard_about` and the migration
- *   that adds that column is not applied to production. Shipping the field without the column
- *   would not be "not production-ready"; it would throw on the guest's home screen.
- *
- *   So the four cases that cover it are NOT quietly missing. The last test in this file asserts
- *   the field is absent, and it FAILS the moment the guest workstream lands — which is the
- *   signal to restore those four cases with it. An omission nothing checks is a hole; this is a
- *   ratchet.
+ * THE GUEST BOUNDARY IS CLOSED (19-Sep-2026)
+ *   The sixth migrated field — Guest > "How did you hear about us?" — was held back when the
+ *   combobox landed, because `listHeardSources` selects `guest_session.heard_about` and the
+ *   migration adding that column was not applied. The ratchet that asserted its absence has
+ *   done its job and is gone; the four cases it named are restored below.
  *
  * FAIL-FIRST EVIDENCE (18-Sep-2026, against the pre-change tree): recorded in TEST_SUMMARY.md.
  */
@@ -86,12 +81,13 @@ test('the three old implementations are gone', () => {
   );
 });
 
-test('the four migrated owner fields use the shared component', () => {
+test('the five migrated fields use the shared component', () => {
   for (const [name, src, testId] of [
     ['menu category', menu, 'owner-item-category'],
     ['expense category', ledgers, 'owner-expense-category'],
     ['printer route', print, 'owner-print-route-'],
     ['staff reassign', live, 'owner-reassign-search'],
+    ['guest heard-about', welcome, 'guest-heard'],
   ] as const) {
     expect(src, `${name} imports the shared component`).toContain(
       "import { Combobox } from '@/components/ui/combobox'"
@@ -101,10 +97,11 @@ test('the four migrated owner fields use the shared component', () => {
   }
 });
 
-test('creation is allowed on the two data-entry fields and nowhere else', () => {
+test('creation is allowed on the three data-entry fields and nowhere else', () => {
   for (const [name, src] of [
     ['menu category', menu],
     ['expense category', ledgers],
+    ['guest heard-about', welcome],
   ] as const) {
     expect(src, `${name} allows create`).toContain('allowCreate');
   }
@@ -167,6 +164,16 @@ test('nothing pretends a failed create succeeded', () => {
   expect(combobox, 'no swallowed catch').not.toMatch(/catch\s*\([^)]*\)\s*\{\s*\}/);
 });
 
+test('the guest answer is persisted server-side, not left in the browser', () => {
+  expect(welcome, 'it posts').toContain("send('/api/guest/heard'");
+  expect(welcome, 'a failed write rolls the box back').toContain('setHeard(previous)');
+  const route = read('src/app/api/guest/heard/route.ts');
+  // The session comes from the cookie. A guest is never asked which visit to write to, so they
+  // cannot name somebody else's.
+  expect(route).toContain('const session = await currentGuestSession();');
+  expect(route, 'no session id from the body').not.toMatch(/input\.sessionId/);
+});
+
 test('the combobox carries real combobox semantics', () => {
   for (const aria of [
     'role="combobox"',
@@ -186,6 +193,19 @@ test('the combobox carries real combobox semantics', () => {
 });
 
 /* ── the three defects the pre-commit review found ───────────────────────── */
+
+test('the sources list is read ONLY on the screen that asks', () => {
+  // `/api/guest/state` is polled. Issued unconditionally, `listHeardSources` was an unbounded
+  // scan of every answer the restaurant has ever recorded, rebuilt every few seconds for every
+  // phone, to feed a field that renders on one screen.
+  const view = read('src/lib/db/guest-view.ts');
+  expect(view, 'gated on the welcome phase').toContain(
+    "ctx.phase === 'welcome' ? listHeardSources() : Promise.resolve([])"
+  );
+  expect(codeOnly(view, 'guest-view'), 'and never called unconditionally').not.toMatch(
+    /^\s*listHeardSources\(\),\s*$/m
+  );
+});
 
 test('focus returns to the input when the list closes', () => {
   // Radix restores focus to a popover's TRIGGER, and this component deliberately has none — the
@@ -226,22 +246,4 @@ test('the list portals, so a dialog cannot clip it', () => {
   // positioned in that flow is clipped by it — the most common way a combobox ships broken.
   expect(combobox).toContain('PopoverPrimitive.Portal');
   expect(combobox, 'and it matches the trigger width').toContain('var(--radix-popover-trigger-width)');
-});
-
-/* ── the guest boundary ──────────────────────────────────────────────────── */
-
-test('the guest heard-about field is held back, and this says so out loud', () => {
-  // It is the sixth migrated field and it is ready — but `listHeardSources` reads
-  // `guest_session.heard_about`, and 20260918030000_jalsa_guest_heard_about is not applied to
-  // production. On a tree without the column the guest's first screen throws.
-  //
-  // WHEN THIS TEST FAILS, IT IS DOING ITS JOB. It means the guest workstream landed, and the
-  // four cases held with it must come back into this file:
-  //   1. 'guest heard-about' in the migrated-fields table, with testId 'guest-heard'
-  //   2. 'guest heard-about' in the creation table
-  //   3. 'the guest answer is persisted server-side, not left in the browser'
-  //   4. 'the sources list is read ONLY on the screen that asks'
-  expect(codeOnly(welcome, 'guest welcome'), 'no combobox on the welcome screen yet').not.toContain('<Combobox');
-  const migrations = readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql'));
-  expect(migrations.some((f) => f.includes('heard_about')), 'and no heard_about migration yet').toBe(false);
 });

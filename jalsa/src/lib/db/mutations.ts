@@ -1031,6 +1031,23 @@ export async function reassignBillStaff(input: {
   return { tipMoved };
 }
 
+/**
+ * Record how this party found Jalsa, on their own session.
+ *
+ * Scoped by `sessionId`, which the caller reads from the cookie rather than the request body,
+ * so a guest can only ever write their own visit. Empty clears it, which is what "actually, I
+ * would rather not say" looks like.
+ */
+export async function recordHeardAbout(input: { sessionId: string; source: string }): Promise<void> {
+  const { error } = await db()
+    .from('guest_session')
+    .update({ heard_about: input.source.trim().slice(0, 60) })
+    .eq('id', input.sessionId);
+  // Loud, not swallowed: a picker that reported success on a write that failed would tell the
+  // owner's report something the database never agreed to.
+  if (error) throw error;
+}
+
 /* ── Requests and suggestions ──────────────────────────────────────────── */
 
 export async function raiseRequest(input: {

@@ -655,6 +655,32 @@ export async function listExpenses(): Promise<ExpenseRow[]> {
   }));
 }
 
+/**
+ * The answers this restaurant has been given to "How did you hear about us?".
+ *
+ * Seeded answers are NOT here — they are constants the guest view merges in. This returns only
+ * what has actually been recorded, scoped by `restaurant_id`, which is what stops one
+ * restaurant's answers ever appearing in another's list. Deduplicated case-insensitively so
+ * "instagram" and "Instagram" are one option rather than two.
+ */
+export async function listHeardSources(): Promise<string[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('guest_session')
+    .select('heard_about')
+    .eq('restaurant_id', restaurantId)
+    .neq('heard_about', '');
+  if (error) throw error;
+  const seen = new Map<string, string>();
+  for (const row of data ?? []) {
+    const value = ((row.heard_about as string) ?? '').trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (!seen.has(key)) seen.set(key, value);
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+}
+
 export async function listAudit(limit = 200): Promise<AuditRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()

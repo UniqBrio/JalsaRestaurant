@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, Chip, FoodMark, Pill, SectionLabel, Stepper } from '@/components/ui/atoms';
 import { NoMatchesState } from '@/components/ui/states';
 import { Sheet } from '@/components/ui/sheet';
-import { SearchField, Textarea } from '@/components/ui/field';
+import { Combobox } from '@/components/ui/combobox';
+import { Field, SearchField, Textarea } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { FOOD_TYPE, type FoodType } from '@/lib/status';
@@ -22,7 +23,25 @@ import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /* ── 1. Welcome ────────────────────────────────────────────────────────── */
 
-export function WelcomeScreen({ data, go, openSheet }: GuestScreenProps) {
+export function WelcomeScreen({ data, go, openSheet, send }: GuestScreenProps) {
+  const toast = useToast();
+  /* Held locally so the box shows the answer the instant it is chosen, while the write is in
+     flight — and reset from the payload if the write did not stick. Not `runBusy`: answering an
+     optional question must never freeze Start ordering. */
+  const [heard, setHeard] = React.useState(data.heardAbout);
+  const save = async (source: string) => {
+    const previous = heard;
+    setHeard(source);
+    try {
+      await send('/api/guest/heard', { source });
+    } catch (err: unknown) {
+      // Not swallowed, and not a lie: the box goes back to what is actually recorded.
+      setHeard(previous);
+      toast.show(err instanceof Error ? err.message : 'That did not save — try again.', { tone: 'error' });
+      throw err;
+    }
+  };
+
   const hour = new Date().getHours();
   const greeting =
     hour < 12
@@ -84,6 +103,39 @@ export function WelcomeScreen({ data, go, openSheet }: GuestScreenProps) {
           ))}
         </div>
       ) : null}
+
+      {/*
+        HOW DID YOU HEAR ABOUT US — the shared combobox, search + create.
+
+        Asked here because this is the one screen a party sees before they are busy ordering,
+        and it is optional: nothing gates on it, nothing blocks Start ordering, and an empty
+        answer is a complete answer.
+
+        The value is written the moment it is chosen rather than on some later Save, because
+        there is no Save on this screen to hang it on. It is recorded against the SESSION — the
+        visit — for the reason the migration states: at this moment no bill exists yet.
+
+        `onCreate` is a write like any other: it posts, and only a resolved post selects. A guest
+        typing "Instagram" is recorded as having said Instagram, and their answer is what makes
+        Instagram appear for the next guest at this restaurant — that is the whole persistence
+        mechanism, and there is no shared list for an unauthenticated phone to write into.
+      */}
+      <Field label="How did you hear about us?" htmlFor="guest-heard">
+        <Combobox
+          id="guest-heard"
+          testId="guest-heard"
+          value={heard}
+          onValueChange={(source) => void save(source)}
+          options={data.heardSources.map((v) => ({ value: v, label: v }))}
+          placeholder="Search or add a source"
+          emptyLabel="No matching sources"
+          allowCreate
+          onCreate={async (source) => {
+            await save(source);
+            return source;
+          }}
+        />
+      </Field>
 
       <div className="flex flex-wrap gap-2">
         {data.features.hoursBtn ? (

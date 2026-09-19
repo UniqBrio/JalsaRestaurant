@@ -1,7 +1,14 @@
 import 'server-only';
 import { rupees, totalBill, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, type FoodType, type KotStatus } from '@/lib/status';
-import { billTotals, chargeableLines, listGuestReplies, listMenu, readAllSettings } from './queries';
+import {
+  billTotals,
+  chargeableLines,
+  listGuestReplies,
+  listHeardSources,
+  listMenu,
+  readAllSettings,
+} from './queries';
 import { readCart } from './mutations';
 import { resolveGuest, type GuestContext } from './guest';
 import { resolveFeatures, type GuestFeatures } from '@/lib/guest-features';
@@ -68,6 +75,14 @@ export interface GuestPayload {
   phase: GuestContext['phase'];
   table: { name: string; zone: string };
   restaurantName: string;
+  /** How this party said they found Jalsa — '' until they answer. */
+  heardAbout: string;
+  /**
+   * What the picker offers: the seeded answers, plus every distinct answer THIS restaurant has
+   * recorded. Assembled the same way the expense-category list is, and scoped by restaurant_id
+   * in the query, so one restaurant's answers can never appear in another's.
+   */
+  heardSources: string[];
   copy: Record<string, string>;
   features: GuestFeatures;
   captain: string;
@@ -128,6 +143,20 @@ export async function buildGuestPayload(tableName: string): Promise<GuestPayload
  *
  * So there is exactly one body below, and both entry points end here.
  */
+/**
+ * The answers offered before anybody has given one.
+ *
+ * A starting point, not a closed set: the request is explicit that a guest may add their own,
+ * and anything added joins the list for the next guest by being recorded on their session.
+ * Not a database enum, for exactly that reason.
+ */
+export const SEEDED_HEARD_SOURCES = [
+  'Google review',
+  'Friend recommended',
+  'Ordered earlier',
+  'Regular customer',
+] as const;
+
 export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayload> {
   /**
    * THE CART IS NOT DOWNSTREAM OF THE MENU.
@@ -137,13 +166,21 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
    * `cartLines`) is in-memory work below. So all three are issued together, and a payload build
    * costs one wave rather than two.
    */
-  const [{ items, categories }, settings, cart, replies] = await Promise.all([
+  const [{ items, categories }, settings, cart, replies, recordedSources] = await Promise.all([
     listMenu(),
     readAllSettings(),
     ctx.sessionId ? readCart(ctx.sessionId) : Promise.resolve([]),
     // Into the SAME wave, not after it. An answered suggestion is one more thing this screen
     // shows and nothing below depends on it, so it costs no extra round trip.
     listGuestReplies(ctx.table.id),
+    /*
+      ONLY ON THE SCREEN THAT ASKS. `/api/guest/state` is POLLED — this payload is rebuilt every
+      few seconds for every phone at every table. `listHeardSources` reads every non-empty
+      `heard_about` the restaurant has ever recorded, which is a set that only grows, and the
+      field it feeds renders on the welcome screen alone. Issued unconditionally it was an
+      unbounded scan on the hottest path in the application, for data nobody was looking at.
+    */
+    ctx.phase === 'welcome' ? listHeardSources() : Promise.resolve([]),
   ]);
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));
 
@@ -212,6 +249,15 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
     phase: ctx.phase,
     table: { name: ctx.table.name, zone: ctx.table.zone },
     restaurantName: copy.name ?? 'Jalsa Restaurant',
+    heardAbout: ctx.heardAbout ?? '',
+    /* Seeds first, in the order the request fixes them, then what this restaurant has been
+       told, with anything that duplicates a seed folded out case-insensitively. */
+    heardSources: [
+      ...SEEDED_HEARD_SOURCES,
+      ...recordedSources.filter(
+        (v) => !SEEDED_HEARD_SOURCES.some((seed) => seed.toLowerCase() === v.trim().toLowerCase())
+      ),
+    ],
     copy,
     features,
     captain: features.captainName ? (bill?.captain ?? '') : '',
