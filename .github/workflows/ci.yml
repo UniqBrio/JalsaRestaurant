@@ -66,6 +66,36 @@ jobs:
       run:
         working-directory: jalsa
 
+    # WHY THIS BLOCK EXISTS, AND WHY EVERY VALUE IS A LITERAL
+    #   `src/lib/config.ts` validates its required variables at MODULE EVALUATION, so a Next
+    #   server refuses to boot without them. Playwright starts a server for every run — including
+    #   `test:unit`, which needs none — so with nothing set here the job did not fail a test: it
+    #   spent 180 seconds watching a server that could never start, then reported
+    #   "Timed out waiting 180000ms from config.webServer" and skipped the four steps after it.
+    #   A gate that cannot start is worse than a gate that fails, because the report looks the
+    #   same shape as a real result.
+    #
+    #   None of these is a credential, and that is deliberate rather than convenient. This
+    #   workflow's own header says the runner has no database and must never have one, and
+    #   127.0.0.1:1 is the address `tests/support/servers.ts` already uses to guarantee exactly
+    #   that — it refuses instantly. The two keys below open nothing; they exist because the
+    #   validator counts them, not because anything reads them. So they belong in the file, in
+    #   review, where a change to them is visible: a value that must never vary does not belong
+    #   in a secret where it can be changed without review (docs/registers/ENVIRONMENTS.md).
+    #
+    #   The day this job is pointed at a real database, these stop being literals and become
+    #   repository secrets. Until then, storing them as secrets would only hide from a reviewer
+    #   that CI reaches nothing.
+    env:
+      APP_ENV: test
+      PUBLIC_APP_URL: http://localhost:3000
+      PUBLIC_API_URL: http://localhost:3000/api
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:1
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_reaches_no_database
+      SUPABASE_SECRET_KEY: sb_secret_ci_reaches_no_database
+      SESSION_SECRET: ci-session-secret-not-a-credential
+      ALLOW_OUTBOUND_MESSAGES: 'false'
+
     steps:
       - uses: actions/checkout@v4
         with:
