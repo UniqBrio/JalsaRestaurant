@@ -5,6 +5,28 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/kot-status.unit.spec.ts - the 13-line server guard removed from
+`advanceKot` in jalsa/src/lib/db/mutations.ts (the `if (!canAdvanceKot(from, input.to)) throw`
+block, and nothing else), then restored byte-for-byte: **1 failed, 42 passed**. Case 4c "the
+server refuses it too - the UI is the courtesy, not the boundary" failed on `the transition is
+checked before anything is written`. That is the right shape: 4c is the only case that reads the
+guard. Cases 4 and 4b exercise `canAdvanceKot` as a pure function in status.ts and correctly
+stayed green; 7b (stamp written once) and 8b (status pinned in the WHERE) read other parts of the
+same body and stayed green. With the guard restored: **43 passed** (28 KOT + 15 status). Full
+suite on the isolated tree: **657 passed** (unit + render), 0 failed - main's 629 plus exactly the
+28 new cases.
+SHIPPED-STRING CHANGE, DECLARED: `KOT_STATUS.new.guest` moves from `'Sent to the kitchen'` to
+`'Order received'`, in the one vocabulary module, because the reference design draws the guest's
+first step as Order received and CLAUDE.md makes the design set the specification. The status
+spec case is amended to assert the new value AND that guest and staff words still differ - re-
+expressed, not weakened. No other file on main carried the old string.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no captain tapped a real button against a real
+row. The transition rules, the server guard, the once-only stamp and the concurrency pin are
+source-level and pure-function assertions, and are recorded as such.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/combobox.unit.spec.ts and jalsa/tests/unit/combobox-migration.unit.spec.ts
 - two injected defects, each reverted.
 (A) the Expenses > Category migration reverted to the native `<datalist>` it replaced:

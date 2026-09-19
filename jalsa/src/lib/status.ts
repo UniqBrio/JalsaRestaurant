@@ -29,7 +29,11 @@ export interface StatusWord {
 }
 
 export const KOT_STATUS: Record<KotStatus, StatusWord> = {
-  new: { staff: 'New', guest: 'Sent to the kitchen', tone: 'error' },
+  // "Order received" rather than the "Sent to the kitchen" this shipped with: the reference
+  // design draws the first step as Order received, and CLAUDE.md makes the design set the
+  // specification. Changed HERE, in the one vocabulary, so every guest surface moves together —
+  // which is the reason this module exists.
+  new: { staff: 'New', guest: 'Order received', tone: 'error' },
   preparing: { staff: 'Cooking', guest: 'In the kitchen', tone: 'warning' },
   ready: { staff: 'Ready', guest: 'Ready', tone: 'success' },
   picked_up: { staff: 'Picked up', guest: 'On its way', tone: 'info' },
@@ -54,6 +58,101 @@ export function nextKotStatus(current: KotStatus): KotStatus | null {
   const i = KOT_FLOW.indexOf(current);
   if (i < 0 || i === KOT_FLOW.length - 1) return null;
   return KOT_FLOW[i + 1] ?? null;
+}
+
+/**
+ * Every move a round is allowed to make, and the ONLY ones the server will write.
+ *
+ * WHY A TABLE AND NOT `nextKotStatus`
+ *   `KOT_FLOW` is a straight line, but the real flow forks once: a ready round can either be
+ *   picked up from the counter and then served, or handed straight to the table. A single
+ *   "next" cannot express a fork, and `advanceKot` used to write whatever it was handed — so a
+ *   served round could be sent back to preparing, and two captains tapping at once could land
+ *   any final state at all.
+ *
+ * READ IT AS: from this state, these are the only states reachable.
+ *   new       → preparing                 the kitchen has started
+ *   preparing → ready                     it is up
+ *   ready     → picked_up | served        off the counter, or straight onto the table
+ *   picked_up → served
+ *   served    → nothing. It is over, and un-serving food is not a thing.
+ *   cancelled → nothing.
+ *
+ * `cancelled` is deliberately absent as a DESTINATION: cancelling is `cancelKotItem`'s job,
+ * which has its own reason field and its own audit line. A status verb that could quietly
+ * cancel a round would be a second way to do it, and a second way is a defect.
+ */
+export const KOT_TRANSITIONS: Record<KotStatus, readonly KotStatus[]> = {
+  new: ['preparing'],
+  preparing: ['ready'],
+  ready: ['picked_up', 'served'],
+  picked_up: ['served'],
+  served: [],
+  cancelled: [],
+};
+
+/** Whether this exact move is legal. The server asks this before it writes; so does the UI. */
+export function canAdvanceKot(from: KotStatus, to: KotStatus): boolean {
+  return KOT_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/**
+ * The ONE action a captain is offered for a round, or nothing when it is finished.
+ *
+ * Contextual by construction: a screen cannot offer "Mark served" on a round still in the
+ * kitchen, because there is nothing here to render for it. Standard 5.6 — an action the server
+ * is about to refuse is worse than an action that was never offered.
+ *
+ * `ready` resolves to **served**, not `picked_up`, because the table screen hands food to the
+ * guest. The counter-pickup step is a different screen's verb and keeps its own button.
+ */
+export function captainNextKot(current: KotStatus): { to: KotStatus; label: string } | null {
+  switch (current) {
+    case 'new':
+      return { to: 'preparing', label: 'Start preparing' };
+    case 'preparing':
+      return { to: 'ready', label: 'Mark ready' };
+    case 'ready':
+    case 'picked_up':
+      // "Mark served" is the label this button already ships with. Frozen on purpose.
+      return { to: 'served', label: 'Mark served' };
+    default:
+      return null;
+  }
+}
+
+/**
+ * The four steps the guest is shown, in the design set's order and words.
+ *
+ * FOUR, NOT FIVE. `picked_up` is a real state the floor uses, but to the guest it is still the
+ * Ready step — their food is up and on its way, which is what "Ready" already tells them. The
+ * reference design draws four dots and the requester confirmed four.
+ */
+export const GUEST_STEPS: ReadonlyArray<{ key: KotStatus; label: string }> = [
+  { key: 'new', label: 'Order received' },
+  { key: 'preparing', label: 'In the kitchen' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'served', label: 'Served' },
+];
+
+export type StepState = 'done' | 'current' | 'todo';
+
+/**
+ * Where a round has got to, as four steps the guest can read at a glance.
+ *
+ * Derived from the one status, never stored: a stored copy would be a sixth thing to keep in
+ * step and the one that is wrong after a crash.
+ */
+export function guestSteps(status: KotStatus): Array<{ key: KotStatus; label: string; state: StepState }> {
+  // `picked_up` sits at the Ready step, which is the whole reason this is a function and not an
+  // index lookup on KOT_FLOW.
+  const reached = status === 'picked_up' ? 'ready' : status;
+  const at = GUEST_STEPS.findIndex((s) => s.key === reached);
+  return GUEST_STEPS.map((s, i) => ({
+    ...s,
+    // A cancelled round has reached nothing; `at` is -1 and every step reads as still to come.
+    state: at < 0 ? 'todo' : i < at ? 'done' : i === at ? 'current' : 'todo',
+  }));
 }
 
 /**
