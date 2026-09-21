@@ -4,6 +4,47 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 2 (ESC/POS encoder)
+
+One spec added: `jalsa/tests/unit/escpos.unit.spec.ts` - 26 cases, golden bytes throughout. The
+encoder is pure, so every assertion is an exact byte string; nothing downstream can check this,
+because a spooler accepts whatever it is handed and a printer that receives `1B 45 00` where
+`1B 45 01` was meant prints a line that is merely not bold - legible, plausible and wrong.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - unmapped character made to fall through as
+`0x3F` instead of throwing: 4 failed, 22 passed - "AN UNMAPPED CHARACTER FAILS - it is never
+silently replaced", "THE ERROR NAMES THE CODEPOINT, THE LINE AND THE COLUMN", "THE RUPEE SIGN IS
+DELIBERATELY UNMAPPED", and the code-point column case. A '?' on a bill is a character nobody can
+trace back to its cause.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - `encodeTicket` made to slice each line to the
+configured column count: 1 failed, 25 passed - "THE ENCODER NEVER TRUNCATES AND NEVER WRAPS".
+Deciding a line is too long is the template's job; an encoder that trimmed would turn a caught
+layout fault into a quietly clipped figure on a bill.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - the end-of-stream emphasis reset removed:
+3 failed, 23 passed - including "THE STREAM NEVER ENDS MID-EMPHASIS - the next job starts clean".
+A job that ends bold makes the NEXT job wrong, and that one prints in a different room from the
+person who could connect the two.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - the `line`/`column` clause removed from the
+`EncodeError` message: 1 failed, 25 passed - "THE ERROR NAMES THE CODEPOINT, THE LINE AND THE
+COLUMN". "Cannot encode U+20B9" sends somebody reading the whole ticket.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - `GS !` changed from `0x11` to `0x01`, double
+height without double width: 3 failed, 23 passed - "BIG IS GS ! 11", the whole-ticket golden, and
+the big-to-bold transition. The defect prints a heading that is subtly the wrong shape, which is
+exactly the class golden bytes exist to catch.
+
+NOTE ON THE CODEPAGE: `ESC t 0` (CP437) is DECLARED, not verified. No device has confirmed which
+table it holds or that it honours the selection. The encoder therefore emits no high bytes on the
+strength of it - ASCII passes through and anything else must be named in the charset map or the
+job fails. A verified CP437 upper half is Gate 7 work, after hardware says so.
+
+Finished tree: 533 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
 ## Application run - jalsa - 2026-09-21 - Phase 2 Gate 1 (print bridge contract)
 
 One spec added: `jalsa/tests/unit/bridge-contract.unit.spec.ts`. Its guarantees are properties of
