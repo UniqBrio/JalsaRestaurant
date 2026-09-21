@@ -1,6 +1,78 @@
 # Test summary
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 3 (PrintTransport abstraction)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+Two specs added: `jalsa/tests/unit/bridge-transport.unit.spec.ts` (26 cases) and
+`jalsa/tests/unit/bridge-import-hygiene.unit.spec.ts` (14 cases). The unit tier goes 533 -> 573.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - the payload written as text
+(`Buffer.from(bytes).toString('latin1')` with a `utf8` encoding argument, the single most likely
+accident in this file): 2 failed, 38 passed - "what lands on disk is byte-for-byte what was handed
+over, for all 256 byte values" and "bytesSent is measured from the file, not echoed from the
+input". Note which rung did NOT fail: the encoded-ticket round-trip, because that ticket is pure
+ASCII and survives the mangle intact. That is exactly why the 256-value case exists.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - a short write (`bytes.slice(0, 10)`):
+4 failed, 36 passed - the two byte-identity rungs, the measured-size rung, and the `.txt` rung.
+A transport that reported success on a truncated stream would print half a ticket and record it
+as printed.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - the destination containment guard
+disabled: 7 failed, 33 passed - the escape case and six of the seven malformed-destination cases.
+The `..` case stayed GREEN, and honestly so: the second, belt-and-braces `startsWith(root + sep)`
+check still refused the write. The layer that was removed is the one that names the fault.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - the job-id guard disabled: 1 failed,
+39 passed - "a job id that is not a safe filename is refused rather than sanitised". Sanitising
+would collapse two jobs onto one filename and the second would overwrite the first silently.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - the `.txt` rendering written
+unconditionally: 1 failed, 39 passed. FAIL-FIRST: the hex rendering made to DROP control bytes
+rather than show them: 1 failed, 39 passed - "the rendering shows control bytes as hex and never
+pretends to parse them".
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - a caught write failure returned as
+`ok: true`: 1 failed, 39 passed - "an unwritable directory is a returned failure, not a thrown
+exception". This is Phase 1's exact defect re-injected one layer down.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-transport.unit.spec.ts - NullTransport made to report success
+because nothing went wrong: 4 failed, 36 passed, including "NullTransport never reports a success,
+over many attempts" and the result-shape rung. FAIL-FIRST: its failure marked `retryable: true`:
+1 failed, 39 passed - a bridge loop would spin on a configuration fault and call it a flaky
+printer.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-import-hygiene.unit.spec.ts - `import 'react'` added to a
+transport: 2 failed, 38 passed - the node-builtins allow-list and the named `react` rung.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-import-hygiene.unit.spec.ts - a TYPE-ONLY
+`import type { TicketLine } from '@/lib/print-template'` added: 2 failed, 12 passed - the
+allow-list and "the app alias is unreachable from the bridge". A type-only import is erased at
+build time and still couples the bridge to the application's module graph; it is how the first
+honest-looking `@/lib/db` reference gets in.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-import-hygiene.unit.spec.ts - a browser-only global
+(`typeof document`) added to a transport: 1 failed, 39 passed. FAIL-FIRST: the walk pointed at a
+directory holding no `.ts` sources: 2 failed, 38 passed - the parse guard and "Node builtins ARE
+allowed, and the bridge does use them". Binding rule 5: a scan matching zero files must not look
+like a clean codebase.
+
+FINDING, not a rung: the first attempt at the `@/lib/db` defect imported `@/lib/db/bridge-mutations`
+at RUNTIME. It did not fail a test - it killed the whole spec file at load with "This module cannot
+be imported from a Client Component module", because that module pulls in `server-only`. Worth
+recording: an application data-layer import into the bridge is not a subtle coupling, it is an
+immediate hard failure. The rung was re-run with the type-only form, which is the one that would
+actually get committed.
+
+Finished tree: 573 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+`npm run bridge:build` bundles both transports for node20; the bundle's only imports are
+`node:fs/promises` and `node:path`.
+
+---
 _`## Application run - jalsa - 2026-09-21 - Phase 2 Gate 2 (ESC/POS encoder)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads

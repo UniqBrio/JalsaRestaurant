@@ -4,6 +4,117 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 3 (PrintTransport abstraction)
+
+Gate 3 adds the seam between Jalsa's decisions and a physical device, and nothing else. Three
+source files under `jalsa/bridge/src/transport/` - `types.ts` (the interface), `file.ts`
+(FileTransport, the development sink) and `null.ts` (NullTransport, the failure path). No Windows
+API, no spooler, no polling loop, no claim loop. The transport receives BYTES; it does not encode
+`TicketLine[]`, and `src/lib/escpos.ts` remains the only encoder.
+
+WHAT THE INTERFACE MAKES IMPOSSIBLE. `send(bytes, target)` takes the target it is given. There is
+no list to choose from, no fallback argument, and no field anywhere in `TransportResult` that
+could name a printer. The Phase 1 defect - a transport-layer decision about WHICH printer - is not
+forbidden by a convention here, it is unrepresentable. `bridge-transport.unit.spec.ts` pins the
+result key set for both implementations so it stays that way.
+
+WHERE IT WRITES. The root directory is bridge configuration and nothing else;
+`target.destination` names only a folder WITHIN that root, on a character whitelist, with a second
+`startsWith(root + sep)` check behind it. A print job arriving over the network is never allowed
+to decide where bytes land on a restaurant's PC.
+
+Two specs added: `tests/unit/bridge-transport.unit.spec.ts` (26 cases) and
+`tests/unit/bridge-import-hygiene.unit.spec.ts` (14 cases). The unit tier goes 533 -> 573.
+
+THE HYGIENE SPEC IS AN ALLOW-LIST, NOT A DENY-LIST. It walks every relative import from
+`bridge/src` to a fixed point and asserts that the only specifiers leaving the closure start with
+`node:`. A deny-list forbids only the dependencies somebody already thought of, and the one that
+eventually gets in is by definition the one nobody listed. The named `next` / `react` /
+`server-only` / `@supabase` / `@/lib/db` rungs are kept as well, deliberately redundant: they are
+the rungs whose NAME appears in a failure report.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the payload written as text
+(`Buffer.from(bytes).toString('latin1')` with a `utf8` encoding argument): 2 failed, 38 passed -
+"what lands on disk is byte-for-byte what was handed over, for all 256 byte values" and "bytesSent
+is measured from the file, not echoed from the input". The encoded-ticket round-trip rung did NOT
+fail, correctly: that ticket is pure ASCII and survives the mangle. That is the whole reason the
+256-value case exists alongside it.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - a short write (`bytes.slice(0, 10)`):
+4 failed, 36 passed - both byte-identity rungs, the measured-size rung and the `.txt` rung. This
+is also the evidence that `bytesSent` is read back from `stat`: an echoed `bytes.length` would
+have reported 256 bytes sent for a ten-byte file.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the destination containment guard disabled:
+7 failed, 33 passed - the escape case and six of the seven malformed-destination cases. The `..`
+case stayed GREEN and honestly so: the belt-and-braces `startsWith(root + sep)` check still
+refused the write. The removed layer is the one that names the fault; the one behind it still
+stopped the escape.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the job-id guard disabled: 1 failed,
+39 passed - "a job id that is not a safe filename is refused rather than sanitised".
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the `.txt` rendering written
+unconditionally: 1 failed, 39 passed - "the .txt rendering is written only when configuration asks
+for it".
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the readable rendering made to DROP control
+bytes rather than show them as hex: 1 failed, 39 passed - "the rendering shows control bytes as
+hex and never pretends to parse them". A renderer that interpreted the stream could disagree with
+the encoder, and then the readable file would be quietly lying about the file next to it.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - a caught write failure returned as
+`ok: true`: 1 failed, 39 passed - "an unwritable directory is a returned failure, not a thrown
+exception". Phase 1's exact defect, re-injected one layer down.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - NullTransport made to report success
+because nothing went wrong: 4 failed, 36 passed - "NullTransport always fails", "never throws",
+"never reports a success, over many attempts", and the result-shape rung.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - NullTransport's failure marked
+`retryable: true`: 1 failed, 39 passed. Sending the same bytes to the same nothing produces the
+same nothing; a loop would spin on a configuration fault and report it as a flaky printer.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - `import 'react'` added to a transport:
+2 failed, 38 passed - the node-builtins allow-list and the named `react` rung.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - a TYPE-ONLY
+`import type { TicketLine } from '@/lib/print-template'` added: 2 failed, 12 passed (hygiene spec
+alone) - the allow-list and "the app alias is unreachable from the bridge". Type-only imports are
+included in the walk deliberately: they are erased at build time, cost nothing at runtime, and
+still couple the bridge to the application's module graph.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - `typeof document` added to a
+transport: 1 failed, 39 passed - "no browser-only global is referenced anywhere in the closure".
+The tsconfig's lib includes DOM for the application's sake, so a `document` reference does not
+fail to compile here; it fails at three in the morning on a PC behind the counter.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - the walk pointed at a directory
+holding no `.ts` sources: 2 failed, 38 passed - the parse guard and "Node builtins ARE allowed,
+and the bridge does use them". Binding rule 5: a scan matching zero files looks exactly like a
+clean codebase, so the closure asserts its own contents before asserting anything about them.
+
+FINDING, not a rung: the first attempt at the `@/lib/db` defect imported
+`@/lib/db/bridge-mutations` at RUNTIME. It did not fail a test - it killed the whole spec file at
+load with "This module cannot be imported from a Client Component module", because that module
+pulls in `server-only`. An application data-layer import into the bridge is not a subtle coupling;
+it is an immediate hard failure. The rung was re-run with the type-only form, which is the one
+that would realistically get committed.
+
+BUILD: `npm run bridge:build` bundles `file.ts` and `null.ts` with esbuild for node20, ESM. The
+bundle's only imports are `node:fs/promises` and `node:path` - the same claim the hygiene spec
+makes statically, made again by a real bundler. `bridge/dist` is gitignored and excluded from the
+tsconfig; `bridge/**/*` is INCLUDED, so the bridge typechecks under the application's own
+strictness rather than a second, looser config.
+
+NOT DONE IN THIS GATE, deliberately: no Windows spooler transport, no winspool calls, no polling
+or claim loop, no change to the Gate 1 API, no token issuance UI. `FileTransport` and
+`NullTransport` have no caller yet - the loop that will use them is Gate 4.
+
+Finished tree: 573 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
 ## Application run - jalsa - 2026-09-21 - Phase 2 Gate 2 (ESC/POS encoder)
 
 One spec added: `jalsa/tests/unit/escpos.unit.spec.ts` - 26 cases, golden bytes throughout. The
