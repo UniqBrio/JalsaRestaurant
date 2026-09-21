@@ -609,11 +609,16 @@ async function syncKotPrintState(kotId: string): Promise<void> {
   const live = all.filter((j) => !superseded.has(j.id as string));
   if (live.length === 0) return;
 
+  // Phase 2 added `processing`. A round with one ticket in flight is not "queued" — somebody is
+  // carrying it — and it is certainly not "printed". The order of the tests is the pessimism:
+  // any failure outranks everything, and `printed` requires ALL of them.
   const status = live.some((j) => j.status === 'failed')
     ? 'failed'
     : live.every((j) => j.status === 'printed')
       ? 'printed'
-      : 'queued';
+      : live.some((j) => j.status === 'processing')
+        ? 'processing'
+        : 'queued';
 
   await db()
     .from('kot')

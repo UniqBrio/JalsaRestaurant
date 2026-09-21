@@ -4,7 +4,7 @@ import { KOT_STATUS, TABLE_STATE, type KotStatus, type Tone } from '@/lib/status
 import type { SpineFields } from '@/components/ui/bill';
 import { billTotals, listFloor, listMenu, listOpenBills, listOpenRequests, readAllSettings } from './queries';
 import type { SignedInStaff } from './auth';
-import type { Bill, FloorTable, KotPrintJob } from './types';
+import type { Bill, FloorTable, KotPrintJob, PrintJobStatus } from './types';
 
 /**
  * staff-view — what a captain's or waiter's phone is given.
@@ -32,7 +32,7 @@ export interface StaffKotView {
   source: 'guest' | 'captain' | 'owner';
   placedAt: string;
   ageMinutes: number;
-  printStatus: 'queued' | 'printed' | 'failed';
+  printStatus: PrintJobStatus;
   reprintCount: number;
   /** One per machine. A captain reading a failure needs to know which room it is in. */
   printJobs: KotPrintJob[];

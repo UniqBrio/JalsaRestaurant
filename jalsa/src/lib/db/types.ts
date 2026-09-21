@@ -58,7 +58,7 @@ export interface Kot {
    * The pessimistic aggregate over this round's live print jobs — failed if any failed, printed
    * only once every one of them has. One badge for what may be several tickets.
    */
-  printStatus: 'queued' | 'printed' | 'failed';
+  printStatus: PrintJobStatus;
   printAttempts: number;
   reprintCount: number;
   /** One per machine this round is being printed at. Empty for a round placed before Phase 1. */
@@ -255,6 +255,18 @@ export interface PrinterRow {
 }
 
 /**
+ * Where a print job has got to.
+ *
+ * `processing` was added in Phase 2: a bridge has taken the job and the paper is imminent. It is
+ * distinct from `queued` because a bridge that died mid-send has to be distinguishable from one
+ * that never started — that difference is the whole job of the stale-claim sweeper.
+ *
+ * `printed` is still unwritable by anything on the ORDER path. Only a bridge report produces it,
+ * and only for a job that bridge is holding.
+ */
+export type PrintJobStatus = 'queued' | 'processing' | 'printed' | 'failed';
+
+/**
  * A print job's destination, as every screen that shows one needs it.
  *
  * THE PRINTER'S UUID IS PART OF THE SHAPE, and it was not before. A screen that knows only
@@ -282,7 +294,7 @@ export interface PrintTarget {
  */
 export interface KotPrintJob extends PrintTarget {
   id: string;
-  status: 'queued' | 'printed' | 'failed';
+  status: PrintJobStatus;
   attempts: number;
   isReprint: boolean;
   lastError: string;
@@ -295,7 +307,7 @@ export interface PrintJobRow extends PrintTarget {
   /** KOT-0042 or B-1048 — the identifier a person would look for, never the job's uuid. */
   reference: string;
   table: string;
-  status: 'queued' | 'printed' | 'failed';
+  status: PrintJobStatus;
   attempts: number;
   isReprint: boolean;
   requestedBy: string;

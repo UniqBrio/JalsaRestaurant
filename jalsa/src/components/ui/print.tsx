@@ -30,6 +30,8 @@ import type { KotPrintJob } from '@/lib/db/types';
 export const PRINT_STATUS: Record<KotPrintJob['status'], { word: string; tone: Tone }> = {
   // Assigned to a machine, waiting for the bridge. NOT a claim that paper moved.
   queued: { word: 'Waiting to print', tone: 'warning' },
+  // A bridge is holding it. Still not a claim that paper moved — only that somebody is carrying it.
+  processing: { word: 'Sending…', tone: 'info' },
   printed: { word: 'Printed', tone: 'success' },
   failed: { word: 'Print failed', tone: 'error' },
 };

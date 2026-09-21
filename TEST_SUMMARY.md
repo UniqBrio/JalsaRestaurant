@@ -1,7 +1,47 @@
 # Test summary
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
-_`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps for them._
+_`## Application run - jalsa - 2026-09-21 - Phase 2 Gate 1 (print bridge contract)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+One spec added: `jalsa/tests/unit/bridge-contract.unit.spec.ts`. Its guarantees are properties of
+writes and type shapes, so each was checked by injecting its own defect into the finished tree.
+
+The claim's ATOMICITY is not a source property and is not asserted by that file. It was proved
+against the TEST Supabase project through MCP: one queued job, two identical conditional updates,
+`A updated 1 row(s), B updated 0 row(s)` - exactly one winner, assignment intact through the
+claim, and `printed` reachable only from `processing`.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `reportPrintJob`'s patch given a
+`printer_id` key: 1 failed, 18 passed - "THE REPORT CANNOT NAME A PRINTER - rerouting is not
+expressible". That is the boundary between Jalsa and the bridge, asserted as a closed key set.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `sweepStaleClaims` changed to write
+`status: 'queued'` instead of `'failed'`: 1 failed, 18 passed - "A STALE CLAIM EXPIRES TO failed
+AND NEVER TO queued". Re-queueing asserts no paper came out, and a wrong assertion prints the
+round twice.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `claimPrintJob` with its
+`.eq('status', 'queued')` predicate removed: 1 failed, 18 passed - "THE CLAIM IS ONE CONDITIONAL
+UPDATE - the property atomicity rests on".
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `authenticateBridge` changed to ignore
+a lookup error (`if (!data)` instead of `if (error || !data)`): 1 failed, 18 passed - "AUTH FAILS
+CLOSED - an unreachable lookup is \"no\", never \"yes\"". Failing open there turns a database
+outage into an authorisation bypass.
+
+Two rungs in this file first went red on the code's own COMMENTS - `bridge-auth.ts` carries a
+heading "WHY NOT `SUPABASE_SECRET_KEY`" and the route mentions the sweeper while explaining late
+reports. Both now strip comments before asserting absence: a rung that punishes a file for
+explaining itself teaches people to stop explaining.
+
+Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
+## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps for them._
 
 ---
 

@@ -23,7 +23,7 @@ import {
 import type { SignedInStaff } from './auth';
 import { db } from '@/lib/supabase/server';
 import type {
-  AuditRow, Bill, ExpenseRow, KotPrintJob, PrinterRow, PrintJobRow, StaffMember, Suggestion, TipRow, WaitlistRow,
+  AuditRow, Bill, ExpenseRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
 } from './types';
 
 /**
@@ -80,7 +80,7 @@ export interface OwnerBillView {
     source: 'guest' | 'captain' | 'owner';
     sourceLabel: string;
     placedAt: string;
-    printStatus: 'queued' | 'printed' | 'failed';
+    printStatus: PrintJobStatus;
     reprintCount: number;
     /** One per machine. What lets the board say WHERE a ticket went without opening Settings. */
     printJobs: KotPrintJob[];
