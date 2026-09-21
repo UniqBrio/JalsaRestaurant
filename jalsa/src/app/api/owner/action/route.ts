@@ -34,6 +34,7 @@ import {
   upsertTable,
   writeEmployment,
   writeIdentity,
+  testPrint,
   writeSetting,
 } from '@/lib/db/owner-mutations';
 
@@ -75,6 +76,7 @@ type Action =
   | { action: 'remove-staff'; staffId: string; reason: string }
   | { action: 'set-on-duty'; staffId: string; onDuty: boolean }
   | { action: 'write-setting'; key: string; value: Record<string, unknown> }
+  | { action: 'test-print'; printerId: string }
   | { action: 'write-identity'; patch: Record<string, unknown> }
   | {
       action: 'upsert-expense';
@@ -244,6 +246,13 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     case 'set-on-duty':
       await setOnDuty({ staffId: input.staffId, onDuty: input.onDuty, actor });
       return ok({ done: true });
+
+    case 'test-print': {
+      /* The printer id goes straight through. Routing is not consulted and cannot redirect it —
+         a diagnostic that could land on a different machine would be worse than none. */
+      const result = await testPrint({ printerId: input.printerId, actor });
+      return ok(result);
+    }
 
     case 'write-setting':
       await writeSetting({ key: input.key, value: input.value, actor });

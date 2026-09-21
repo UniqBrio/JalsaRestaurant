@@ -5,6 +5,28 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/test-print.unit.spec.ts - the two checks inside `testPrintBlocker`
+in jalsa/src/lib/test-print.ts removed so it returned null for every printer (the switched-off
+refusal and the no-address refusal), and nothing else touched: **2 failed, 26 passed**. Case 13
+"a printer with no address is called unconfigured, not unreachable" and case 13c "a switched-off
+printer says so" both failed on `Received has value: null`. Case 13b (a USB printer needs no
+address) and "a configured, switched-on printer is testable" expect null and correctly stayed
+green, as did the other 24. Restored byte-for-byte from backup, verified identical to the source:
+**28 passed**. Full suite on the isolated tree: **690 passed** (unit + render), 0 failed - main's
+662 plus exactly the 28 new cases.
+THE BEHAVIOUR THE INJECTION PROVES IS PROTECTED: a switched-off printer is refused; a non-USB
+printer with no address is refused, with a sentence that sends the owner to Configure rather than
+to the kitchen; a configured, switched-on printer remains testable. `testPrint` in
+owner-mutations runs that blocker before writing, so a refused printer gets no `print_job` row.
+No migration was needed and none was written: `print_job` with every column the test job sets,
+`print_status` with `queued`, and free-text `kind` are all in the core schema.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no test job was queued against a real row and
+no printer was reached; nothing in this deployment can open a connection to a thermal printer in
+any case, which is the limitation the note beside the button states.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/kot-status.unit.spec.ts - the 13-line server guard removed from
 `advanceKot` in jalsa/src/lib/db/mutations.ts (the `if (!canAdvanceKot(from, input.to)) throw`
 block, and nothing else), then restored byte-for-byte: **1 failed, 42 passed**. Case 4c "the

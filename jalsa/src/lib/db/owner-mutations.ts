@@ -2,6 +2,7 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
+import { testPrintBlocker } from '@/lib/test-print';
 import { audit, nextNumber, type Actor } from './mutations';
 
 /**
@@ -862,4 +863,84 @@ export async function writeEmployment(input: {
     actor: input.actor,
     confidential: true,
   });
+}
+
+/**
+ * Queue a test ticket for ONE machine.
+ *
+ * WHY IT DOES NOT CALL `queuePrint`
+ *   `queuePrint` is the ROUTING path: it asks which machine should receive a round's ticket given
+ *   its categories, and answers with one machine. That is exactly the wrong question here. A test
+ *   is a diagnostic aimed at a machine the owner has pointed at — routing must not be consulted,
+ *   must not be able to redirect it, and must not be changed by it. So the printer id travels
+ *   from the button to this row with nothing in between able to reinterpret it.
+ *
+ * WHY THERE IS NO FAKE BILL
+ *   `print_job.bill_id` and `print_job.kot_id` are both nullable. A test job belongs to neither,
+ *   and the schema has always allowed that — so the requester's "do not create a fake order" is
+ *   not a constraint to work around, it is the natural shape of the row.
+ *
+ * WHY THE STATUS IS `queued` AND NEVER `printed`
+ *   Nothing in this deployment can open a connection to a thermal printer. `queuePrint` writes
+ *   `printed` when `printer.online` is true, but that column is a stored flag an owner edits by
+ *   hand, not a probe — so `printed` there means "somebody ticked a box", which is a claim this
+ *   function will not make. `queued` is what actually happened: a job exists, against this
+ *   machine, waiting for a worker that has not been built.
+ */
+export async function testPrint(input: {
+  printerId: string;
+  actor: Actor;
+}): Promise<{ queued: boolean; printerName: string; reason: string }> {
+  // The same grant that gates Configure and Add a printer on the tab this button lives on.
+  // Nothing is broadened: an actor who may not configure printers may not test them.
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  /* Scoped by restaurant AND by id. The id alone would let a crafted request test a machine in
+     another restaurant, which is the one thing a diagnostic must never do. */
+  const { data: printer, error } = await db()
+    .from('printer')
+    .select('id,name,station,paper_mm,connection,address,enabled')
+    .eq('restaurant_id', restaurantId)
+    .eq('id', input.printerId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
+
+  const name = printer.name as string;
+  const blocker = testPrintBlocker({
+    enabled: ((printer.enabled as boolean | null) ?? true),
+    connection: (printer.connection as string) ?? '',
+    address: (printer.address as string) ?? '',
+  });
+  if (blocker) return { queued: false, printerName: name, reason: blocker };
+
+  /* ONE row, against ONE printer, with no bill and no round. Nothing else in the database is
+     touched: not the printer row, not its routes, not a kot, not a bill. */
+  const { error: jobErr } = await db()
+    .from('print_job')
+    .insert({
+      restaurant_id: restaurantId,
+      printer_id: printer.id,
+      kind: 'Test',
+      kot_id: null,
+      bill_id: null,
+      status: 'queued',
+      attempts: 0,
+      is_reprint: false,
+      requested_by: input.actor.label,
+      last_error: '',
+      completed_at: null,
+    });
+  if (jobErr) throw jobErr;
+
+  /* Audited as an ADMINISTRATIVE act, on the existing mechanism, with no bill and no table —
+     because a test print is not a business transaction and must not appear as one. */
+  await audit({
+    action: 'Printer',
+    detail: `Test ticket queued for ${name}`,
+    actor: input.actor,
+  });
+
+  return { queued: true, printerName: name, reason: '' };
 }

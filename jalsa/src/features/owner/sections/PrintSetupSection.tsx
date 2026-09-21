@@ -9,6 +9,7 @@ import { Field, Input, Select, Toggle } from '@/components/ui/field';
 import { Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
+import { TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '@/lib/test-print';
 import {
   PAPER,
   autoFit,
@@ -298,6 +299,40 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const [form, setForm] = React.useState<PrinterForm | null>(null);
   const canEdit = data.grants.includes('set.printer');
+  /* WHICH printer is being tested, not WHETHER one is. Testing the tandoor must not disable the
+     counter's button — four machines are usually tested one after another. */
+  const [testing, setTesting] = React.useState<string | null>(null);
+
+  /**
+   * Queue a test ticket for exactly this machine.
+   *
+   * IT DOES NOT USE `runBusy`. That flag is the panel's shared "a write is in flight" state and
+   * it disables every control on the tab, which would make testing four printers a sequence of
+   * waits. A per-printer flag is both kinder and more honest about what is happening.
+   *
+   * THE RESULT IS REPORTED AS THE SERVER GAVE IT. `queued: false` is not an error — it is a
+   * printer that is switched off or has no address, and the sentence says which so the owner
+   * goes to Configure rather than to the kitchen.
+   */
+  const runTest = (p: { id: string }): void => {
+    if (testing) return;
+    setTesting(p.id);
+    void (async () => {
+      try {
+        const result = await send<{ queued: boolean; printerName: string; reason: string }>(
+          '/api/owner/action',
+          { action: 'test-print', printerId: p.id }
+        );
+        toast.show(result.queued ? TEST_PRINT_QUEUED(result.printerName) : result.reason, {
+          tone: result.queued ? 'success' : 'error',
+        });
+      } catch (err: unknown) {
+        toast.show(err instanceof Error ? err.message : 'That test could not be queued.', { tone: 'error' });
+      } finally {
+        setTesting(null);
+      }
+    })();
+  };
 
   const save = (f: PrinterForm): void => {
     void runBusy(async () => {
@@ -334,6 +369,18 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         ) : null}
       </div>
 
+      {/* SAID WHERE THE BUTTON IS, which is this file's own stated principle. An owner who
+          presses Test print and then walks to the kitchen looking for paper has been misled by
+          a screen that knew better. */}
+      {canEdit && data.printers.length > 0 ? (
+        <p
+          data-testid="owner-print-test-note"
+          className="m-0 max-w-prose rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]"
+        >
+          {TEST_PRINT_NOTE}
+        </p>
+      ) : null}
+
       {data.printers.length === 0 ? (
         <FirstRunState
           title="No machine is configured"
@@ -355,6 +402,20 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                   <Pill tone={!p.enabled ? 'neutral' : p.online ? 'success' : 'error'}>
                     {!p.enabled ? 'Switched off' : p.online ? 'Answering' : 'Not answering'}
                   </Pill>
+                  {canEdit ? (
+                    <Button
+                      data-testid={`owner-print-test-${p.id}`}
+                      size="sm"
+                      variant="secondary"
+                      /* Per-printer, so testing the tandoor never disables the counter's button
+                         — the requester asked for exactly that, and it is also what stops a
+                         second tap queueing a second job for the same machine. */
+                      disabled={testing === p.id}
+                      onClick={() => runTest(p)}
+                    >
+                      {testing === p.id ? 'Queueing…' : 'Test print'}
+                    </Button>
+                  ) : null}
                   {canEdit ? (
                     <Button
                       data-testid={`owner-print-configure-${p.id}`}
