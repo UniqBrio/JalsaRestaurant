@@ -4,6 +4,7 @@ import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
+import { PrintTargets } from '@/components/ui/print';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
 import { PERMISSION_GROUPS, permissionLabel } from '@/lib/permissions';
@@ -143,7 +144,11 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
                   {k.code} <span className="font-normal text-[var(--text-muted)]">· {k.placedAt}</span>
                 </span>
                 <div className="flex items-center gap-1.5">
-                  {k.printStatus === 'failed' ? <Pill tone="error">Print failed</Pill> : null}
+                  {/* Superseded by PrintTargets below wherever the round carries its own jobs —
+                      kept for rounds placed before a job named its machine. */}
+                  {k.printJobs.length === 0 && k.printStatus === 'failed' ? (
+                    <Pill tone="error">Print failed</Pill>
+                  ) : null}
                   <Pill tone={k.tone}>{k.statusWord}</Pill>
                 </div>
               </div>
@@ -157,6 +162,22 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
                   .map((i) => `${i.name} ×${i.qty}`)
                   .join(' · ')}
               </p>
+
+              <PrintTargets
+                jobs={k.printJobs}
+                canRetry={data.grants.includes('orders.reprint')}
+                busy={busy}
+                testIdPrefix={`staff-list-print-${k.id}`}
+                onRetry={(job) =>
+                  runBusy(async () => {
+                    const res = await send<{ printerName: string; station: string }>('/api/staff/action', {
+                      action: 'retry-print',
+                      jobId: job.id,
+                    });
+                    toast.show(`${k.code} re-sent to ${res.printerName} · ${res.station} · ${data.me.name}`);
+                  })
+                }
+              />
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {data.grants.includes('orders.reprint') ? (
                   <Button

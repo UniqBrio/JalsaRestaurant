@@ -5,6 +5,7 @@ import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
+import { PrintTargets } from '@/components/ui/print';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, Input } from '@/components/ui/field';
@@ -24,6 +25,14 @@ import { CloseBillSheet } from '../CloseBillSheet';
  *
  * A FAILED PRINT IS A BADGE WITH A RETRY, not a silence. The order exists either way; what is
  * missing is a piece of paper, and the person who can fix that is looking at this screen.
+ *
+ * AND THE BADGE NAMES THE MACHINE (19-Sep-2026). It used to say only "Print failed", and the
+ * button under it said "Retry the print" — which called `reprint`, which re-ran routing with no
+ * categories and therefore sent every retry to the fallback machine. The owner could not see
+ * where the ticket had been meant to go, and the button did not do what it said. Both facts now
+ * come from the job itself: `PrintTargets` shows one row per machine, and its retry re-sends to
+ * that same machine. Reprint, below, is the separate act of marking and re-issuing paper that
+ * DID come out.
  */
 
 const CANCEL_REASONS = [
@@ -299,15 +308,32 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Pill tone="neutral">{k.sourceLabel}</Pill>
-                        {k.printStatus === 'failed' ? <Pill tone="error">Print failed</Pill> : null}
+                        {/* Only for a round placed before print jobs carried their own destination.
+                            Where they do, PrintTargets says it per machine and this would double. */}
+                        {k.printJobs.length === 0 && k.printStatus === 'failed' ? (
+                          <Pill tone="error">Print failed</Pill>
+                        ) : null}
                         {k.reprintCount > 0 ? <Pill tone="neutral">Reprinted ×{k.reprintCount}</Pill> : null}
                         <Pill tone={k.tone}>{k.statusLabel}</Pill>
                       </div>
                     </div>
-                    <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">
-                      From table {k.fromTable} ·{' '}
-                      {k.printStatus === 'printed' ? 'printed to the kitchen' : 'not printed'}
-                    </p>
+                    <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]">From table {k.fromTable}</p>
+
+                    <PrintTargets
+                      jobs={k.printJobs}
+                      canRetry={data.grants.includes('orders.reprint')}
+                      busy={busy}
+                      testIdPrefix={`owner-kot-${k.id}`}
+                      onRetry={(job) =>
+                        runBusy(async () => {
+                          const res = await send<{ printerName: string; station: string }>('/api/owner/action', {
+                            action: 'retry-print',
+                            jobId: job.id,
+                          });
+                          toast.show(`${k.code} re-sent to ${res.printerName} · ${res.station}`);
+                        })
+                      }
+                    />
 
                     <ul className="m-0 mt-2.5 flex list-none flex-col gap-1.5 p-0">
                       {k.items.map((i) => (
@@ -347,15 +373,15 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                         onClick={() =>
                           runBusy(async () => {
                             await send('/api/owner/action', { action: 'reprint', kotId: k.id });
-                            toast.show(
-                              k.printStatus === 'failed'
-                                ? `${k.code} sent to the printer again — it will show as a reprint`
-                                : `${k.code} reprinted — stamped REPRINT`
-                            );
+                            toast.show(`${k.code} reprinted — stamped REPRINT`);
                           })
                         }
                       >
-                        {k.printStatus === 'failed' ? 'Retry the print' : 'Reprint'}
+                        {/* Always the same word now. A retry and a reprint are different acts —
+                            one re-sends paper that never came out, the other marks and re-issues
+                            paper that did — and one button that silently changed which it meant
+                            was how the two came to be confused in the first place. */}
+                        Reprint
                       </Button>
                     ) : null}
                   </Card>

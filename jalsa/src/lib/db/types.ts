@@ -54,9 +54,15 @@ export interface Kot {
   /** The table this round came from. On a group bill this is what tells the runner where to go. */
   tableName: string;
   note: string;
+  /**
+   * The pessimistic aggregate over this round's live print jobs — failed if any failed, printed
+   * only once every one of them has. One badge for what may be several tickets.
+   */
   printStatus: 'queued' | 'printed' | 'failed';
   printAttempts: number;
   reprintCount: number;
+  /** One per machine this round is being printed at. Empty for a round placed before Phase 1. */
+  printJobs: KotPrintJob[];
   createdAt: string;
   startedAt: string | null;
   readyAt: string | null;
@@ -248,20 +254,56 @@ export interface PrinterRow {
   lastSeenAt: string | null;
 }
 
+/**
+ * A print job's destination, as every screen that shows one needs it.
+ *
+ * THE PRINTER'S UUID IS PART OF THE SHAPE, and it was not before. A screen that knows only
+ * `printerName` can show where a ticket went but cannot act on it — it cannot offer "retry on
+ * THIS machine" or let an operator pick a different one, because it has nothing to name in the
+ * request. Every retry therefore had to re-derive a target on the server, which is where the
+ * reassignment bug lived.
+ */
+export interface PrintTarget {
+  /** Null only when no machine could be assigned at all. */
+  printerId: string | null;
+  /** Snapshot taken when the job was created. Never re-joined. */
+  printerName: string;
+  /** The station the ticket is STAMPED for, which on a fallback is not the printer's own. */
+  station: string;
+  /** How the destination was decided. 'chosen' means a person did, via Print elsewhere. */
+  routingRule: 'routed' | 'fallback' | 'unrouted' | 'none' | 'chosen' | '';
+}
+
+/**
+ * One round's ticket, on the surfaces that show a KOT.
+ *
+ * A round can be several of these — one per machine — since a round spanning the tandoor and the
+ * main kitchen is two pieces of paper in two rooms.
+ */
+export interface KotPrintJob extends PrintTarget {
+  id: string;
+  status: 'queued' | 'printed' | 'failed';
+  attempts: number;
+  isReprint: boolean;
+  lastError: string;
+}
+
 /** One row of the print-history trail: what the system tried to print, and what happened. */
-export interface PrintJobRow {
+export interface PrintJobRow extends PrintTarget {
   id: string;
   kind: string;
   /** KOT-0042 or B-1048 — the identifier a person would look for, never the job's uuid. */
   reference: string;
   table: string;
-  printerName: string;
   status: 'queued' | 'printed' | 'failed';
   attempts: number;
   isReprint: boolean;
   requestedBy: string;
   lastError: string;
   createdAt: string;
+  lastAttemptAt: string | null;
+  /** Set when this job exists because an operator redirected another one. */
+  redirectedFromJobId: string | null;
 }
 
 /** What the guest's phone is shown. Never the whole bill row - only what their screen needs. */

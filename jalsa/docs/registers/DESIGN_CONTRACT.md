@@ -250,7 +250,22 @@ certificate, payslip) merge from the employment record.
 reprint actions. It has **no** template editor, no routing matrix, no print history screen, and
 **zero print-related test ids**.
 
-**STATUS** — **RECORDED.** Not resolved, not authorised, not built. Scope decision outstanding.
+**STATUS** — **RESOLVED**, 19-Sep-2026. Recorded here rather than rewritten, because the register
+is append-only and what the entry got wrong is itself the finding.
+
+The decision above went stale without anybody noticing: the template editor, the routing matrix,
+the history screen and the `owner-print-*` test ids all shipped in
+`20260916110000_jalsa_print_setup`, and this entry still read **"Not resolved, not authorised, not
+built"** three days later. An entry that describes a gap which has since been filled is worse than
+no entry — it is read as current, and a reader plans around a shortfall that is not there.
+
+Phase 1 (19-Sep-2026) closed the part that really was missing, which this entry never named: the
+routing screen configured a decision the order path took differently, and a retry re-took it from
+scratch. See `docs/modules/printing.md`.
+
+**Still outstanding, and genuinely so:** the physical transport (KL-2), and what two machines
+claiming one category is supposed to mean — recorded as an ambiguity in the module document rather
+than guessed at.
 
 ---
 

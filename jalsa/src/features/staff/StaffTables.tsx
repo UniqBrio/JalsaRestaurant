@@ -5,6 +5,7 @@ import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, ChipRow, FoodMark, Pill, SectionLabel, Stepper } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
+import { PrintTargets } from '@/components/ui/print';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { Field, Input, SearchField } from '@/components/ui/field';
@@ -265,9 +266,11 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                     {k.code} <span className="font-normal text-[var(--text-muted)]">· {k.placedAt}</span>
                   </span>
                   <div className="flex items-center gap-1.5">
-                    {k.printStatus === 'failed' ? (
-                      // Standard 5.7: the order exists, the failure is on the record, and the
-                      // retry is right here — not in a log nobody opens.
+                    {/* Standard 5.7: the order exists, the failure is on the record, and the
+                        retry is right here — not in a log nobody opens. Where the round carries
+                        its own jobs, PrintTargets below says which MACHINE, which is the half
+                        this pill could never answer; this remains for rounds placed before it. */}
+                    {k.printJobs.length === 0 && k.printStatus === 'failed' ? (
                       <Pill tone="error">Print failed</Pill>
                     ) : null}
                     {k.reprintCount > 0 ? <Pill tone="neutral">Reprinted ×{k.reprintCount}</Pill> : null}
@@ -276,9 +279,24 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                 </div>
                 <p className="m-0 mt-1 type-caption text-[var(--text-muted)]">
                   {bill.groupCode ? `from Table ${k.fromTable} · ` : ''}
-                  {k.source === 'guest' ? 'guest phone' : k.placedBy} ·{' '}
-                  {k.printStatus === 'printed' ? 'printed to kitchen' : 'not printed'}
+                  {k.source === 'guest' ? 'guest phone' : k.placedBy}
                 </p>
+
+                <PrintTargets
+                  jobs={k.printJobs}
+                  canRetry={data.grants.includes('orders.reprint')}
+                  busy={busy}
+                  testIdPrefix={`staff-kot-print-${k.id}`}
+                  onRetry={(job) =>
+                    runBusy(async () => {
+                      const res = await send<{ printerName: string; station: string }>('/api/staff/action', {
+                        action: 'retry-print',
+                        jobId: job.id,
+                      });
+                      toast.show(`${k.code} re-sent to ${res.printerName} · ${res.station} · ${data.me.name}`);
+                    })
+                  }
+                />
 
                 <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0">
                   {k.items.map((i) => (

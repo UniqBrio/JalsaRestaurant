@@ -5,6 +5,49 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+## Application run - jalsa - 2026-09-21 - Phase 1 print job assignment
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file — the same subdirectory-layout gap noted in the 10-Sep block below, still
+recorded as a candidate rather than escaped with a token.
+
+488 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass. The four
+DB-dependent functional specs are environment-blocked, not failing: this runtime cannot reach
+`*.supabase.co`.
+
+Two specs were added. `print-assignment.unit.spec.ts` does not collect against the pre-fix tree at
+ef930ea — it imports `src/components/ui/print.tsx`, which did not exist — so per-rung evidence was
+obtained by re-injecting each shipped defect into the finished tree instead.
+
+NOT OBSERVED FAILING: jalsa/tests/unit/print-assignment.unit.spec.ts (whole file, pre-fix tree) - it
+cannot collect at ef930ea because `src/components/ui/print.tsx` did not exist; Playwright reports "No
+tests found". The three injection runs below are the per-rung evidence.
+
+FAIL-FIRST: jalsa/tests/unit/print-assignment.unit.spec.ts - `retryPrintJob` restored to re-select a
+printer and patch `printer_id`, as it shipped: 3 failed, 23 passed - "RETRY MUST NOT REASSIGN THE
+PRINTER", "RETRY MUST NOT RE-RUN ROUTING", and "a failed Tandoor ticket can never be retried onto the
+Main Kitchen machine".
+
+FAIL-FIRST: jalsa/tests/unit/print-assignment.unit.spec.ts - `queuePrint` restored to one job per round
+with `status: reachable ? 'printed' : 'failed'`: 2 failed, 24 passed - "a printer answering is not a job
+succeeding" and "NOTHING IN THE PRINT PATH MAY WRITE printed". The second went red only after the rung
+was rewritten: the first version matched `status: 'printed'` literally and the real defect is a TERNARY,
+so it passed over the exact thing it is named after.
+
+FAIL-FIRST: jalsa/tests/unit/print-assignment.unit.spec.ts - `reprintKot` restored to pass no items: 1
+failed, 25 passed - "A REPRINT ROUTES ON WHAT THE ROUND CONTAINS".
+
+FAIL-FIRST: jalsa/tests/unit/print-assignment.unit.spec.ts - "the split is what the order path actually
+calls" re-run with the production call behind a dead `false &&` guard: 1 failed - Expected
+"input.items?.length", Received "false && input.items?.length". This rung had stayed GREEN under that
+same injection before the guard expression was pinned.
+
+FAIL-FIRST: jalsa/tests/unit/spec-supersession.unit.spec.ts - `jalsa/CLAUDE.md` reverted to its
+pre-amendment wording: 2 failed, 4 passed - "the exception exists and is narrowly scoped to a CONTRACT
+change" and "the exception names its pattern".
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/combobox.unit.spec.ts and jalsa/tests/unit/combobox-migration.unit.spec.ts
 - two injected defects, each reverted.
 (A) the Expenses > Category migration reverted to the native `<datalist>` it replaced:

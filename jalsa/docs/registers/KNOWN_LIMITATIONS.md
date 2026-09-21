@@ -43,17 +43,29 @@ mitigation. Rung: `set_own_pin` rejects the shared code (verified against the li
 
 ---
 
-### KL-2 — Thermal printers are unvalidated, so every KOT is written and then marked failed
-**Since** 10-Sep-2026 · **Category** unvalidated dependency
+### KL-2 — There is no printer transport, so no ticket is ever delivered
+**Since** 10-Sep-2026 · **Restated** 19-Sep-2026 (Phase 1) · **Category** unvalidated dependency
 
-No printer has been connected to this build. All four seeded printers carry `online = false`, and
-`queuePrint` persists the job first and then marks it `print_status = 'failed'` when no printer is
-reachable, with a visible retry on the KOT.
+Nothing in this repository opens a socket, a USB handle or a print API. A round is routed,
+assigned to a specific machine and written as a `print_job` with `status = 'queued'` — and there
+it stays, because the thing that would deliver it does not exist. Phase 2 (`docs/modules/printing.md`)
+is that thing.
+
+**What changed on 19-Sep-2026.** This entry used to say every KOT was *"marked failed"*, and that
+was true: `queuePrint` set the status from `printer.online`, so "printed" meant a boolean on
+another table was true and "failed" meant it was not. Neither word was about paper. A job now
+settles at `queued` — assigned, undelivered, and saying exactly that. `failed` is reserved for the
+one failure this layer can actually see (no machine could be assigned at all) and for Phase 2's
+reports; **`printed` is not written anywhere in this repository.**
 
 **Why not hide it.** A kitchen ticket that silently did not print is the single most expensive
 failure this application can have — the guest waits, the kitchen never knew, and nobody finds out
-until the table asks. A visible red retry on every KOT is the honest state until a printer is
-actually on the network, and it is what the staff surface is designed around.
+until the table asks. So every round names its machine and its station on all three surfaces and
+carries a retry, and "Waiting to print" is on screen for as long as that is what is true. The one
+thing the application must never do is claim a print it has no way of knowing about.
+
+**The mitigation is executable, not prose.** `tests/unit/print-assignment.unit.spec.ts` fails if
+any function in the print path becomes able to write `printed`, in any expression.
 
 ---
 

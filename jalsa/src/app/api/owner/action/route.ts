@@ -12,6 +12,7 @@ import {
   joinTableToBill,
   replyToSuggestion,
   reprintKot,
+  printElsewhere,
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
@@ -106,6 +107,10 @@ type Action =
       enabled: boolean;
     }
   | { action: 'retry-print'; jobId: string }
+  /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
+     path to a machine other than the assigned one, and it exists so no automatic path has
+     to. A redirect nobody asked for is indistinguishable, from a kitchen, from routing. */
+  | { action: 'print-elsewhere'; jobId: string; printerId: string }
   | { action: 'detach-table'; billId: string; tableId: string }
   | { action: 'write-employment'; staffId: string; patch: Record<string, string | number | null> };
 
@@ -315,6 +320,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));
+
+    case 'print-elsewhere':
+      return ok(await printElsewhere({ jobId: input.jobId, printerId: input.printerId, actor }));
 
     case 'detach-table':
       return ok(await detachTableFromBill({ billId: input.billId, tableId: input.tableId, actor }));

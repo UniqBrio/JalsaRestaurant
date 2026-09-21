@@ -17,11 +17,35 @@
  *      Kitchen", where the wrong cook picks it up.
  *
  * Both were reverted and the suite returned to 18 passed.
+ *
+ * ── SUPERSEDED ASSERTIONS · 19-Sep-2026 · Phase 1 print-job assignment ──────────────────────
+ * Four cases below asserted that a printer which had not ANSWERED (`online: false`) lost its
+ * categories to the main kitchen. That was true and correct while the printer was re-chosen on
+ * every attempt. It stopped being correct when `print_job.printer_id` became permanent and
+ * immutable: `online` is a fact about this second and the assignment is forever, so a tandoor
+ * machine that happened to be unplugged when a round was placed would have had its ticket
+ * assigned to the main kitchen FOR GOOD, with no later retry able to correct it. `online` is
+ * therefore no longer a routing input — it is a delivery fact, for the layer that can act on it.
+ *
+ * What the four cases asserted, kept here because it was once the specified behaviour:
+ *   · an unreachable station fell back to the main kitchen
+ *   · that fallback ticket carried the station it was meant for
+ *   · "switched off" and "not answering" produced different fallback reasons
+ *   · a split merged an unreachable station's items onto the fallback machine
+ *
+ * Each is rewritten below against the rule that replaced it. The FALLBACK ITSELF IS NOT GONE —
+ * it is now triggered by `enabled: false`, the owner's decision to take a machine out of use,
+ * which is a fact with no clock on it. Both halves of the original defect (a ticket must never
+ * vanish; a fallback ticket must carry the station it was meant for) are still asserted, and
+ * still fail if either is broken.
  */
 import { test, expect } from '@playwright/test';
 import { mainPrinter, resolvePrinter, splitRound, type RoutablePrinter } from '../../src/lib/print-routing';
 
 const printer = (p: Partial<RoutablePrinter> & { id: string }): RoutablePrinter => ({
+  // Defaulted from the id so every fixture has the tie-break key routing now sorts on, and the
+  // order of a fixture array stops being able to decide anything.
+  machineId: p.id,
   name: `Machine ${p.id}`,
   purpose: 'KOT',
   station: 'Main Kitchen',
@@ -74,26 +98,49 @@ test('a bill never goes to a kitchen machine, whatever the routes say', () => {
 
 /* ── The fallback ──────────────────────────────────────────────────────── */
 
-test('AN UNREACHABLE STATION FALLS BACK TO THE MAIN KITCHEN — a ticket never vanishes', () => {
-  const down = [MAIN, { ...TANDOOR, online: false }, COUNTER];
-  const d = resolvePrinter({ purpose: 'KOT', category: 'Non-Veg Starters', printers: down });
+test('A SWITCHED-OFF STATION FALLS BACK TO THE MAIN KITCHEN — a ticket never vanishes', () => {
+  // Supersedes the `online: false` version. The owner taking a machine out of use is a decision
+  // with no clock on it, so it is safe to route around permanently; "did not answer" is not.
+  const off = [MAIN, { ...TANDOOR, enabled: false }, COUNTER];
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Non-Veg Starters', printers: off });
   expect(d.printer?.id).toBe('main');
   expect(d.rule).toBe('fallback');
 });
 
+test('A STATION THAT HAS NOT ANSWERED KEEPS ITS OWN TICKETS — the assignment outlives the fault', () => {
+  // THE CORRECTION. Before Phase 1 this returned 'main', which — once printer_id became
+  // permanent — meant a momentarily unplugged tandoor lost every ticket placed in that window,
+  // with no retry able to bring them back. A printer that is merely quiet is still the right
+  // destination; getting paper out of it is the delivery layer's problem.
+  const quiet = [MAIN, { ...TANDOOR, online: false }, COUNTER];
+  const d = resolvePrinter({ purpose: 'KOT', category: 'Non-Veg Starters', printers: quiet });
+  expect(d.printer?.id).toBe('tandoor');
+  expect(d.rule).toBe('routed');
+  expect(d.station).toBe('Tandoor');
+});
+
 test('A FALLBACK TICKET CARRIES THE STATION IT WAS MEANT FOR, not the one it came out at', () => {
-  const down = [MAIN, { ...TANDOOR, online: false }, COUNTER];
+  // Same assertion as before, on the trigger that now causes a fallback.
+  const down = [MAIN, { ...TANDOOR, enabled: false }, COUNTER];
   const d = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: down });
   expect(d.printer?.id).toBe('main');
   expect(d.station).toBe('Tandoor');
   expect(d.reason).toContain('Tandoor');
 });
 
-test('OFF and NOT ANSWERING are different words — a decision is not a fault', () => {
+test('OFF and NOT ANSWERING are different things — and only one of them changes the routing', () => {
+  // They were two wordings of one outcome. They are now two outcomes: a decision reroutes, a
+  // fault does not. That distinction is the whole correction, so it is asserted on the DECISION
+  // rather than on the sentence describing it.
   const off = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: [MAIN, { ...TANDOOR, enabled: false }] });
-  const dead = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: [MAIN, { ...TANDOOR, online: false }] });
+  const quiet = resolvePrinter({ purpose: 'KOT', category: 'Veg Starters', printers: [MAIN, { ...TANDOOR, online: false }] });
+
+  expect(off.rule).toBe('fallback');
+  expect(off.printer?.id).toBe('main');
   expect(off.reason).toContain('switched off');
-  expect(dead.reason).toContain('not answering');
+
+  expect(quiet.rule).toBe('routed');
+  expect(quiet.printer?.id).toBe('tandoor');
 });
 
 test('with EVERY machine down the decision still names one, so the failure has an address', () => {
@@ -161,7 +208,7 @@ test('a round spanning two stations produces one ticket per station', () => {
 });
 
 test('a fallback merges into the machine it fell back to but KEEPS its own station heading', () => {
-  const down = [MAIN, { ...TANDOOR, online: false }];
+  const down = [MAIN, { ...TANDOOR, enabled: false }];
   const items = [
     { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
     { category: 'Rice', foodType: 'veg' as const },

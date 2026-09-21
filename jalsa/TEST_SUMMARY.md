@@ -4,6 +4,85 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fail-first evidence - 2026-09-20/21 - Phase 1 print job assignment
+
+Two specs were added in this change. Each was observed failing before it was trusted.
+
+`tests/unit/print-assignment.unit.spec.ts` does not collect against the true pre-fix tree at
+ef930ea - it imports `src/components/ui/print.tsx`, which did not exist, so Playwright reports
+"No tests found". That is evidence the file is new, not evidence any rung can fail. Each of the
+three shipped defects was therefore put back into the finished tree, one at a time:
+
+NOT OBSERVED FAILING: tests/unit/print-assignment.unit.spec.ts (whole file, pre-fix tree) - the file
+  cannot collect at ef930ea because src/components/ui/print.tsx did not exist. Per-rung evidence
+  was obtained by re-injecting each shipped defect instead; the three runs are below.
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - `retryPrintJob` restored to re-select a printer
+  and patch printer_id, as it shipped: 3 failed, 23 passed - "RETRY MUST NOT REASSIGN THE PRINTER",
+  "RETRY MUST NOT RE-RUN ROUTING", and "a failed Tandoor ticket can never be retried onto the Main
+  Kitchen machine".
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - `queuePrint` restored to one job per round with
+  `status: reachable ? 'printed' : 'failed'`: 2 failed, 24 passed - "a printer answering is not a job
+  succeeding" and "NOTHING IN THE PRINT PATH MAY WRITE printed". The second went red only after the
+  rung was rewritten: the first version matched `status: 'printed'` literally and the real defect is a
+  TERNARY, so it passed over the exact thing it is named after. That near-miss is why `statusWrites`
+  matches the field and takes whatever expression follows.
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - `reprintKot` restored to pass no items: 1 failed,
+  25 passed - "A REPRINT ROUTES ON WHAT THE ROUND CONTAINS".
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - "the split is what the order path actually calls"
+  re-run with the production call behind a dead `false &&` guard: 1 failed - Expected
+  "input.items?.length", Received "false && input.items?.length". This rung had stayed GREEN under that
+  same injection before the guard expression was pinned; static analysis cannot prove reachability in
+  general, and this closes the one way it was faked here.
+FAIL-FIRST: tests/unit/spec-supersession.unit.spec.ts - `jalsa/CLAUDE.md` reverted to its pre-amendment
+  wording: 2 failed, 4 passed - "the exception exists and is narrowly scoped to a CONTRACT change" and
+  "the exception names its pattern".
+
+Finished tree: 488 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
+## Gate run - 2026-09-19 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 4m 42s total - slowest G8 Functional / integration (4m 16s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (57ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (49ms)
+- **G4 No hard-coded colours** - PASS (73ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (9.9s)
+- **G7 Unit + pure specs** - PASS (9.8s)
+- **G8 Functional / integration** - FAIL (4m 16s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (59ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (59ms)
+- **G12 Installable as an application** - PASS (72ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## Gate run - 2026-09-18 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.
