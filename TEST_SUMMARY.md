@@ -5,6 +5,46 @@ _`## Gate run` blocks are written by `scripts/gate-runner.mjs`; guard G2 greps f
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/restaurant-details.unit.spec.ts - the HR email control's setter in
+jalsa/src/features/owner/sections/SettingsSection.tsx changed from `set('hr_email')` to
+`set('email')` (a copy-paste mis-binding that would silently stop saving HR email edits), and
+nothing else touched: **1 failed, 9 passed**. Case "all TEN columns are still read into the form
+and still written back" failed on `hr_email must have a setter`. The other nine read the tab
+row, the shipped sentences, the one `write-identity` call, the `pair` grid and the token pair,
+none of which the injection touched, and correctly stayed green. Restored and verified
+byte-identical by checksum: **10 passed**.
+FAIL-FIRST: jalsa/tests/render/restaurant-details.render.spec.ts - run against main's
+IdentityPanel (the pre-fix tree, `git show HEAD:` of the same file, which has no `pair`
+constant): **1 failed, 18 passed**. Case "the pinned classes are the ones the panel actually
+ships" failed on `the grid measured here must be the grid that ships`. The eighteen width cases
+build their own DOM from the pinned constants and measure that, so they stayed green on either
+tree - the source assertion is the one that binds the measurement to the panel, and it is the one
+that fired. Candidate restored from the index, checksum identical: **19 passed**.
+Full suite on the isolated tree: **719 passed** (unit + render), 0 failed - main's 690 plus
+exactly the 29 new cases. Chromium only: the WebKit-backed tablet and mobile-ios projects did not
+run in this container (bundled Chromium supplied via PLAYWRIGHT_CHROMIUM_PATH; WebKit cannot be
+fetched here). One earlier full run showed 22 render failures with corrupted class names in the
+generated CSS while an untracked `.next-rd` build directory sat beside `src/` and was being read
+by Tailwind's content scanner; with that directory removed the same tree passed 719/719. An
+environment artefact of running the build before the suite, not a property of the change.
+SHIPPED-STRING CHANGE, DECLARED: the single section label "One identity block, read by every
+screen and every printed document" becomes four card headings - "Restaurant identity", "Contact
+& location", "Business details", "Who signs" - and the brand block adds "What every screen and
+every printed document reads." plus the HR email hint "Where offer letters and experience
+certificates come from." Both sentences the unit spec freezes are unchanged and still inside the
+panel. No string that any other spec asserts was touched.
+THE BEHAVIOUR THE INJECTIONS PROVE IS PROTECTED: every one of the ten `restaurant` columns is
+read into the form and bound to a control with its own setter, and the save is the same single
+`write-identity` call carrying the whole patch; the grid the render cases measure is the grid
+the panel ships. Presentation only - `writeIdentity`, the action route and the schema are
+untouched, and no migration was needed or written. The logo upload, which shares this file on
+the development branch, is NOT part of this change: the brand block shows the static badge.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so the panel was not opened against a real
+restaurant row and no save was round-tripped.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/test-print.unit.spec.ts - the two checks inside `testPrintBlocker`
 in jalsa/src/lib/test-print.ts removed so it returned null for every printer (the switched-off
 refusal and the no-address refusal), and nothing else touched: **2 failed, 26 passed**. Case 13
