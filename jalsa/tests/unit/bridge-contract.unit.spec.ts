@@ -274,7 +274,16 @@ const PAYLOAD = read('src/lib/db/bridge-payload.ts');
 
 test('the payload composes from the ORIGIN and never from the redirect itself', () => {
   expect(PAYLOAD.length).toBeGreaterThan(4000);
-  const p = code(PAYLOAD);
+
+  // SCOPED TO `ticketPayloadFor` (narrowed 22-Sep-2026, Gate 6). This rung read the whole FILE
+  // until Gate 6 added `testPayload`, a second `composeTicket` call site that composes from the
+  // job's own station - correctly, because a test print has no origin to inherit one from. The
+  // file-scoped regex could not tell the two branches apart and went red on the right code.
+  // The claim was always about the ORDINARY path, so that is what it reads now.
+  const whole = code(PAYLOAD);
+  const from = whole.indexOf('export async function ticketPayloadFor');
+  const p = whole.slice(from, whole.indexOf('\nasync function lineRows', from));
+  expect(p.length, 'ticketPayloadFor body').toBeGreaterThan(1500);
 
   // The walk is called, and its result is what reaches the composer's job identity.
   expect(p).toContain('await originOf(');

@@ -2,6 +2,43 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 6 (configuration, test print, bridge credentials)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+A TEST PRINT IS AN ORDINARY PRINT JOB. `testPrint()` inserts a row into `print_job` and stops;
+everything after it is the path a kitchen ticket takes, unchanged. A button that opened the printer
+directly would prove the one part of the path that never fails. A rung pins that no second print
+path exists: `encodeTicket` has exactly one caller in the system, and no application module holds a
+transport.
+
+THE BRIDGE CREDENTIAL: 32 bytes of CSPRNG, only the SHA-256 stored, returned exactly once, never
+logged or audited, and not readable back - `listBridgeTokens` does not even expose the hash.
+Revoking is a timestamp, never a delete. The console has no field, state or request that carries a
+token back in, and a rung walks every `send()` payload to prove it.
+
+DATABASE EVIDENCE (TEST project; rows deleted afterwards): a Test job inserts with kot_id and
+bill_id NULL; the bridge's own list predicate finds it, by the same query a KOT is found by;
+`bridge_token` stores a 64-char hex hash and has no token/secret/raw_token column.
+
+FAIL-FIRST: 11 defects injected. NINE fired first time. TWO did not, and both were rungs of mine
+that checked for a STRING rather than a behaviour: the switched-off guard (the words survive
+`if (false)`, so the GUARD EXPRESSION is pinned instead) and the token-in-audit rung (looked for
+`token)` while the injection wrote `${token}`; then went red on the clean tree twice more, because
+"token" is also an English word in the detail and because the slice swept in the legitimate
+`return { …, token }`). It now reads the audit call only and checks interpolations separately.
+Third appearance of this class after Gate 1's ternary and Gate 4's side rule.
+
+A GATE 4 RUNG NARROWED: `bridge-contract` asserted across the whole FILE that the payload composes
+from the origin. Gate 6 added a second `composeTicket` call site (the test print, which has no
+origin) and the file-scoped regex went red on correct code. Narrowed to `ticketPayloadFor`, then
+re-injected with the original defect to confirm it still fires.
+
+Finished tree: 715 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Phase 2 Gate 5 (the Windows print bridge)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads

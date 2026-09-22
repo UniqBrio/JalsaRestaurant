@@ -393,3 +393,20 @@ export interface GuestReply {
   repliedBy: string;
   repliedAtIso: string;
 }
+
+/**
+ * A bridge, as the owner's console sees it (Gate 6).
+ *
+ * NOTE WHAT IS NOT HERE: the token, and the hash of the token. The token exists exactly once, in
+ * the response to the call that issued it, and is never readable again — so a compromised console
+ * session cannot harvest working credentials for the PCs in the building, only revoke them.
+ */
+export interface BridgeTokenRow {
+  id: string;
+  /** What a person calls the PC. This is what lands in `print_job.claimed_by`. */
+  label: string;
+  createdAt: string;
+  /** When this bridge last called the API. Null means it has never connected. */
+  lastSeenAt: string | null;
+  revokedAt: string | null;
+}

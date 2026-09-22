@@ -54,11 +54,12 @@ import { MetricTile } from '../OwnerConsole';
  *   they are used rather than in a note somebody has to go and find.
  */
 
-type Tab = 'overview' | 'printers' | 'templates' | 'routing' | 'history';
+type Tab = 'overview' | 'printers' | 'bridges' | 'templates' | 'routing' | 'history';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'printers', label: 'Printers' },
+  { key: 'bridges', label: 'Bridges' },
   { key: 'templates', label: 'Templates' },
   { key: 'routing', label: 'Routing' },
   { key: 'history', label: 'History' },
@@ -149,6 +150,7 @@ export function PrintSetupSection(props: OwnerSectionProps) {
         />
       ) : null}
       {tab === 'printers' ? <PrintersPanel {...props} /> : null}
+      {tab === 'bridges' ? <BridgesPanel {...props} /> : null}
       {tab === 'templates' ? <TemplatesPanel {...props} /> : null}
       {tab === 'routing' ? <RoutingPanel {...props} /> : null}
       {tab === 'history' ? <HistoryPanel {...props} /> : null}
@@ -321,6 +323,22 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const [form, setForm] = React.useState<PrinterForm | null>(null);
   const canEdit = data.grants.includes('set.printer');
 
+  /**
+   * A test print is an ORDINARY print job with a different payload.
+   *
+   * It is queued, listed, claimed, composed by `buildTicket`, encoded by `escpos.ts`, carried by
+   * whichever transport the bridge has and reported like any ticket. A button that opened the
+   * printer directly would prove the one part of the path that never fails.
+   */
+  const testPrint = (p: { id: string; name: string }): void => {
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'test-print', printerId: p.id });
+      toast.show(`Test ticket queued for ${p.name} — it prints when the bridge picks it up`, {
+        tone: 'success',
+      });
+    });
+  };
+
   const save = (f: PrinterForm): void => {
     void runBusy(async () => {
       await send('/api/owner/action', {
@@ -378,14 +396,29 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     {!p.enabled ? 'Switched off' : p.online ? 'Answering' : 'Not answering'}
                   </Pill>
                   {canEdit ? (
-                    <Button
-                      data-testid={`owner-print-configure-${p.id}`}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setForm({ ...p })}
-                    >
-                      Configure
-                    </Button>
+                    <>
+                      {/* A test print is an ORDINARY print job with a different payload. It is
+                          queued, listed, claimed, composed, encoded, carried and reported exactly
+                          as a kitchen ticket is — see `testPrint()`. A button that opened the
+                          printer directly would prove the one thing that never fails. */}
+                      <Button
+                        data-testid={`owner-print-test-${p.id}`}
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy || !p.enabled}
+                        onClick={() => testPrint(p)}
+                      >
+                        Test print
+                      </Button>
+                      <Button
+                        data-testid={`owner-print-configure-${p.id}`}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setForm({ ...p })}
+                      >
+                        Configure
+                      </Button>
+                    </>
                   ) : null}
                 </div>
 
@@ -525,6 +558,156 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               consequence="Switched off, its tickets go to the main kitchen printer. That is a decision — a machine that simply stops answering is a fault, and the screen says so differently."
               testId="owner-print-enabled"
             />
+          </div>
+        ) : null}
+      </Sheet>
+    </div>
+  );
+}
+
+
+const timeLabel = (iso: string): string =>
+  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+/* ── Bridges ───────────────────────────────────────────────────────────── */
+
+/**
+ * The PCs allowed to carry tickets, and what each one last did.
+ *
+ * WHY THE TOKEN APPEARS EXACTLY ONCE
+ *   `bridge_token` stores the SHA-256 and never the token, so a dump of the table yields no
+ *   working credential and revocation is a timestamp rather than a redeploy. The cost is that a
+ *   lost token cannot be recovered, only replaced — which is the right trade for a credential that
+ *   lives in a text file on a PC in a kitchen. This panel therefore shows the token in the sheet
+ *   that issued it and never again, and says so plainly rather than letting somebody close it
+ *   expecting to come back.
+ *
+ * WHY REVOKED ROWS STAY
+ *   The job history says which PC carried which ticket. A deleted label makes last Tuesday
+ *   unreadable, so revoking is a date in a column and the row remains.
+ */
+function BridgesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const canEdit = data.grants.includes('set.printer');
+  const [label, setLabel] = React.useState('');
+  const [issued, setIssued] = React.useState<{ label: string; token: string } | null>(null);
+
+  const issue = (): void => {
+    void runBusy(async () => {
+      const res = (await send('/api/owner/action', { action: 'issue-bridge-token', label })) as {
+        label: string;
+        token: string;
+      };
+      setLabel('');
+      // Held in component state for exactly as long as the sheet is open. Never re-fetched,
+      // because nothing can fetch it.
+      setIssued({ label: res.label, token: res.token });
+    });
+  };
+
+  const revoke = (id: string, name: string): void => {
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'revoke-bridge-token', tokenId: id });
+      toast.show(`${name} can no longer collect tickets`, { tone: 'success' });
+    });
+  };
+
+  const live = data.bridges.filter((b) => !b.revokedAt);
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="owner-print-bridges">
+      <SectionLabel>Print bridges</SectionLabel>
+
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        A bridge is the small program on the PC a printer is plugged into. It asks what is waiting,
+        takes one ticket at a time and says what happened. It cannot choose a printer, and it holds
+        no database credential — only the token issued here.
+      </p>
+
+      {live.length === 0 ? (
+        <FirstRunState
+          testId="owner-print-bridges-empty"
+          title="No PC is collecting tickets yet"
+          note="Issue a token, then paste it into the bridge on the PC the printer is plugged into. Until one connects, tickets wait in the queue."
+        />
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {data.bridges.map((b) => (
+            <li key={b.id}>
+              <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="m-0 type-body font-semibold">{b.label}</p>
+                  <p className="m-0 type-caption text-[var(--text-muted)]">
+                    {b.revokedAt
+                      ? 'Revoked — it can no longer collect tickets'
+                      : b.lastSeenAt
+                        ? `Last collected ${timeLabel(b.lastSeenAt)}`
+                        : 'Has never connected'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Pill tone={b.revokedAt ? 'neutral' : b.lastSeenAt ? 'success' : 'warning'}>
+                    {b.revokedAt ? 'Revoked' : b.lastSeenAt ? 'Connected' : 'Waiting'}
+                  </Pill>
+                  {canEdit && !b.revokedAt ? (
+                    <Button
+                      data-testid={`owner-bridge-revoke-${b.id}`}
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => revoke(b.id, b.label)}
+                    >
+                      Revoke
+                    </Button>
+                  ) : null}
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canEdit ? (
+        <Card className="flex flex-wrap items-end gap-3 p-4">
+          <Field label="Name this PC" htmlFor="owner-bridge-label" hint="What somebody standing next to it would call it.">
+            <Input
+              id="owner-bridge-label"
+              data-testid="owner-bridge-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Kitchen PC"
+            />
+          </Field>
+          <Button data-testid="owner-bridge-issue" disabled={busy || !label.trim()} onClick={issue}>
+            Issue a token
+          </Button>
+        </Card>
+      ) : null}
+
+      <Sheet
+        open={issued !== null}
+        onOpenChange={(o) => !o && setIssued(null)}
+        posture="modal"
+        title="Copy this token now"
+        description="It is shown once. Nothing can read it back — if it is lost, issue another and revoke this one."
+        testId="owner-bridge-token"
+        footer={
+          <Button data-testid="owner-bridge-token-done" onClick={() => setIssued(null)}>
+            I have copied it
+          </Button>
+        }
+      >
+        {issued ? (
+          <div className="flex flex-col gap-3">
+            <p className="m-0 type-caption text-[var(--text-muted)]">
+              Set this as <code>JALSA_BRIDGE_TOKEN</code> on <strong>{issued.label}</strong>.
+            </p>
+            <code
+              data-testid="owner-bridge-token-value"
+              className="block break-all rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 type-caption"
+            >
+              {issued.token}
+            </code>
           </div>
         ) : null}
       </Sheet>

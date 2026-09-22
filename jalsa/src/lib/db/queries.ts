@@ -20,6 +20,7 @@ import type {
   Suggestion,
   TableRequest,
   TipRow,
+  BridgeTokenRow,
 } from './types';
 
 /**
@@ -1002,5 +1003,33 @@ export async function listGuestReplies(tableId: string): Promise<GuestReply[]> {
     reply: r.reply as string,
     repliedBy: (r.replied_by as string) ?? '',
     repliedAtIso: r.replied_at as string,
+  }));
+}
+
+/**
+ * The bridges this restaurant has issued tokens to (Gate 6).
+ *
+ * WITHOUT THE HASH, DELIBERATELY. `token_hash` is not a secret in the sense the token is — it
+ * cannot be replayed — but it is offline-attackable, and a console payload is a thing that ends
+ * up in a browser's memory, a screenshot and a support thread. Nothing on this screen needs it.
+ *
+ * Revoked rows are KEPT and returned. The job history says which PC carried which ticket, and a
+ * revoked label still has to resolve; a delete would make last Tuesday unreadable.
+ */
+export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bridge_token')
+    .select('id,label,created_at,last_seen_at,revoked_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((t) => ({
+    id: t.id as string,
+    label: t.label as string,
+    createdAt: t.created_at as string,
+    lastSeenAt: (t.last_seen_at as string | null) ?? null,
+    revokedAt: (t.revoked_at as string | null) ?? null,
   }));
 }

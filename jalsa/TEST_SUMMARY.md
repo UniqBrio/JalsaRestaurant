@@ -4,6 +4,96 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 6 (configuration, test print, bridge credentials)
+
+The operational half: a Test Print that goes out through the real path, bridge tokens issued and
+revoked from the console, and the screens that show which PC is collecting tickets.
+
+A TEST PRINT IS AN ORDINARY PRINT JOB, AND THAT IS THE WHOLE DESIGN
+  The tempting shape is a small function that opens the printer and writes "Hello". It would work,
+  and it would prove almost nothing: not the claim, not the composition, not the encoder, not the
+  transport, not the report. Then a real ticket would fail later and the successful test would be
+  evidence for the wrong thing.
+
+  So `testPrint()` inserts a row into `print_job` and stops. Everything after it - the bridge
+  listing it, claiming it, composing it through `buildTicket`, encoding it through `escpos.ts`,
+  carrying it through whichever transport that PC has, and reporting the outcome - is the path a
+  kitchen ticket takes, unchanged. `test-ticket.ts` is the only difference, and it is a payload.
+
+  A rung pins that no second print path exists: `encodeTicket` has exactly one caller in the whole
+  system (`bridge/src/loop.ts`), and no application module holds a transport or sends anything.
+
+WHAT IS ON A TEST TICKET
+  Enough to diagnose the machine from the paper alone: which machine Jalsa thinks it is, which
+  station it is stamped for, who pressed it, when. Both food types, so the VEG/NON-VEG headings are
+  exercised. One line longer than a 58 mm roll holds, so a wrong width is visible without measuring.
+  Every identifier field carries a word rather than a plausible code - `TEST PRINT`, not
+  `KOT-0000`, because somebody WILL pick this paper up off a pass and a fake KOT number sends a
+  cook looking for table zero. Every item is unrouted (`category: ''`), so a test print needs no
+  routing configuration to exist and cannot be misdirected by one that does.
+
+  It is refused for a switched-off machine. Honouring `enabled` for real tickets and ignoring it
+  for a test would make the test prove something about a machine that is not in service.
+
+THE BRIDGE CREDENTIAL
+  `issueBridgeToken` generates 32 bytes of CSPRNG with a `jbt_` prefix, stores ONLY the SHA-256,
+  and returns the raw token exactly once. It is never logged, never audited (the audit line carries
+  the label and `confidential: true`), and cannot be read back: `listBridgeTokens` selects five
+  columns by name and `token_hash` is not among them - it is not replayable, but it is
+  offline-attackable, and a console payload ends up in browser memory, screenshots and support
+  threads. Revoking is a timestamp, never a delete: the job history says which PC carried which
+  ticket, and a deleted label makes last Tuesday unreadable.
+
+  The console shows the token in the sheet that issued it, says plainly that it is shown once, and
+  has no field, state or request that carries a token back INTO the application. A rung walks every
+  `send()` payload in the panel and asserts none of them has a `token` key.
+
+DATABASE EVIDENCE (TEST project, 22-Sep-2026; evidence rows deleted afterwards)
+  a Test job inserts with kot_id and bill_id NULL      -> accepted
+  kind 'Test', routing_rule 'chosen', food_side 'all'  -> as written
+  the bridge's own list predicate finds it             -> 1 row, the same query a KOT is found by
+  bridge_token stores a 64-char hex hash               -> and has no token/secret/raw_token column
+
+FAIL-FIRST: 11 defects injected into the finished tree. NINE fired first time; TWO did not, and
+both were rungs of mine that checked for the presence of a STRING rather than for the behaviour:
+
+  C1  a test print ignores a switched-off machine     GREEN at first - the rung asserted that the
+      words "is switched off" and "enabled" appeared in the body, and both survive `if (false)`
+      because they are in the message the dead branch would have thrown. Rewritten to pin the
+      GUARD EXPRESSION; it fires. Third time this class has appeared (Gate 1's ternary, Gate 4's
+      side rule), and the lesson is the same one: a rung blind to the exact form of the defect it
+      is named after is decoration.
+  C4  the token reaches the audit trail               GREEN at first - the rung looked for the
+      literal `token)` and the injection wrote `${token}`. Rewritten, then WRONG TWICE MORE: a
+      bare /\btoken\b/ goes red on the clean tree, because the detail legitimately reads "Bridge
+      token issued for …" and because slicing to the end of the body sweeps in the `return { …,
+      token }` that hands it to the caller. The rung now reads the audit CALL only, checks every
+      `${…}` interpolation and checks the call with string literals removed. It distinguishes the
+      identifier from the English word, which was the whole difficulty.
+
+  The other nine: a test print recorded as a routing outcome, the raw token stored, revoking by
+  delete, the hash exposed to the console, a test-ticket line gaining a category, the ticket losing
+  its TEST PRINT marking, the payload encoding for itself, the console sending a token back, and
+  the test print reaching for the encoder (2 failed).
+
+A GATE 4 RUNG NARROWED, AND WHY THAT IS NOT WEAKENING IT
+  `bridge-contract.unit.spec.ts` asserted that `bridge-payload.ts` composes from the ORIGIN and
+  never from the redirect - read across the whole FILE. Gate 6 added `testPayload`, a second
+  `composeTicket` call site that composes from the job's own station, correctly, because a test
+  print has no origin to inherit one from. The file-scoped regex could not tell the branches apart
+  and went red on correct code. The claim was always about the ordinary path, so the rung now reads
+  `ticketPayloadFor` only - and it was re-injected with the original defect afterwards to confirm
+  it still fires.
+
+Added: `src/lib/test-ticket.ts`, `testPrint` / `issueBridgeToken` / `revokeBridgeToken`,
+`listBridgeTokens`, `BridgeTokenRow`, three owner actions, a Bridges tab on Print Setup, a Test
+print control per machine, and `tests/unit/print-config.unit.spec.ts` (20 cases).
+
+Finished tree: 715 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass, bridge
+build clean.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Phase 2 Gate 5 (the Windows print bridge)
 
 The bridge becomes a program a restaurant can run: a Windows spooler transport, a startup that

@@ -3,6 +3,8 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
 import { audit, nextNumber, type Actor } from './mutations';
+import { randomBytes } from 'node:crypto';
+import { hashToken } from '@/lib/bridge-token';
 
 /**
  * owner-mutations — the configuration writes, kept apart from the operational ones.
@@ -862,4 +864,165 @@ export async function writeEmployment(input: {
     actor: input.actor,
     confidential: true,
   });
+}
+
+/* ── Gate 6 · The printing system's own operations ─────────────────────── */
+
+/**
+ * Print a test ticket at one machine.
+ *
+ * IT IS AN ORDINARY PRINT JOB, AND THAT IS THE WHOLE DESIGN.
+ *   The tempting shape is a small function that opens the printer and writes "Hello". It would
+ *   work, and it would prove almost nothing: not the claim, not the composition, not the encoder,
+ *   not the transport, not the report. Then a real ticket would fail later and the successful test
+ *   would be evidence for the wrong thing.
+ *
+ *   So this inserts a row into `print_job` and stops. Everything after it — the bridge listing it,
+ *   claiming it, composing it through `buildTicket`, encoding it through `escpos.ts`, carrying it
+ *   through whichever transport that PC has, and reporting the outcome — is the path a real
+ *   kitchen ticket takes, unchanged. The payload is the only difference (`test-ticket.ts`).
+ *
+ * `routing_rule: 'chosen'` because a person picked the machine. That is not a routing outcome and
+ * must not be mistakable for one — the same reasoning `printElsewhere` already records.
+ */
+export async function testPrint(input: { printerId: string; actor: Actor }): Promise<{
+  jobId: string;
+  printerName: string;
+  station: string;
+}> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: printer, error } = await db()
+    .from('printer')
+    .select('id,machine_id,name,station,enabled')
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!printer) throw new Error('That machine is not set up here any more.');
+
+  if (((printer.enabled as boolean | null) ?? true) === false) {
+    // Switched off is the owner saying "do not use this machine". Honouring that for real tickets
+    // and quietly ignoring it for a test would make the test prove something about a machine that
+    // is not in service.
+    throw new Error(
+      `${printer.name as string} is switched off. Switch it on first — a test print to a machine the restaurant is not using would not tell you anything.`
+    );
+  }
+
+  const { data: job, error: insertErr } = await db()
+    .from('print_job')
+    .insert({
+      restaurant_id: restaurantId,
+      printer_id: printer.id as string,
+      printer_name: printer.name as string,
+      // The machine's own station. A test print is not routed anywhere else, so there is no
+      // "meant for" that differs from "came out at".
+      station: (printer.station as string) ?? '',
+      routing_rule: 'chosen',
+      food_side: 'all',
+      kind: 'Test',
+      kot_id: null,
+      bill_id: null,
+      status: 'queued',
+      attempts: 0,
+      is_reprint: false,
+      requested_by: input.actor.label,
+      last_error: '',
+      completed_at: null,
+    })
+    .select('id')
+    .single();
+  if (insertErr) throw insertErr;
+
+  await audit({
+    action: 'Reprint',
+    detail: `Test print queued for ${printer.name as string} (${printer.machine_id as string})`,
+    actor: input.actor,
+  });
+
+  return {
+    jobId: job.id as string,
+    printerName: printer.name as string,
+    station: (printer.station as string) ?? '',
+  };
+}
+
+/**
+ * Issue a bridge token, and hand it back exactly once.
+ *
+ * WHAT IS STORED IS A HASH, AND THAT IS NOT A DETAIL
+ *   `bridge_token.token_hash` is the SHA-256; the token itself is never written anywhere. A dump
+ *   of the table yields no working credential, and revocation is a timestamp rather than a
+ *   redeploy. The cost is that a lost token cannot be recovered — only replaced — and that is the
+ *   right trade for a credential that lives in a text file on a PC in a kitchen.
+ *
+ * THE RETURN VALUE IS THE ONLY TIME IT EXISTS. Callers must show it and move on; it is never read
+ * back, never logged, and never in an audit line.
+ */
+export async function issueBridgeToken(input: { label: string; actor: Actor }): Promise<{
+  id: string;
+  label: string;
+  /** Shown once. There is no second chance to read this. */
+  token: string;
+}> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const label = input.label.trim();
+  if (!label) throw new Error('Give the PC a name first — it is what appears on the job history.');
+  if (label.length > 60) throw new Error('That name is too long for the job history. Keep it under 60 characters.');
+
+  // 32 bytes of CSPRNG. The `jbt_` prefix is so a token found in a file is recognisable for what
+  // it is, the way Supabase's own key prefixes work.
+  const token = `jbt_${randomBytes(32).toString('hex')}`;
+
+  const { data, error } = await db()
+    .from('bridge_token')
+    .insert({ restaurant_id: restaurantId, label, token_hash: hashToken(token) })
+    .select('id,label')
+    .single();
+  if (error) throw error;
+
+  await audit({
+    action: 'Set permissions',
+    // The label, never the token, and never a prefix of it.
+    detail: `Bridge token issued for ${label}`,
+    actor: input.actor,
+    confidential: true,
+  });
+
+  return { id: data.id as string, label: data.label as string, token };
+}
+
+/**
+ * Stop a bridge token working.
+ *
+ * A timestamp, not a delete: the job history says which PC carried which ticket, and a revoked
+ * token's label still has to resolve. Registers are append-only and this is one.
+ */
+export async function revokeBridgeToken(input: { tokenId: string; actor: Actor }): Promise<{ label: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data, error } = await db()
+    .from('bridge_token')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', input.tokenId)
+    .eq('restaurant_id', restaurantId)
+    .is('revoked_at', null)
+    .select('label')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('That bridge token is already revoked, or is not one of this restaurant’s.');
+
+  await audit({
+    action: 'Set permissions',
+    detail: `Bridge token revoked for ${data.label as string}`,
+    actor: input.actor,
+    confidential: true,
+  });
+
+  return { label: data.label as string };
 }

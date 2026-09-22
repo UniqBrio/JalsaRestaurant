@@ -31,6 +31,9 @@ import {
   upsertExpense,
   upsertMenuItem,
   upsertPrinter,
+  testPrint,
+  issueBridgeToken,
+  revokeBridgeToken,
   upsertStaff,
   upsertTable,
   writeEmployment,
@@ -106,6 +109,10 @@ type Action =
       routes: string[];
       enabled: boolean;
     }
+  | { action: 'test-print'; printerId: string }
+  /* No token in, and the token out is returned ONCE. See issueBridgeToken. */
+  | { action: 'issue-bridge-token'; label: string }
+  | { action: 'revoke-bridge-token'; tokenId: string }
   | { action: 'retry-print'; jobId: string }
   /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
      path to a machine other than the assigned one, and it exists so no automatic path has
@@ -317,6 +324,19 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           actor,
         })
       );
+
+    case 'test-print':
+      // An ordinary print job with a different payload. It goes out through the bridge, the
+      // encoder and the transport like every other ticket - see testPrint().
+      return ok(await testPrint({ printerId: input.printerId, actor }));
+
+    case 'issue-bridge-token':
+      // THE ONLY TIME THE TOKEN EXISTS. It is not stored, not logged, not audited and not
+      // readable afterwards; only its SHA-256 is kept. A caller that loses it issues another.
+      return ok(await issueBridgeToken({ label: input.label, actor }));
+
+    case 'revoke-bridge-token':
+      return ok(await revokeBridgeToken({ tokenId: input.tokenId, actor }));
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));

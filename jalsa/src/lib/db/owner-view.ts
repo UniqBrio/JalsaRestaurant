@@ -12,6 +12,7 @@ import {
   listOpenBills,
   listOpenRequests,
   listPrinters,
+  listBridgeTokens,
   listPrintJobs,
   listStaff,
   listSuggestions,
@@ -23,7 +24,7 @@ import {
 import type { SignedInStaff } from './auth';
 import { db } from '@/lib/supabase/server';
 import type {
-  AuditRow, Bill, ExpenseRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
+  AuditRow, Bill, BridgeTokenRow, ExpenseRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
 } from './types';
 
 /**
@@ -175,6 +176,8 @@ export interface OwnerPayload {
   expenses: ExpenseRow[];
   expensesTotalLabel: string;
   printers: PrinterRow[];
+  /** The PCs holding a bridge token. Never the token, and never its hash. */
+  bridges: BridgeTokenRow[];
   /** Tonight's print trail — the History section of Print Setup. Newest first. */
   printJobs: PrintJobRow[];
   audit: AuditRow[];
@@ -273,6 +276,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     tips,
     expenses,
     printers,
+    bridges,
     printJobs,
     audit,
     waitlist,
@@ -289,6 +293,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     listTips(),
     listExpenses(),
     listPrinters(),
+    listBridgeTokens(),
     listPrintJobs(),
     listAudit(),
     listWaitlist(),
@@ -428,6 +433,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     expenses,
     expensesTotalLabel: rupees(expenses.reduce((a, e) => a + e.amount, 0)),
     printers,
+    bridges,
     printJobs,
     audit,
     // Position is 1-based and computed HERE, from the order the query already guarantees

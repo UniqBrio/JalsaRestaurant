@@ -5,6 +5,7 @@ import { totalBill } from '@/lib/money';
 import type { RoutablePrinter, TicketSide } from '@/lib/print-routing';
 import type { PaperWidth, TemplateConfig, TicketKind, TicketLine } from '@/lib/print-template';
 import { originOf, type LineageJob } from '@/lib/redirect-lineage';
+import { TEST_TICKET_ITEMS, testTicketHeader } from '@/lib/test-ticket';
 import { composeTicket, type ComposeItem, type ComposeResult } from '@/lib/ticket-compose';
 
 /**
@@ -37,8 +38,15 @@ export interface TicketPayload {
 
 export type PayloadResult = { ok: true; payload: TicketPayload } | { ok: false; blocked: string };
 
-/** `print_job.kind` is 'KOT' | 'Invoice'; the template speaks 'kot' | 'bill'. */
+/**
+ * `print_job.kind` is 'KOT' | 'Invoice' | 'Test'; the template speaks 'kot' | 'bill'.
+ *
+ * A test print is composed with the KOT template on purpose: it is the template a kitchen machine
+ * is configured with, and a test that exercised a different one would prove the wrong thing.
+ */
 const kindOf = (kind: string): TicketKind => (kind === 'Invoice' ? 'bill' : 'kot');
+
+const TEST_KIND = 'Test';
 
 /**
  * Every machine of one purpose, ordered by `machine_id`.
@@ -125,6 +133,8 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
     .maybeSingle();
   const width: PaperWidth = (printer?.paper_mm as number) === 58 ? '58' : '80';
 
+  if ((job.kind as string) === TEST_KIND) return testPayload(job as unknown as JobRow, restaurantId, width);
+
   const [restaurant, print, tax, engagement, printers] = await Promise.all([
     db().from('restaurant').select('display_name,address,phone').eq('id', restaurantId).maybeSingle(),
     settingsFor(restaurantId, 'print', { splitByFoodType: false } as Record<string, unknown>),
@@ -207,7 +217,8 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
 }
 
 /** Every field composition needs off a job row, named once so the walk and the read agree. */
-const JOB_FIELDS = 'id,kind,printer_id,station,is_reprint,kot_id,bill_id,food_side,redirected_from_job_id';
+const JOB_FIELDS =
+  'id,kind,printer_id,station,is_reprint,kot_id,bill_id,food_side,redirected_from_job_id,requested_by';
 
 interface JobRow {
   id: string;
@@ -219,6 +230,7 @@ interface JobRow {
   bill_id: string;
   food_side: string | null;
   redirected_from_job_id: string | null;
+  requested_by?: string;
 }
 
 /** `print_job.food_side`, narrowed. An unrecognised value is treated as the un-split reading. */
@@ -330,4 +342,77 @@ async function tableName(tableId: string | null): Promise<string> {
   if (!tableId) return '';
   const { data } = await db().from('dining_table').select('name').eq('id', tableId).maybeSingle();
   return (data?.name as string) ?? '';
+}
+
+
+/**
+ * A test print, composed through exactly the path a real ticket takes.
+ *
+ * NOT A SECOND IMPLEMENTATION. It calls the same `composeTicket`, which calls the same
+ * `buildTicket`, and the bridge encodes it with the same `escpos.ts` and carries it with the same
+ * transport. What differs is the payload and nothing else — see `test-ticket.ts`.
+ *
+ * The printers list holds ONLY the assigned machine, with no routes. Every item then falls to it
+ * through the ordinary "nobody claims this" branch, so a test print needs no routing configuration
+ * to exist and cannot be sent astray by one that does.
+ */
+async function testPayload(job: JobRow, restaurantId: string, width: PaperWidth): Promise<PayloadResult> {
+  const { data: printer } = await db()
+    .from('printer')
+    .select('id,machine_id,name,purpose,station,enabled')
+    .eq('id', job.printer_id as string)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (!printer) {
+    return { ok: false, blocked: 'The machine this test print was sent to no longer exists.' };
+  }
+
+  const { data: restaurant } = await db()
+    .from('restaurant')
+    .select('display_name,address,phone')
+    .eq('id', restaurantId)
+    .maybeSingle();
+
+  const print = await settingsFor(restaurantId, 'print', {} as Record<string, unknown>);
+  const at = new Date().toISOString();
+
+  const result = composeTicket({
+    job: {
+      id: job.id,
+      kind: 'kot',
+      printerId: job.printer_id,
+      station: job.station ?? '',
+      foodSide: 'all',
+      isReprint: false,
+    },
+    width,
+    template: ((print.kot as Partial<TemplateConfig> | undefined) ?? {}) as Partial<TemplateConfig>,
+    printers: [
+      {
+        id: printer.id as string,
+        machineId: printer.machine_id as string,
+        name: printer.name as string,
+        purpose: printer.purpose as string,
+        station: (printer.station as string) ?? '',
+        routes: [],
+        online: false,
+        enabled: true,
+      },
+    ],
+    splitByFoodType: false,
+    header: testTicketHeader({
+      restaurant: ((restaurant?.display_name as string) ?? 'Jalsa').toUpperCase(),
+      branch: (restaurant?.address as string) ?? '',
+      phone: (restaurant?.phone as string) ?? '',
+      machineName: printer.name as string,
+      machineId: printer.machine_id as string,
+      date: dateOf(at),
+      time: timeOf(at),
+      actor: (job.requested_by as string | undefined) ?? 'the owner console',
+    }),
+    items: TEST_TICKET_ITEMS,
+  });
+
+  if (!result.ok) return { ok: false, blocked: result.blocked };
+  return { ok: true, payload: { lines: result.lines, width: result.width, itemCount: result.itemCount } };
 }
