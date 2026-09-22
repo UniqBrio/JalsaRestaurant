@@ -4,6 +4,52 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 7: BLOCKED (hardware-pending)
+
+**Gate 7 is BLOCKED. No physical printer has printed a Jalsa ticket, and nothing below claims
+otherwise.**
+
+Binding rule 4: PASS, FAIL, BLOCKED, and there is no fourth value for "the software all works so
+it will probably be fine". The TVS RP3160 is not on a desk. Gate 7 is the only gate that needs
+one, so it is BLOCKED, and it says why.
+
+WHAT IS AND IS NOT PROVEN, EXACTLY
+  Proven: the claim, the composition, the ESC/POS bytes (golden, to the byte), FileTransport,
+  NullTransport, the Windows spooler transport behind an injected command, every failure branch,
+  the report, the lifecycle against a real Postgres.
+
+  NOT proven: that paper came out. `WindowsSpoolerTransport` reports that the SPOOLER ACCEPTED the
+  bytes. Windows queues happily for a printer that is switched off, out of paper or asleep, and no
+  spooler-based transport anywhere can promise more. `bridge-windows.unit.spec.ts` carries a rung
+  whose only job is to say so, and the transport's success sentence says `accepted by queue` and
+  never `printed`.
+
+  Also unverified: whether the RP3160 honours the `ESC t 0` codepage the encoder DECLARES (Gate 2
+  said this at the time and it is still true - no device has confirmed which table it holds);
+  whether bold, double-size, feed and cut render as intended; whether 80 mm output fits; whether a
+  disconnected printer fails the way the tests assume.
+
+THE PROCEDURE, WRITTEN NOW RATHER THAN LATER
+  `docs/GATE-7-HARDWARE-ACCEPTANCE.md` - 32 rows in five groups: the machine exists, the bridge
+  runs, test print, a real round, and failure. Written while the software is fresh so that whoever
+  has the machine runs a checklist rather than inventing one. Each row says how to run it and what
+  pass looks like, and a row nobody ran is BLOCKED rather than blank.
+
+  Two rows are called out as the ones to be strict about:
+    - row 19, an unsupported character must FAIL and never print a '?';
+    - row 27, paper out must never produce a job marked printed. That is the exact defect Phase 1
+      was spent removing, and it would arrive here wearing a different hat.
+
+Recorded as KL-6. Every gate report must say Gate 7 is hardware-pending, and no document in this
+repository may describe the printing system as validated end to end until those rows have been run.
+DC-012 (the station line) stays AUTHORISED and does NOT become VERIFIED: it is verified by somebody
+looking at paper, which is the only thing that verifies it.
+
+Finished tree at the point Gate 7 was reached: 715 unit, 181 render, 20 degraded, 10/10 audits,
+typecheck and lint pass, bridge build clean.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Phase 2 Gate 6 (configuration, test print, bridge credentials)
 
 The operational half: a Test Print that goes out through the real path, bridge tokens issued and

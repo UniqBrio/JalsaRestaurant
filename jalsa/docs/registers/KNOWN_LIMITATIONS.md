@@ -23,6 +23,27 @@ Newest first.
 
 ## Active
 
+### KL-6 — No physical printer has ever printed a Jalsa ticket
+**Since** 22-Sep-2026 · **Category** environment, temporary · **Review by** the day an RP3160 is on a desk
+
+Gates 1 to 6 are green and every byte of the path is exercised: the claim, the composition, the
+ESC/POS encoding, both development transports, the Windows spooler transport behind an injected
+command, the report and every failure branch. None of it is evidence that paper came out.
+
+**The boundary, exactly.** `WindowsSpoolerTransport` reports that the SPOOLER ACCEPTED the bytes.
+Windows queues happily for a printer that is switched off, out of paper or asleep, and no
+spooler-based transport anywhere can promise more. `bridge-windows.unit.spec.ts` carries a rung
+whose only job is to say so.
+
+**What is therefore unverified.** Whether the RP3160 honours the `ESC t 0` codepage we declare;
+whether bold, double-size, feed and cut render as intended; whether 80 mm output fits; whether a
+disconnected printer fails the way the tests assume. All of it is listed, row by row, in
+`docs/GATE-7-HARDWARE-ACCEPTANCE.md`.
+
+**Consequence for reporting.** Every gate report must say Gate 7 is hardware-pending, and no
+document here may describe the printing system as validated end to end until those 32 rows have
+been run against a real machine.
+
 ### KL-5 — A round split veg/non-veg BEFORE 22-Sep-2026 can never be printed
 **Since** 22-Sep-2026 · **Category** data, permanent for affected rows · **Review by** never — it
 expires on its own as the affected rows are superseded

@@ -2,6 +2,27 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 7: BLOCKED (hardware-pending)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.**
+
+Gate 7 is BLOCKED. No physical printer has printed a Jalsa ticket, and nothing claims otherwise.
+Binding rule 4: PASS, FAIL, BLOCKED, and no fourth value for "the software all works so it will
+probably be fine".
+
+Proven by Gates 1-6: the claim, the composition, the ESC/POS bytes (golden, to the byte), both
+development transports, the Windows spooler transport behind an injected command, every failure
+branch, the report, the lifecycle against a real Postgres. NOT proven: that paper came out - the
+Windows transport reports that the SPOOLER ACCEPTED the bytes, and Windows queues happily for a
+printer that is switched off. Also unverified: whether the RP3160 honours the `ESC t 0` codepage
+the encoder DECLARES, and whether bold, double-size, feed, cut and 80 mm width render as intended.
+
+`jalsa/docs/GATE-7-HARDWARE-ACCEPTANCE.md` carries the 32-row procedure, written now so whoever has
+the machine runs a checklist rather than inventing one. Recorded as KL-6. DC-012 stays AUTHORISED
+and does not become VERIFIED - paper verifies it, nothing else does.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Phase 2 Gate 6 (configuration, test print, bridge credentials)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
