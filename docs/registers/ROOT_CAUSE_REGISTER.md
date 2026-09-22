@@ -59,6 +59,48 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-014 — A calendar day was turned into an instant in the SERVER's timezone, so every report began five and a half hours into the day it claimed to cover
+**Date:** 22-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, db/queries
+
+**Symptom** — "In 'Report' section, nothing is showing up" (R-025, 17-Sep-2026). The range bar
+read a date and the panel below it stayed on its reading state or came back empty.
+
+**Root cause** — `listClosedBillsBetween` built its window with ``new Date(`${from}T00:00:00`)``.
+A date-time string with no offset is parsed in the HOST's zone, and the host is Vercel, which
+runs in UTC. A report for a Hosur day therefore covered 05:30 that morning to 05:30 the next.
+The same mistake appeared twice more on the same path: the route validated the requested range
+against the server's clock, so between midnight and 05:30 local it answered "that range has not
+happened yet" for the shift in progress, and it stamped each bill's day by slicing the stored
+UTC string, which files a sitting that ended after midnight under the previous day.
+
+**Proof it was real, not theoretical** — bill B-1048 in the live database is stamped
+`2026-09-21T18:46:01.597Z`, which is 00:16 on the 22nd in the restaurant. Under the old window it
+was absent from the 22nd and counted on the 21st. Both readings are wrong, and a restaurant that
+serves past midnight has one most nights.
+
+**Fix** — `src/lib/restaurant-time.ts`: one place where a `YYYY-MM-DD` becomes an instant, in the
+restaurant's zone, with the offset MEASURED via `Intl` at the instant in question rather than
+written as `+05:30`. The window is half-open so the last millisecond of a day cannot fall out of
+it. The query, the range validation and the per-day stamp all read it. This addresses the cause
+rather than the symptom: no caller now owns a zone decision.
+
+**Files** — `jalsa/src/lib/restaurant-time.ts` (new), `jalsa/src/lib/db/queries.ts`,
+`jalsa/src/app/api/owner/report/route.ts`, `jalsa/tests/unit/report-timezone.unit.spec.ts` (new).
+
+**How to verify** — run `report-timezone.unit.spec.ts`. It asserts that 22-Sep begins at
+`2026-09-21T18:30:00.000Z`, that an instant of `2026-09-21T18:46:01.597Z` falls inside the 22nd
+and outside the 21st, and that neither the query nor the route contains the host-local parse or
+the UTC slice. Restoring either construction fails seven of its nine cases, which was observed.
+
+**Recurrence risk** — the class is "a local date used as an instant". The sweep found no other
+host-local parse in `src/`. It did find four `toISOString().slice(0, 10)` sites that take the
+UTC date where a local one is meant: the CSV export filename (cosmetic), `StaffPaperwork`'s
+`today()`, `LedgersSection`'s default `spentOn`, and an `Intl` fallback in `analytics/format.ts`.
+None is on the report path and none was changed here; they are recorded so the next person does
+not have to find them again. The framework already warned about exactly this in `dates.ts`
+(CP-15), whose own `dayRange` uses host-local time — correct in the browser, wrong on the server.
+Prose was not enough; this register entry and the spec are.
+
 ## RC-013 — The starter's "no lockfile, on purpose" was a comment in an uninstalled CI file, and the scaffolder copied whatever `npm install` left behind
 
 **Date:** 11-Sep-2026  ·  **Severity:** S3 (nothing was broken; every app scaffolded from a checkout where anyone had run `npm install` in `starter/` would have been silently born pinned, and would have committed the pin)  ·  **Modules:** `scripts/new-app.mjs`, `.gitignore`, `ci/`

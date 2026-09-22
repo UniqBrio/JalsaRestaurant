@@ -1,4 +1,5 @@
 import 'server-only';
+import { dayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { tableStateFrom, type KotStatus } from '@/lib/status';
 import { totalBill } from '@/lib/money';
@@ -359,9 +360,10 @@ export async function listClosedBillsToday(): Promise<Bill[]> {
  */
 export async function listClosedBillsBetween(from: string, to: string): Promise<Bill[]> {
   const restaurantId = await currentRestaurantId();
-  const start = new Date(`${from}T00:00:00`);
-  const end = new Date(`${to}T00:00:00`);
-  end.setDate(end.getDate() + 1);
+  /* The day belongs to the RESTAURANT's calendar, not the server's. `new Date('2026-09-22T00:00:00')`
+     has no offset, so it meant midnight UTC on Vercel — five and a half hours into the local day,
+     which silently dropped every bill settled after midnight IST. See lib/restaurant-time.ts. */
+  const { start, end } = dayWindow(from, to);
 
   const { data, error } = await db()
     .from('bill')

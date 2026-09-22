@@ -403,6 +403,45 @@ Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and li
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/report-timezone.unit.spec.ts - the original defect restored inside
+the new helper (`startOfDay` back to ``new Date(`${day}T00:00:00`)`` and `dayIn` back to
+`toISOString().slice(0, 10)`), nothing else touched: **7 failed, 2 passed**. The two that stayed
+green are the ones that should: the zone constant, and the half-open window's arithmetic, which
+is correct in any zone. The seven that failed are every case that depends on WHICH zone a
+calendar day belongs to - the local-midnight boundary, the month-end range, the after-midnight
+sitting, the day stamp, the server's idea of "today", and the two source pins. Reverted from a
+saved copy and re-run: **9 passed**.
+Full suite: **1042 passed** (unit + render), 0 failed - main's 1033 plus exactly these 9.
+Chromium only; the WebKit-backed tablet and mobile-ios projects cannot run in this container.
+THE DEFECT, AND WHY IT IS NOT THE ONE THAT WAS REPORTED: R-025 said "nothing is showing up" in
+Reports and was never built - the intake of 17-Sep read the screenshot as a permanent loading
+state and recorded, correctly, that it had not reproduced it. With database access this run, the
+cause is provable and is a WRONG WINDOW rather than a hung request: `listClosedBillsBetween`
+parsed `YYYY-MM-DD` with no offset, which JavaScript reads in the host's zone, and the host is
+UTC. A Hosur day was covered from 05:30 to 05:30. Live bill B-1048 is stamped
+`2026-09-21T18:46:01.597Z` - 00:16 on the 22nd in the restaurant - and was therefore missing from
+the 22nd and counted on the 21st. Two more instances of the same mistake sat on the same path:
+the range was validated against the server clock, so between midnight and 05:30 local the server
+refused the shift in progress as "not happened yet", and each bill's day came from slicing the
+stored UTC string. All three now read src/lib/restaurant-time.ts. Recorded as RC-014.
+I did not observe the permanent loading state and do not claim to have fixed it. If it returns,
+it is a separate fault and the evidence to collect is the Vercel runtime log line tagged
+`guest.page` or `api`, which carries the real message, code and status.
+NO DATABASE CHANGE: no migration, no new column, no query shape change - only the two timestamps
+the window is built from. The zone is a code constant because `restaurant` has no timezone column
+and inventing one would be a schema change smuggled in behind a bug fix; the helpers take the
+zone as an argument so that becoming a per-restaurant setting later moves only the default.
+SIBLINGS FOUND AND NOT CHANGED, DELIBERATELY: four `toISOString().slice(0, 10)` sites take the
+UTC date where a local one is meant - the CSV export filename, StaffPaperwork's `today()`,
+LedgersSection's default `spentOn`, and an Intl fallback in analytics/format.ts. None is on the
+report path. They are named in RC-014 rather than swept into a bug fix for another screen.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so the corrected report was not opened against the
+live rows; the bill that proves the defect was read through the Supabase management connector,
+which is evidence of the DATA, not of the screen.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/bill-share.unit.spec.ts - four deliberate defects, one per run,
 each reverted; recorded when the WhatsApp bill text was built (jalsa/TEST_SUMMARY.md, run of
 17-Sep-2026). Carried forward rather than re-injected: the spec promoted here is that same file,

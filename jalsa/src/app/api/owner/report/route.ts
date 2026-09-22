@@ -4,6 +4,7 @@ import { currentStaff } from '@/lib/db/auth';
 import { billTotals, listClosedBillsBetween, listExpensesBetween, readAllSettings } from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
 import { checkRange, summarise, type RangeBill, type RangeExpense } from '@/lib/report-range';
+import { dayIn, nowForRangeCheck } from '@/lib/restaurant-time';
 
 /* The same three words the console uses. Duplicated nowhere else: a fourth spelling of "guest
  * phone" is how a report and a bill detail end up disagreeing about where an order came from. */
@@ -54,7 +55,10 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
 
   // Validated with the SAME function the screen validates with, so a range the browser accepted
   // can never be one this route silently reinterprets.
-  const verdict = checkRange({ from, to }, new Date());
+  /* The restaurant's today, not the server's. On a UTC host, between midnight and 05:30 IST the
+     server's date is still yesterday, so a range the browser had just accepted came back 400
+     "that range has not happened yet" — for a range covering the shift in progress. */
+  const verdict = checkRange({ from, to }, nowForRangeCheck());
   if (verdict.problem) {
     return fail(400, { code: 'validation', message: verdict.problem });
   }
@@ -71,7 +75,9 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
   const rangeBills: RangeBill[] = bills.map((b) => {
     const t = billTotals(b);
     return {
-      closedOn: (b.closedAt ?? '').slice(0, 10),
+      // Which local day the bill belongs to. Slicing the stored UTC string put a sitting that
+      // ended after midnight on the day before, in the per-day rows and the daily chart alike.
+      closedOn: b.closedAt ? dayIn(new Date(b.closedAt)) : '',
       subtotal: t.subtotal,
       discount: t.discount,
       tax: t.tax,
