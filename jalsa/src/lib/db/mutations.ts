@@ -1,6 +1,17 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
-import { billSeparability, canHoldBillRole, kitchenHasStarted, type FoodType, type KotStatus } from '@/lib/status';
+/* MERGE 22-Sep-2026: the union of both sides. `FoodType` is the printing work's; `canAdvanceKot`
+   and `KOT_STATUS` are the KOT status workflow's. Nothing here conflicts in meaning — the two
+   branches simply imported different symbols from the same module. */
+import {
+  billSeparability,
+  canAdvanceKot,
+  canHoldBillRole,
+  kitchenHasStarted,
+  KOT_STATUS,
+  type FoodType,
+  type KotStatus,
+} from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
@@ -462,19 +473,56 @@ export async function advanceKot(input: { kotId: string; to: KotStatus; actor: A
   demand(input.actor, 'orders.status');
   const { data: kot, error } = await db()
     .from('kot')
-    .select('id,code,status,bill_id,table_id')
+    .select('id,code,status,bill_id,table_id,started_at,ready_at,picked_up_at,served_at')
     .eq('id', input.kotId)
     .single();
   if (error) throw error;
+
+  const from = kot.status as KotStatus;
+
+  /*
+    THE SERVER DECIDES WHAT IS LEGAL, not the button that was tapped.
+
+    This used to write whatever `to` it was handed. A served round could be sent back to
+    preparing, and nothing but the UI's own conditionals stood in the way — which is no
+    protection at all against a stale tab, a replayed request or a second captain.
+  */
+  if (!canAdvanceKot(from, input.to)) {
+    throw new Error(
+      `${kot.code as string} is ${KOT_STATUS[from].staff.toLowerCase()} — it cannot move to ${KOT_STATUS[input.to].staff.toLowerCase()}.`
+    );
+  }
 
   const patch: Record<string, unknown> = { status: input.to };
   const stamp = STAMP_FOR[input.to];
   // Stamped only on the FIRST transition into a state. A re-tap must not rewrite the minute
   // the kitchen actually finished, because that minute is what the timings report reads.
-  if (stamp) patch[stamp] = new Date().toISOString();
+  //
+  // That sentence has been here since the column was added and the code did not honour it: the
+  // stamp was written unconditionally. Transitions are one-way now, so a re-entry cannot happen
+  // through this function — and the guard stays anyway, because the comment is a promise about
+  // the DATA and the timings report is the thing that would quietly drift.
+  if (stamp && !kot[stamp as keyof typeof kot]) patch[stamp] = new Date().toISOString();
 
-  const { error: upErr } = await db().from('kot').update(patch).eq('id', input.kotId);
+  /*
+    AND THE WRITE ITSELF CARRIES THE STATE IT READ (§14.8).
+
+    Checking the status and then writing is two statements with a gap between them. Two captains
+    tapping the same round at the same moment both read `ready`, both judge their move legal, and
+    both write — last one wins, whatever it was. Pinning `status` in the WHERE clause closes the
+    gap: the second update matches no row, and the round keeps the first outcome rather than
+    taking an arbitrary one.
+  */
+  const { data: updated, error: upErr } = await db()
+    .from('kot')
+    .update(patch)
+    .eq('id', input.kotId)
+    .eq('status', from)
+    .select('id');
   if (upErr) throw upErr;
+  if (!updated?.length) {
+    throw new Error(`${kot.code as string} was just updated by somebody else. Open it again to see where it is.`);
+  }
 
   await audit({
     action: 'Status',

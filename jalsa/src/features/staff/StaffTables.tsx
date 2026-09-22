@@ -11,7 +11,7 @@ import { FirstRunState } from '@/components/ui/states';
 import { Field, Input, SearchField } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
-import { tableIsFreeable } from '@/lib/status';
+import { captainNextKot, KOT_STATUS, tableIsFreeable } from '@/lib/status';
 import {
   DiscountFields,
   NO_DISCOUNT,
@@ -258,7 +258,10 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
       <div>
         <SectionLabel>Rounds sent to the kitchen</SectionLabel>
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-          {bill.kots.map((k) => (
+          {bill.kots.map((k) => {
+            /* The one legal move for this round, or nothing once it is served. */
+            const next = captainNextKot(k.status);
+            return (
             <li key={k.id}>
               <Card>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -354,19 +357,39 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                 </ul>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {canServe && (k.status === 'ready' || k.status === 'picked_up') ? (
+                  {/*
+                    THE ROUND MOVES FROM HERE, AND THIS IS THE ONLY PLACE IT CAN.
+
+                    Until now the only status buttons in the application acted on rounds that were
+                    ALREADY ready or picked up, so nothing could move a round out of `new`: a
+                    guest-placed round stayed "Order received" on the guest's phone until the
+                    plates were cleared. The states and the write path both existed; the operation
+                    did not.
+
+                    ONE button, never a row of them. `captainNextKot` returns the single legal
+                    move — Start preparing, then Mark ready, then Mark served — and nothing at all
+                    once the round is served, so an impossible transition cannot be offered
+                    (Standard 5.6). The server refuses the same moves independently; this is the
+                    courtesy, not the boundary.
+                  */}
+                  {canServe && next ? (
                     <Button
-                      data-testid={`staff-serve-${k.id}`}
+                      data-testid={`staff-advance-${k.id}`}
                       size="sm"
                       disabled={busy}
                       onClick={() =>
                         runBusy(async () => {
-                          await send('/api/staff/action', { action: 'advance-kot', kotId: k.id, to: 'served' });
-                          toast.show(`${k.code} served at ${k.fromTable} · ${data.me.name}`, { tone: 'success' });
+                          await send('/api/staff/action', { action: 'advance-kot', kotId: k.id, to: next.to });
+                          toast.show(
+                            next.to === 'served'
+                              ? `${k.code} served at ${k.fromTable} · ${data.me.name}`
+                              : `${k.code} — ${KOT_STATUS[next.to].staff.toLowerCase()}`,
+                            { tone: 'success' }
+                          );
                         })
                       }
                     >
-                      Mark served
+                      {next.label}
                     </Button>
                   ) : null}
                   {canReprint ? (
@@ -388,7 +411,8 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                 </div>
               </Card>
             </li>
-          ))}
+          );
+          })}
         </ul>
       </div>
 

@@ -4,7 +4,9 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { useToast } from '@/components/ui/toast';
-import type { Tone } from '@/lib/status';
+import { cn } from '@/lib/cn';
+import { guestSteps, type Tone } from '@/lib/status';
+import type { GuestRound } from '@/lib/db/guest-view';
 import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /**
@@ -18,6 +20,89 @@ import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
  * THE HEART UNLOCKS ON SERVED, AND ONLY ON SERVED. That tap is a person confirming the food is
  * on the table — the only moment at which "did you love it?" is a fair question.
  */
+
+/**
+ * Where this round has got to — the reference design's timeline, one row per step.
+ *
+ * WHY THE TIMELINE AND NOT THE COMPACT STEPPER
+ *   The design set draws both and annotates them: the stepper is "sits above the menu so ordering
+ *   continues", the timeline is "full history, good for multiple rounds". This screen IS the
+ *   multiple-rounds screen, so it gets the timeline. The stepper's own labels — Placed, Kitchen —
+ *   are deliberately NOT introduced here: they are synonyms for words the status vocabulary
+ *   already owns, and `src/lib/status.ts` exists precisely to stop a screen inventing one.
+ *
+ * WHY IT IS FOUR ROWS AND NOT FIVE
+ *   `picked_up` is a real floor state but it is still "Ready" to the guest — their food is up.
+ *   `guestSteps` folds it into the Ready step, which is why that mapping lives beside the
+ *   vocabulary rather than in this file.
+ *
+ * READ-ONLY BY CONSTRUCTION. There is no control here and no handler — the guest cannot move a
+ * round, and the server would refuse them anyway.
+ */
+function RoundTimeline({ round }: { round: GuestRound }) {
+  const steps = guestSteps(round.status);
+  const timeFor: Record<string, string> = {
+    new: round.placedAt,
+    preparing: round.startedAt,
+    ready: round.readyAt,
+    served: round.servedAt,
+  };
+
+  return (
+    <ol
+      className="m-0 mt-3 flex list-none flex-col p-0"
+      data-testid={`guest-timeline-${round.code}`}
+      aria-label={`Progress for ${round.code}`}
+    >
+      {steps.map((step, i) => {
+        const time = timeFor[step.key] ?? '';
+        const last = i === steps.length - 1;
+        return (
+          <li key={step.key} className="flex gap-3" data-testid={`guest-step-${step.key}`} data-state={step.state}>
+            {/* The dot and the line under it. The line is skipped on the last row so the
+                timeline ends rather than trailing off. */}
+            <span className="flex flex-col items-center" aria-hidden>
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full type-caption font-bold leading-none',
+                  step.state === 'done' && 'bg-[var(--success)] text-[var(--on-success)]',
+                  step.state === 'current' && 'bg-[var(--primary)] text-[var(--on-primary)]',
+                  step.state === 'todo' && 'bg-[var(--skeleton)] text-[var(--text-muted)]'
+                )}
+              >
+                {step.state === 'done' ? '✓' : step.state === 'current' ? '●' : ''}
+              </span>
+              {last ? null : (
+                <span
+                  className={cn(
+                    'w-0.5 flex-1',
+                    step.state === 'done' ? 'bg-[var(--success)]' : 'bg-[var(--skeleton)]'
+                  )}
+                />
+              )}
+            </span>
+
+            <span className={cn('flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2', last ? 'pb-0' : 'pb-3')}>
+              <span
+                className={cn(
+                  'type-body',
+                  step.state === 'todo' ? 'text-[var(--text-muted)]' : 'font-semibold'
+                )}
+              >
+                {step.label}
+              </span>
+              {time ? <span className="type-caption text-[var(--text-muted)]">{time}</span> : null}
+              {/* The one line of reassurance the design calls for, and only while it is true. */}
+              {step.state === 'current' && step.key === 'ready' ? (
+                <span className="type-caption w-full text-[var(--text-muted)]">Your captain is bringing it</span>
+              ) : null}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 export function PlacedScreen({ data, go }: GuestScreenProps) {
   const last = data.rounds[data.rounds.length - 1];
@@ -164,7 +249,14 @@ export function StatusScreen({
                 </span>
                 <Pill tone={r.tone as Tone}>{r.statusWord}</Pill>
               </div>
-              <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0">
+
+              {/* WHERE IT HAS GOT TO (screen 7 of the design set).
+                  The pill above says the state in one word; the timeline says the journey, which
+                  is what stops somebody walking over to ask. The pill stays: it is what the round
+                  is, glanceable, and the round list is scanned before it is read. */}
+              <RoundTimeline round={r} />
+
+              <ul className="m-0 mt-3 flex list-none flex-col gap-2 p-0">
                 {r.items.map((i) => (
                   <li key={i.id} className="flex items-center gap-2.5">
                     <FoodMark type={i.foodType} />

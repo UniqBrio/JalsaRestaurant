@@ -4,6 +4,89 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-22 - MERGE: main into the printing branch
+
+`main` had moved on by four commits while Gates 1-7 were built. One of them, `c35f64f`, adds a
+Test Print feature - the same thing Gate 6 built, written independently. Three files conflicted
+and one more collided semantically without conflicting at all.
+
+"KEEP BOTH" WAS ACHIEVABLE FOR ONE OF THREE CONFLICTS, AND THE OTHER TWO SAY WHY
+  `mutations.ts` - an import line. A pure union: this branch's `FoodType`, main's `canAdvanceKot`
+  and `KOT_STATUS`. Both kept, verbatim.
+
+  `owner-mutations.ts` - two `export async function testPrint`. Keeping both is a duplicate
+  declaration; it does not compile.
+
+  `PrintSetupSection.tsx` - two Test print buttons carrying the SAME `data-testid` and different
+  handlers. Keeping both is a duplicate test id and two behaviours on one control.
+
+  And `src/lib/test-print.ts` merged CLEANLY, which was the more dangerous one: a second
+  test-ticket builder, conflicting with nothing, silently doubling the thing the repository's own
+  rule forbids.
+
+WHY THIS BRANCH'S `testPrint` HAD TO WIN, AND IT IS NOT A PREFERENCE
+  Main's version writes `kind: 'Test'`, `kot_id: null`, `bill_id: null`, `status: 'queued'` - all
+  compatible. It does NOT write `station`, because on main nothing read one. On this branch
+  `bridge-payload` matches a test job to its machine BY the station, so a row without one composes
+  to nothing: the button would queue jobs the bridge then fails to render. A naive "take main's"
+  merge would have shipped a Test Print that cannot print, green.
+
+WHAT MAIN'S SIDE CONTRIBUTED, AND IT IS MOST OF IT
+  `testPrintBlocker()` - ONE definition of "is this machine testable", shared by the button and
+  the server. Main's own comment gives the reason and it is right: two copies would eventually
+  disagree, and the disagreement would be a button that does nothing. Gate 6 had an inline
+  `enabled` check; the blocker replaced it.
+
+  The non-throwing return shape - `{ queued, printerName, reason }`, so the screen can say WHICH
+  machine and WHY without parsing an error message. Extended with `jobId` and `station`.
+
+  `runTest` and the per-printer `testing` flag - better than what Gate 6 wrote. Testing the
+  tandoor must not disable the counter's button, and `runBusy` would have done exactly that.
+
+  `action: 'Printer'` on the audit entry rather than Gate 6's `'Reprint'`. Main is right: a
+  diagnostic filed among the night's reprints reads as trade that never happened.
+
+WHAT WAS REMOVED, AND WHERE IT WENT
+  `buildTestTicket()` - main's bespoke test-ticket layout, and its eight cases. On the merged tree
+  nothing called it but its own spec: a test ticket is composed by `buildTicket` through
+  `test-ticket.ts`, on the same template a kitchen ticket uses. Its careful thinking is not lost -
+  it wrapped rather than centred because a 33-character printer name on a 32-column roll does not
+  wrap on a thermal head, it disappears, and that is exactly what the width-check line in
+  `TEST_TICKET_ITEMS` exposes and what Gate 7 row 11 checks on paper.
+
+TWO USER-VISIBLE SENTENCES REWRITTEN, BECAUSE THEY STOPPED BEING TRUE
+  `TEST_PRINT_QUEUED` said *"Jalsa has no print service connected yet, so nothing has left the
+  server"*. `TEST_PRINT_NOTE` said *"No paper will come out until a print service is connected"*.
+  Both were accurate on main and false the moment Gates 2-6 landed an encoder, three transports
+  and a bridge. Leaving them would have been the more dangerous kind of stale copy - one that
+  tells an owner not to go and look for paper that is, in fact, coming.
+
+  Neither now says "printed". A queued job prints when a bridge collects it, and whether one is
+  running on that PC is not something the server can see. They say where the job is and that it
+  WAITS rather than fails when no bridge is collecting, which is the thing an owner cannot see
+  from that screen.
+
+SPECS SUPERSEDED (contract-change exception, dated notes in each file)
+  `test-print.unit.spec.ts` - eight `buildTestTicket` cases removed; the two copy cases rewritten
+  with their reasons at the assertion. Everything about the JOB kept verbatim: one row, the right
+  machine, no fake bill, never `printed`, routing not consulted, the grant, the audit, the
+  button. None of that changed and all of it still holds.
+  `print-config.unit.spec.ts` - the switched-off rung pinned Gate 6's inline guard EXPRESSION
+  (itself strengthened once already, after it stayed green under `if (false)`). The rule moved to
+  `testPrintBlocker`, so the rung now pins the call and the blocker's own guard.
+
+FAIL-FIRST for the merge: 3 defects injected, all 3 observed failing.
+  M1 the shared blocker no longer refuses            1 failed | 39 passed
+  M2 a test print is filed as trade (`Reprint`)      1 failed - main's own rung
+  M3 the blocker stops refusing a switched-off machine  2 failed - both branches' rungs
+
+Merged tree: 778 unit, 220 render + degraded, 998 total passing, 0 failing, 10/10 audits,
+typecheck and lint pass, bridge build clean.
+
+GATE 7 IS UNAFFECTED AND STILL BLOCKED. Nothing in this merge is evidence that a printer printed.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Phase 2 Gate 7: BLOCKED (hardware-pending)
 
 **Gate 7 is BLOCKED. No physical printer has printed a Jalsa ticket, and nothing below claims

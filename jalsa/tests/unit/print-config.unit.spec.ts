@@ -100,26 +100,26 @@ test('a test print records the machine it was sent to, and calls it a chosen one
 });
 
 test('a test print to a switched-off machine is refused, with a reason', () => {
-  // STRENGTHENED 22-Sep-2026, after fail-first. The first version of this rung asserted that the
-  // words "is switched off" and "enabled" appeared in the body — and stayed GREEN when the guard
-  // was replaced with `if (false)`, because both strings are still there, in the message the
-  // dead branch would have thrown. A rung blind to the exact form of the defect it is named
-  // after is decoration. Same class as the Gate 1 "must not write printed" rung that passed over
-  // the ternary, and the Gate 4 equivalence rung that could not see its own side rule.
+  // SUPERSEDED 22-Sep-2026 at the merge of `main`, under the contract-change exception.
   //
-  // The GUARD EXPRESSION is pinned instead. Static analysis cannot prove reachability in general;
-  // it can refuse the specific ways this one gets faked.
+  //   Gate 6 checked `enabled` inline, and this rung pinned that guard EXPRESSION — after an
+  //   earlier version of it stayed green under `if (false)` because it only looked for the words
+  //   in the message. `main` had independently written `testPrintBlocker()`, one definition of
+  //   "is this machine testable" shared by the button and the server, and its own comment gives
+  //   the reason: two copies would eventually disagree, and the disagreement would be a button
+  //   that does nothing. The merge kept the blocker and dropped the inline check.
+  //
+  //   So the rung now pins the CALL and the blocker's own guard, which is where the rule moved
+  //   to. The property is unchanged: a switched-off machine is refused, and it is told why.
   const body = code(bodyOf(OWNER, 'testPrint'));
-  const guard = /if \(([^)]*\)[^)]*|[^)]*)\) \{\s*\n\s*\/\/|if \((.+?)\) \{/.exec(
-    body.slice(body.indexOf('enabled'))
-  );
-  expect(body, 'the guard is on the printer\u2019s own enabled flag, and on nothing else').toContain(
-    "if (((printer.enabled as boolean | null) ?? true) === false) {"
-  );
-  expect(guard).not.toBeNull();
-  // And the refusal says what to do about it.
-  expect(bodyOf(OWNER, 'testPrint')).toContain('is switched off');
-  expect(bodyOf(OWNER, 'testPrint')).toContain('Switch it on first');
+  expect(body, 'one shared definition, called').toContain('testPrintBlocker({');
+  expect(body, 'and its answer is returned, not thrown').toContain('if (blocker) return { queued: false');
+  expect(body, 'no second inline enabled check alongside it').not.toMatch(/===\s*false/);
+
+  const blocker = code(read('src/lib/test-print.ts'));
+  expect(blocker, 'switched off is the first thing it refuses').toContain('if (!printer.enabled) return');
+  expect(read('src/lib/test-print.ts')).toContain('switched off');
+  expect(read('src/lib/test-print.ts')).toContain('Switch it on in Configure first');
 });
 
 test('a test print demands the printer permission, like every other printer operation', () => {

@@ -2,6 +2,7 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
+import { testPrintBlocker } from '@/lib/test-print';
 import { audit, nextNumber, type Actor } from './mutations';
 import { randomBytes } from 'node:crypto';
 import { hashToken } from '@/lib/bridge-token';
@@ -869,7 +870,12 @@ export async function writeEmployment(input: {
 /* ── Gate 6 · The printing system's own operations ─────────────────────── */
 
 /**
- * Print a test ticket at one machine.
+ * Queue a test ticket for ONE machine.
+ *
+ * MERGED 22-Sep-2026. Two branches built this at once — `main` as a diagnostic for a deployment
+ * with no print service, and Gate 6 as a job the bridge actually carries. What survives is the
+ * union: `main`'s shared pre-flight and its non-throwing return shape, Gate 6's snapshot columns
+ * and the audit line, and one function rather than two.
  *
  * IT IS AN ORDINARY PRINT JOB, AND THAT IS THE WHOLE DESIGN.
  *   The tempting shape is a small function that opens the printer and writes "Hello". It would
@@ -882,44 +888,76 @@ export async function writeEmployment(input: {
  *   through whichever transport that PC has, and reporting the outcome — is the path a real
  *   kitchen ticket takes, unchanged. The payload is the only difference (`test-ticket.ts`).
  *
+ * WHY IT DOES NOT CALL `queuePrint` (kept from `main`, and still exactly right)
+ *   `queuePrint` is the ROUTING path: it asks which machine should receive a round's ticket given
+ *   its categories. That is the wrong question here. A test is aimed at a machine the owner has
+ *   pointed at — routing must not be consulted, must not be able to redirect it, and must not be
+ *   changed by it. The printer id travels from the button to this row with nothing in between
+ *   able to reinterpret it.
+ *
+ * WHY THERE IS NO FAKE BILL (kept from `main`)
+ *   `print_job.bill_id` and `print_job.kot_id` are both nullable. A test job belongs to neither,
+ *   and the schema has always allowed that — so "do not create a fake order" is not a constraint
+ *   to work around, it is the natural shape of the row.
+ *
+ * WHY THE STATUS IS `queued` AND NEVER `printed`
+ *   The same rule the whole of Phase 1 turned on: `printed` is a claim about paper, and only a
+ *   bridge that carried the bytes may make it. This function writes `queued`, which is what
+ *   actually happened — a job exists, against this machine, waiting to be collected.
+ *
  * `routing_rule: 'chosen'` because a person picked the machine. That is not a routing outcome and
  * must not be mistakable for one — the same reasoning `printElsewhere` already records.
  */
 export async function testPrint(input: { printerId: string; actor: Actor }): Promise<{
-  jobId: string;
+  queued: boolean;
+  /** Null when nothing was queued. */
+  jobId: string | null;
   printerName: string;
   station: string;
+  /** Empty when it was queued; otherwise why it was not. */
+  reason: string;
 }> {
+  // The same grant that gates Configure and Add a printer on the tab this button lives on.
+  // Nothing is broadened: an actor who may not configure printers may not test them.
   demand(input.actor, 'set.printer');
   const restaurantId = await currentRestaurantId();
 
+  /* Scoped by restaurant AND by id. The id alone would let a crafted request test a machine in
+     another restaurant, which is the one thing a diagnostic must never do. */
   const { data: printer, error } = await db()
     .from('printer')
-    .select('id,machine_id,name,station,enabled')
-    .eq('id', input.printerId)
+    .select('id,machine_id,name,station,paper_mm,connection,address,enabled')
     .eq('restaurant_id', restaurantId)
+    .eq('id', input.printerId)
     .maybeSingle();
   if (error) throw error;
-  if (!printer) throw new Error('That machine is not set up here any more.');
+  if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
 
-  if (((printer.enabled as boolean | null) ?? true) === false) {
-    // Switched off is the owner saying "do not use this machine". Honouring that for real tickets
-    // and quietly ignoring it for a test would make the test prove something about a machine that
-    // is not in service.
-    throw new Error(
-      `${printer.name as string} is switched off. Switch it on first — a test print to a machine the restaurant is not using would not tell you anything.`
-    );
-  }
+  const name = printer.name as string;
+  const station = (printer.station as string) ?? '';
 
-  const { data: job, error: insertErr } = await db()
+  /* ONE definition of "is this machine testable", shared with the button. Two copies would
+     eventually disagree, and the disagreement would be a button that does nothing. Returned
+     rather than thrown, so the screen can say WHICH machine and WHY without parsing an error. */
+  const blocker = testPrintBlocker({
+    enabled: (printer.enabled as boolean | null) ?? true,
+    connection: (printer.connection as string) ?? '',
+    address: (printer.address as string) ?? '',
+  });
+  if (blocker) return { queued: false, jobId: null, printerName: name, station, reason: blocker };
+
+  /* ONE row, against ONE printer, with no bill and no round. Nothing else in the database is
+     touched: not the printer row, not its routes, not a kot, not a bill. */
+  const { data: job, error: jobErr } = await db()
     .from('print_job')
     .insert({
       restaurant_id: restaurantId,
       printer_id: printer.id as string,
-      printer_name: printer.name as string,
-      // The machine's own station. A test print is not routed anywhere else, so there is no
-      // "meant for" that differs from "came out at".
-      station: (printer.station as string) ?? '',
+      // Snapshots, in the idiom every other job uses. `station` is load-bearing here and not
+      // decoration: `bridge-payload` matches a test job to its machine by it, and a row without
+      // one composes to nothing at all.
+      printer_name: name,
+      station,
       routing_rule: 'chosen',
       food_side: 'all',
       kind: 'Test',
@@ -934,20 +972,21 @@ export async function testPrint(input: { printerId: string; actor: Actor }): Pro
     })
     .select('id')
     .single();
-  if (insertErr) throw insertErr;
+  if (jobErr) throw jobErr;
 
+  /* Audited as an ADMINISTRATIVE act, with no bill and no table — because a test print is not a
+     business transaction and must not appear as one. */
   await audit({
-    action: 'Reprint',
-    detail: `Test print queued for ${printer.name as string} (${printer.machine_id as string})`,
+    // `Printer`, not `Reprint` — kept from `main` at the merge, and it is the better call: a
+    // diagnostic filed among the night's reprints would read as trade that never happened.
+    action: 'Printer',
+    detail: `Test ticket queued for ${name} (${printer.machine_id as string})`,
     actor: input.actor,
   });
 
-  return {
-    jobId: job.id as string,
-    printerName: printer.name as string,
-    station: (printer.station as string) ?? '',
-  };
+  return { queued: true, jobId: job.id as string, printerName: name, station, reason: '' };
 }
+
 
 /**
  * Issue a bridge token, and hand it back exactly once.

@@ -52,8 +52,17 @@ test('the guest and the captain are told different things about the same state, 
   // Reassurance versus instruction. Both read from one state; the mapping is the difference.
   expect(KOT_STATUS.preparing.guest).toBe('In the kitchen');
   expect(KOT_STATUS.preparing.staff).toBe('Cooking');
-  expect(KOT_STATUS.new.guest).toBe('Sent to the kitchen');
+  /* AMENDED 18-Sep-2026, and re-expressed rather than weakened.
+     This read `'Sent to the kitchen'` until the KOT status workflow was built. The reference
+     design draws the guest's first step as "Order received", CLAUDE.md makes the design set the
+     specification, and the requester confirmed the image over their own prose. The string moved
+     in the ONE vocabulary module so every guest surface moved with it.
+     What this case is actually FOR is unchanged and still asserted below: the guest and the
+     captain are told different things about the same state. That is why the two lines stay
+     paired rather than the guest one being deleted. */
+  expect(KOT_STATUS.new.guest).toBe('Order received');
   expect(KOT_STATUS.new.staff).toBe('New');
+  expect(KOT_STATUS.new.guest, 'still different words for the same state').not.toBe(KOT_STATUS.new.staff);
 });
 
 test('a closed bill reads as Paid to the guest and Closed to staff', () => {

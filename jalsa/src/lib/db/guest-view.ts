@@ -52,6 +52,20 @@ export interface GuestRound {
   statusWord: string;
   tone: string;
   /**
+   * When each step actually happened, already formatted — or '' for a step not yet reached.
+   *
+   * The columns have been on `kot` since the schema was written and `advanceKot` has been
+   * stamping them; nothing ever read them back to the phone that was waiting. The timeline the
+   * design draws puts a time under every step it has passed, and a timeline with no times is
+   * a list of words.
+   *
+   * Formatted here beside `placedAt` rather than on the screen: `timeLabel` is one idiom, and
+   * a component that formats its own clock is a second one.
+   */
+  startedAt: string;
+  readyAt: string;
+  servedAt: string;
+  /**
    * `lineLabel` is qty x unit price, already formatted.
    *
    * It exists for the invoice, which is the one screen a guest is asked to CHECK. The design
@@ -226,6 +240,9 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
     status: k.status,
     statusWord: KOT_STATUS[k.status].guest,
     tone: KOT_STATUS[k.status].tone,
+    startedAt: k.startedAt ? timeLabel(k.startedAt) : '',
+    readyAt: k.readyAt ? timeLabel(k.readyAt) : '',
+    servedAt: k.servedAt ? timeLabel(k.servedAt) : '',
     items: k.items
       .filter((i) => !i.cancelledAt)
       .map((i) => ({

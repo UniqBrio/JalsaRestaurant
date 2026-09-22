@@ -79,6 +79,7 @@ type Action =
   | { action: 'remove-staff'; staffId: string; reason: string }
   | { action: 'set-on-duty'; staffId: string; onDuty: boolean }
   | { action: 'write-setting'; key: string; value: Record<string, unknown> }
+  | { action: 'test-print'; printerId: string }
   | { action: 'write-identity'; patch: Record<string, unknown> }
   | {
       action: 'upsert-expense';
@@ -109,7 +110,6 @@ type Action =
       routes: string[];
       enabled: boolean;
     }
-  | { action: 'test-print'; printerId: string }
   /* No token in, and the token out is returned ONCE. See issueBridgeToken. */
   | { action: 'issue-bridge-token'; label: string }
   | { action: 'revoke-bridge-token'; tokenId: string }
@@ -257,6 +257,15 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       await setOnDuty({ staffId: input.staffId, onDuty: input.onDuty, actor });
       return ok({ done: true });
 
+    case 'test-print': {
+      /* The printer id goes straight through. Routing is not consulted and cannot redirect it —
+         a diagnostic that could land on a different machine would be worse than none.
+         And it is an ORDINARY print job: the bridge lists it, claims it, composes it through
+         `buildTicket`, encodes it through `escpos.ts` and reports it like any kitchen ticket. */
+      const result = await testPrint({ printerId: input.printerId, actor });
+      return ok(result);
+    }
+
     case 'write-setting':
       await writeSetting({ key: input.key, value: input.value, actor });
       return ok({ done: true });
@@ -324,11 +333,6 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           actor,
         })
       );
-
-    case 'test-print':
-      // An ordinary print job with a different payload. It goes out through the bridge, the
-      // encoder and the transport like every other ticket - see testPrint().
-      return ok(await testPrint({ printerId: input.printerId, actor }));
 
     case 'issue-bridge-token':
       // THE ONLY TIME THE TOKEN EXISTS. It is not stored, not logged, not audited and not

@@ -217,6 +217,30 @@ function HoursPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
 /* ── Identity ──────────────────────────────────────────────────────────── */
 
+/**
+ * Restaurant details — the one identity block every screen and every printed document reads.
+ *
+ * WHAT CHANGED ON 18-Sep-2026, AND WHAT DID NOT
+ *   Presentation only. The same ten fields, the same `form` state, the same `set()`, the same
+ *   test ids, and the same one `write-identity` call carrying the same patch. `writeIdentity`
+ *   sends `form` straight to `restaurant` as a column patch, so every key here IS a column —
+ *   dropping one from this object would silently stop saving it. None was dropped.
+ *
+ * WHY IT IS NO LONGER ONE LONG FORM
+ *   It was a desktop form: eleven controls in one card, three abreast, read top to bottom with
+ *   no indication that "PAN" and "Who signs" answer completely different questions. On a phone
+ *   that is a column of unlabelled boxes. Grouped into four cards, each with the heading that
+ *   says what it is for, the page can be scanned rather than read.
+ *
+ * THE BRAND BLOCK IS NOT DECORATION
+ *   It shows the badge that actually prints, above the name guests actually see — and the name
+ *   is bound to the field below it, so an owner editing "Name guests see" watches the thing
+ *   their customers will read change as they type. It borrows the customer welcome screen's
+ *   composition and none of its content: no greeting, no table, no captain, no ordering.
+ *
+ * `--primary` / `--on-primary`, not a literal. That pair is maroon in the light theme and the
+ * amber the owner console actually runs in the dark one, and the contrast gate measures both.
+ */
 function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const r = data.restaurant as Record<string, string>;
@@ -236,45 +260,70 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
-  return (
-    <Card className="flex flex-col gap-4">
-      <SectionLabel>One identity block, read by every screen and every printed document</SectionLabel>
-      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
-        These details appear on the bill, on offer letters and experience certificates, and in the header of the
-        guest&rsquo;s phone. Changing them here changes them everywhere — nothing retypes them (Standard 2.2).
-      </p>
+  /* One column on a phone, two from `md` up. `minmax(0,1fr)` rather than `1fr`: a grid track's
+     default min-width is auto, so a long unbroken value — an address line, an email — would
+     otherwise widen its column and push the other one off the card. */
+  const pair = 'grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]';
 
-      <div className="flex flex-wrap gap-3">
-        <Field label="Registered name" required htmlFor="owner-legal" className="min-w-[14rem] flex-1">
-          <Input
-            id="owner-legal"
-            value={form.legal_name}
-            onChange={set('legal_name')}
-            data-testid="owner-legal-name"
-          />
-        </Field>
-        <Field label="Name guests see" required htmlFor="owner-display" className="min-w-[14rem] flex-1">
-          <Input
-            id="owner-display"
-            value={form.display_name}
-            onChange={set('display_name')}
-            data-testid="owner-display-name"
-          />
-        </Field>
+  return (
+    <div className="flex flex-col gap-3" data-testid="owner-identity">
+      {/* THE BRAND BLOCK */}
+      <div className="flex items-center gap-4 rounded-[var(--radius-xl)] bg-[var(--primary)] px-5 py-6 text-[var(--on-primary)]">
+        <Image
+          src="/brand/jalsa-badge.png"
+          alt="The Jalsa badge as it prints"
+          width={56}
+          height={56}
+          className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
+        />
+        <div className="min-w-0">
+          <p className="m-0 type-h3 leading-tight">{form.display_name || 'Your restaurant'}</p>
+          <p className="m-0 mt-1 type-caption leading-relaxed opacity-85">
+            What every screen and every printed document reads.
+          </p>
+        </div>
       </div>
 
-      <Field label="Address" required htmlFor="owner-address">
-        <Textarea id="owner-address" value={form.address} onChange={set('address')} data-testid="owner-address" />
-      </Field>
+      <Card className="flex flex-col gap-3">
+        <SectionLabel>Restaurant identity</SectionLabel>
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+          These details appear on the bill, on offer letters and experience certificates, and in the header of the
+          guest&rsquo;s phone. Changing them here changes them everywhere — nothing retypes them (Standard 2.2).
+        </p>
+        <div className={pair}>
+          <Field label="Registered name" required htmlFor="owner-legal">
+            <Input
+              id="owner-legal"
+              value={form.legal_name}
+              onChange={set('legal_name')}
+              data-testid="owner-legal-name"
+            />
+          </Field>
+          <Field label="Name guests see" required htmlFor="owner-display">
+            <Input
+              id="owner-display"
+              value={form.display_name}
+              onChange={set('display_name')}
+              data-testid="owner-display-name"
+            />
+          </Field>
+        </div>
+      </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Field label="Email" htmlFor="owner-email" className="min-w-[12rem] flex-1">
-          <Input id="owner-email" type="email" value={form.email} onChange={set('email')} data-testid="owner-email" />
+      <Card className="flex flex-col gap-3">
+        <SectionLabel>Contact &amp; location</SectionLabel>
+        <Field label="Address" required htmlFor="owner-address">
+          <Textarea id="owner-address" value={form.address} onChange={set('address')} data-testid="owner-address" />
         </Field>
-        <Field label="Phone" htmlFor="owner-phone" className="min-w-[12rem] flex-1">
-          <Input id="owner-phone" type="tel" value={form.phone} onChange={set('phone')} data-testid="owner-phone" />
-        </Field>
-        <Field label="HR email" htmlFor="owner-hr" className="min-w-[12rem] flex-1">
+        <div className={pair}>
+          <Field label="Email" htmlFor="owner-email">
+            <Input id="owner-email" type="email" value={form.email} onChange={set('email')} data-testid="owner-email" />
+          </Field>
+          <Field label="Phone" htmlFor="owner-phone">
+            <Input id="owner-phone" type="tel" value={form.phone} onChange={set('phone')} data-testid="owner-phone" />
+          </Field>
+        </div>
+        <Field label="HR email" htmlFor="owner-hr" hint="Where offer letters and experience certificates come from.">
           <Input
             id="owner-hr"
             type="email"
@@ -283,54 +332,53 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
             data-testid="owner-hr-email"
           />
         </Field>
-      </div>
+      </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Field label="Who signs" required htmlFor="owner-sign" className="min-w-[12rem] flex-1">
-          <Input
-            id="owner-sign"
-            value={form.signatory_name}
-            onChange={set('signatory_name')}
-            data-testid="owner-signatory"
-          />
-        </Field>
-        <Field label="Their designation" required htmlFor="owner-sign-role" className="min-w-[12rem] flex-1">
-          <Input
-            id="owner-sign-role"
-            value={form.signatory_role}
-            onChange={set('signatory_role')}
-            data-testid="owner-signatory-role"
-          />
-        </Field>
-      </div>
+      <Card className="flex flex-col gap-3">
+        <SectionLabel>Business details</SectionLabel>
+        <div className={pair}>
+          <Field label="FSSAI licence" htmlFor="owner-fssai">
+            <Input id="owner-fssai" value={form.fssai} onChange={set('fssai')} data-testid="owner-fssai" />
+          </Field>
+          <Field label="PAN" htmlFor="owner-pan">
+            <Input id="owner-pan" value={form.pan} onChange={set('pan')} data-testid="owner-pan" />
+          </Field>
+        </div>
+      </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Field label="FSSAI licence" htmlFor="owner-fssai" className="min-w-[12rem] flex-1">
-          <Input id="owner-fssai" value={form.fssai} onChange={set('fssai')} data-testid="owner-fssai" />
-        </Field>
-        <Field label="PAN" htmlFor="owner-pan" className="min-w-[12rem] flex-1">
-          <Input id="owner-pan" value={form.pan} onChange={set('pan')} data-testid="owner-pan" />
-        </Field>
-      </div>
+      <Card className="flex flex-col gap-3">
+        <SectionLabel>Who signs</SectionLabel>
+        <div className={pair}>
+          <Field label="Who signs" required htmlFor="owner-sign">
+            <Input
+              id="owner-sign"
+              value={form.signatory_name}
+              onChange={set('signatory_name')}
+              data-testid="owner-signatory"
+            />
+          </Field>
+          <Field label="Their designation" required htmlFor="owner-sign-role">
+            <Input
+              id="owner-sign-role"
+              value={form.signatory_role}
+              onChange={set('signatory_role')}
+              data-testid="owner-signatory-role"
+            />
+          </Field>
+        </div>
+      </Card>
 
-      <div className="flex items-center gap-3">
-        <Image
-          src="/brand/jalsa-badge.png"
-          alt="The Jalsa badge as it prints"
-          width={64}
-          height={64}
-          className="rounded-[var(--radius-md)]"
-        />
-        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
-          The badge printed on the QR stands, the bill and every HR document. Replacing the artwork is a file change
-          rather than a settings field in this release.
-        </p>
-      </div>
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        The badge printed on the QR stands, the bill and every HR document. Replacing the artwork is a file change
+        rather than a settings field in this release.
+      </p>
 
+      {/* Full width on a phone, where it is the thumb's target; its own size on a desk. */}
       <Button
         data-testid="owner-identity-save"
         disabled={busy}
-        className="self-start"
+        size="lg"
+        className="md:w-auto md:self-start"
         onClick={() =>
           runBusy(async () => {
             await send('/api/owner/action', { action: 'write-identity', patch: form });
@@ -340,7 +388,7 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       >
         Save details
       </Button>
-    </Card>
+    </div>
   );
 }
 

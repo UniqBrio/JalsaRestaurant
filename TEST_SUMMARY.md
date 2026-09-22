@@ -2,6 +2,44 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-22 - MERGE: main into the printing branch
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+`main` had moved on by four commits, one of which (`c35f64f`) adds a Test Print feature - the same
+thing Gate 6 built, independently. "Keep both" was achievable for ONE of three conflicts (an import
+line, a true union) and impossible for the other two: two `export async function testPrint` do not
+compile, and two buttons with the same `data-testid` are one broken control. A fourth collision
+merged CLEANLY and was the more dangerous one - `src/lib/test-print.ts`, a second test-ticket
+builder, conflicting with nothing.
+
+THIS BRANCH'S `testPrint` HAD TO WIN, AND NOT AS A PREFERENCE: main's writes no `station`, and
+`bridge-payload` matches a test job to its machine BY the station. A naive "take main's" merge
+would have shipped, green, a Test Print button that queues jobs the bridge then fails to render.
+
+MAIN'S SIDE CONTRIBUTED MOST OF THE REST: `testPrintBlocker()` (one definition of "is this machine
+testable", shared by button and server - its own comment gives the reason and it is right), the
+non-throwing `{queued, printerName, reason}` shape, the per-printer `testing` flag, and
+`action: 'Printer'` on the audit rather than Gate 6's `'Reprint'` - a diagnostic filed among the
+night's reprints reads as trade that never happened.
+
+REMOVED: `buildTestTicket()` and its eight cases. Nothing called it but its own spec; a test ticket
+is composed by `buildTicket` through `test-ticket.ts`, on the template a kitchen ticket uses.
+
+TWO USER-VISIBLE SENTENCES REWRITTEN because they stopped being true - they said no print service
+was connected and no paper would come out, which was accurate on main and false the moment Gates
+2-6 landed an encoder, three transports and a bridge. Neither now says "printed".
+
+FAIL-FIRST for the merge: 3 defects injected, all 3 observed failing - the shared blocker no longer
+refusing, a test print filed as trade (main's own rung), and the blocker not refusing a switched-off
+machine (both branches' rungs).
+
+Merged tree: 998 passing, 0 failing, 10/10 audits, typecheck and lint pass, bridge build clean.
+GATE 7 IS UNAFFECTED AND STILL BLOCKED - nothing here is evidence that a printer printed.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Phase 2 Gate 7: BLOCKED (hardware-pending)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.**
@@ -405,6 +443,90 @@ same injection before the guard expression was pinned.
 FAIL-FIRST: jalsa/tests/unit/spec-supersession.unit.spec.ts - `jalsa/CLAUDE.md` reverted to its
 pre-amendment wording: 2 failed, 4 passed - "the exception exists and is narrowly scoped to a CONTRACT
 change" and "the exception names its pattern".
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/restaurant-details.unit.spec.ts - the HR email control's setter in
+jalsa/src/features/owner/sections/SettingsSection.tsx changed from `set('hr_email')` to
+`set('email')` (a copy-paste mis-binding that would silently stop saving HR email edits), and
+nothing else touched: **1 failed, 9 passed**. Case "all TEN columns are still read into the form
+and still written back" failed on `hr_email must have a setter`. The other nine read the tab
+row, the shipped sentences, the one `write-identity` call, the `pair` grid and the token pair,
+none of which the injection touched, and correctly stayed green. Restored and verified
+byte-identical by checksum: **10 passed**.
+FAIL-FIRST: jalsa/tests/render/restaurant-details.render.spec.ts - run against main's
+IdentityPanel (the pre-fix tree, `git show HEAD:` of the same file, which has no `pair`
+constant): **1 failed, 18 passed**. Case "the pinned classes are the ones the panel actually
+ships" failed on `the grid measured here must be the grid that ships`. The eighteen width cases
+build their own DOM from the pinned constants and measure that, so they stayed green on either
+tree - the source assertion is the one that binds the measurement to the panel, and it is the one
+that fired. Candidate restored from the index, checksum identical: **19 passed**.
+Full suite on the isolated tree: **719 passed** (unit + render), 0 failed - main's 690 plus
+exactly the 29 new cases. Chromium only: the WebKit-backed tablet and mobile-ios projects did not
+run in this container (bundled Chromium supplied via PLAYWRIGHT_CHROMIUM_PATH; WebKit cannot be
+fetched here). One earlier full run showed 22 render failures with corrupted class names in the
+generated CSS while an untracked `.next-rd` build directory sat beside `src/` and was being read
+by Tailwind's content scanner; with that directory removed the same tree passed 719/719. An
+environment artefact of running the build before the suite, not a property of the change.
+SHIPPED-STRING CHANGE, DECLARED: the single section label "One identity block, read by every
+screen and every printed document" becomes four card headings - "Restaurant identity", "Contact
+& location", "Business details", "Who signs" - and the brand block adds "What every screen and
+every printed document reads." plus the HR email hint "Where offer letters and experience
+certificates come from." Both sentences the unit spec freezes are unchanged and still inside the
+panel. No string that any other spec asserts was touched.
+THE BEHAVIOUR THE INJECTIONS PROVE IS PROTECTED: every one of the ten `restaurant` columns is
+read into the form and bound to a control with its own setter, and the save is the same single
+`write-identity` call carrying the whole patch; the grid the render cases measure is the grid
+the panel ships. Presentation only - `writeIdentity`, the action route and the schema are
+untouched, and no migration was needed or written. The logo upload, which shares this file on
+the development branch, is NOT part of this change: the brand block shows the static badge.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so the panel was not opened against a real
+restaurant row and no save was round-tripped.
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/test-print.unit.spec.ts - the two checks inside `testPrintBlocker`
+in jalsa/src/lib/test-print.ts removed so it returned null for every printer (the switched-off
+refusal and the no-address refusal), and nothing else touched: **2 failed, 26 passed**. Case 13
+"a printer with no address is called unconfigured, not unreachable" and case 13c "a switched-off
+printer says so" both failed on `Received has value: null`. Case 13b (a USB printer needs no
+address) and "a configured, switched-on printer is testable" expect null and correctly stayed
+green, as did the other 24. Restored byte-for-byte from backup, verified identical to the source:
+**28 passed**. Full suite on the isolated tree: **690 passed** (unit + render), 0 failed - main's
+662 plus exactly the 28 new cases.
+THE BEHAVIOUR THE INJECTION PROVES IS PROTECTED: a switched-off printer is refused; a non-USB
+printer with no address is refused, with a sentence that sends the owner to Configure rather than
+to the kitchen; a configured, switched-on printer remains testable. `testPrint` in
+owner-mutations runs that blocker before writing, so a refused printer gets no `print_job` row.
+No migration was needed and none was written: `print_job` with every column the test job sets,
+`print_status` with `queued`, and free-text `kind` are all in the core schema.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no test job was queued against a real row and
+no printer was reached; nothing in this deployment can open a connection to a thermal printer in
+any case, which is the limitation the note beside the button states.
+
+---
+
+FAIL-FIRST: jalsa/tests/unit/kot-status.unit.spec.ts - the 13-line server guard removed from
+`advanceKot` in jalsa/src/lib/db/mutations.ts (the `if (!canAdvanceKot(from, input.to)) throw`
+block, and nothing else), then restored byte-for-byte: **1 failed, 42 passed**. Case 4c "the
+server refuses it too - the UI is the courtesy, not the boundary" failed on `the transition is
+checked before anything is written`. That is the right shape: 4c is the only case that reads the
+guard. Cases 4 and 4b exercise `canAdvanceKot` as a pure function in status.ts and correctly
+stayed green; 7b (stamp written once) and 8b (status pinned in the WHERE) read other parts of the
+same body and stayed green. With the guard restored: **43 passed** (28 KOT + 15 status). Full
+suite on the isolated tree: **657 passed** (unit + render), 0 failed - main's 629 plus exactly the
+28 new cases.
+SHIPPED-STRING CHANGE, DECLARED: `KOT_STATUS.new.guest` moves from `'Sent to the kitchen'` to
+`'Order received'`, in the one vocabulary module, because the reference design draws the guest's
+first step as Order received and CLAUDE.md makes the design set the specification. The status
+spec case is amended to assert the new value AND that guest and staff words still differ - re-
+expressed, not weakened. No other file on main carried the old string.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no captain tapped a real button against a real
+row. The transition rules, the server guard, the once-only stamp and the concurrency pin are
+source-level and pure-function assertions, and are recorded as such.
 
 ---
 
