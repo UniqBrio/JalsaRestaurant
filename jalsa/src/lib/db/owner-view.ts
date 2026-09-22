@@ -54,6 +54,22 @@ export interface OwnerBillView {
   groupCode: string | null;
   guests: number;
   openedAt: string;
+  /**
+   * How the closure ended, for the bill-detail screen.
+   *
+   * All four were already being SELECTED (`BILL_SELECT` carries payment_mode,
+   * payment_reference, closed_at and closed_by) and already shaped onto `Bill` — this view
+   * simply never projected them, so the console could list a closed bill and not say how it
+   * was settled. No query changed to add them.
+   *
+   * Null on a bill that is still open, which is the honest value: "not closed yet" is not the
+   * same fact as "closed, mode unrecorded", and the database's `bill_closure_is_attributed`
+   * constraint means the second cannot happen.
+   */
+  paymentMode: string | null;
+  paymentReference: string;
+  closedAt: string | null;
+  closedBy: string | null;
   occasion: string | null;
   payable: number;
   payableLabel: string;
@@ -228,6 +244,10 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     groupCode: b.groupCode,
     guests: b.guests,
     openedAt: timeLabel(b.openedAt),
+    paymentMode: b.paymentMode,
+    paymentReference: b.paymentReference,
+    closedAt: b.closedAt ? timeLabel(b.closedAt) : null,
+    closedBy: b.closedBy,
     occasion: b.occasion
       ? `${b.occasion.type}${b.occasion.name ? ` — ${b.occasion.name}` : ''} (${b.occasion.source})`
       : null,

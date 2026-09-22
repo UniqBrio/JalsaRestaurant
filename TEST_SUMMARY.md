@@ -403,6 +403,45 @@ Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and li
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/bill-share.unit.spec.ts - four deliberate defects, one per run,
+each reverted; recorded when the WhatsApp bill text was built (jalsa/TEST_SUMMARY.md, run of
+17-Sep-2026). Carried forward rather than re-injected: the spec promoted here is that same file,
+byte for byte, and the source it pins is the same source.
+FAIL-FIRST: jalsa/tests/unit/bill-detail-wiring.unit.spec.ts - **8 failed, 1 passed** with the
+bill-detail sheet's wiring removed, from the same run. Its ninth case, the print-block scoping,
+was recorded then as NOT OBSERVED FAILING and remains so: it asserts the ABSENCE of a blanket
+`* { display: none }` inside `@media print`, and no injection makes an absence assertion fail
+without writing the very rule it forbids.
+FAIL-FIRST: jalsa/tests/unit/close-bill-order-pane.unit.spec.ts - **5 failed, 3 passed** against
+the pre-change close-bill sheet, and jalsa/tests/render/close-bill-panes.render.spec.ts -
+**9 failed, 18 passed** with the two-pane layout absent. Both from the record-payment run.
+NEW EVIDENCE THIS RUN: run against main BEFORE the sources were copied in, the three
+source-pinning specs could not resolve their subjects at all, and bill-detail-wiring's print case
+failed on `body:has(.j-print-root)` because main's `@media print` block held only the
+`.j-no-print` rule. With the sources in place: **1033 passed** (unit + render), 0 failed.
+Chromium only; the WebKit-backed tablet and mobile-ios projects cannot run in this container.
+WHAT THIS PROMOTION IS: the owner-side bill detail screen with Print and Share to WhatsApp, the
+record-payment order pane, and src/lib/restaurant-identity.ts, which both import. NO DATABASE
+CHANGE OF ANY KIND: no migration, no new column, no new table, no query change. The four bill
+closure fields added to `OwnerBillView` (paymentMode, paymentReference, closedAt, closedBy) were
+already being selected by `BILL_SELECT` and already shaped onto `Bill` - the view simply never
+projected them, which `tsc` passing with no change to queries.ts proves.
+WHAT IT DELIBERATELY IS NOT: the promotions, quick-add and logo-upload workstreams share these
+files on the development branch and are NOT here - each needs a migration production has not had,
+and the candidate was scanned line by line for their symbols with zero hits. The printer template
+preview and its WhatsApp template are also held back: they rewrite the same PrintSetupSection
+panel the print-bridge work just rebuilt, and combining the two is its own change with its own
+evidence rather than a copy over the top.
+REBASED WITHOUT REBASING: this candidate was first built on 760a983 and validated there. The
+print-bridge merge landed on main first, so it was rebuilt file by file on c627f62 and every
+check re-run against that base, rather than merged over it.
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no bill was opened, printed or shared against
+a real row. The deployed application is additionally unable to reach its own database at the time
+of writing, which is an environment fault outside this change.
+
+---
+
 ## Application run - jalsa - 2026-09-21 - Phase 1 print job assignment
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
