@@ -61,6 +61,18 @@ const read = (p: string): string => readFileSync(p, 'utf8');
 const MUTATIONS = read('src/lib/db/mutations.ts');
 const QUERIES = read('src/lib/db/queries.ts');
 const MIGRATION = read('supabase/migrations/20260919090000_jalsa_print_job_assignment.sql');
+/* R4-1 (22-Sep-2026): the module that now names the side, and the migration that persists it. */
+const ROUTING = read('src/lib/print-routing.ts');
+
+/**
+ * The same source with comments removed.
+ *
+ * Same reason as `bridge-contract.unit.spec.ts`: these files explain at length what they must not
+ * do, and a rung that goes red on a file's own explanation teaches people to stop explaining.
+ */
+function code(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/.*$/gm, '');
+}
 
 /**
  * One exported function's body, by name.
@@ -567,4 +579,105 @@ test('A ZERO FAILURE COUNT IS NOT A CLAIM THAT ANYTHING PRINTED', () => {
 
   const setup = read('src/features/owner/sections/PrintSetupSection.tsx');
   expect(setup, '"Nothing outstanding" likewise').toContain("waiting ? `${waiting} waiting to print` : 'Nothing outstanding'");
+});
+
+/* ── R4-1 · The half of the round is persisted, and stays (22-Sep-2026) ──── */
+
+/**
+ * `queuePrint` persisted `printer_id` and `station` and discarded the third segment of
+ * `splitRound`'s bucket key. With the food-type split on, one round therefore wrote two rows
+ * identical in every stored field, and nothing downstream could say which half either was.
+ *
+ * These rungs read source for the same reason the rest of this file does: the property is a
+ * property of a WRITE, and a rung that needs a database is a rung that skips.
+ */
+test('queuePrint persists the side the ticket says it is', () => {
+  const q = bodyOf(MUTATIONS, 'queuePrint') ?? '';
+  expect(q).toContain('food_side: t.side');
+});
+
+test('queuePrint cannot quietly hard-code the un-split reading', () => {
+  // `food_side: 'all'` would compile, would pass every split-off test, and would reinstate the
+  // exact defect for the one configuration that needed the column.
+  const q = code(bodyOf(MUTATIONS, 'queuePrint') ?? '');
+  const writes = [...q.matchAll(/food_side:\s*([^,\n]+)/g)].map((m) => (m[1] ?? '').trim());
+  expect(writes, 'exactly one write, and it is the ticket').toEqual(['t.side']);
+});
+
+test('the insert shape stays a closed, reviewed set', () => {
+  // Same idiom as the Phase 1 patch-shape rungs: a blacklist only catches the column somebody
+  // already imagined. If this list changes, the change was deliberate and is read here.
+  const q = code(bodyOf(MUTATIONS, 'queuePrint') ?? '');
+  const rows = q.slice(q.indexOf('const rows = tickets.map('));
+  const columns = [...rows.slice(0, rows.indexOf('}));')).matchAll(/^\s{4}([a-z_]+):/gm)].map((m) => m[1]);
+  expect([...columns].sort()).toEqual(
+    [
+      'attempts',
+      'bill_id',
+      'completed_at',
+      'food_side',
+      'is_reprint',
+      'kind',
+      'kot_id',
+      'last_error',
+      'printer_id',
+      'printer_name',
+      'requested_by',
+      'restaurant_id',
+      'routing_rule',
+      'station',
+      'status',
+    ].sort()
+  );
+});
+
+test('retryPrintJob still cannot touch the half — its patch is closed', () => {
+  // A retry re-sends the SAME half to the SAME machine. The patch was already a closed set; this
+  // names the new column in it so a future edit has to argue with a rung rather than with nobody.
+  const r = code(bodyOf(MUTATIONS, 'retryPrintJob') ?? '');
+  expect(r).not.toContain('food_side');
+  expect(r).not.toContain('printer_id:');
+});
+
+test('printElsewhere copies the ORIGINAL job’s half, never the destination’s', () => {
+  // Redirecting changes where a ticket prints. It does not change what is on it. Deriving the
+  // side from the chosen machine would compose whichever half that machine happens to claim —
+  // which is precisely what happened before the column existed.
+  const p = code(bodyOf(MUTATIONS, 'printElsewhere') ?? '');
+  expect(p).toContain('job.food_side');
+  expect(p, 'the destination printer never decides the half').not.toMatch(/food_side:\s*printer\./);
+  // And it must actually have read the column to copy it.
+  expect(p).toContain('food_side');
+  expect(p, 'the origin is selected').toMatch(/select\([^)]*food_side/);
+});
+
+test('the sides a job may carry are exactly the ones routing can produce', () => {
+  // One vocabulary. A fourth value in the database that `splitRound` cannot emit, or a value
+  // `splitRound` emits that the constraint rejects, is a job that can never be composed.
+  const migration = read('supabase/migrations/20260922090000_jalsa_print_job_food_side.sql');
+  expect(migration.length).toBeGreaterThan(1500);
+  for (const side of ['all', 'veg_side', 'non_veg']) {
+    expect(migration, `the constraint admits ${side}`).toContain(`'${side}'`);
+    expect(ROUTING, `routing can produce ${side}`).toContain(`'${side}'`);
+  }
+  expect(migration).toContain('print_job_food_side_check');
+});
+
+test('the half is immutable in the DATABASE, not only in TypeScript', () => {
+  // The lesson `printer_id` already taught one migration earlier: a rule enforced only in the
+  // layer that broke it is a comment.
+  const migration = read('supabase/migrations/20260922090000_jalsa_print_job_food_side.sql');
+  expect(migration).toContain('print_job_food_side_is_immutable');
+  expect(migration).toContain('before update on public.print_job');
+  expect(migration).toContain('raise exception');
+  // And it is a SEPARATE trigger: widening the printer one would leave a name that lies.
+  expect(migration).not.toContain('print_job_printer_is_immutable');
+});
+
+test('the migration does not backfill a guess onto old rows', () => {
+  // A pre-migration row written while the split was on says nothing about which half it is.
+  // Guessing would be the duplicate-printing defect, arriving as a migration.
+  const migration = code(read('supabase/migrations/20260922090000_jalsa_print_job_food_side.sql'));
+  expect(migration).toContain("default 'all'");
+  expect(migration, 'no UPDATE of existing rows').not.toMatch(/update\s+public\.print_job\s+set\s+food_side/i);
 });

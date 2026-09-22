@@ -2,6 +2,111 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-22 - Gate 4 remediation (R4-1 food side, R4-2 station)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+Two correctness defects the Gate 4 investigation found, both crossing Phase 1 contracts, both
+approved as controlled amendments before any file was touched.
+
+R4-1: `splitRound` keys buckets on `printer | station | side` and `queuePrint` persisted only the
+first two, so a split round wrote two rows identical in every stored field. The severe consequence
+was NOT the split: `printElsewhere` writes the destination machine's station, so a redirect to a
+machine the round also touches composed the WRONG HALF and printed it - an ordinary-looking ticket
+for food that had already printed elsewhere, while the intended round was never delivered. Fixed
+with `RoundTicket.side`, migration `20260922090000` (`food_side`, a check constraint and a separate
+immutability trigger), `queuePrint` persisting it, `printElsewhere` copying the ORIGIN's, and a new
+pure `redirect-lineage.ts` that walks `redirected_from_job_id` to its root capped at 8. The legacy
+refusal is KEPT for pre-migration rows, which the `'all'` default cannot rescue - recorded as KL-5.
+
+R4-2: routing carried `station` the whole way and `TicketData`/`buildKot` dropped it at the last
+step, so a fallback ticket was byte-identical to a main-kitchen ticket. Fixed as data-contract
+propagation; it prints by default, recorded as DC-012.
+
+BYTE EVIDENCE: goldens captured from the PRE-remediation tree at both widths before any file
+changed. R4-1 byte identity - 58mm IDENTICAL (572 bytes), 80mm IDENTICAL (804 bytes). R4-2 change -
+58mm 572 to 611, 80mm 804 to 859, one bold STATION line each, with a rung asserting nothing else
+moved.
+
+DATABASE EVIDENCE (TEST project, each assertion its own statement; rows deleted afterwards):
+default 'all'; an invalid insert violates `print_job_food_side_check`; a valid-but-different update
+raises "print_job.food_side is immutable"; retryPrintJob's exact patch leaves it 'non_veg'; a
+redirect row carries the origin's 'non_veg'.
+
+FAIL-FIRST: 13 defects injected into the finished tree, all 13 observed failing - splitRound
+hard-coding the un-split side (5 failed, 181 passed), queuePrint hard-coding food_side (2),
+printElsewhere taking the half from the destination (1), retryPrintJob patching food_side (2),
+ticket-compose matching on machine+station only (4), the legacy guard removed (1), the redirect cap
+stopping halfway (3), the walk never following the lineage (8), buildKot losing the station case
+(7), the station shipping switched off (7), composeTicket dropping the job station (7), the ticket
+field order changing (4, both goldens both widths), and bridge-payload composing from the redirect
+itself (1).
+
+A RUNG THAT WAS WRONG, RECORDED: the "only difference is the station line" rung first diffed
+DECODED bytes and reported two added lines - keeping printable bytes leaks the `E` out of
+`ESC E 01`, the bold-on the station line introduced. Decoding properly would mean an ESC/POS parser
+inside a test. It diffs the composer's `TicketLine[]` instead; the bytes are pinned exactly by four
+rungs above it.
+
+Two Gate 4 specs superseded under the contract-change exception with dated notes; every other Gate
+4 scenario re-run UNCHANGED and passing.
+
+Finished tree: 655 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass, bridge
+build clean.
+
+---
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 4 (the end-to-end software bridge)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+The whole path proved without a printer: queued -> claim -> TicketLine[] -> ESC/POS ->
+FileTransport -> report -> printed, and the failure path beside it ending at `failed` with the
+`printer_id` untouched and no second job. Three specs added (`bridge-loop` 25 cases,
+`ticket-compose` 16 cases, `bridge-import-hygiene` superseded under the contract-change
+exception). The unit tier goes 573 -> 615.
+
+BLOCKER FOUND AND REPORTED RATHER THAN WORKED AROUND: `splitRound` buckets a round by
+`printerId | station | side`, but the `print_job` row stores only the first two. With the
+food-type split ON, one round produces two jobs that are identical as rows, and nothing can say
+which half belongs to which ticket. `composeTicket` REFUSES that case instead of guessing, because
+guessing prints the whole round twice at one machine. The fix is one additive column written at
+queue time, which means changing `queuePrint` - a Phase 1 contract this gate may not touch.
+
+DATABASE EVIDENCE (TEST project, each transition its own statement; rows deleted afterwards):
+claim A = 1 row / claim B = 0 rows; loser report = 0; holder report = 1; reclaim after printed = 0;
+second report = 0; reassigning printer_id raised "print_job.printer_id is immutable"; a job left
+`processing` was offered 0 times, claimed 0 times and stayed `processing`.
+
+FAIL-FIRST: 16 defects injected into the finished tree, each observed failing - the losing bridge
+carrying on past the claim (1 failed, 80 passed), the local machine filter removed, an
+unrenderable ticket encoded anyway, a transport failure not reported (2 failed), the backoff never
+growing, the loop learning the word "queued", a machine it cannot serve not refused, the
+veg/non-veg ambiguity guard removed (2 failed), the routing-changed guard removed (2 failed), a
+job taking the whole round (2 failed), the template deciding the paper, a Supabase credential no
+longer stopping the bridge, a bridge serving nothing allowed to start, a nonsense poll interval
+becoming a tight loop, and the bridge reaching a fourth application file.
+
+THE RUNG THAT COULD NOT SEE ITS OWN DEFECT: injecting an inverted food-type side rule left the
+equivalence rung GREEN - it compared machines and bucket counts and stripped the side off the key
+before comparing, so the one thing it was named after was the one thing it could not see. Same
+class as the Gate 1 "must not write printed" rung that passed over the exact ternary that wrote
+it. Replaced with a rung asserting the rule's meaning, which fires. A first replacement also
+compared `splitRound`'s aggregate; that half was wrong and went red on the clean tree, because the
+ambiguous case is two buckets sharing one machine and the aggregate cannot tell them apart - so it
+was removed rather than weakened.
+
+SECOND FINDING: the station never reaches the paper. `print-routing.ts` carries `station` so a
+fallback ticket can be stamped TANDOOR, and `TicketData`/`buildKot` have no field for it. Recorded
+as a rung that goes red the day one is added.
+
+Finished tree: 615 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass,
+`npm run bridge:build` clean with only `node:fs/promises` and `node:path` imported.
+
+---
+
 ## Application run - jalsa - 2026-09-21 - Phase 2 Gate 3 (PrintTransport abstraction)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads

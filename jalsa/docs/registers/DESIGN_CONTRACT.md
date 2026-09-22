@@ -25,6 +25,38 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-012 · The kitchen ticket carries its station, and the artboards do not show one
+
+**SOURCE** — `src/lib/print-routing.ts`, in its own words: *"The station the ticket was MEANT for,
+not the one it came out at. A tandoor ticket on the main kitchen machine has to say TANDOOR or the
+wrong cook picks it up."* Routing has carried `station` on every decision since Phase 1 and
+`print_job.station` has snapshotted it since the 19-Sep-2026 migration.
+
+**IMPLEMENTATION (before 22-Sep-2026)** — `TicketData` had no `station` member, `KOT_FIELDS` had
+no `station` key, and `buildKot` had no case for one. The value was carried the whole way and
+dropped at the last step. A fallback ticket printed at the main-kitchen machine was byte-identical
+to a main-kitchen ticket, so the mechanism cost everything and delivered nothing.
+
+**THE DESIGN SET** — the KOT artboards show no station line. This is therefore a divergence, added
+in the design's own idiom (a `leftRight` row in the Order band, the same shape as TABLE and BILL
+NO), not a new pattern.
+
+**DECIDED** — the field prints **by default**. Shipping it switched off would leave the divergence
+recorded and the defect shipped. `DEFAULT_OFF.kot` deliberately omits `'station'`, and the reason
+is written at that line.
+
+**NEW VISIBLE STRING** — `STATION`, in the existing all-caps label idiom (`TABLE`, `BILL NO`,
+`CAPTAIN`, `DATE`, `TIME`). Adopts existing terminology rather than introducing a synonym, per the
+freeze rule. Weight `bold` — an existing weight in the template vocabulary, chosen because a
+ticket that looks like every other ticket is the failure this field exists to prevent.
+
+**STATUS** — AUTHORISED (22-Sep-2026) and built. **NOT VERIFIED**: no physical ticket has been
+observed. Verification is Gate 7, on the RP3160. The byte-level change is pinned in
+`tests/unit/ticket-golden.unit.spec.ts` (Golden A vs Golden B) — 39 bytes at 58 mm, 55 at 80 mm,
+one line each, with a rung asserting nothing else moved.
+
+---
+
 ## DC-011 · Separating a table: the fourth group case, and what perTable was worth
 
 **SOURCE** — `Jalsa Product Plan.dc.html`, the group-bill section: *"Four cases have to be

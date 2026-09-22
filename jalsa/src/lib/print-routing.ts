@@ -208,6 +208,22 @@ export function printerShortName(name: string): string {
   return last || name.trim();
 }
 
+/**
+ * Which half of a round a ticket is, when the food-type split is on.
+ *
+ * ADDED 22-Sep-2026, AND WHY IT IS A VALUE RATHER THAN A DERIVATION
+ *   This is the third segment of `splitRound`'s bucket key, and until now it existed only as a
+ *   local variable inside that function. `queuePrint` persisted the other two segments and
+ *   discarded this one, so two tickets for the same machine and station — a veg half and a
+ *   non-veg half — became two database rows identical in every stored field. Nothing downstream
+ *   could tell them apart, and a renderer that guessed would print the whole round twice.
+ *
+ *   `foodTypes` below is NOT this fact. It records which types LANDED in a bucket; this records
+ *   which side the bucket IS. The two are interchangeable in the aggregate, which is exactly why
+ *   the side has to be carried out of here rather than reconstructed.
+ */
+export type TicketSide = 'all' | 'veg_side' | 'non_veg';
+
 /** One ticket: everything in a round that goes to one machine under one heading. */
 export interface RoundTicket {
   printerId: string | null;
@@ -215,7 +231,14 @@ export interface RoundTicket {
   station: string;
   rule: RoutingRule;
   reason: string;
+  /** Which types landed here. A consequence of the split, not the key it was split on. */
   foodTypes: FoodType[];
+  /**
+   * Which side of the split this ticket is. `'all'` whenever the split is off — one side,
+   * carrying everything. Required, not optional: a construction site that forgets it is a job
+   * whose identity cannot be recovered, and the compiler is the cheapest place to catch that.
+   */
+  side: TicketSide;
   count: number;
 }
 
@@ -243,8 +266,12 @@ export function splitRound(input: {
 
   input.items.forEach((item) => {
     const decision = resolvePrinter({ purpose: 'KOT', category: item.category, printers: input.printers });
-    const side = input.splitByFoodType && item.foodType === 'non_veg' ? 'non_veg' : 'veg_side';
-    const key = `${decision.printer?.id ?? 'none'}|${decision.station}|${input.splitByFoodType ? side : 'all'}`;
+    // ONE expression, used for both the key and the ticket. They were the same value before
+    // 22-Sep-2026 too — but only one of them escaped this function, and the other was the one
+    // the database needed. Naming it once is what stops them ever disagreeing.
+    const side: TicketSide =
+      input.splitByFoodType && item.foodType === 'non_veg' ? 'non_veg' : input.splitByFoodType ? 'veg_side' : 'all';
+    const key = `${decision.printer?.id ?? 'none'}|${decision.station}|${side}`;
     const existing = buckets.get(key);
     if (existing) {
       existing.count += 1;
@@ -258,6 +285,7 @@ export function splitRound(input: {
       rule: decision.rule,
       reason: decision.reason,
       foodTypes: [item.foodType],
+      side,
       count: 1,
     });
   });

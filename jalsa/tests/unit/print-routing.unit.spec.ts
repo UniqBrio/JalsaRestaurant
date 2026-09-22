@@ -227,3 +227,69 @@ test('every ticket carries a reason — a routing nobody can read is a routing n
   });
   tickets.forEach((t) => expect(t.reason.length).toBeGreaterThan(10));
 });
+
+/* ── R4-1 · The side a bucket is, carried out of the function (22-Sep-2026) ── */
+
+/**
+ * `splitRound` keys buckets on printer, station and side. Until today the side existed only as a
+ * local variable: `queuePrint` persisted the other two and discarded it, so two tickets for one
+ * machine — a veg half and a non-veg half — became two rows identical in every stored field.
+ *
+ * These rungs pin the side as a VALUE on the ticket. `foodTypes` is not the same fact: it records
+ * which types landed in a bucket, and the two sides are interchangeable in that aggregate, which
+ * is exactly why the side has to be carried rather than reconstructed.
+ */
+test('every ticket names which side of the split it is', () => {
+  const items = [
+    { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
+    { category: 'Desserts', foodType: 'veg' as const },
+  ];
+  for (const ticket of splitRound({ items, printers: FLOOR, splitByFoodType: true })) {
+    expect(['all', 'veg_side', 'non_veg']).toContain(ticket.side);
+  }
+});
+
+test('with the split OFF every ticket is `all` — one side, carrying everything', () => {
+  const items = [
+    { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
+    { category: 'Desserts', foodType: 'veg' as const },
+    { category: 'Breads', foodType: 'egg' as const },
+  ];
+  const tickets = splitRound({ items, printers: FLOOR, splitByFoodType: false });
+  expect(tickets.length).toBeGreaterThan(0);
+  for (const t of tickets) expect(t.side).toBe('all');
+});
+
+test('with the split ON, a non-veg ticket says non_veg and a veg ticket says veg_side', () => {
+  // The side and the food types must agree. If they ever disagree the row records one thing and
+  // the paper carries another, which is the whole class of defect this column exists to close.
+  const items = [
+    { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
+    { category: 'Non-Veg Starters', foodType: 'veg' as const },
+  ];
+  for (const t of splitRound({ items, printers: FLOOR, splitByFoodType: true })) {
+    if (t.side === 'non_veg') expect(t.foodTypes).toEqual(['non_veg']);
+    else expect(t.foodTypes).not.toContain('non_veg');
+  }
+});
+
+test('egg travels with veg, on the side as well as in the bucket', () => {
+  // One fryer, one side — the rule the split already had. The side must say the same thing.
+  const items = [{ category: 'Breads', foodType: 'egg' as const }];
+  const tickets = splitRound({ items, printers: FLOOR, splitByFoodType: true });
+  expect(tickets).toHaveLength(1);
+  expect(tickets[0]?.side).toBe('veg_side');
+});
+
+test('the side distinguishes two tickets that are otherwise identical', () => {
+  // The defect, stated as a rung: same machine, same station, and until today nothing else.
+  const items = [
+    { category: 'Non-Veg Starters', foodType: 'non_veg' as const },
+    { category: 'Non-Veg Starters', foodType: 'veg' as const },
+  ];
+  const tickets = splitRound({ items, printers: FLOOR, splitByFoodType: true });
+  expect(tickets).toHaveLength(2);
+  expect(tickets[0]?.printerId).toBe(tickets[1]?.printerId);
+  expect(tickets[0]?.station).toBe(tickets[1]?.station);
+  expect(tickets[0]?.side).not.toBe(tickets[1]?.side);
+});

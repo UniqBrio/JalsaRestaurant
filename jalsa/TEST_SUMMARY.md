@@ -4,6 +4,265 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-22 - Gate 4 remediation (R4-1 food side, R4-2 station)
+
+The two correctness defects the Gate 4 investigation found, fixed. Both cross Phase 1 contracts
+and both were approved as controlled amendments before any file was touched.
+
+### R4-1 - A PRINT JOB MUST KNOW WHICH HALF OF A ROUND IT IS
+
+ROOT CAUSE. `splitRound` keys buckets on `printer | station | side`. `queuePrint` persisted the
+first two and discarded the third, which existed only as a local variable and never left the
+function - `RoundTicket` carried `foodTypes` (which types LANDED in a bucket) but not the side
+the bucket IS, and those are not the same fact. With the split on, one round therefore wrote two
+rows identical in every stored field.
+
+Three consequences, in severity order:
+  1. Neither row could be composed, so a restaurant with the split on could not print a KOT.
+  2. WORSE, AND INDEPENDENT OF THE SPLIT: `printElsewhere` writes the DESTINATION machine's
+     station, so a redirect to a machine the round also touches matched the wrong bucket by
+     machine-and-station alone and composed the OTHER HALF. Not a refusal - a perfectly ordinary
+     ticket for food that had already printed somewhere else, while the intended round was never
+     delivered at all. This is the defect that made the remediation urgent.
+  3. Any renderer that guessed between two siblings prints the whole round twice at one machine.
+
+THE FIX, additive throughout:
+  - `RoundTicket.side: 'all' | 'veg_side' | 'non_veg'`, assigned in `splitRound` from ONE
+    expression now used for both the key and the ticket. Required, not optional: a construction
+    site that forgets it is a job whose identity cannot be recovered, and the compiler is the
+    cheapest place to catch that. `billTicket` states `side: 'all'` explicitly.
+  - Migration `20260922090000_jalsa_print_job_food_side` - `food_side text not null default 'all'`,
+    a check constraint over the three values routing can emit, and a SEPARATE immutability trigger
+    (`print_job_food_side_immutable`). Separate because widening `print_job_printer_is_immutable`
+    would leave a function named for what it protects and protecting something else.
+  - `queuePrint` writes `food_side: t.side`. Never a literal - `print-assignment.unit.spec.ts`
+    pins that exactly one expression is written and that it is the ticket's.
+  - `printElsewhere` copies the ORIGIN's `food_side`. Redirecting changes where a ticket prints,
+    never what is on it.
+  - `retryPrintJob` is UNCHANGED. Its patch was already a closed set, so the new column survives
+    a retry by construction; a rung now names it so a future edit argues with a test.
+  - `ticket-compose.ts` matches the FULL triple. A full key identifies one bucket, so a match is
+    unique by construction and there is no longer a "which of these two did they mean" case.
+  - `redirect-lineage.ts` (new, pure) walks `redirected_from_job_id` to its root, capped at 8.
+    Extracted from `bridge-payload.ts` because that file imports `server-only` and nothing here
+    could execute it - a depth cap nothing runs is a comment about a depth cap. Exceeding the cap,
+    a cycle, or an unreadable origin are all BLOCKED, never a stop at the eighth: a partial walk
+    composes from whichever job it halted on, which is the same defect by another road.
+  - `bridge-payload.ts` composes from the ORIGIN's identity and prints at THIS job's machine, at
+    THIS job's paper width, with THIS job's reprint mark.
+
+THE REFUSAL IS NOT DELETED. The backfill default `'all'` says nothing about a row written while
+the split was on and BEFORE the migration. Those still collide and are still refused, with a
+message that now names what it actually is - an old row, not a design gap. Recorded as KL-5.
+A backfill that guessed would be the duplicate-printing defect arriving as a migration.
+
+### R4-2 - THE STATION REACHES THE PAPER
+
+ROOT CAUSE. `print-routing.ts` carries `station` on every decision for one stated reason: *"A
+tandoor ticket on the main kitchen machine has to say TANDOOR or the wrong cook picks it up."*
+`print_job.station` snapshots it, `bridge-payload` reads it, `ComposeJob` receives it - and
+`TicketData` had no station member, `KOT_FIELDS` no station key, `buildKot` no case. The value
+was carried the whole way and dropped at the last step. The screens showed it
+(`print.tsx` renders `station -> machine`), which is why the gap survived: it looked present
+everywhere except on the only surface a cook reads.
+
+THE FIX: `TicketData.station`, one `KOT_FIELDS` entry in the Order band, one `buildKot` case
+(`leftRight('STATION', ...)`, bold, skipped when empty in the idiom `note` already uses), and
+`composeTicket` passing `job.station` through. `ComposeInput.header` DELIBERATELY OMITS `station`
+so a caller cannot pass the printing machine's station by mistake - the one wrong value that looks
+entirely plausible. Bills are untouched: `BILL_FIELDS` and `buildBill` have no station and should
+not.
+
+IT PRINTS BY DEFAULT, and that is a deliberate visible product change, recorded as DC-012. Shipping
+it switched off would leave the divergence recorded and the defect shipped.
+
+### BYTE EVIDENCE
+
+Golden bytes were captured from the PRE-remediation tree at both widths before any file changed -
+they cannot be captured afterwards. `tests/unit/ticket-golden.unit.spec.ts` pins four streams:
+
+  GOLDEN A 58mm / 80mm   the ticket as it was, reproduced with the station field off
+  GOLDEN B 58mm / 80mm   the ticket as it prints today
+
+  R4-1 byte identity:  58mm IDENTICAL (572 bytes) - 80mm IDENTICAL (804 bytes)
+  R4-2 intended change: 58mm 572 -> 611 bytes - 80mm 804 -> 859 bytes
+
+and a rung asserting the ONLY difference between A and B is one bold STATION line, with nothing
+removed. That rung was first written to diff DECODED bytes and was wrong: keeping printable bytes
+leaks the `E` out of `ESC E 01`, the bold-on the station line introduced, and it reported two
+added lines. Decoding properly would mean an ESC/POS parser inside a test - the second
+implementation `file.ts` refuses to grow for the same reason. It diffs the composer's own
+`TicketLine[]` instead; the bytes are pinned exactly four rungs above.
+
+### DATABASE EVIDENCE (TEST project uxmyomxtosjlkvjxnvpy, 22-Sep-2026, each assertion its own
+statement; evidence rows deleted afterwards)
+
+  a row that does not mention the column       -> food_side = 'all'
+  insert food_side = 'sideways'                -> violates check constraint print_job_food_side_check
+  update food_side = 'sideways'                -> the immutability trigger fires FIRST
+  update food_side = 'veg_side' (valid value)  -> "print_job.food_side is immutable (job ..., non_veg)"
+  retryPrintJob's exact patch applied          -> food_side still 'non_veg'
+  a redirect row inserted as printElsewhere does -> food_side 'non_veg', the ORIGIN's, rule 'chosen'
+
+Note honestly: an invalid UPDATE is caught by the trigger rather than by the constraint, because
+the trigger runs first. The constraint is what guards INSERT.
+
+### FAIL-FIRST: 13 defects injected into the finished tree, all 13 observed failing
+
+  R1  splitRound hard-codes the un-split side          5 failed | 181 passed
+  R2  queuePrint hard-codes food_side                  2 failed
+  R3  printElsewhere takes the half from the DESTINATION 1 failed
+  R4  retryPrintJob starts patching food_side          2 failed (incl. the Phase 1 patch-shape rung)
+  R5  ticket-compose matches on machine+station only   4 failed
+  R6  the legacy ambiguous-row guard removed           1 failed
+  R7  the redirect cap stops halfway instead of refusing 3 failed
+  R8  the walk never follows the lineage at all        8 failed
+  R9  buildKot loses the station case                  7 failed
+  R10 the station ships switched OFF                   7 failed
+  R11 composeTicket drops the job station              7 failed
+  R12 the ticket field order changes                   4 failed (both goldens, both widths)
+  R13 bridge-payload composes from the redirect itself 1 failed
+
+### SUPERSEDED SPECS (contract-change exception, jalsa/CLAUDE.md, dated notes in each file)
+
+  ticket-compose.unit.spec.ts - "BLOCKED: two tickets ... cannot be told apart" replaced by the
+    positive rung (union = round, intersection = empty) PLUS the legacy refusal, which is kept.
+  ticket-compose.unit.spec.ts - "KNOWN GAP: the station never reaches the paper" replaced by its
+    positive form, which is what that rung was holding the place for.
+
+Every other Gate 4 scenario was re-run UNCHANGED and passes.
+
+Finished tree: 655 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass,
+bridge build clean (`node:fs/promises` and `node:path` only).
+
+---
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 4 (the end-to-end software bridge)
+
+The whole path, proved without a printer in the room:
+
+  queued -> discovered -> claimed -> TicketLine[] -> ESC/POS -> FileTransport -> report -> printed
+
+and the failure path beside it, ending at `failed` with the transport's own sentence, the
+`printer_id` untouched, no reroute and no second job.
+
+THE GAP GATE 4 WAS ASKED TO CLOSE, AND WHAT CLOSING IT REVEALED
+  `buildTicket` had exactly ONE caller in this repository: the owner's Print Setup preview, over a
+  hand-written `sample: TicketData`. Nothing composed a real ticket from a real round - the
+  template was a thing the restaurant could configure and could not print. `src/lib/ticket-compose.ts`
+  is the missing half, and `src/lib/db/bridge-payload.ts` feeds it from the job's own rows.
+
+  Composing a job's ticket means knowing which ITEMS of a round belong to it, and that turned out
+  not to be answerable from the row in one configuration. See BLOCKER below.
+
+THE PAYLOAD DECISION: `TicketLine[]`, rendered on claim
+  Not bytes - that would move the encoder onto a kitchen PC and make Gate 2's golden-byte tests a
+  claim about a machine nobody can inspect. Not order data - that hands a bridge the bill, the
+  guest and the menu in order to render one ticket. Lines are exactly what the template contract
+  already produces and exactly what `escpos.ts` already consumes.
+  Rendered on `claim`, not in `list`: `list` is polled by every bridge in the building every few
+  seconds, and rendering every waiting ticket on every poll composes most of them repeatedly and
+  prints none of them. Still three verbs - the ticket is part of the answer to "I am taking this
+  job", not a fourth capability.
+
+BLOCKER FOUND, NOT WORKED AROUND
+  `splitRound` buckets a round by `printerId | station | side`, where side is veg/non-veg when the
+  owner has the food-type split on. One bucket becomes one `print_job` - but the ROW stores only
+  `printer_id` and `station`. The side is stored nowhere. So with the split ON, one round can
+  produce two jobs that are, as rows, identical, and nothing can say which half belongs to which
+  ticket. Guessing prints the whole round twice at one machine.
+  `composeTicket` therefore REFUSES that case and the job fails visibly in front of a person.
+  The fix is one additive column written at queue time (`print_job.food_types`, or a `split_side`),
+  which means changing `queuePrint` - a Phase 1 contract this gate may not touch. NOT DONE HERE,
+  reported instead. With the split OFF - the shipped default - the mapping is unambiguous and the
+  whole path works.
+
+SECOND FINDING: THE STATION NEVER REACHES THE PAPER
+  `print-routing.ts` says, in its own words, *"A tandoor ticket on the main kitchen machine has to
+  say TANDOOR or the wrong cook picks it up"*, and carries `station` on every decision and every
+  job for that purpose. `TicketData` has no station member and `buildKot` has no case for one, so
+  the fallback ticket the whole mechanism exists to stamp comes out unstamped. Recorded as a rung
+  that goes RED the day a station field is added (`ticket-compose.unit.spec.ts`, "KNOWN GAP"), at
+  which point the composer must pass `job.station` through. Fixing it means editing
+  `print-template.ts`, which this gate may not do.
+
+WHAT IS REAL IN THE TESTS AND WHAT IS NOT
+  REAL: the loop, the configuration, `composeTicket`, `buildTicket`, `encodeTicket`,
+  `FileTransport`, `NullTransport`. Bytes are genuinely encoded and genuinely written to genuine
+  files, compared byte for byte against the encoder's output.
+  NOT REAL: the HTTP hop and Postgres. `Store` in `bridge-loop.unit.spec.ts` stands in for
+  `bridge-mutations.ts`. The trade is made honest twice: a fidelity rung asserts the stand-in's
+  conditions against the REAL module's source, and every lifecycle claim was ALSO proved against
+  the TEST database through MCP - below - rather than asserted only in memory.
+
+DATABASE EVIDENCE (TEST project uxmyomxtosjlkvjxnvpy, 21-Sep-2026, each transition its own
+statement so nothing shares a snapshot; evidence rows deleted afterwards):
+  claim A = 1 row, claim B = 0 rows                  - exactly one bridge takes a queued job
+  loser report = 0 rows                              - the loser cannot report on it
+  holder report = 1 row                              - the holder can
+  reclaim after printed = 0 rows                     - a printed job is never claimed again
+  second report = 0 rows                             - and never reported twice
+  still queued = 0                                   - it is not offered again either
+  reassign printer_id -> "print_job.printer_id is immutable (job ..., assigned to ...)"
+  after the whole lifecycle: printer_id, station and routing_rule all unchanged
+  RESTART: a job left `processing` was offered 0 times, claimed 0 times, reported 0 times, and
+  remained `processing` - the bridge has no vocabulary that moves it back to `queued`.
+  (A first attempt at this used one multi-CTE statement. Postgres evaluates every CTE against one
+  snapshot, so the counts were not evidence of sequential behaviour and were discarded and re-run.)
+
+Three specs added, one superseded:
+  tests/unit/bridge-loop.unit.spec.ts      25 cases - the twelve scenarios plus the bounded loop
+  tests/unit/ticket-compose.unit.spec.ts   16 cases - composition and, mostly, its refusals
+  tests/unit/bridge-import-hygiene.unit.spec.ts     - SUPERSEDED under the contract-change
+    exception: the closure was "bridge files only" and is now "bridge files plus three NAMED pure
+    modules" (`escpos.ts`, `print-template.ts`, `status.ts`). The bridge imports the Gate 2
+    encoder rather than growing a second one; the node-only external allow-list is unchanged,
+    which is what makes the new membership safe rather than a widening.
+The unit tier goes 573 -> 615.
+
+FAIL-FIRST: 16 defects injected into the finished tree, each re-run against all four bridge specs.
+  L1 the losing bridge carries on past the claim: 1 failed, 80 passed - CONCURRENCY.
+  L2 the local machine filter removed: 1 failed - MACHINE ISOLATION (the local half).
+  L3 an unrenderable ticket encoded anyway: 1 failed - the job would have sat in `processing`.
+  L4 a transport failure not reported: 2 failed - FAILURE and FAILURE REPORT.
+  L5 the backoff never grows: 1 failed - a kitchen PC is somebody's working computer.
+  L6 the loop learns the word "queued": 1 failed - RESTART.
+  L7 a machine this bridge cannot serve is not refused: 1 failed - NO REROUTING.
+  C1 the veg/non-veg ambiguity guard removed: 2 failed - the BLOCKER above would print twice.
+  C2 the routing-changed guard removed: 2 failed.
+  C3 the job takes the whole round instead of its own items: 2 failed.
+  C4 the saved template decides the paper instead of the machine: 1 failed.
+  C5 the food-type side rule diverged from splitRound: SEE BELOW.
+  G1 a Supabase credential no longer stops the bridge: 1 failed.
+  G2 a bridge serving nothing allowed to start: 1 failed.
+  G3 a nonsense poll interval becomes a tight loop: 1 failed.
+  H1 the bridge reaches a FOURTH application file: 1 failed - the new membership rung.
+
+C5, AND THE RUNG THAT COULD NOT SEE IT (the most useful thing this gate found)
+  `composeTicket` restates `splitRound`'s bucket key, because `splitRound` returns aggregates
+  rather than item lists and is a Phase 1 contract. The equivalence rung was written to guard that
+  duplication - and when the side rule was inverted (`non_veg` for `veg`), it STAYED GREEN. It
+  compared machines and bucket counts, and stripped the side off the key before comparing: the one
+  thing it was named after was the one thing it could not see. Same class as the Gate 1 defect
+  where a "must not write printed" rung passed over the exact ternary that wrote it.
+  Replaced with a rung that asserts the rule's MEANING - every item on the non-veg side is
+  non-veg, every item on the veg side is not - which fires on the inversion (1 failed, 15 passed).
+  A first attempt also compared `splitRound`'s `foodTypes` aggregate; that half was WRONG and
+  failed on the clean tree, because the ambiguous case is two buckets sharing one machine and the
+  aggregate cannot tell them apart. It was removed rather than weakened, with the reason recorded
+  in the spec: an aggregate that cannot see this defect must not be the thing that claims to.
+
+NOT DONE IN THIS GATE, deliberately: no WindowsSpoolerTransport, no Win32, no token issuance UI,
+no CI change, no deployment change. The stale-claim sweeper stays server-side and the bridge never
+calls it. `print-routing.ts`, `print-template.ts`, `queuePrint`, `retryPrintJob` and
+`printElsewhere` are untouched.
+
+Finished tree: 615 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass,
+`npm run bridge:build` bundles five entry points whose only imports are `node:fs/promises` and
+`node:path`.
+
+---
+
 ## Application run - jalsa - 2026-09-21 - Phase 2 Gate 3 (PrintTransport abstraction)
 
 Gate 3 adds the seam between Jalsa's decisions and a physical device, and nothing else. Three

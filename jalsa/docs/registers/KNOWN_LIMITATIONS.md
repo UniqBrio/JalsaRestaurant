@@ -23,6 +23,31 @@ Newest first.
 
 ## Active
 
+### KL-5 — A round split veg/non-veg BEFORE 22-Sep-2026 can never be printed
+**Since** 22-Sep-2026 · **Category** data, permanent for affected rows · **Review by** never — it
+expires on its own as the affected rows are superseded
+
+`splitRound` buckets a round on printer, station and which side of the veg/non-veg split the items
+fall on. Until 22-Sep-2026 `queuePrint` persisted the first two and discarded the third, so a round
+split to one machine wrote two `print_job` rows identical in every stored field.
+
+`print_job.food_side` (migration `20260922090000`) records the side from now on. Its backfill
+default is `'all'`, which is the correct reading for every row written while the split was OFF and
+is exactly as uninformative as before for a row written while it was ON.
+
+**What is blocked.** Composition refuses those legacy rows —
+`src/lib/ticket-compose.ts`, `BLOCKED_AMBIGUOUS`. Nothing prints; the job fails in front of a
+person on the history screen with a sentence saying why.
+
+**Why it is not fixed.** The information does not exist anywhere. A backfill would have to guess
+which half each row is, and a wrong guess prints the whole round twice at one machine — the one
+printing mistake that costs real food. Refusing is the cheaper error.
+
+**The remedy for an operator.** Re-send the round. The new jobs carry their own half.
+
+**Evidence.** `tests/unit/ticket-compose.unit.spec.ts` — "BLOCKED: a row that predates the
+food_side column is still refused"; database evidence in `TEST_SUMMARY.md`, 22-Sep-2026.
+
 ### KL-4 — The setup PIN is `1234` for every member of staff
 **Since** 10-Sep-2026 · **Category** deliberate, temporary · **Review by** first live service
 

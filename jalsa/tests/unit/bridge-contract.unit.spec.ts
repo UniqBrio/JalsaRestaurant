@@ -262,3 +262,48 @@ test('"Sending…" is not a claim that paper moved', () => {
   expect(ui).toContain("processing: { word: 'Sending…'");
   expect(ui).not.toContain("processing: { word: 'Printed'");
 });
+
+/* ── R4-1 · The payload reads the origin, and prints at the destination ── */
+
+/**
+ * `bridge-payload.ts` imports `server-only`, so it cannot be executed here. What CAN be asserted
+ * is that it wires the two halves the right way round — which is the entire content of the fix,
+ * and is a property of four lines of source.
+ */
+const PAYLOAD = read('src/lib/db/bridge-payload.ts');
+
+test('the payload composes from the ORIGIN and never from the redirect itself', () => {
+  expect(PAYLOAD.length).toBeGreaterThan(4000);
+  const p = code(PAYLOAD);
+
+  // The walk is called, and its result is what reaches the composer's job identity.
+  expect(p).toContain('await originOf(');
+  expect(p).toContain('printerId: origin.origin.printerId');
+  expect(p).toContain('station: origin.origin.station');
+  expect(p).toContain('foodSide: origin.origin.foodSide');
+
+  // And the redirect's own identity does NOT reach it. These were the values composing the
+  // wrong half of a round before 22-Sep-2026.
+  expect(p).not.toMatch(/printerId:\s*\(?job\.printer_id/);
+  expect(p).not.toMatch(/station:\s*\(?job\.station/);
+});
+
+test('whether THIS paper is a reprint is a fact about this job, not the origin', () => {
+  // The one field that must NOT come from the origin: a redirect of a printed ticket has to be
+  // marked before it comes out of another machine, or a cook reads the same round twice.
+  const p = code(PAYLOAD);
+  expect(p).toMatch(/isReprint:\s*\(job\.is_reprint/);
+});
+
+test('the paper size comes from the machine that prints it', () => {
+  // Not from the origin: the redirect is what is physically in the corner, and a 58 mm roll fed
+  // 80 mm of layout loses its right-hand column.
+  const p = code(PAYLOAD);
+  expect(p).toMatch(/\.eq\('id', job\.printer_id as string\)/);
+  expect(p).toContain('paper_mm');
+});
+
+test('a blocked render is a value the bridge can report, never a throw', () => {
+  const p = code(PAYLOAD);
+  expect(p).toContain('if (!origin.ok) return { ok: false, blocked: origin.blocked };');
+});

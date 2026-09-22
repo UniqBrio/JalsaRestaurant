@@ -651,6 +651,9 @@ function billTicket(d: RoutingDecision): RoundTicket {
     rule: found ? 'routed' : 'none',
     reason: found ? '' : d.reason,
     foodTypes: [],
+    // A bill is never split. One side, carrying the whole thing — the same value every row
+    // written before 22-Sep-2026 carries, so nothing about a bill's identity changes.
+    side: 'all',
     count: 0,
   };
 }
@@ -709,6 +712,11 @@ export async function queuePrint(input: {
     printer_name: t.printerName,
     station: t.station,
     routing_rule: t.rule,
+    // WHICH HALF OF THE ROUND THIS IS (22-Sep-2026). The third segment of `splitRound`'s bucket
+    // key, which used to be discarded here — leaving two rows for one machine and station that
+    // nothing could tell apart. Taken from the ticket, never re-derived: a second calculation of
+    // the side is a second answer to it.
+    food_side: t.side,
     kind: input.kind,
     kot_id: input.kotId ?? null,
     bill_id: input.billId,
@@ -833,7 +841,7 @@ export async function printElsewhere(input: {
 
   const { data: job, error } = await db()
     .from('print_job')
-    .select('id,kind,kot_id,bill_id,status,printer_id,printer_name,station')
+    .select('id,kind,kot_id,bill_id,status,printer_id,printer_name,station,food_side')
     .eq('id', input.jobId)
     .eq('restaurant_id', restaurantId)
     .single();
@@ -870,6 +878,14 @@ export async function printElsewhere(input: {
       station: printer.station as string,
       // Not a routing rule — a person's decision. The column records WHO decided, not only what.
       routing_rule: 'chosen',
+      // THE HALF IS THE ORIGINAL'S, NEVER THE DESTINATION'S (22-Sep-2026).
+      //   Redirecting a ticket changes WHERE it prints. It does not change WHAT is on it. Taking
+      //   the side from the chosen machine would be inventing a new ticket, and matching the
+      //   round by machine-and-station alone — which is what happened before this line existed —
+      //   composed whichever half the destination happened to claim. A tandoor round redirected
+      //   to the main kitchen printed the main kitchen's dishes a second time and the tandoor's
+      //   round never arrived at all.
+      food_side: (job.food_side as string | null) ?? 'all',
       kind: job.kind as string,
       kot_id: (job.kot_id as string | null) ?? null,
       bill_id: job.bill_id as string,

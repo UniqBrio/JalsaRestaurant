@@ -578,6 +578,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     phone: restaurant.phone || '',
     gstin: tax.gstin || '—',
     kotCode: 'KOT-0000',
+    station: 'Main Kitchen',
     roundCode: 'R-0',
     billCode: 'B-0000',
     table: 'PREVIEW',
