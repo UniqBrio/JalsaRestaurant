@@ -2,6 +2,47 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 5 (the Windows print bridge)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads
+only the root file.
+
+The bridge becomes a program a restaurant can run: `WindowsSpoolerTransport`, a startup that
+refuses a broken configuration, one-line-JSON logs, signal handling and graceful shutdown.
+
+WHAT A SUCCESS MEANS, STATED FIRST: the spooler ACCEPTED the bytes. It does not mean paper came
+out - Windows queues happily for a printer that is switched off - and no spooler-based transport
+anywhere can promise more. The success sentence says `accepted by queue`, never `printed`, and a
+rung asserts it keeps saying so. Hardware is Gate 7 and nothing green here moves it.
+
+`copy /b` rather than a native `winspool.drv` binding: no compiler on a restaurant's PC, no
+rebuild per Node upgrade, no unreadable binary. `/b` is load-bearing - without it `copy` runs in
+text mode, stops at the first 0x1A and translates line endings. The command is INJECTED so that
+every failure path (non-zero exit, timeout, missing queue) is executable off Windows; wired
+directly to `spawn` they would be testable nowhere.
+
+A REGRESSION THIS GATE CAUSED AND THE HARNESS CAUGHT: making `JALSA_BRIDGE_SPOOL_DIR` required
+broke two fixtures in `bridge-loop.unit.spec.ts` and took 20 Gate 4 rungs red. Surfaced by the
+fail-first harness reporting 21 failures for a defect injected into a file `bridge-loop` does not
+import. Fixed in the FIXTURES, not by relaxing the requirement.
+
+FAIL-FIRST: 12 defects injected into the finished tree, all 12 observed failing - `copy` losing
+`/b` (1 failed, 79 passed), a non-zero exit reported as success, a hung spooler unnoticed, the
+queue-name whitelist removed (7 failed; the empty name is still caught by the length test, which
+was not the injected half), the stream staged through a text path, success claiming the ticket
+printed (2), the Windows transport allowed on any platform, the token logged (2), startup
+reporting only the first problem, a second signal being a second shutdown, the staged file left
+behind, and a throwing command escaping the transport.
+
+Added: `bridge/src/transport/windows.ts`, `bridge/src/main.ts`, `bridge/README.md` (the Windows
+runbook), `bridge-windows.unit.spec.ts` (26 cases), `bridge-startup.unit.spec.ts` (14 cases).
+FileTransport and NullTransport are untouched and still shipped. `bridge:build` now produces one
+file whose only imports are `node:fs/promises`, `node:path` and `node:child_process`.
+
+Finished tree: 695 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Gate 4 remediation (R4-1 food side, R4-2 station)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads

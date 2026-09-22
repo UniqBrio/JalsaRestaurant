@@ -4,6 +4,99 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 5 (the Windows print bridge)
+
+The bridge becomes a program a restaurant can run: a Windows spooler transport, a startup that
+refuses a broken configuration, structured logs, signal handling and a graceful shutdown.
+
+WHAT A SUCCESS MEANS HERE, STATED BEFORE ANYTHING ELSE
+  `WindowsSpoolerTransport` reporting success means THE SPOOLER ACCEPTED THE BYTES. It does not
+  mean paper came out. Windows queues perfectly happily for a printer that is switched off, out of
+  paper or asleep, and no spooler-based transport anywhere can promise more than acceptance. The
+  success sentence says `accepted by queue`, never `printed`, and a rung asserts it keeps saying
+  so. Whether a TVS RP3160 prints is Gate 7, on hardware, and nothing green in this gate moves it.
+
+WHY `copy /b` AND NOT A NATIVE BINDING
+  The obvious alternative is `winspool.drv` through a native addon: a compiler toolchain on a
+  restaurant's PC, a rebuild on every Node upgrade, and a binary nobody on this project can read.
+  `copy /b <file> <share>` is the documented way to put RAW bytes into a Windows queue, ships with
+  the operating system, and returns an exit code. The cost is one prerequisite - the printer must
+  be shared - and it is written down in `bridge/README.md` rather than discovered on a Friday.
+
+  `/b` is load-bearing. Without it `copy` runs in text mode, stops at the first 0x1A and translates
+  line endings, which on an ESC/POS stream is a truncated ticket that still prints something.
+
+WHY THE COMMAND IS INJECTED
+  Every interesting thing about this transport - a non-zero exit, a timeout, a queue that does not
+  exist - only happens on Windows. Wired directly to `spawn`, every failure path would be testable
+  nowhere, which is the same as not existing. The rule lives in the transport; the spawn is
+  `windowsCopyCommand` and the spec swaps it. `windowsCopyCommand` itself is still exercised here:
+  on a non-Windows host it returns a run naming the platform rather than dying on a missing
+  `cmd.exe`, so the transport's own error handling sees it.
+
+WHAT IT REFUSES BEFORE STARTING A PROCESS
+  A queue name is matched against a whitelist - a share name or a UNC path, nothing else. The
+  arguments are passed as an array rather than a string, but `cmd.exe` still parses them, so a
+  name carrying `&`, `|`, `>`, a quote or a newline is refused and no process is spawned. Same for
+  a job id that is not a filename: sanitising would collapse two jobs onto one name and the second
+  would overwrite the first with no error anywhere.
+
+STARTUP REFUSES RATHER THAN LIMPS
+  A bridge that comes up on a broken configuration, polls forever and prints nothing looks exactly
+  like a bridge working in a restaurant with no orders - and is discovered during service, by paper
+  that never arrives. `startup()` returns EVERY problem at once, by name, and the process exits 2.
+  `JALSA_BRIDGE_TRANSPORT=windows` on a host that is not Windows is refused at startup, with the
+  remedy named. A `SUPABASE_SECRET_KEY` in the environment stops the bridge: its presence means
+  somebody has misunderstood the deployment, and starting anyway would hide that.
+
+  The token is NEVER logged - not the value, and not a prefix of it. A prefix pasted into a support
+  thread is still a prefix of a live credential, and a rung checks every prefix from 8 characters up.
+
+SHUTDOWN IS GRACEFUL BECAUSE THE ALTERNATIVE PRINTS TWICE
+  A bridge killed between its transport call and its report leaves a job in `processing` that
+  nobody can adjudicate; the server's sweeper expires it to `failed`, in front of a person, which
+  is correct but expensive. SIGINT, SIGTERM and SIGBREAK finish the ticket in flight and exit 0.
+  A second signal is not a second shutdown.
+
+A REGRESSION THIS GATE CAUSED AND THE HARNESS CAUGHT
+  Making `JALSA_BRIDGE_SPOOL_DIR` required broke two fixtures in `bridge-loop.unit.spec.ts`, which
+  built configurations without one - 20 Gate 4 rungs went red. Found by the fail-first harness
+  reporting 21 failures for a defect injected into a file `bridge-loop` does not even import, which
+  is the kind of number worth stopping on. FIXED IN THE FIXTURES, not by relaxing the requirement:
+  the rungs pass their transport in directly so the value is unused, but configuration is
+  configuration and `loadConfig` refusing an incomplete one is the whole point of it.
+
+Files added: `bridge/src/transport/windows.ts`, `bridge/src/main.ts`, `bridge/README.md`,
+`tests/unit/bridge-windows.unit.spec.ts` (26 cases), `tests/unit/bridge-startup.unit.spec.ts`
+(14 cases). `bridge/src/config.ts` gains the transport selection. `FileTransport` and
+`NullTransport` are untouched and still shipped - development and the failure path need them.
+`bridge:build` now bundles ONE file, `bridge/dist/main.js`, whose only imports are
+`node:fs/promises`, `node:path` and `node:child_process`.
+
+FAIL-FIRST: 12 defects injected into the finished tree, all 12 observed failing.
+  W1  `copy` loses `/b` and runs in text mode              1 failed | 79 passed
+  W2  a non-zero exit is reported as success               1 failed
+  W3  a hung spooler is not noticed                        1 failed
+  W4  the queue-name whitelist removed                     7 failed (the empty name is still
+      caught by the length test, correctly - that half of the guard was not the injected one)
+  W5  the stream is staged through a text path             1 failed - "all 256 byte values survive"
+  W6  success claims the ticket printed                    2 failed
+  W7  the Windows transport allowed on any platform        1 failed
+  W8  the token is logged                                  2 failed
+  W9  startup reports only the first problem               1 failed
+  W10 a second signal is a second shutdown                 1 failed
+  W11 the staged file is left behind                       1 failed
+  W12 a throwing command escapes the transport             1 failed
+
+NOT DONE, deliberately: no Wi-Fi, no LAN/TCP-9100, no Bluetooth, no WebUSB, no Web Serial, no
+cloud print, no second ESC/POS encoder, no native module. A future wired-LAN transport is a new
+class behind the same `PrintTransport` interface - bytes in, one verdict out, still unable to
+choose a printer. Token issuance UI is Gate 6; hardware is Gate 7.
+
+Finished tree: 695 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - Gate 4 remediation (R4-1 food side, R4-2 station)
 
 The two correctness defects the Gate 4 investigation found, fixed. Both cross Phase 1 contracts

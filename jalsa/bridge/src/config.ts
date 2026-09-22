@@ -36,11 +36,38 @@ export interface BridgeConfig {
   maxBackoffMs: number;
   /** How many waiting jobs to ask for at once. */
   batchLimit: number;
+
+  /* ── Gate 5: which transport carries the bytes ───────────────────────── */
+
+  /**
+   * `windows` in a restaurant, `file` on a developer's machine, `null` to exercise the failure
+   * path. Named explicitly and never inferred from the platform: a bridge that silently chose a
+   * different transport because of where it happened to be running would be the one configuration
+   * nobody could reason about from the log.
+   */
+  transport: TransportKind;
+  /** Where FileTransport writes, and where the spooler transport stages its `.prn` files. */
+  spoolDir: string;
+  /** FileTransport only: also write the readable `.txt` beside each `.bin`. */
+  humanReadable: boolean;
+  /** How long `copy /b` may take before the job is failed as unanswered. */
+  spoolTimeoutMs: number;
 }
+
+export type TransportKind = 'file' | 'null' | 'windows';
+
+const TRANSPORTS: readonly TransportKind[] = ['file', 'null', 'windows'];
+
+const isTransport = (raw: string): raw is TransportKind => (TRANSPORTS as readonly string[]).includes(raw);
 
 export type ConfigResult = { ok: true; config: BridgeConfig } | { ok: false; problems: string[] };
 
-const DEFAULTS = { pollMs: 3_000, maxBackoffMs: 60_000, batchLimit: 20 } as const;
+const DEFAULTS = {
+  pollMs: 3_000,
+  maxBackoffMs: 60_000,
+  batchLimit: 20,
+  spoolTimeoutMs: 30_000,
+} as const;
 
 /** A positive integer, or the default. A nonsense interval must never become a tight loop. */
 function interval(raw: string | undefined, fallback: number): number {
@@ -90,6 +117,19 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     problems.push('SUPABASE_SECRET_KEY is present. A bridge never holds a database credential — remove it.');
   }
 
+  const transportRaw = (env.JALSA_BRIDGE_TRANSPORT ?? 'file').trim();
+  if (!isTransport(transportRaw)) {
+    problems.push(
+      `JALSA_BRIDGE_TRANSPORT is ${JSON.stringify(transportRaw)}; it must be one of ${TRANSPORTS.join(', ')}.`
+    );
+  }
+  const spoolDir = (env.JALSA_BRIDGE_SPOOL_DIR ?? '').trim();
+  if (!spoolDir && transportRaw !== 'null') {
+    // `file` writes its artifacts there and `windows` stages its `.prn` files there. Defaulting
+    // to a temp directory would scatter a restaurant's tickets somewhere nobody thinks to look.
+    problems.push('JALSA_BRIDGE_SPOOL_DIR is not set, and this transport needs somewhere to write.');
+  }
+
   if (problems.length > 0) return { ok: false, problems };
 
   return {
@@ -103,6 +143,10 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
       pollMs: interval(env.JALSA_BRIDGE_POLL_MS, DEFAULTS.pollMs),
       maxBackoffMs: interval(env.JALSA_BRIDGE_MAX_BACKOFF_MS, DEFAULTS.maxBackoffMs),
       batchLimit: interval(env.JALSA_BRIDGE_BATCH, DEFAULTS.batchLimit),
+      transport: transportRaw as TransportKind,
+      spoolDir,
+      humanReadable: (env.JALSA_BRIDGE_READABLE ?? '').trim() === 'true',
+      spoolTimeoutMs: interval(env.JALSA_BRIDGE_SPOOL_TIMEOUT_MS, DEFAULTS.spoolTimeoutMs),
     },
   };
 }

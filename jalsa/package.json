@@ -32,7 +32,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "test:reset": "node scripts/reset-test-db.mjs",
-    "bridge:build": "esbuild bridge/src/loop.ts bridge/src/api.ts bridge/src/config.ts bridge/src/transport/file.ts bridge/src/transport/null.ts --bundle --platform=node --format=esm --target=node20 --outdir=bridge/dist --log-level=warning"
+    "bridge:build": "esbuild bridge/src/main.ts --bundle --outfile=bridge/dist/main.js --platform=node --format=esm --target=node20 --log-level=warning"
   },
   "//": "Dependencies ARE pinned here, deliberately: the starter is a shape, but a restaurant that cannot reproduce tonight's build tomorrow morning has no build. Every version below was installed and verified at scaffold time and the lockfile is committed.",
   "dependencies": {

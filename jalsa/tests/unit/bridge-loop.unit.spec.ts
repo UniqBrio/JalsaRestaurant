@@ -242,6 +242,10 @@ function configFor(label: string, machines: Record<string, string>): BridgeConfi
     JALSA_BRIDGE_DESTINATIONS: Object.entries(machines)
       .map(([m, d]) => `${m}=${d}`)
       .join(';'),
+    // Gate 5 made a spool directory required for every transport that writes. These rungs pass
+    // their transport in directly, so the value is never used — but configuration is configuration
+    // and must be valid, which is exactly what `loadConfig` refusing here is for.
+    JALSA_BRIDGE_SPOOL_DIR: '/tmp/jalsa-loop-spec-unused',
   });
   if (!result.ok) throw new Error(result.problems.join(' '));
   return result.config;
@@ -776,6 +780,7 @@ test('a nonsense poll interval becomes the default, never a tight loop', () => {
       JALSA_BRIDGE_TOKEN: 't',
       JALSA_BRIDGE_LABEL: 'l',
       JALSA_BRIDGE_DESTINATIONS: 'm=d',
+      JALSA_BRIDGE_SPOOL_DIR: '/tmp/jalsa-loop-spec-unused',
       JALSA_BRIDGE_POLL_MS: raw,
     });
     expect(r.ok).toBe(true);
