@@ -13,17 +13,31 @@
  *   larger one, because the failure mode here is not a crash — it is an owner who believes the
  *   printer works and finds out during service.
  *
- * FAIL-FIRST EVIDENCE (18-Sep-2026) — recorded in TEST_SUMMARY.md.
+ * SUPERSEDED IN PART, 22-Sep-2026 (merge of `main` into the printing branch), under the
+ * contract-change exception in jalsa/CLAUDE.md.
+ *   The finding above was true when this file was written and is no longer. `main` had no way to
+ *   talk to a printer; this branch has an ESC/POS encoder, three transports and a Windows bridge,
+ *   and a test print is an ordinary `print_job` that the bridge collects and prints.
+ *
+ *   REMOVED: the eight cases that exercised `buildTestTicket()`, which laid out a test ticket on
+ *   its own grid. That function is gone - a test ticket is now composed by `buildTicket` through
+ *   `test-ticket.ts`, on the same template a kitchen ticket uses, and two things laying out one
+ *   ticket is the defect this repository's rule names. Those cases are not lost so much as
+ *   relocated: `print-config.unit.spec.ts` composes and encodes the test ticket at both widths
+ *   through the real path, and Gate 7 row 11 checks the width on paper.
+ *
+ *   REWRITTEN: the two cases pinning the owner-facing sentences, because the sentences changed.
+ *   Each carries its own note at the assertion.
+ *
+ *   KEPT VERBATIM: everything about the JOB - one row, the right machine, no fake bill, never
+ *   `printed`, routing not consulted, the grant, the audit, and the button's behaviour. None of
+ *   that changed, and all of it still holds.
+ *
+ * FAIL-FIRST EVIDENCE (18-Sep-2026, and 22-Sep-2026 for the merge) — recorded in TEST_SUMMARY.md.
  */
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import {
-  buildTestTicket,
-  testPrintBlocker,
-  TEST_PRINT_NOTE,
-  TEST_PRINT_QUEUED,
-} from '../../src/lib/test-print';
-import { PAPER } from '../../src/lib/print-template';
+import { testPrintBlocker, TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '../../src/lib/test-print';
 
 const PANEL = 'src/features/owner/sections/PrintSetupSection.tsx';
 const MUTATIONS = 'src/lib/db/owner-mutations.ts';
@@ -51,90 +65,7 @@ function testPrintBody(): string {
   return body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
-const AT = new Date('2026-09-18T08:32:00+05:30');
-
-const target = (over: Partial<Parameters<typeof buildTestTicket>[0]['target']> = {}) => ({
-  name: 'TVS RP 3160 Gold — Kitchen 2',
-  station: 'Main Kitchen',
-  paperMm: 80,
-  connection: 'Ethernet',
-  address: '192.168.1.42',
-  ...over,
-});
-
 /* ── The ticket ────────────────────────────────────────────────────────────────────────────── */
-
-test('the ticket identifies the restaurant, the test, and the machine', () => {
-  const lines = buildTestTicket({ restaurantName: 'Jalsa', target: target(), at: AT });
-  const text = lines.join('\n');
-  expect(text).toContain('JALSA');
-  expect(text).toContain('TEST PRINT');
-  expect(text).toContain('TVS RP 3160 Gold — Kitchen 2');
-  expect(text).toContain('Main Kitchen');
-  expect(text).toContain('80 mm');
-  expect(text).toContain('Ethernet');
-  // Asserted by parts, not as one string: `toLocaleDateString('en-IN')` says "Sept" on this
-  // runtime and "Sep" on others, and the ICU version is not what this case is about.
-  expect(text).toMatch(/18 Sep\w* 2026/);
-  // A time, not a particular one: this formatter renders in the RUNTIME's zone — the same
-  // `toLocaleTimeString('en-IN', …)` call `staff-view.ts` already uses for every other time in
-  // the app — and this container runs in UTC while the restaurant does not. Pinning a wall
-  // clock here would test the container.
-  expect(text).toMatch(/\d{1,2}:\d{2}/);
-});
-
-test('the restaurant name is whatever was configured — never a constant', () => {
-  const text = buildTestTicket({ restaurantName: 'Spice Route', target: target(), at: AT }).join('\n');
-  expect(text).toContain('SPICE ROUTE');
-  expect(text).not.toContain('JALSA');
-});
-
-test('an unconfigured restaurant gets a ticket with no header, not somebody else\'s name', () => {
-  const lines = buildTestTicket({ restaurantName: '', target: target(), at: AT });
-  expect(lines.join('\n')).toContain('TEST PRINT');
-  expect(lines.join('\n')).not.toContain('JALSA');
-});
-
-test('every line fits the paper it is printed on — including 58 mm', () => {
-  // The whole reason this is built on the character grid. An over-width line does not wrap on a
-  // thermal printer, it disappears — and the 58 mm tandoor machine is the one most likely to be
-  // misconfigured, so it is the one the ticket must not silently truncate.
-  for (const mm of [58, 80]) {
-    const cols = PAPER[mm === 58 ? '58' : '80'].cols.normal;
-    const lines = buildTestTicket({
-      restaurantName: 'Jalsa Hospitality Private Limited',
-      target: target({ paperMm: mm, name: 'TVS RP 3160 Gold — Tandoor station' }),
-      at: AT,
-    });
-    const over = lines.filter((l) => l.length > cols);
-    expect(over, `at ${mm} mm nothing may exceed ${cols} columns`).toEqual([]);
-  }
-});
-
-test('a long printer name survives 58 mm because the label sits above the value', () => {
-  // 'TVS RP 3160 Gold — Tandoor station' is 34 characters and a 58 mm roll has 32. A
-  // `label … value` pair would have pushed it off the paper.
-  const lines = buildTestTicket({
-    restaurantName: 'Jalsa',
-    target: target({ paperMm: 58, name: 'TVS RP 3160 Gold — Tandoor station' }),
-    at: AT,
-  });
-  expect(lines).toContain('Printer:');
-  // WRAPPED across lines at 32 columns, so the assertion is that nothing was LOST rather than
-  // that it survived on one line — losing it is the failure that matters.
-  for (const word of ['TVS', '3160', 'Tandoor', 'station']) {
-    expect(lines.join('\n'), `${word} must still be on the ticket`).toContain(word);
-  }
-});
-
-test('the ticket needs no bill, no round and no menu', () => {
-  // A connectivity test that required an order is a printer that stays untested until a ticket
-  // is lost. The signature is the proof: three inputs, none of them an order.
-  const src = codeOnly('src/lib/test-print.ts');
-  expect(src).not.toContain('bill');
-  expect(src).not.toContain('kot');
-  expect(src).not.toContain('menu');
-});
 
 /* ── 13. When a test cannot even be queued ─────────────────────────────────────────────────── */
 
@@ -164,12 +95,18 @@ test('11. nothing claims the ticket printed, or even that it was sent', () => {
   expect(said).toContain('queued');
   expect(said.toLowerCase()).not.toContain('printed');
   expect(said.toLowerCase()).not.toContain('successful');
-  // And it tells the owner the thing they would otherwise learn by walking to the kitchen.
-  expect(said).toContain('nothing has left the server');
+  // SUPERSEDED 22-Sep-2026. This asserted `nothing has left the server`, which was true on
+  // `main` and became false the moment Gates 2-6 built the encoder, the transport and the bridge.
+  // What must still hold is the honesty: it says where the job IS, never that paper exists.
+  expect(said).toContain('History');
+  expect(said).toContain('bridge');
 });
 
 test('11b. the screen carries the limitation beside the button, not in a note to go and find', () => {
-  expect(TEST_PRINT_NOTE).toContain('No paper will come out');
+  // SUPERSEDED 22-Sep-2026, with the sentence it pinned. The note no longer says paper cannot
+  // come out - it can. What it must say is the thing an owner cannot see from this screen: a
+  // queued job WAITS when no bridge is collecting, so silence is not a broken printer.
+  expect(TEST_PRINT_NOTE).toContain('waits in the queue');
   expect(read(PANEL)).toContain('data-testid="owner-print-test-note"');
   expect(read(PANEL)).toContain('{TEST_PRINT_NOTE}');
 });
@@ -198,14 +135,6 @@ test('3b. routing is never consulted, so it cannot redirect a diagnostic', () =>
   for (const routing of ['resolvePrinter', 'queuePrint', 'routes', 'categories']) {
     expect(body, `${routing} has no place in a test aimed at one machine`).not.toContain(routing);
   }
-});
-
-test('9. the connection type travels to the ticket and is recorded', () => {
-  const body = testPrintBody();
-  expect(body).toContain('connection');
-  expect(buildTestTicket({ restaurantName: 'J', target: target({ connection: 'Wi-Fi' }), at: AT }).join('\n')).toContain(
-    'Wi-Fi'
-  );
 });
 
 /* ── 4-8. What a test must never do ────────────────────────────────────────────────────────── */
@@ -302,21 +231,5 @@ test('no second printer communication system was invented', () => {
   const src = codeOnly('src/lib/test-print.ts') + codeOnly(MUTATIONS);
   for (const banned of ['escpos', 'net.Socket', 'navigator.usb', '9100', 'ipp://', 'WebSocket']) {
     expect(src, `${banned} would be a second pipeline`).not.toContain(banned);
-  }
-});
-
-test('a long restaurant name is WRAPPED, never silently cut', () => {
-  /*
-    The case the width check could not see. `centre()` ends in `.slice(0, cols)`, so an
-    over-long header does not overflow the paper — it is TRUNCATED, and the ticket comes out
-    saying "JALSA HOSPITALITY PRIVATE LIMIT". Every line still fits, so a width assertion passes
-    while the restaurant's own name is mutilated on the machine it is meant to identify.
-
-    Found when defect C — removing the header wrap — was injected and the suite stayed green.
-  */
-  const name = 'Jalsa Hospitality Private Limited';
-  const lines = buildTestTicket({ restaurantName: name, target: target({ paperMm: 58 }), at: AT });
-  for (const word of name.toUpperCase().split(' ')) {
-    expect(lines.join('\n'), `"${word}" must survive the 58 mm header`).toContain(word);
   }
 });

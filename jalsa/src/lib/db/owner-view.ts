@@ -12,6 +12,7 @@ import {
   listOpenBills,
   listOpenRequests,
   listPrinters,
+  listBridgeTokens,
   listPrintJobs,
   listStaff,
   listSuggestions,
@@ -23,7 +24,7 @@ import {
 import type { SignedInStaff } from './auth';
 import { db } from '@/lib/supabase/server';
 import type {
-  AuditRow, Bill, ExpenseRow, PrinterRow, PrintJobRow, StaffMember, Suggestion, TipRow, WaitlistRow,
+  AuditRow, Bill, BridgeTokenRow, ExpenseRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
 } from './types';
 
 /**
@@ -80,8 +81,10 @@ export interface OwnerBillView {
     source: 'guest' | 'captain' | 'owner';
     sourceLabel: string;
     placedAt: string;
-    printStatus: 'queued' | 'printed' | 'failed';
+    printStatus: PrintJobStatus;
     reprintCount: number;
+    /** One per machine. What lets the board say WHERE a ticket went without opening Settings. */
+    printJobs: KotPrintJob[];
     items: Array<{
       id: string;
       name: string;
@@ -112,6 +115,11 @@ export interface OwnerPayload {
     awaitingClosure: number;
     openRequests: number;
     printFailures: number;
+    /**
+     * Rounds whose paper has not arrived. Distinct from `printFailures`, and the reason the
+     * dashboard can no longer read "Every ticket printed" off a zero failure count.
+     */
+    printWaiting: number;
     paymentMix: Array<{ mode: string; amountLabel: string; count: number }>;
   };
 
@@ -168,6 +176,8 @@ export interface OwnerPayload {
   expenses: ExpenseRow[];
   expensesTotalLabel: string;
   printers: PrinterRow[];
+  /** The PCs holding a bridge token. Never the token, and never its hash. */
+  bridges: BridgeTokenRow[];
   /** Tonight's print trail — the History section of Print Setup. Newest first. */
   printJobs: PrintJobRow[];
   audit: AuditRow[];
@@ -239,6 +249,7 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       placedAt: timeLabel(k.createdAt),
       printStatus: k.printStatus,
       reprintCount: k.reprintCount,
+      printJobs: k.printJobs,
       items: k.items.map((i) => ({
         id: i.id,
         name: i.name,
@@ -265,6 +276,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     tips,
     expenses,
     printers,
+    bridges,
     printJobs,
     audit,
     waitlist,
@@ -281,6 +293,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     listTips(),
     listExpenses(),
     listPrinters(),
+    listBridgeTokens(),
     listPrintJobs(),
     listAudit(),
     listWaitlist(),
@@ -329,7 +342,15 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     mix.set(mode, seen);
   }
 
-  const printFailures = [...open, ...closed].flatMap((b) => b.kots).filter((k) => k.printStatus === 'failed').length;
+  const allKots = [...open, ...closed].flatMap((b) => b.kots);
+  const printFailures = allKots.filter((k) => k.printStatus === 'failed').length;
+  /**
+   * A zero failure count stopped meaning "everything printed" the moment a job could settle at
+   * `queued`. With no transport that is now the NORMAL resting state, so a tile reading only
+   * failures would say "Every ticket printed" over a kitchen that has had no paper all night —
+   * the same false claim `status: 'printed'` used to make, arriving through the note instead.
+   */
+  const printWaiting = allKots.filter((k) => k.printStatus === 'queued').length;
 
   return {
     me: { id: staff.staffId, name: staff.name, role: staff.role, initials: staff.initials },
@@ -349,6 +370,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       awaitingClosure: open.filter((b) => b.status === 'payment_requested').length,
       openRequests: requests.length,
       printFailures,
+      printWaiting,
       paymentMix: [...mix.entries()].map(([mode, v]) => ({
         mode,
         amountLabel: rupees(v.amount),
@@ -411,6 +433,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     expenses,
     expensesTotalLabel: rupees(expenses.reduce((a, e) => a + e.amount, 0)),
     printers,
+    bridges,
     printJobs,
     audit,
     // Position is 1-based and computed HERE, from the order the query already guarantees

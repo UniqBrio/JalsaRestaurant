@@ -8,6 +8,7 @@ import type {
   ExpenseRow,
   FloorTable,
   Kot,
+  KotPrintJob,
   MenuCategory,
   GuestReply,
   MenuItem,
@@ -19,6 +20,7 @@ import type {
   Suggestion,
   TableRequest,
   TipRow,
+  BridgeTokenRow,
 } from './types';
 
 /**
@@ -125,13 +127,49 @@ const BILL_SELECT = `
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason )
+    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason ),
+    print_job (
+      id, status, attempts, is_reprint, last_error,
+      printer_id, printer_name, station, routing_rule, redirected_from_job_id
+    )
   )
 `;
 
 interface RawRef {
   name?: string;
   id?: string;
+}
+
+/**
+ * A round's outstanding tickets — the jobs, minus the ones an operator has already redirected
+ * away with Print elsewhere.
+ *
+ * A superseded job is evidence of a decision, not a ticket anybody is waiting on. Left in, it
+ * would show the kitchen two outstanding tickets for a round that has one, which is the same
+ * confusion a new row per retry would cause and is avoided for the same reason.
+ */
+function livePrintJobs(raw: unknown): KotPrintJob[] {
+  const jobs = (raw ?? []) as Array<Record<string, unknown>>;
+  const superseded = new Set(
+    jobs.map((j) => j.redirected_from_job_id as string | null).filter((id): id is string => !!id)
+  );
+
+  return jobs
+    .filter((j) => !superseded.has(j.id as string))
+    .map((j) => ({
+      id: j.id as string,
+      status: j.status as KotPrintJob['status'],
+      attempts: (j.attempts as number) ?? 0,
+      isReprint: (j.is_reprint as boolean) ?? false,
+      lastError: (j.last_error as string) ?? '',
+      printerId: (j.printer_id as string | null) ?? null,
+      printerName: (j.printer_name as string) ?? '',
+      station: (j.station as string) ?? '',
+      routingRule: ((j.routing_rule as string) ?? '') as KotPrintJob['routingRule'],
+    }))
+    // Stable on the screen: the same round reads the same way every poll, whatever order
+    // PostgREST returned the rows in.
+    .sort((a, b) => a.station.localeCompare(b.station) || a.printerName.localeCompare(b.printerName));
 }
 
 function shapeBill(row: Record<string, unknown>): Bill {
@@ -164,6 +202,7 @@ function shapeBill(row: Record<string, unknown>): Bill {
         printStatus: k.print_status as Kot['printStatus'],
         printAttempts: (k.print_attempts as number) ?? 0,
         reprintCount: (k.reprint_count as number) ?? 0,
+        printJobs: livePrintJobs(k.print_job),
         createdAt: k.created_at as string,
         startedAt: (k.started_at as string) ?? null,
         readyAt: (k.ready_at as string) ?? null,
@@ -748,7 +787,7 @@ export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('print_job')
-    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,printer(name),kot(code,table_id),bill(code)')
+    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id),bill(code)')
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -777,13 +816,21 @@ export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
       // in no conversation anybody has ever had in a kitchen.
       reference: kot?.code ?? bill?.code ?? '—',
       table: kot?.table_id ? (names.get(kot.table_id) ?? '—') : '—',
-      printerName: (j.printer as unknown as { name: string } | null)?.name ?? 'No machine',
+      // The snapshot on the job, not a join through `printer`. A machine renamed at nine o'clock
+      // must not silently rewrite the eight o'clock rows in the history somebody is reading to
+      // work out where a ticket went.
+      printerId: (j.printer_id as string | null) ?? null,
+      printerName: (j.printer_name as string) || 'No machine',
+      station: (j.station as string) ?? '',
+      routingRule: ((j.routing_rule as string) ?? '') as PrintJobRow['routingRule'],
       status: j.status as PrintJobRow['status'],
       attempts: (j.attempts as number) ?? 0,
       isReprint: (j.is_reprint as boolean) ?? false,
       requestedBy: (j.requested_by as string) ?? 'system',
       lastError: (j.last_error as string) ?? '',
       createdAt: j.created_at as string,
+      lastAttemptAt: (j.last_attempt_at as string | null) ?? null,
+      redirectedFromJobId: (j.redirected_from_job_id as string | null) ?? null,
     };
   });
 }
@@ -956,5 +1003,33 @@ export async function listGuestReplies(tableId: string): Promise<GuestReply[]> {
     reply: r.reply as string,
     repliedBy: (r.replied_by as string) ?? '',
     repliedAtIso: r.replied_at as string,
+  }));
+}
+
+/**
+ * The bridges this restaurant has issued tokens to (Gate 6).
+ *
+ * WITHOUT THE HASH, DELIBERATELY. `token_hash` is not a secret in the sense the token is — it
+ * cannot be replayed — but it is offline-attackable, and a console payload is a thing that ends
+ * up in a browser's memory, a screenshot and a support thread. Nothing on this screen needs it.
+ *
+ * Revoked rows are KEPT and returned. The job history says which PC carried which ticket, and a
+ * revoked label still has to resolve; a delete would make last Tuesday unreadable.
+ */
+export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bridge_token')
+    .select('id,label,created_at,last_seen_at,revoked_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((t) => ({
+    id: t.id as string,
+    label: t.label as string,
+    createdAt: t.created_at as string,
+    lastSeenAt: (t.last_seen_at as string | null) ?? null,
+    revokedAt: (t.revoked_at as string | null) ?? null,
   }));
 }

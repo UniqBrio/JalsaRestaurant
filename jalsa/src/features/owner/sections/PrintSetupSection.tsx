@@ -8,6 +8,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Field, Input, Select, Toggle } from '@/components/ui/field';
 import { Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
+import { PRINT_STATUS } from '@/components/ui/print';
 import { useToast } from '@/components/ui/toast';
 import { TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '@/lib/test-print';
 import {
@@ -28,7 +29,8 @@ import {
   type TicketData,
   type TicketKind,
 } from '@/lib/print-template';
-import { mainPrinter, resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
+import { mainPrinter, printerShortName, resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
+import type { PrintJobRow } from '@/lib/db/types';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { MetricTile } from '../OwnerConsole';
 
@@ -53,11 +55,12 @@ import { MetricTile } from '../OwnerConsole';
  *   they are used rather than in a note somebody has to go and find.
  */
 
-type Tab = 'overview' | 'printers' | 'templates' | 'routing' | 'history';
+type Tab = 'overview' | 'printers' | 'bridges' | 'templates' | 'routing' | 'history';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'printers', label: 'Printers' },
+  { key: 'bridges', label: 'Bridges' },
   { key: 'templates', label: 'Templates' },
   { key: 'routing', label: 'Routing' },
   { key: 'history', label: 'History' },
@@ -105,6 +108,9 @@ function previewRound(
 
 const toRoutable = (p: OwnerSectionProps['data']['printers'][number]): RoutablePrinter => ({
   id: p.id,
+  // The tie-break, carried so this preview resolves a contested category exactly the way the
+  // order path does. Without it the screen could promise one machine and the kitchen get another.
+  machineId: p.machineId,
   name: p.name,
   purpose: p.purpose,
   station: p.station,
@@ -120,6 +126,9 @@ export function PrintSetupSection(props: OwnerSectionProps) {
   const kot = data.printers.filter((p) => p.purpose === 'KOT');
   const bills = data.printers.filter((p) => p.purpose !== 'KOT');
   const failedToday = data.printJobs.filter((j) => j.status === 'failed').length;
+  // Assigned and undelivered. Without it the tile below reads "Nothing outstanding" over a
+  // history in which nothing has printed at all.
+  const waitingToday = data.printJobs.filter((j) => j.status === 'queued').length;
 
   return (
     <div className="flex flex-col gap-4" data-testid="owner-print-setup">
@@ -132,9 +141,17 @@ export function PrintSetupSection(props: OwnerSectionProps) {
       </nav>
 
       {tab === 'overview' ? (
-        <OverviewPanel {...props} kotCount={kot.length} billCount={bills.length} failed={failedToday} openTab={setTab} />
+        <OverviewPanel
+          {...props}
+          kotCount={kot.length}
+          billCount={bills.length}
+          failed={failedToday}
+          waiting={waitingToday}
+          openTab={setTab}
+        />
       ) : null}
       {tab === 'printers' ? <PrintersPanel {...props} /> : null}
+      {tab === 'bridges' ? <BridgesPanel {...props} /> : null}
       {tab === 'templates' ? <TemplatesPanel {...props} /> : null}
       {tab === 'routing' ? <RoutingPanel {...props} /> : null}
       {tab === 'history' ? <HistoryPanel {...props} /> : null}
@@ -149,8 +166,15 @@ function OverviewPanel({
   kotCount,
   billCount,
   failed,
+  waiting,
   openTab,
-}: OwnerSectionProps & { kotCount: number; billCount: number; failed: number; openTab: (t: Tab) => void }) {
+}: OwnerSectionProps & {
+  kotCount: number;
+  billCount: number;
+  failed: number;
+  waiting: number;
+  openTab: (t: Tab) => void;
+}) {
   const down = data.printers.filter((p) => p.enabled && !p.online);
   const off = data.printers.filter((p) => !p.enabled);
 
@@ -179,7 +203,7 @@ function OverviewPanel({
         <MetricTile
           label="Failed tickets"
           value={String(failed)}
-          note={failed ? 'Each one has a retry' : 'Nothing outstanding'}
+          note={failed ? 'Each one has a retry' : waiting ? `${waiting} waiting to print` : 'Nothing outstanding'}
           testId="owner-print-failed"
           tone={failed ? 'error' : 'neutral'}
           onClick={() => openTab('history')}
@@ -571,6 +595,156 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   );
 }
 
+
+const timeLabel = (iso: string): string =>
+  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+/* ── Bridges ───────────────────────────────────────────────────────────── */
+
+/**
+ * The PCs allowed to carry tickets, and what each one last did.
+ *
+ * WHY THE TOKEN APPEARS EXACTLY ONCE
+ *   `bridge_token` stores the SHA-256 and never the token, so a dump of the table yields no
+ *   working credential and revocation is a timestamp rather than a redeploy. The cost is that a
+ *   lost token cannot be recovered, only replaced — which is the right trade for a credential that
+ *   lives in a text file on a PC in a kitchen. This panel therefore shows the token in the sheet
+ *   that issued it and never again, and says so plainly rather than letting somebody close it
+ *   expecting to come back.
+ *
+ * WHY REVOKED ROWS STAY
+ *   The job history says which PC carried which ticket. A deleted label makes last Tuesday
+ *   unreadable, so revoking is a date in a column and the row remains.
+ */
+function BridgesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const canEdit = data.grants.includes('set.printer');
+  const [label, setLabel] = React.useState('');
+  const [issued, setIssued] = React.useState<{ label: string; token: string } | null>(null);
+
+  const issue = (): void => {
+    void runBusy(async () => {
+      const res = (await send('/api/owner/action', { action: 'issue-bridge-token', label })) as {
+        label: string;
+        token: string;
+      };
+      setLabel('');
+      // Held in component state for exactly as long as the sheet is open. Never re-fetched,
+      // because nothing can fetch it.
+      setIssued({ label: res.label, token: res.token });
+    });
+  };
+
+  const revoke = (id: string, name: string): void => {
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'revoke-bridge-token', tokenId: id });
+      toast.show(`${name} can no longer collect tickets`, { tone: 'success' });
+    });
+  };
+
+  const live = data.bridges.filter((b) => !b.revokedAt);
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="owner-print-bridges">
+      <SectionLabel>Print bridges</SectionLabel>
+
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        A bridge is the small program on the PC a printer is plugged into. It asks what is waiting,
+        takes one ticket at a time and says what happened. It cannot choose a printer, and it holds
+        no database credential — only the token issued here.
+      </p>
+
+      {live.length === 0 ? (
+        <FirstRunState
+          testId="owner-print-bridges-empty"
+          title="No PC is collecting tickets yet"
+          note="Issue a token, then paste it into the bridge on the PC the printer is plugged into. Until one connects, tickets wait in the queue."
+        />
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {data.bridges.map((b) => (
+            <li key={b.id}>
+              <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="m-0 type-body font-semibold">{b.label}</p>
+                  <p className="m-0 type-caption text-[var(--text-muted)]">
+                    {b.revokedAt
+                      ? 'Revoked — it can no longer collect tickets'
+                      : b.lastSeenAt
+                        ? `Last collected ${timeLabel(b.lastSeenAt)}`
+                        : 'Has never connected'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Pill tone={b.revokedAt ? 'neutral' : b.lastSeenAt ? 'success' : 'warning'}>
+                    {b.revokedAt ? 'Revoked' : b.lastSeenAt ? 'Connected' : 'Waiting'}
+                  </Pill>
+                  {canEdit && !b.revokedAt ? (
+                    <Button
+                      data-testid={`owner-bridge-revoke-${b.id}`}
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => revoke(b.id, b.label)}
+                    >
+                      Revoke
+                    </Button>
+                  ) : null}
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canEdit ? (
+        <Card className="flex flex-wrap items-end gap-3 p-4">
+          <Field label="Name this PC" htmlFor="owner-bridge-label" hint="What somebody standing next to it would call it.">
+            <Input
+              id="owner-bridge-label"
+              data-testid="owner-bridge-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Kitchen PC"
+            />
+          </Field>
+          <Button data-testid="owner-bridge-issue" disabled={busy || !label.trim()} onClick={issue}>
+            Issue a token
+          </Button>
+        </Card>
+      ) : null}
+
+      <Sheet
+        open={issued !== null}
+        onOpenChange={(o) => !o && setIssued(null)}
+        posture="modal"
+        title="Copy this token now"
+        description="It is shown once. Nothing can read it back — if it is lost, issue another and revoke this one."
+        testId="owner-bridge-token"
+        footer={
+          <Button data-testid="owner-bridge-token-done" onClick={() => setIssued(null)}>
+            I have copied it
+          </Button>
+        }
+      >
+        {issued ? (
+          <div className="flex flex-col gap-3">
+            <p className="m-0 type-caption text-[var(--text-muted)]">
+              Set this as <code>JALSA_BRIDGE_TOKEN</code> on <strong>{issued.label}</strong>.
+            </p>
+            <code
+              data-testid="owner-bridge-token-value"
+              className="block break-all rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 type-caption"
+            >
+              {issued.token}
+            </code>
+          </div>
+        ) : null}
+      </Sheet>
+    </div>
+  );
+}
+
 /* ── Templates ─────────────────────────────────────────────────────────── */
 
 function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
@@ -617,6 +791,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     phone: restaurant.phone || '',
     gstin: tax.gstin || '—',
     kotCode: 'KOT-0000',
+    station: 'Main Kitchen',
     roundCode: 'R-0',
     billCode: 'B-0000',
     table: 'PREVIEW',
@@ -1146,6 +1321,19 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const [filter, setFilter] = React.useState<(typeof FILTERS)[number]>('All');
   const canRetry = data.grants.includes('orders.reprint');
 
+  /**
+   * The job an operator is redirecting, and where to. Held here rather than on the row because
+   * choosing a machine is a decision with a confirmation, not a click — the whole point of
+   * "Print elsewhere" is that nothing sends a ticket to a different machine without somebody
+   * saying which machine and meaning it.
+   */
+  const [redirecting, setRedirecting] = React.useState<PrintJobRow | null>(null);
+  const [redirectTo, setRedirectTo] = React.useState('');
+
+  const alternatives = data.printers.filter(
+    (p) => p.purpose === redirecting?.kind && p.enabled && p.id !== redirecting?.printerId
+  );
+
   const jobs = data.printJobs.filter(
     (j) => filter === 'All' || j.kind === filter || (filter === 'Failed' && j.status === 'failed')
   );
@@ -1190,7 +1378,14 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     {j.isReprint ? ' · reprint' : ''}
                   </span>
                   <span className="block type-caption text-[var(--text-muted)]">
-                    {j.kind === 'KOT' ? 'Kitchen ticket' : 'Bill'} · table {j.table} · {j.printerName}
+                    {j.kind === 'KOT' ? 'Kitchen ticket' : 'Bill'} · table {j.table}
+                    {/* The station AND the machine. Either one alone leaves the question that
+                        sends somebody to the wrong room: a fallback ticket is stamped for one
+                        station and comes out at another, and only both facts say so. */}
+                    {j.station ? ` · ${j.station}` : ''} · {j.printerName}
+                    {j.routingRule === 'fallback' ? ' (stand-in)' : ''}
+                    {j.routingRule === 'chosen' ? ' (sent here by hand)' : ''}
+                    {j.redirectedFromJobId ? ' · redirected' : ''}
                     {j.lastError ? ` · ${j.lastError}` : ''}
                   </span>
                 </span>
@@ -1199,11 +1394,12 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                   {j.attempts} {j.attempts === 1 ? 'try' : 'tries'}
                 </span>
 
-                <Pill tone={j.status === 'printed' ? 'success' : j.status === 'failed' ? 'error' : 'warning'}>
-                  {j.status === 'printed' ? 'Printed' : j.status === 'failed' ? 'Failed' : 'Queued'}
-                </Pill>
+                {/* One vocabulary for a print status, shared with every screen that shows a
+                    round. "Waiting to print" is what a queued job IS now — assigned, undelivered
+                    — and it must not read as "printed". */}
+                <Pill tone={PRINT_STATUS[j.status].tone}>{PRINT_STATUS[j.status].word}</Pill>
 
-                {canRetry && j.status !== 'printed' ? (
+                {canRetry && j.status !== 'printed' && j.printerId ? (
                   <Button
                     size="sm"
                     variant="secondary"
@@ -1211,20 +1407,32 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     data-testid={`owner-print-retry-${j.id}`}
                     onClick={() =>
                       runBusy(async () => {
-                        const res = await send<{ printed: boolean }>('/api/owner/action', {
+                        const res = await send<{ printerName: string; station: string }>('/api/owner/action', {
                           action: 'retry-print',
                           jobId: j.id,
                         });
-                        toast.show(
-                          res.printed
-                            ? `${j.reference} printed`
-                            : `${j.reference} still has no machine — the round is safe on the captain's screen`,
-                          { tone: res.printed ? 'success' : 'error' }
-                        );
+                        toast.show(`${j.reference} re-sent to ${res.printerName} · ${res.station}`);
                       })
                     }
                   >
-                    Try again
+                    {/* Names the machine, because the operator's next question after "it failed"
+                        is "where", and the button used to answer it with "Try again". */}
+                    Retry on {printerShortName(j.printerName)}
+                  </Button>
+                ) : null}
+
+                {canRetry && j.status !== 'printed' ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    data-testid={`owner-print-elsewhere-${j.id}`}
+                    onClick={() => {
+                      setRedirecting(j);
+                      setRedirectTo('');
+                    }}
+                  >
+                    Print elsewhere
                   </Button>
                 ) : null}
               </Card>
@@ -1234,11 +1442,83 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       )}
 
       <p className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-4 py-3 type-caption leading-relaxed text-[var(--text-muted)]">
-        <strong>A retry is not a reprint.</strong> Trying again sends a ticket that never came out of a machine, so the
-        paper carries no mark. Reprinting a ticket that <em>did</em> print — from the round itself, on Live orders —
-        stamps <span className="font-mono">*** REPRINT ***</span> across the top, because without it a cook reads the
-        same round twice and the table gets two of everything.
+        <strong>Three different things, and they are not interchangeable.</strong> <em>Retry</em> sends a ticket that
+        never came out to the same machine again, so the paper carries no mark. <em>Print elsewhere</em> sends it to a
+        machine you choose, and only ever one you choose. <em>Reprint</em> — from the round itself, on Live orders —
+        re-issues a ticket that <em>did</em> print and stamps <span className="font-mono">*** REPRINT ***</span> across
+        the top, because without it a cook reads the same round twice and the table gets two of everything.
       </p>
+
+      <Sheet
+        open={redirecting !== null}
+        onOpenChange={(open) => {
+          if (!open) setRedirecting(null);
+        }}
+        posture="modal"
+        title="Print elsewhere"
+        description={
+          redirecting
+            ? `${redirecting.reference} was assigned to ${redirecting.printerName}${
+                redirecting.station ? ` for ${redirecting.station}` : ''
+              }. Choose the machine it should come out of instead.`
+            : ''
+        }
+        testId="owner-print-elsewhere-sheet"
+        footer={
+          <>
+            <Button variant="secondary" data-testid="owner-print-elsewhere-cancel" onClick={() => setRedirecting(null)}>
+              Cancel
+            </Button>
+            <Button
+              // No default, ever. The whole value of this control is that a ticket reaches a
+              // second machine only because a person named it.
+              disabled={busy || !redirectTo}
+              data-testid="owner-print-elsewhere-confirm"
+              onClick={() =>
+                runBusy(async () => {
+                  const job = redirecting;
+                  if (!job) return;
+                  const res = await send<{ printerName: string; station: string }>('/api/owner/action', {
+                    action: 'print-elsewhere',
+                    jobId: job.id,
+                    printerId: redirectTo,
+                  });
+                  setRedirecting(null);
+                  toast.show(`${job.reference} sent to ${res.printerName} · ${res.station}`);
+                })
+              }
+            >
+              Send it there
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {alternatives.length === 0 ? (
+            <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+              There is no other machine switched on that prints {redirecting?.kind === 'KOT' ? 'kitchen tickets' : 'bills'}.
+              Switch one on under Printers first.
+            </p>
+          ) : (
+            <Field label="Machine" htmlFor="owner-print-elsewhere-printer">
+              <Combobox
+                id="owner-print-elsewhere-printer"
+                value={redirectTo}
+                onValueChange={setRedirectTo}
+                options={alternatives.map((p) => ({ value: p.id, label: `${p.name} · ${p.station}` }))}
+                placeholder="Choose a machine"
+                testId="owner-print-elsewhere-picker"
+                ariaLabel="Machine to print at instead"
+              />
+            </Field>
+          )}
+
+          <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+            This writes a new ticket against the machine you pick and keeps the original on the record, so the history
+            still shows where the round was meant to go.
+          </p>
+        </div>
+      </Sheet>
     </div>
   );
 }

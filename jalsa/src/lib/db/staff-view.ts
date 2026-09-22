@@ -4,7 +4,7 @@ import { KOT_STATUS, TABLE_STATE, type KotStatus, type Tone } from '@/lib/status
 import type { SpineFields } from '@/components/ui/bill';
 import { billTotals, listFloor, listMenu, listOpenBills, listOpenRequests, readAllSettings } from './queries';
 import type { SignedInStaff } from './auth';
-import type { Bill, FloorTable } from './types';
+import type { Bill, FloorTable, KotPrintJob, PrintJobStatus } from './types';
 
 /**
  * staff-view — what a captain's or waiter's phone is given.
@@ -32,8 +32,10 @@ export interface StaffKotView {
   source: 'guest' | 'captain' | 'owner';
   placedAt: string;
   ageMinutes: number;
-  printStatus: 'queued' | 'printed' | 'failed';
+  printStatus: PrintJobStatus;
   reprintCount: number;
+  /** One per machine. A captain reading a failure needs to know which room it is in. */
+  printJobs: KotPrintJob[];
   /** True once the kitchen has started: the gate for quantity changes and cancellations. */
   kitchenStarted: boolean;
   items: Array<{
@@ -122,6 +124,7 @@ function shapeKot(bill: Bill, k: Bill['kots'][number]): StaffKotView {
     ageMinutes: minutesSince(k.createdAt),
     printStatus: k.printStatus,
     reprintCount: k.reprintCount,
+    printJobs: k.printJobs,
     kitchenStarted: k.status !== 'new' && k.status !== 'cancelled',
     items: k.items.map((i) => ({
       id: i.id,

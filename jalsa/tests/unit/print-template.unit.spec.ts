@@ -50,6 +50,10 @@ const DATA: TicketData = {
   branch: 'Bagalur Road, Hosur',
   phone: '+91 90000 12345',
   gstin: '33ABCDE1234F1Z5',
+  // R4-2 (22-Sep-2026): `TicketData` gained `station`. The fixture states it so the rungs
+  // below keep asserting what they always asserted; the station's own rungs are in
+  // `ticket-compose.unit.spec.ts`, next to the job that decides it.
+  station: 'Main Kitchen',
   kotCode: 'KOT-0042',
   roundCode: 'R-3',
   billCode: 'B-1048',

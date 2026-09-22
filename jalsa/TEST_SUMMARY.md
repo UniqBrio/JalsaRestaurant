@@ -4,6 +4,845 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-22 - MERGE: main into the printing branch
+
+`main` had moved on by four commits while Gates 1-7 were built. One of them, `c35f64f`, adds a
+Test Print feature - the same thing Gate 6 built, written independently. Three files conflicted
+and one more collided semantically without conflicting at all.
+
+"KEEP BOTH" WAS ACHIEVABLE FOR ONE OF THREE CONFLICTS, AND THE OTHER TWO SAY WHY
+  `mutations.ts` - an import line. A pure union: this branch's `FoodType`, main's `canAdvanceKot`
+  and `KOT_STATUS`. Both kept, verbatim.
+
+  `owner-mutations.ts` - two `export async function testPrint`. Keeping both is a duplicate
+  declaration; it does not compile.
+
+  `PrintSetupSection.tsx` - two Test print buttons carrying the SAME `data-testid` and different
+  handlers. Keeping both is a duplicate test id and two behaviours on one control.
+
+  And `src/lib/test-print.ts` merged CLEANLY, which was the more dangerous one: a second
+  test-ticket builder, conflicting with nothing, silently doubling the thing the repository's own
+  rule forbids.
+
+WHY THIS BRANCH'S `testPrint` HAD TO WIN, AND IT IS NOT A PREFERENCE
+  Main's version writes `kind: 'Test'`, `kot_id: null`, `bill_id: null`, `status: 'queued'` - all
+  compatible. It does NOT write `station`, because on main nothing read one. On this branch
+  `bridge-payload` matches a test job to its machine BY the station, so a row without one composes
+  to nothing: the button would queue jobs the bridge then fails to render. A naive "take main's"
+  merge would have shipped a Test Print that cannot print, green.
+
+WHAT MAIN'S SIDE CONTRIBUTED, AND IT IS MOST OF IT
+  `testPrintBlocker()` - ONE definition of "is this machine testable", shared by the button and
+  the server. Main's own comment gives the reason and it is right: two copies would eventually
+  disagree, and the disagreement would be a button that does nothing. Gate 6 had an inline
+  `enabled` check; the blocker replaced it.
+
+  The non-throwing return shape - `{ queued, printerName, reason }`, so the screen can say WHICH
+  machine and WHY without parsing an error message. Extended with `jobId` and `station`.
+
+  `runTest` and the per-printer `testing` flag - better than what Gate 6 wrote. Testing the
+  tandoor must not disable the counter's button, and `runBusy` would have done exactly that.
+
+  `action: 'Printer'` on the audit entry rather than Gate 6's `'Reprint'`. Main is right: a
+  diagnostic filed among the night's reprints reads as trade that never happened.
+
+WHAT WAS REMOVED, AND WHERE IT WENT
+  `buildTestTicket()` - main's bespoke test-ticket layout, and its eight cases. On the merged tree
+  nothing called it but its own spec: a test ticket is composed by `buildTicket` through
+  `test-ticket.ts`, on the same template a kitchen ticket uses. Its careful thinking is not lost -
+  it wrapped rather than centred because a 33-character printer name on a 32-column roll does not
+  wrap on a thermal head, it disappears, and that is exactly what the width-check line in
+  `TEST_TICKET_ITEMS` exposes and what Gate 7 row 11 checks on paper.
+
+TWO USER-VISIBLE SENTENCES REWRITTEN, BECAUSE THEY STOPPED BEING TRUE
+  `TEST_PRINT_QUEUED` said *"Jalsa has no print service connected yet, so nothing has left the
+  server"*. `TEST_PRINT_NOTE` said *"No paper will come out until a print service is connected"*.
+  Both were accurate on main and false the moment Gates 2-6 landed an encoder, three transports
+  and a bridge. Leaving them would have been the more dangerous kind of stale copy - one that
+  tells an owner not to go and look for paper that is, in fact, coming.
+
+  Neither now says "printed". A queued job prints when a bridge collects it, and whether one is
+  running on that PC is not something the server can see. They say where the job is and that it
+  WAITS rather than fails when no bridge is collecting, which is the thing an owner cannot see
+  from that screen.
+
+SPECS SUPERSEDED (contract-change exception, dated notes in each file)
+  `test-print.unit.spec.ts` - eight `buildTestTicket` cases removed; the two copy cases rewritten
+  with their reasons at the assertion. Everything about the JOB kept verbatim: one row, the right
+  machine, no fake bill, never `printed`, routing not consulted, the grant, the audit, the
+  button. None of that changed and all of it still holds.
+  `print-config.unit.spec.ts` - the switched-off rung pinned Gate 6's inline guard EXPRESSION
+  (itself strengthened once already, after it stayed green under `if (false)`). The rule moved to
+  `testPrintBlocker`, so the rung now pins the call and the blocker's own guard.
+
+FAIL-FIRST for the merge: 3 defects injected, all 3 observed failing.
+  M1 the shared blocker no longer refuses            1 failed | 39 passed
+  M2 a test print is filed as trade (`Reprint`)      1 failed - main's own rung
+  M3 the blocker stops refusing a switched-off machine  2 failed - both branches' rungs
+
+Merged tree: 778 unit, 220 render + degraded, 998 total passing, 0 failing, 10/10 audits,
+typecheck and lint pass, bridge build clean.
+
+GATE 7 IS UNAFFECTED AND STILL BLOCKED. Nothing in this merge is evidence that a printer printed.
+
+---
+
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 7: BLOCKED (hardware-pending)
+
+**Gate 7 is BLOCKED. No physical printer has printed a Jalsa ticket, and nothing below claims
+otherwise.**
+
+Binding rule 4: PASS, FAIL, BLOCKED, and there is no fourth value for "the software all works so
+it will probably be fine". The TVS RP3160 is not on a desk. Gate 7 is the only gate that needs
+one, so it is BLOCKED, and it says why.
+
+WHAT IS AND IS NOT PROVEN, EXACTLY
+  Proven: the claim, the composition, the ESC/POS bytes (golden, to the byte), FileTransport,
+  NullTransport, the Windows spooler transport behind an injected command, every failure branch,
+  the report, the lifecycle against a real Postgres.
+
+  NOT proven: that paper came out. `WindowsSpoolerTransport` reports that the SPOOLER ACCEPTED the
+  bytes. Windows queues happily for a printer that is switched off, out of paper or asleep, and no
+  spooler-based transport anywhere can promise more. `bridge-windows.unit.spec.ts` carries a rung
+  whose only job is to say so, and the transport's success sentence says `accepted by queue` and
+  never `printed`.
+
+  Also unverified: whether the RP3160 honours the `ESC t 0` codepage the encoder DECLARES (Gate 2
+  said this at the time and it is still true - no device has confirmed which table it holds);
+  whether bold, double-size, feed and cut render as intended; whether 80 mm output fits; whether a
+  disconnected printer fails the way the tests assume.
+
+THE PROCEDURE, WRITTEN NOW RATHER THAN LATER
+  `docs/GATE-7-HARDWARE-ACCEPTANCE.md` - 32 rows in five groups: the machine exists, the bridge
+  runs, test print, a real round, and failure. Written while the software is fresh so that whoever
+  has the machine runs a checklist rather than inventing one. Each row says how to run it and what
+  pass looks like, and a row nobody ran is BLOCKED rather than blank.
+
+  Two rows are called out as the ones to be strict about:
+    - row 19, an unsupported character must FAIL and never print a '?';
+    - row 27, paper out must never produce a job marked printed. That is the exact defect Phase 1
+      was spent removing, and it would arrive here wearing a different hat.
+
+Recorded as KL-6. Every gate report must say Gate 7 is hardware-pending, and no document in this
+repository may describe the printing system as validated end to end until those rows have been run.
+DC-012 (the station line) stays AUTHORISED and does NOT become VERIFIED: it is verified by somebody
+looking at paper, which is the only thing that verifies it.
+
+Finished tree at the point Gate 7 was reached: 715 unit, 181 render, 20 degraded, 10/10 audits,
+typecheck and lint pass, bridge build clean.
+
+---
+
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 6 (configuration, test print, bridge credentials)
+
+The operational half: a Test Print that goes out through the real path, bridge tokens issued and
+revoked from the console, and the screens that show which PC is collecting tickets.
+
+A TEST PRINT IS AN ORDINARY PRINT JOB, AND THAT IS THE WHOLE DESIGN
+  The tempting shape is a small function that opens the printer and writes "Hello". It would work,
+  and it would prove almost nothing: not the claim, not the composition, not the encoder, not the
+  transport, not the report. Then a real ticket would fail later and the successful test would be
+  evidence for the wrong thing.
+
+  So `testPrint()` inserts a row into `print_job` and stops. Everything after it - the bridge
+  listing it, claiming it, composing it through `buildTicket`, encoding it through `escpos.ts`,
+  carrying it through whichever transport that PC has, and reporting the outcome - is the path a
+  kitchen ticket takes, unchanged. `test-ticket.ts` is the only difference, and it is a payload.
+
+  A rung pins that no second print path exists: `encodeTicket` has exactly one caller in the whole
+  system (`bridge/src/loop.ts`), and no application module holds a transport or sends anything.
+
+WHAT IS ON A TEST TICKET
+  Enough to diagnose the machine from the paper alone: which machine Jalsa thinks it is, which
+  station it is stamped for, who pressed it, when. Both food types, so the VEG/NON-VEG headings are
+  exercised. One line longer than a 58 mm roll holds, so a wrong width is visible without measuring.
+  Every identifier field carries a word rather than a plausible code - `TEST PRINT`, not
+  `KOT-0000`, because somebody WILL pick this paper up off a pass and a fake KOT number sends a
+  cook looking for table zero. Every item is unrouted (`category: ''`), so a test print needs no
+  routing configuration to exist and cannot be misdirected by one that does.
+
+  It is refused for a switched-off machine. Honouring `enabled` for real tickets and ignoring it
+  for a test would make the test prove something about a machine that is not in service.
+
+THE BRIDGE CREDENTIAL
+  `issueBridgeToken` generates 32 bytes of CSPRNG with a `jbt_` prefix, stores ONLY the SHA-256,
+  and returns the raw token exactly once. It is never logged, never audited (the audit line carries
+  the label and `confidential: true`), and cannot be read back: `listBridgeTokens` selects five
+  columns by name and `token_hash` is not among them - it is not replayable, but it is
+  offline-attackable, and a console payload ends up in browser memory, screenshots and support
+  threads. Revoking is a timestamp, never a delete: the job history says which PC carried which
+  ticket, and a deleted label makes last Tuesday unreadable.
+
+  The console shows the token in the sheet that issued it, says plainly that it is shown once, and
+  has no field, state or request that carries a token back INTO the application. A rung walks every
+  `send()` payload in the panel and asserts none of them has a `token` key.
+
+DATABASE EVIDENCE (TEST project, 22-Sep-2026; evidence rows deleted afterwards)
+  a Test job inserts with kot_id and bill_id NULL      -> accepted
+  kind 'Test', routing_rule 'chosen', food_side 'all'  -> as written
+  the bridge's own list predicate finds it             -> 1 row, the same query a KOT is found by
+  bridge_token stores a 64-char hex hash               -> and has no token/secret/raw_token column
+
+FAIL-FIRST: 11 defects injected into the finished tree. NINE fired first time; TWO did not, and
+both were rungs of mine that checked for the presence of a STRING rather than for the behaviour:
+
+  C1  a test print ignores a switched-off machine     GREEN at first - the rung asserted that the
+      words "is switched off" and "enabled" appeared in the body, and both survive `if (false)`
+      because they are in the message the dead branch would have thrown. Rewritten to pin the
+      GUARD EXPRESSION; it fires. Third time this class has appeared (Gate 1's ternary, Gate 4's
+      side rule), and the lesson is the same one: a rung blind to the exact form of the defect it
+      is named after is decoration.
+  C4  the token reaches the audit trail               GREEN at first - the rung looked for the
+      literal `token)` and the injection wrote `${token}`. Rewritten, then WRONG TWICE MORE: a
+      bare /\btoken\b/ goes red on the clean tree, because the detail legitimately reads "Bridge
+      token issued for …" and because slicing to the end of the body sweeps in the `return { …,
+      token }` that hands it to the caller. The rung now reads the audit CALL only, checks every
+      `${…}` interpolation and checks the call with string literals removed. It distinguishes the
+      identifier from the English word, which was the whole difficulty.
+
+  The other nine: a test print recorded as a routing outcome, the raw token stored, revoking by
+  delete, the hash exposed to the console, a test-ticket line gaining a category, the ticket losing
+  its TEST PRINT marking, the payload encoding for itself, the console sending a token back, and
+  the test print reaching for the encoder (2 failed).
+
+A GATE 4 RUNG NARROWED, AND WHY THAT IS NOT WEAKENING IT
+  `bridge-contract.unit.spec.ts` asserted that `bridge-payload.ts` composes from the ORIGIN and
+  never from the redirect - read across the whole FILE. Gate 6 added `testPayload`, a second
+  `composeTicket` call site that composes from the job's own station, correctly, because a test
+  print has no origin to inherit one from. The file-scoped regex could not tell the branches apart
+  and went red on correct code. The claim was always about the ordinary path, so the rung now reads
+  `ticketPayloadFor` only - and it was re-injected with the original defect afterwards to confirm
+  it still fires.
+
+Added: `src/lib/test-ticket.ts`, `testPrint` / `issueBridgeToken` / `revokeBridgeToken`,
+`listBridgeTokens`, `BridgeTokenRow`, three owner actions, a Bridges tab on Print Setup, a Test
+print control per machine, and `tests/unit/print-config.unit.spec.ts` (20 cases).
+
+Finished tree: 715 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass, bridge
+build clean.
+
+---
+
+## Application run - jalsa - 2026-09-22 - Phase 2 Gate 5 (the Windows print bridge)
+
+The bridge becomes a program a restaurant can run: a Windows spooler transport, a startup that
+refuses a broken configuration, structured logs, signal handling and a graceful shutdown.
+
+WHAT A SUCCESS MEANS HERE, STATED BEFORE ANYTHING ELSE
+  `WindowsSpoolerTransport` reporting success means THE SPOOLER ACCEPTED THE BYTES. It does not
+  mean paper came out. Windows queues perfectly happily for a printer that is switched off, out of
+  paper or asleep, and no spooler-based transport anywhere can promise more than acceptance. The
+  success sentence says `accepted by queue`, never `printed`, and a rung asserts it keeps saying
+  so. Whether a TVS RP3160 prints is Gate 7, on hardware, and nothing green in this gate moves it.
+
+WHY `copy /b` AND NOT A NATIVE BINDING
+  The obvious alternative is `winspool.drv` through a native addon: a compiler toolchain on a
+  restaurant's PC, a rebuild on every Node upgrade, and a binary nobody on this project can read.
+  `copy /b <file> <share>` is the documented way to put RAW bytes into a Windows queue, ships with
+  the operating system, and returns an exit code. The cost is one prerequisite - the printer must
+  be shared - and it is written down in `bridge/README.md` rather than discovered on a Friday.
+
+  `/b` is load-bearing. Without it `copy` runs in text mode, stops at the first 0x1A and translates
+  line endings, which on an ESC/POS stream is a truncated ticket that still prints something.
+
+WHY THE COMMAND IS INJECTED
+  Every interesting thing about this transport - a non-zero exit, a timeout, a queue that does not
+  exist - only happens on Windows. Wired directly to `spawn`, every failure path would be testable
+  nowhere, which is the same as not existing. The rule lives in the transport; the spawn is
+  `windowsCopyCommand` and the spec swaps it. `windowsCopyCommand` itself is still exercised here:
+  on a non-Windows host it returns a run naming the platform rather than dying on a missing
+  `cmd.exe`, so the transport's own error handling sees it.
+
+WHAT IT REFUSES BEFORE STARTING A PROCESS
+  A queue name is matched against a whitelist - a share name or a UNC path, nothing else. The
+  arguments are passed as an array rather than a string, but `cmd.exe` still parses them, so a
+  name carrying `&`, `|`, `>`, a quote or a newline is refused and no process is spawned. Same for
+  a job id that is not a filename: sanitising would collapse two jobs onto one name and the second
+  would overwrite the first with no error anywhere.
+
+STARTUP REFUSES RATHER THAN LIMPS
+  A bridge that comes up on a broken configuration, polls forever and prints nothing looks exactly
+  like a bridge working in a restaurant with no orders - and is discovered during service, by paper
+  that never arrives. `startup()` returns EVERY problem at once, by name, and the process exits 2.
+  `JALSA_BRIDGE_TRANSPORT=windows` on a host that is not Windows is refused at startup, with the
+  remedy named. A `SUPABASE_SECRET_KEY` in the environment stops the bridge: its presence means
+  somebody has misunderstood the deployment, and starting anyway would hide that.
+
+  The token is NEVER logged - not the value, and not a prefix of it. A prefix pasted into a support
+  thread is still a prefix of a live credential, and a rung checks every prefix from 8 characters up.
+
+SHUTDOWN IS GRACEFUL BECAUSE THE ALTERNATIVE PRINTS TWICE
+  A bridge killed between its transport call and its report leaves a job in `processing` that
+  nobody can adjudicate; the server's sweeper expires it to `failed`, in front of a person, which
+  is correct but expensive. SIGINT, SIGTERM and SIGBREAK finish the ticket in flight and exit 0.
+  A second signal is not a second shutdown.
+
+A REGRESSION THIS GATE CAUSED AND THE HARNESS CAUGHT
+  Making `JALSA_BRIDGE_SPOOL_DIR` required broke two fixtures in `bridge-loop.unit.spec.ts`, which
+  built configurations without one - 20 Gate 4 rungs went red. Found by the fail-first harness
+  reporting 21 failures for a defect injected into a file `bridge-loop` does not even import, which
+  is the kind of number worth stopping on. FIXED IN THE FIXTURES, not by relaxing the requirement:
+  the rungs pass their transport in directly so the value is unused, but configuration is
+  configuration and `loadConfig` refusing an incomplete one is the whole point of it.
+
+Files added: `bridge/src/transport/windows.ts`, `bridge/src/main.ts`, `bridge/README.md`,
+`tests/unit/bridge-windows.unit.spec.ts` (26 cases), `tests/unit/bridge-startup.unit.spec.ts`
+(14 cases). `bridge/src/config.ts` gains the transport selection. `FileTransport` and
+`NullTransport` are untouched and still shipped - development and the failure path need them.
+`bridge:build` now bundles ONE file, `bridge/dist/main.js`, whose only imports are
+`node:fs/promises`, `node:path` and `node:child_process`.
+
+FAIL-FIRST: 12 defects injected into the finished tree, all 12 observed failing.
+  W1  `copy` loses `/b` and runs in text mode              1 failed | 79 passed
+  W2  a non-zero exit is reported as success               1 failed
+  W3  a hung spooler is not noticed                        1 failed
+  W4  the queue-name whitelist removed                     7 failed (the empty name is still
+      caught by the length test, correctly - that half of the guard was not the injected one)
+  W5  the stream is staged through a text path             1 failed - "all 256 byte values survive"
+  W6  success claims the ticket printed                    2 failed
+  W7  the Windows transport allowed on any platform        1 failed
+  W8  the token is logged                                  2 failed
+  W9  startup reports only the first problem               1 failed
+  W10 a second signal is a second shutdown                 1 failed
+  W11 the staged file is left behind                       1 failed
+  W12 a throwing command escapes the transport             1 failed
+
+NOT DONE, deliberately: no Wi-Fi, no LAN/TCP-9100, no Bluetooth, no WebUSB, no Web Serial, no
+cloud print, no second ESC/POS encoder, no native module. A future wired-LAN transport is a new
+class behind the same `PrintTransport` interface - bytes in, one verdict out, still unable to
+choose a printer. Token issuance UI is Gate 6; hardware is Gate 7.
+
+Finished tree: 695 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass.
+
+---
+
+## Application run - jalsa - 2026-09-22 - Gate 4 remediation (R4-1 food side, R4-2 station)
+
+The two correctness defects the Gate 4 investigation found, fixed. Both cross Phase 1 contracts
+and both were approved as controlled amendments before any file was touched.
+
+### R4-1 - A PRINT JOB MUST KNOW WHICH HALF OF A ROUND IT IS
+
+ROOT CAUSE. `splitRound` keys buckets on `printer | station | side`. `queuePrint` persisted the
+first two and discarded the third, which existed only as a local variable and never left the
+function - `RoundTicket` carried `foodTypes` (which types LANDED in a bucket) but not the side
+the bucket IS, and those are not the same fact. With the split on, one round therefore wrote two
+rows identical in every stored field.
+
+Three consequences, in severity order:
+  1. Neither row could be composed, so a restaurant with the split on could not print a KOT.
+  2. WORSE, AND INDEPENDENT OF THE SPLIT: `printElsewhere` writes the DESTINATION machine's
+     station, so a redirect to a machine the round also touches matched the wrong bucket by
+     machine-and-station alone and composed the OTHER HALF. Not a refusal - a perfectly ordinary
+     ticket for food that had already printed somewhere else, while the intended round was never
+     delivered at all. This is the defect that made the remediation urgent.
+  3. Any renderer that guessed between two siblings prints the whole round twice at one machine.
+
+THE FIX, additive throughout:
+  - `RoundTicket.side: 'all' | 'veg_side' | 'non_veg'`, assigned in `splitRound` from ONE
+    expression now used for both the key and the ticket. Required, not optional: a construction
+    site that forgets it is a job whose identity cannot be recovered, and the compiler is the
+    cheapest place to catch that. `billTicket` states `side: 'all'` explicitly.
+  - Migration `20260922090000_jalsa_print_job_food_side` - `food_side text not null default 'all'`,
+    a check constraint over the three values routing can emit, and a SEPARATE immutability trigger
+    (`print_job_food_side_immutable`). Separate because widening `print_job_printer_is_immutable`
+    would leave a function named for what it protects and protecting something else.
+  - `queuePrint` writes `food_side: t.side`. Never a literal - `print-assignment.unit.spec.ts`
+    pins that exactly one expression is written and that it is the ticket's.
+  - `printElsewhere` copies the ORIGIN's `food_side`. Redirecting changes where a ticket prints,
+    never what is on it.
+  - `retryPrintJob` is UNCHANGED. Its patch was already a closed set, so the new column survives
+    a retry by construction; a rung now names it so a future edit argues with a test.
+  - `ticket-compose.ts` matches the FULL triple. A full key identifies one bucket, so a match is
+    unique by construction and there is no longer a "which of these two did they mean" case.
+  - `redirect-lineage.ts` (new, pure) walks `redirected_from_job_id` to its root, capped at 8.
+    Extracted from `bridge-payload.ts` because that file imports `server-only` and nothing here
+    could execute it - a depth cap nothing runs is a comment about a depth cap. Exceeding the cap,
+    a cycle, or an unreadable origin are all BLOCKED, never a stop at the eighth: a partial walk
+    composes from whichever job it halted on, which is the same defect by another road.
+  - `bridge-payload.ts` composes from the ORIGIN's identity and prints at THIS job's machine, at
+    THIS job's paper width, with THIS job's reprint mark.
+
+THE REFUSAL IS NOT DELETED. The backfill default `'all'` says nothing about a row written while
+the split was on and BEFORE the migration. Those still collide and are still refused, with a
+message that now names what it actually is - an old row, not a design gap. Recorded as KL-5.
+A backfill that guessed would be the duplicate-printing defect arriving as a migration.
+
+### R4-2 - THE STATION REACHES THE PAPER
+
+ROOT CAUSE. `print-routing.ts` carries `station` on every decision for one stated reason: *"A
+tandoor ticket on the main kitchen machine has to say TANDOOR or the wrong cook picks it up."*
+`print_job.station` snapshots it, `bridge-payload` reads it, `ComposeJob` receives it - and
+`TicketData` had no station member, `KOT_FIELDS` no station key, `buildKot` no case. The value
+was carried the whole way and dropped at the last step. The screens showed it
+(`print.tsx` renders `station -> machine`), which is why the gap survived: it looked present
+everywhere except on the only surface a cook reads.
+
+THE FIX: `TicketData.station`, one `KOT_FIELDS` entry in the Order band, one `buildKot` case
+(`leftRight('STATION', ...)`, bold, skipped when empty in the idiom `note` already uses), and
+`composeTicket` passing `job.station` through. `ComposeInput.header` DELIBERATELY OMITS `station`
+so a caller cannot pass the printing machine's station by mistake - the one wrong value that looks
+entirely plausible. Bills are untouched: `BILL_FIELDS` and `buildBill` have no station and should
+not.
+
+IT PRINTS BY DEFAULT, and that is a deliberate visible product change, recorded as DC-012. Shipping
+it switched off would leave the divergence recorded and the defect shipped.
+
+### BYTE EVIDENCE
+
+Golden bytes were captured from the PRE-remediation tree at both widths before any file changed -
+they cannot be captured afterwards. `tests/unit/ticket-golden.unit.spec.ts` pins four streams:
+
+  GOLDEN A 58mm / 80mm   the ticket as it was, reproduced with the station field off
+  GOLDEN B 58mm / 80mm   the ticket as it prints today
+
+  R4-1 byte identity:  58mm IDENTICAL (572 bytes) - 80mm IDENTICAL (804 bytes)
+  R4-2 intended change: 58mm 572 -> 611 bytes - 80mm 804 -> 859 bytes
+
+and a rung asserting the ONLY difference between A and B is one bold STATION line, with nothing
+removed. That rung was first written to diff DECODED bytes and was wrong: keeping printable bytes
+leaks the `E` out of `ESC E 01`, the bold-on the station line introduced, and it reported two
+added lines. Decoding properly would mean an ESC/POS parser inside a test - the second
+implementation `file.ts` refuses to grow for the same reason. It diffs the composer's own
+`TicketLine[]` instead; the bytes are pinned exactly four rungs above.
+
+### DATABASE EVIDENCE (TEST project uxmyomxtosjlkvjxnvpy, 22-Sep-2026, each assertion its own
+statement; evidence rows deleted afterwards)
+
+  a row that does not mention the column       -> food_side = 'all'
+  insert food_side = 'sideways'                -> violates check constraint print_job_food_side_check
+  update food_side = 'sideways'                -> the immutability trigger fires FIRST
+  update food_side = 'veg_side' (valid value)  -> "print_job.food_side is immutable (job ..., non_veg)"
+  retryPrintJob's exact patch applied          -> food_side still 'non_veg'
+  a redirect row inserted as printElsewhere does -> food_side 'non_veg', the ORIGIN's, rule 'chosen'
+
+Note honestly: an invalid UPDATE is caught by the trigger rather than by the constraint, because
+the trigger runs first. The constraint is what guards INSERT.
+
+### FAIL-FIRST: 13 defects injected into the finished tree, all 13 observed failing
+
+  R1  splitRound hard-codes the un-split side          5 failed | 181 passed
+  R2  queuePrint hard-codes food_side                  2 failed
+  R3  printElsewhere takes the half from the DESTINATION 1 failed
+  R4  retryPrintJob starts patching food_side          2 failed (incl. the Phase 1 patch-shape rung)
+  R5  ticket-compose matches on machine+station only   4 failed
+  R6  the legacy ambiguous-row guard removed           1 failed
+  R7  the redirect cap stops halfway instead of refusing 3 failed
+  R8  the walk never follows the lineage at all        8 failed
+  R9  buildKot loses the station case                  7 failed
+  R10 the station ships switched OFF                   7 failed
+  R11 composeTicket drops the job station              7 failed
+  R12 the ticket field order changes                   4 failed (both goldens, both widths)
+  R13 bridge-payload composes from the redirect itself 1 failed
+
+### SUPERSEDED SPECS (contract-change exception, jalsa/CLAUDE.md, dated notes in each file)
+
+  ticket-compose.unit.spec.ts - "BLOCKED: two tickets ... cannot be told apart" replaced by the
+    positive rung (union = round, intersection = empty) PLUS the legacy refusal, which is kept.
+  ticket-compose.unit.spec.ts - "KNOWN GAP: the station never reaches the paper" replaced by its
+    positive form, which is what that rung was holding the place for.
+
+Every other Gate 4 scenario was re-run UNCHANGED and passes.
+
+Finished tree: 655 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass,
+bridge build clean (`node:fs/promises` and `node:path` only).
+
+---
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 4 (the end-to-end software bridge)
+
+The whole path, proved without a printer in the room:
+
+  queued -> discovered -> claimed -> TicketLine[] -> ESC/POS -> FileTransport -> report -> printed
+
+and the failure path beside it, ending at `failed` with the transport's own sentence, the
+`printer_id` untouched, no reroute and no second job.
+
+THE GAP GATE 4 WAS ASKED TO CLOSE, AND WHAT CLOSING IT REVEALED
+  `buildTicket` had exactly ONE caller in this repository: the owner's Print Setup preview, over a
+  hand-written `sample: TicketData`. Nothing composed a real ticket from a real round - the
+  template was a thing the restaurant could configure and could not print. `src/lib/ticket-compose.ts`
+  is the missing half, and `src/lib/db/bridge-payload.ts` feeds it from the job's own rows.
+
+  Composing a job's ticket means knowing which ITEMS of a round belong to it, and that turned out
+  not to be answerable from the row in one configuration. See BLOCKER below.
+
+THE PAYLOAD DECISION: `TicketLine[]`, rendered on claim
+  Not bytes - that would move the encoder onto a kitchen PC and make Gate 2's golden-byte tests a
+  claim about a machine nobody can inspect. Not order data - that hands a bridge the bill, the
+  guest and the menu in order to render one ticket. Lines are exactly what the template contract
+  already produces and exactly what `escpos.ts` already consumes.
+  Rendered on `claim`, not in `list`: `list` is polled by every bridge in the building every few
+  seconds, and rendering every waiting ticket on every poll composes most of them repeatedly and
+  prints none of them. Still three verbs - the ticket is part of the answer to "I am taking this
+  job", not a fourth capability.
+
+BLOCKER FOUND, NOT WORKED AROUND
+  `splitRound` buckets a round by `printerId | station | side`, where side is veg/non-veg when the
+  owner has the food-type split on. One bucket becomes one `print_job` - but the ROW stores only
+  `printer_id` and `station`. The side is stored nowhere. So with the split ON, one round can
+  produce two jobs that are, as rows, identical, and nothing can say which half belongs to which
+  ticket. Guessing prints the whole round twice at one machine.
+  `composeTicket` therefore REFUSES that case and the job fails visibly in front of a person.
+  The fix is one additive column written at queue time (`print_job.food_types`, or a `split_side`),
+  which means changing `queuePrint` - a Phase 1 contract this gate may not touch. NOT DONE HERE,
+  reported instead. With the split OFF - the shipped default - the mapping is unambiguous and the
+  whole path works.
+
+SECOND FINDING: THE STATION NEVER REACHES THE PAPER
+  `print-routing.ts` says, in its own words, *"A tandoor ticket on the main kitchen machine has to
+  say TANDOOR or the wrong cook picks it up"*, and carries `station` on every decision and every
+  job for that purpose. `TicketData` has no station member and `buildKot` has no case for one, so
+  the fallback ticket the whole mechanism exists to stamp comes out unstamped. Recorded as a rung
+  that goes RED the day a station field is added (`ticket-compose.unit.spec.ts`, "KNOWN GAP"), at
+  which point the composer must pass `job.station` through. Fixing it means editing
+  `print-template.ts`, which this gate may not do.
+
+WHAT IS REAL IN THE TESTS AND WHAT IS NOT
+  REAL: the loop, the configuration, `composeTicket`, `buildTicket`, `encodeTicket`,
+  `FileTransport`, `NullTransport`. Bytes are genuinely encoded and genuinely written to genuine
+  files, compared byte for byte against the encoder's output.
+  NOT REAL: the HTTP hop and Postgres. `Store` in `bridge-loop.unit.spec.ts` stands in for
+  `bridge-mutations.ts`. The trade is made honest twice: a fidelity rung asserts the stand-in's
+  conditions against the REAL module's source, and every lifecycle claim was ALSO proved against
+  the TEST database through MCP - below - rather than asserted only in memory.
+
+DATABASE EVIDENCE (TEST project uxmyomxtosjlkvjxnvpy, 21-Sep-2026, each transition its own
+statement so nothing shares a snapshot; evidence rows deleted afterwards):
+  claim A = 1 row, claim B = 0 rows                  - exactly one bridge takes a queued job
+  loser report = 0 rows                              - the loser cannot report on it
+  holder report = 1 row                              - the holder can
+  reclaim after printed = 0 rows                     - a printed job is never claimed again
+  second report = 0 rows                             - and never reported twice
+  still queued = 0                                   - it is not offered again either
+  reassign printer_id -> "print_job.printer_id is immutable (job ..., assigned to ...)"
+  after the whole lifecycle: printer_id, station and routing_rule all unchanged
+  RESTART: a job left `processing` was offered 0 times, claimed 0 times, reported 0 times, and
+  remained `processing` - the bridge has no vocabulary that moves it back to `queued`.
+  (A first attempt at this used one multi-CTE statement. Postgres evaluates every CTE against one
+  snapshot, so the counts were not evidence of sequential behaviour and were discarded and re-run.)
+
+Three specs added, one superseded:
+  tests/unit/bridge-loop.unit.spec.ts      25 cases - the twelve scenarios plus the bounded loop
+  tests/unit/ticket-compose.unit.spec.ts   16 cases - composition and, mostly, its refusals
+  tests/unit/bridge-import-hygiene.unit.spec.ts     - SUPERSEDED under the contract-change
+    exception: the closure was "bridge files only" and is now "bridge files plus three NAMED pure
+    modules" (`escpos.ts`, `print-template.ts`, `status.ts`). The bridge imports the Gate 2
+    encoder rather than growing a second one; the node-only external allow-list is unchanged,
+    which is what makes the new membership safe rather than a widening.
+The unit tier goes 573 -> 615.
+
+FAIL-FIRST: 16 defects injected into the finished tree, each re-run against all four bridge specs.
+  L1 the losing bridge carries on past the claim: 1 failed, 80 passed - CONCURRENCY.
+  L2 the local machine filter removed: 1 failed - MACHINE ISOLATION (the local half).
+  L3 an unrenderable ticket encoded anyway: 1 failed - the job would have sat in `processing`.
+  L4 a transport failure not reported: 2 failed - FAILURE and FAILURE REPORT.
+  L5 the backoff never grows: 1 failed - a kitchen PC is somebody's working computer.
+  L6 the loop learns the word "queued": 1 failed - RESTART.
+  L7 a machine this bridge cannot serve is not refused: 1 failed - NO REROUTING.
+  C1 the veg/non-veg ambiguity guard removed: 2 failed - the BLOCKER above would print twice.
+  C2 the routing-changed guard removed: 2 failed.
+  C3 the job takes the whole round instead of its own items: 2 failed.
+  C4 the saved template decides the paper instead of the machine: 1 failed.
+  C5 the food-type side rule diverged from splitRound: SEE BELOW.
+  G1 a Supabase credential no longer stops the bridge: 1 failed.
+  G2 a bridge serving nothing allowed to start: 1 failed.
+  G3 a nonsense poll interval becomes a tight loop: 1 failed.
+  H1 the bridge reaches a FOURTH application file: 1 failed - the new membership rung.
+
+C5, AND THE RUNG THAT COULD NOT SEE IT (the most useful thing this gate found)
+  `composeTicket` restates `splitRound`'s bucket key, because `splitRound` returns aggregates
+  rather than item lists and is a Phase 1 contract. The equivalence rung was written to guard that
+  duplication - and when the side rule was inverted (`non_veg` for `veg`), it STAYED GREEN. It
+  compared machines and bucket counts, and stripped the side off the key before comparing: the one
+  thing it was named after was the one thing it could not see. Same class as the Gate 1 defect
+  where a "must not write printed" rung passed over the exact ternary that wrote it.
+  Replaced with a rung that asserts the rule's MEANING - every item on the non-veg side is
+  non-veg, every item on the veg side is not - which fires on the inversion (1 failed, 15 passed).
+  A first attempt also compared `splitRound`'s `foodTypes` aggregate; that half was WRONG and
+  failed on the clean tree, because the ambiguous case is two buckets sharing one machine and the
+  aggregate cannot tell them apart. It was removed rather than weakened, with the reason recorded
+  in the spec: an aggregate that cannot see this defect must not be the thing that claims to.
+
+NOT DONE IN THIS GATE, deliberately: no WindowsSpoolerTransport, no Win32, no token issuance UI,
+no CI change, no deployment change. The stale-claim sweeper stays server-side and the bridge never
+calls it. `print-routing.ts`, `print-template.ts`, `queuePrint`, `retryPrintJob` and
+`printElsewhere` are untouched.
+
+Finished tree: 615 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint pass,
+`npm run bridge:build` bundles five entry points whose only imports are `node:fs/promises` and
+`node:path`.
+
+---
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 3 (PrintTransport abstraction)
+
+Gate 3 adds the seam between Jalsa's decisions and a physical device, and nothing else. Three
+source files under `jalsa/bridge/src/transport/` - `types.ts` (the interface), `file.ts`
+(FileTransport, the development sink) and `null.ts` (NullTransport, the failure path). No Windows
+API, no spooler, no polling loop, no claim loop. The transport receives BYTES; it does not encode
+`TicketLine[]`, and `src/lib/escpos.ts` remains the only encoder.
+
+WHAT THE INTERFACE MAKES IMPOSSIBLE. `send(bytes, target)` takes the target it is given. There is
+no list to choose from, no fallback argument, and no field anywhere in `TransportResult` that
+could name a printer. The Phase 1 defect - a transport-layer decision about WHICH printer - is not
+forbidden by a convention here, it is unrepresentable. `bridge-transport.unit.spec.ts` pins the
+result key set for both implementations so it stays that way.
+
+WHERE IT WRITES. The root directory is bridge configuration and nothing else;
+`target.destination` names only a folder WITHIN that root, on a character whitelist, with a second
+`startsWith(root + sep)` check behind it. A print job arriving over the network is never allowed
+to decide where bytes land on a restaurant's PC.
+
+Two specs added: `tests/unit/bridge-transport.unit.spec.ts` (26 cases) and
+`tests/unit/bridge-import-hygiene.unit.spec.ts` (14 cases). The unit tier goes 533 -> 573.
+
+THE HYGIENE SPEC IS AN ALLOW-LIST, NOT A DENY-LIST. It walks every relative import from
+`bridge/src` to a fixed point and asserts that the only specifiers leaving the closure start with
+`node:`. A deny-list forbids only the dependencies somebody already thought of, and the one that
+eventually gets in is by definition the one nobody listed. The named `next` / `react` /
+`server-only` / `@supabase` / `@/lib/db` rungs are kept as well, deliberately redundant: they are
+the rungs whose NAME appears in a failure report.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the payload written as text
+(`Buffer.from(bytes).toString('latin1')` with a `utf8` encoding argument): 2 failed, 38 passed -
+"what lands on disk is byte-for-byte what was handed over, for all 256 byte values" and "bytesSent
+is measured from the file, not echoed from the input". The encoded-ticket round-trip rung did NOT
+fail, correctly: that ticket is pure ASCII and survives the mangle. That is the whole reason the
+256-value case exists alongside it.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - a short write (`bytes.slice(0, 10)`):
+4 failed, 36 passed - both byte-identity rungs, the measured-size rung and the `.txt` rung. This
+is also the evidence that `bytesSent` is read back from `stat`: an echoed `bytes.length` would
+have reported 256 bytes sent for a ten-byte file.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the destination containment guard disabled:
+7 failed, 33 passed - the escape case and six of the seven malformed-destination cases. The `..`
+case stayed GREEN and honestly so: the belt-and-braces `startsWith(root + sep)` check still
+refused the write. The removed layer is the one that names the fault; the one behind it still
+stopped the escape.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the job-id guard disabled: 1 failed,
+39 passed - "a job id that is not a safe filename is refused rather than sanitised".
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the `.txt` rendering written
+unconditionally: 1 failed, 39 passed - "the .txt rendering is written only when configuration asks
+for it".
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - the readable rendering made to DROP control
+bytes rather than show them as hex: 1 failed, 39 passed - "the rendering shows control bytes as
+hex and never pretends to parse them". A renderer that interpreted the stream could disagree with
+the encoder, and then the readable file would be quietly lying about the file next to it.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - a caught write failure returned as
+`ok: true`: 1 failed, 39 passed - "an unwritable directory is a returned failure, not a thrown
+exception". Phase 1's exact defect, re-injected one layer down.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - NullTransport made to report success
+because nothing went wrong: 4 failed, 36 passed - "NullTransport always fails", "never throws",
+"never reports a success, over many attempts", and the result-shape rung.
+
+FAIL-FIRST: tests/unit/bridge-transport.unit.spec.ts - NullTransport's failure marked
+`retryable: true`: 1 failed, 39 passed. Sending the same bytes to the same nothing produces the
+same nothing; a loop would spin on a configuration fault and report it as a flaky printer.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - `import 'react'` added to a transport:
+2 failed, 38 passed - the node-builtins allow-list and the named `react` rung.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - a TYPE-ONLY
+`import type { TicketLine } from '@/lib/print-template'` added: 2 failed, 12 passed (hygiene spec
+alone) - the allow-list and "the app alias is unreachable from the bridge". Type-only imports are
+included in the walk deliberately: they are erased at build time, cost nothing at runtime, and
+still couple the bridge to the application's module graph.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - `typeof document` added to a
+transport: 1 failed, 39 passed - "no browser-only global is referenced anywhere in the closure".
+The tsconfig's lib includes DOM for the application's sake, so a `document` reference does not
+fail to compile here; it fails at three in the morning on a PC behind the counter.
+
+FAIL-FIRST: tests/unit/bridge-import-hygiene.unit.spec.ts - the walk pointed at a directory
+holding no `.ts` sources: 2 failed, 38 passed - the parse guard and "Node builtins ARE allowed,
+and the bridge does use them". Binding rule 5: a scan matching zero files looks exactly like a
+clean codebase, so the closure asserts its own contents before asserting anything about them.
+
+FINDING, not a rung: the first attempt at the `@/lib/db` defect imported
+`@/lib/db/bridge-mutations` at RUNTIME. It did not fail a test - it killed the whole spec file at
+load with "This module cannot be imported from a Client Component module", because that module
+pulls in `server-only`. An application data-layer import into the bridge is not a subtle coupling;
+it is an immediate hard failure. The rung was re-run with the type-only form, which is the one
+that would realistically get committed.
+
+BUILD: `npm run bridge:build` bundles `file.ts` and `null.ts` with esbuild for node20, ESM. The
+bundle's only imports are `node:fs/promises` and `node:path` - the same claim the hygiene spec
+makes statically, made again by a real bundler. `bridge/dist` is gitignored and excluded from the
+tsconfig; `bridge/**/*` is INCLUDED, so the bridge typechecks under the application's own
+strictness rather than a second, looser config.
+
+NOT DONE IN THIS GATE, deliberately: no Windows spooler transport, no winspool calls, no polling
+or claim loop, no change to the Gate 1 API, no token issuance UI. `FileTransport` and
+`NullTransport` have no caller yet - the loop that will use them is Gate 4.
+
+Finished tree: 573 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 2 (ESC/POS encoder)
+
+One spec added: `jalsa/tests/unit/escpos.unit.spec.ts` - 26 cases, golden bytes throughout. The
+encoder is pure, so every assertion is an exact byte string; nothing downstream can check this,
+because a spooler accepts whatever it is handed and a printer that receives `1B 45 00` where
+`1B 45 01` was meant prints a line that is merely not bold - legible, plausible and wrong.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - unmapped character made to fall through as
+`0x3F` instead of throwing: 4 failed, 22 passed - "AN UNMAPPED CHARACTER FAILS - it is never
+silently replaced", "THE ERROR NAMES THE CODEPOINT, THE LINE AND THE COLUMN", "THE RUPEE SIGN IS
+DELIBERATELY UNMAPPED", and the code-point column case. A '?' on a bill is a character nobody can
+trace back to its cause.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - `encodeTicket` made to slice each line to the
+configured column count: 1 failed, 25 passed - "THE ENCODER NEVER TRUNCATES AND NEVER WRAPS".
+Deciding a line is too long is the template's job; an encoder that trimmed would turn a caught
+layout fault into a quietly clipped figure on a bill.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - the end-of-stream emphasis reset removed:
+3 failed, 23 passed - including "THE STREAM NEVER ENDS MID-EMPHASIS - the next job starts clean".
+A job that ends bold makes the NEXT job wrong, and that one prints in a different room from the
+person who could connect the two.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - the `line`/`column` clause removed from the
+`EncodeError` message: 1 failed, 25 passed - "THE ERROR NAMES THE CODEPOINT, THE LINE AND THE
+COLUMN". "Cannot encode U+20B9" sends somebody reading the whole ticket.
+
+FAIL-FIRST: jalsa/tests/unit/escpos.unit.spec.ts - `GS !` changed from `0x11` to `0x01`, double
+height without double width: 3 failed, 23 passed - "BIG IS GS ! 11", the whole-ticket golden, and
+the big-to-bold transition. The defect prints a heading that is subtly the wrong shape, which is
+exactly the class golden bytes exist to catch.
+
+NOTE ON THE CODEPAGE: `ESC t 0` (CP437) is DECLARED, not verified. No device has confirmed which
+table it holds or that it honours the selection. The encoder therefore emits no high bytes on the
+strength of it - ASCII passes through and anything else must be named in the charset map or the
+job fails. A verified CP437 upper half is Gate 7 work, after hardware says so.
+
+Finished tree: 533 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
+## Application run - jalsa - 2026-09-21 - Phase 2 Gate 1 (print bridge contract)
+
+One spec added: `jalsa/tests/unit/bridge-contract.unit.spec.ts`. Its guarantees are properties of
+writes and type shapes, so each was checked by injecting its own defect into the finished tree.
+
+The claim's ATOMICITY is not a source property and is not asserted by that file. It was proved
+against the TEST Supabase project through MCP: one queued job, two identical conditional updates,
+`A updated 1 row(s), B updated 0 row(s)` - exactly one winner, assignment intact through the
+claim, and `printed` reachable only from `processing`.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `reportPrintJob`'s patch given a
+`printer_id` key: 1 failed, 18 passed - "THE REPORT CANNOT NAME A PRINTER - rerouting is not
+expressible". That is the boundary between Jalsa and the bridge, asserted as a closed key set.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `sweepStaleClaims` changed to write
+`status: 'queued'` instead of `'failed'`: 1 failed, 18 passed - "A STALE CLAIM EXPIRES TO failed
+AND NEVER TO queued". Re-queueing asserts no paper came out, and a wrong assertion prints the
+round twice.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `claimPrintJob` with its
+`.eq('status', 'queued')` predicate removed: 1 failed, 18 passed - "THE CLAIM IS ONE CONDITIONAL
+UPDATE - the property atomicity rests on".
+
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts - `authenticateBridge` changed to ignore
+a lookup error (`if (!data)` instead of `if (error || !data)`): 1 failed, 18 passed - "AUTH FAILS
+CLOSED - an unreachable lookup is \"no\", never \"yes\"". Failing open there turns a database
+outage into an authorisation bypass.
+
+Two rungs in this file first went red on the code's own COMMENTS - `bridge-auth.ts` carries a
+heading "WHY NOT `SUPABASE_SECRET_KEY`" and the route mentions the sweeper while explaining late
+reports. Both now strip comments before asserting absence: a rung that punishes a file for
+explaining itself teaches people to stop explaining.
+
+Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
+## Fail-first evidence - 2026-09-20/21 - Phase 1 print job assignment
+
+Two specs were added in this change. Each was observed failing before it was trusted.
+
+`tests/unit/print-assignment.unit.spec.ts` does not collect against the true pre-fix tree at
+ef930ea - it imports `src/components/ui/print.tsx`, which did not exist, so Playwright reports
+"No tests found". That is evidence the file is new, not evidence any rung can fail. Each of the
+three shipped defects was therefore put back into the finished tree, one at a time:
+
+NOT OBSERVED FAILING: tests/unit/print-assignment.unit.spec.ts (whole file, pre-fix tree) - the file
+  cannot collect at ef930ea because src/components/ui/print.tsx did not exist. Per-rung evidence
+  was obtained by re-injecting each shipped defect instead; the three runs are below.
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - `retryPrintJob` restored to re-select a printer
+  and patch printer_id, as it shipped: 3 failed, 23 passed - "RETRY MUST NOT REASSIGN THE PRINTER",
+  "RETRY MUST NOT RE-RUN ROUTING", and "a failed Tandoor ticket can never be retried onto the Main
+  Kitchen machine".
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - `queuePrint` restored to one job per round with
+  `status: reachable ? 'printed' : 'failed'`: 2 failed, 24 passed - "a printer answering is not a job
+  succeeding" and "NOTHING IN THE PRINT PATH MAY WRITE printed". The second went red only after the
+  rung was rewritten: the first version matched `status: 'printed'` literally and the real defect is a
+  TERNARY, so it passed over the exact thing it is named after. That near-miss is why `statusWrites`
+  matches the field and takes whatever expression follows.
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - `reprintKot` restored to pass no items: 1 failed,
+  25 passed - "A REPRINT ROUTES ON WHAT THE ROUND CONTAINS".
+FAIL-FIRST: tests/unit/print-assignment.unit.spec.ts - "the split is what the order path actually calls"
+  re-run with the production call behind a dead `false &&` guard: 1 failed - Expected
+  "input.items?.length", Received "false && input.items?.length". This rung had stayed GREEN under that
+  same injection before the guard expression was pinned; static analysis cannot prove reachability in
+  general, and this closes the one way it was faked here.
+FAIL-FIRST: tests/unit/spec-supersession.unit.spec.ts - `jalsa/CLAUDE.md` reverted to its pre-amendment
+  wording: 2 failed, 4 passed - "the exception exists and is narrowly scoped to a CONTRACT change" and
+  "the exception names its pattern".
+
+Finished tree: 488 unit, 181 render, 20 degraded, 10/10 audits, typecheck and lint all pass.
+
+---
+
+## Gate run - 2026-09-19 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 4m 42s total - slowest G8 Functional / integration (4m 16s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (57ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (49ms)
+- **G4 No hard-coded colours** - PASS (73ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (9.9s)
+- **G7 Unit + pure specs** - PASS (9.8s)
+- **G8 Functional / integration** - FAIL (4m 16s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (59ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (59ms)
+- **G12 Installable as an application** - PASS (72ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## Gate run - 2026-09-18 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.

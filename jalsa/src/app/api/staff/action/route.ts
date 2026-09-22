@@ -13,6 +13,7 @@ import {
   joinTableToBill,
   placeRound,
   reprintKot,
+  retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { getBill } from '@/lib/db/queries';
@@ -44,6 +45,7 @@ type Action =
   | { action: 'cancel-item'; kotItemId: string; reason: string }
   | { action: 'advance-kot'; kotId: string; to: KotStatus }
   | { action: 'reprint'; kotId: string }
+  | { action: 'retry-print'; jobId: string }
   | { action: 'complete-request'; requestId: string }
   | {
       action: 'close-bill';
@@ -108,6 +110,13 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     case 'reprint':
       await reprintKot({ kotId: input.kotId, actor });
       return ok({ done: true });
+
+    // A captain standing in the room is the person who finds out a ticket did not come out, so
+    // the retry belongs on their phone and not only in the owner's console. It re-sends the job
+    // to the machine it was already assigned to — the same grant as a reprint, because it is the
+    // same authority over the same paper.
+    case 'retry-print':
+      return ok(await retryPrintJob({ jobId: input.jobId, actor }));
 
     case 'complete-request':
       await completeRequest({ requestId: input.requestId, actor });

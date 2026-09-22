@@ -54,9 +54,15 @@ export interface Kot {
   /** The table this round came from. On a group bill this is what tells the runner where to go. */
   tableName: string;
   note: string;
-  printStatus: 'queued' | 'printed' | 'failed';
+  /**
+   * The pessimistic aggregate over this round's live print jobs — failed if any failed, printed
+   * only once every one of them has. One badge for what may be several tickets.
+   */
+  printStatus: PrintJobStatus;
   printAttempts: number;
   reprintCount: number;
+  /** One per machine this round is being printed at. Empty for a round placed before Phase 1. */
+  printJobs: KotPrintJob[];
   createdAt: string;
   startedAt: string | null;
   readyAt: string | null;
@@ -248,20 +254,68 @@ export interface PrinterRow {
   lastSeenAt: string | null;
 }
 
+/**
+ * Where a print job has got to.
+ *
+ * `processing` was added in Phase 2: a bridge has taken the job and the paper is imminent. It is
+ * distinct from `queued` because a bridge that died mid-send has to be distinguishable from one
+ * that never started — that difference is the whole job of the stale-claim sweeper.
+ *
+ * `printed` is still unwritable by anything on the ORDER path. Only a bridge report produces it,
+ * and only for a job that bridge is holding.
+ */
+export type PrintJobStatus = 'queued' | 'processing' | 'printed' | 'failed';
+
+/**
+ * A print job's destination, as every screen that shows one needs it.
+ *
+ * THE PRINTER'S UUID IS PART OF THE SHAPE, and it was not before. A screen that knows only
+ * `printerName` can show where a ticket went but cannot act on it — it cannot offer "retry on
+ * THIS machine" or let an operator pick a different one, because it has nothing to name in the
+ * request. Every retry therefore had to re-derive a target on the server, which is where the
+ * reassignment bug lived.
+ */
+export interface PrintTarget {
+  /** Null only when no machine could be assigned at all. */
+  printerId: string | null;
+  /** Snapshot taken when the job was created. Never re-joined. */
+  printerName: string;
+  /** The station the ticket is STAMPED for, which on a fallback is not the printer's own. */
+  station: string;
+  /** How the destination was decided. 'chosen' means a person did, via Print elsewhere. */
+  routingRule: 'routed' | 'fallback' | 'unrouted' | 'none' | 'chosen' | '';
+}
+
+/**
+ * One round's ticket, on the surfaces that show a KOT.
+ *
+ * A round can be several of these — one per machine — since a round spanning the tandoor and the
+ * main kitchen is two pieces of paper in two rooms.
+ */
+export interface KotPrintJob extends PrintTarget {
+  id: string;
+  status: PrintJobStatus;
+  attempts: number;
+  isReprint: boolean;
+  lastError: string;
+}
+
 /** One row of the print-history trail: what the system tried to print, and what happened. */
-export interface PrintJobRow {
+export interface PrintJobRow extends PrintTarget {
   id: string;
   kind: string;
   /** KOT-0042 or B-1048 — the identifier a person would look for, never the job's uuid. */
   reference: string;
   table: string;
-  printerName: string;
-  status: 'queued' | 'printed' | 'failed';
+  status: PrintJobStatus;
   attempts: number;
   isReprint: boolean;
   requestedBy: string;
   lastError: string;
   createdAt: string;
+  lastAttemptAt: string | null;
+  /** Set when this job exists because an operator redirected another one. */
+  redirectedFromJobId: string | null;
 }
 
 /** What the guest's phone is shown. Never the whole bill row - only what their screen needs. */
@@ -338,4 +392,21 @@ export interface GuestReply {
   reply: string;
   repliedBy: string;
   repliedAtIso: string;
+}
+
+/**
+ * A bridge, as the owner's console sees it (Gate 6).
+ *
+ * NOTE WHAT IS NOT HERE: the token, and the hash of the token. The token exists exactly once, in
+ * the response to the call that issued it, and is never readable again — so a compromised console
+ * session cannot harvest working credentials for the PCs in the building, only revoke them.
+ */
+export interface BridgeTokenRow {
+  id: string;
+  /** What a person calls the PC. This is what lands in `print_job.claimed_by`. */
+  label: string;
+  createdAt: string;
+  /** When this bridge last called the API. Null means it has never connected. */
+  lastSeenAt: string | null;
+  revokedAt: string | null;
 }

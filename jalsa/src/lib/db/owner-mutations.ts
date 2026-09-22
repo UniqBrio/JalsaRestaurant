@@ -4,6 +4,8 @@ import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, nextNumber, type Actor } from './mutations';
+import { randomBytes } from 'node:crypto';
+import { hashToken } from '@/lib/bridge-token';
 
 /**
  * owner-mutations — the configuration writes, kept apart from the operational ones.
@@ -865,32 +867,56 @@ export async function writeEmployment(input: {
   });
 }
 
+/* ── Gate 6 · The printing system's own operations ─────────────────────── */
+
 /**
  * Queue a test ticket for ONE machine.
  *
- * WHY IT DOES NOT CALL `queuePrint`
- *   `queuePrint` is the ROUTING path: it asks which machine should receive a round's ticket given
- *   its categories, and answers with one machine. That is exactly the wrong question here. A test
- *   is a diagnostic aimed at a machine the owner has pointed at — routing must not be consulted,
- *   must not be able to redirect it, and must not be changed by it. So the printer id travels
- *   from the button to this row with nothing in between able to reinterpret it.
+ * MERGED 22-Sep-2026. Two branches built this at once — `main` as a diagnostic for a deployment
+ * with no print service, and Gate 6 as a job the bridge actually carries. What survives is the
+ * union: `main`'s shared pre-flight and its non-throwing return shape, Gate 6's snapshot columns
+ * and the audit line, and one function rather than two.
  *
- * WHY THERE IS NO FAKE BILL
+ * IT IS AN ORDINARY PRINT JOB, AND THAT IS THE WHOLE DESIGN.
+ *   The tempting shape is a small function that opens the printer and writes "Hello". It would
+ *   work, and it would prove almost nothing: not the claim, not the composition, not the encoder,
+ *   not the transport, not the report. Then a real ticket would fail later and the successful test
+ *   would be evidence for the wrong thing.
+ *
+ *   So this inserts a row into `print_job` and stops. Everything after it — the bridge listing it,
+ *   claiming it, composing it through `buildTicket`, encoding it through `escpos.ts`, carrying it
+ *   through whichever transport that PC has, and reporting the outcome — is the path a real
+ *   kitchen ticket takes, unchanged. The payload is the only difference (`test-ticket.ts`).
+ *
+ * WHY IT DOES NOT CALL `queuePrint` (kept from `main`, and still exactly right)
+ *   `queuePrint` is the ROUTING path: it asks which machine should receive a round's ticket given
+ *   its categories. That is the wrong question here. A test is aimed at a machine the owner has
+ *   pointed at — routing must not be consulted, must not be able to redirect it, and must not be
+ *   changed by it. The printer id travels from the button to this row with nothing in between
+ *   able to reinterpret it.
+ *
+ * WHY THERE IS NO FAKE BILL (kept from `main`)
  *   `print_job.bill_id` and `print_job.kot_id` are both nullable. A test job belongs to neither,
- *   and the schema has always allowed that — so the requester's "do not create a fake order" is
- *   not a constraint to work around, it is the natural shape of the row.
+ *   and the schema has always allowed that — so "do not create a fake order" is not a constraint
+ *   to work around, it is the natural shape of the row.
  *
  * WHY THE STATUS IS `queued` AND NEVER `printed`
- *   Nothing in this deployment can open a connection to a thermal printer. `queuePrint` writes
- *   `printed` when `printer.online` is true, but that column is a stored flag an owner edits by
- *   hand, not a probe — so `printed` there means "somebody ticked a box", which is a claim this
- *   function will not make. `queued` is what actually happened: a job exists, against this
- *   machine, waiting for a worker that has not been built.
+ *   The same rule the whole of Phase 1 turned on: `printed` is a claim about paper, and only a
+ *   bridge that carried the bytes may make it. This function writes `queued`, which is what
+ *   actually happened — a job exists, against this machine, waiting to be collected.
+ *
+ * `routing_rule: 'chosen'` because a person picked the machine. That is not a routing outcome and
+ * must not be mistakable for one — the same reasoning `printElsewhere` already records.
  */
-export async function testPrint(input: {
-  printerId: string;
-  actor: Actor;
-}): Promise<{ queued: boolean; printerName: string; reason: string }> {
+export async function testPrint(input: { printerId: string; actor: Actor }): Promise<{
+  queued: boolean;
+  /** Null when nothing was queued. */
+  jobId: string | null;
+  printerName: string;
+  station: string;
+  /** Empty when it was queued; otherwise why it was not. */
+  reason: string;
+}> {
   // The same grant that gates Configure and Add a printer on the tab this button lives on.
   // Nothing is broadened: an actor who may not configure printers may not test them.
   demand(input.actor, 'set.printer');
@@ -900,7 +926,7 @@ export async function testPrint(input: {
      another restaurant, which is the one thing a diagnostic must never do. */
   const { data: printer, error } = await db()
     .from('printer')
-    .select('id,name,station,paper_mm,connection,address,enabled')
+    .select('id,machine_id,name,station,paper_mm,connection,address,enabled')
     .eq('restaurant_id', restaurantId)
     .eq('id', input.printerId)
     .maybeSingle();
@@ -908,20 +934,32 @@ export async function testPrint(input: {
   if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
 
   const name = printer.name as string;
+  const station = (printer.station as string) ?? '';
+
+  /* ONE definition of "is this machine testable", shared with the button. Two copies would
+     eventually disagree, and the disagreement would be a button that does nothing. Returned
+     rather than thrown, so the screen can say WHICH machine and WHY without parsing an error. */
   const blocker = testPrintBlocker({
-    enabled: ((printer.enabled as boolean | null) ?? true),
+    enabled: (printer.enabled as boolean | null) ?? true,
     connection: (printer.connection as string) ?? '',
     address: (printer.address as string) ?? '',
   });
-  if (blocker) return { queued: false, printerName: name, reason: blocker };
+  if (blocker) return { queued: false, jobId: null, printerName: name, station, reason: blocker };
 
   /* ONE row, against ONE printer, with no bill and no round. Nothing else in the database is
      touched: not the printer row, not its routes, not a kot, not a bill. */
-  const { error: jobErr } = await db()
+  const { data: job, error: jobErr } = await db()
     .from('print_job')
     .insert({
       restaurant_id: restaurantId,
-      printer_id: printer.id,
+      printer_id: printer.id as string,
+      // Snapshots, in the idiom every other job uses. `station` is load-bearing here and not
+      // decoration: `bridge-payload` matches a test job to its machine by it, and a row without
+      // one composes to nothing at all.
+      printer_name: name,
+      station,
+      routing_rule: 'chosen',
+      food_side: 'all',
       kind: 'Test',
       kot_id: null,
       bill_id: null,
@@ -931,16 +969,99 @@ export async function testPrint(input: {
       requested_by: input.actor.label,
       last_error: '',
       completed_at: null,
-    });
+    })
+    .select('id')
+    .single();
   if (jobErr) throw jobErr;
 
-  /* Audited as an ADMINISTRATIVE act, on the existing mechanism, with no bill and no table —
-     because a test print is not a business transaction and must not appear as one. */
+  /* Audited as an ADMINISTRATIVE act, with no bill and no table — because a test print is not a
+     business transaction and must not appear as one. */
   await audit({
+    // `Printer`, not `Reprint` — kept from `main` at the merge, and it is the better call: a
+    // diagnostic filed among the night's reprints would read as trade that never happened.
     action: 'Printer',
-    detail: `Test ticket queued for ${name}`,
+    detail: `Test ticket queued for ${name} (${printer.machine_id as string})`,
     actor: input.actor,
   });
 
-  return { queued: true, printerName: name, reason: '' };
+  return { queued: true, jobId: job.id as string, printerName: name, station, reason: '' };
+}
+
+
+/**
+ * Issue a bridge token, and hand it back exactly once.
+ *
+ * WHAT IS STORED IS A HASH, AND THAT IS NOT A DETAIL
+ *   `bridge_token.token_hash` is the SHA-256; the token itself is never written anywhere. A dump
+ *   of the table yields no working credential, and revocation is a timestamp rather than a
+ *   redeploy. The cost is that a lost token cannot be recovered — only replaced — and that is the
+ *   right trade for a credential that lives in a text file on a PC in a kitchen.
+ *
+ * THE RETURN VALUE IS THE ONLY TIME IT EXISTS. Callers must show it and move on; it is never read
+ * back, never logged, and never in an audit line.
+ */
+export async function issueBridgeToken(input: { label: string; actor: Actor }): Promise<{
+  id: string;
+  label: string;
+  /** Shown once. There is no second chance to read this. */
+  token: string;
+}> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const label = input.label.trim();
+  if (!label) throw new Error('Give the PC a name first — it is what appears on the job history.');
+  if (label.length > 60) throw new Error('That name is too long for the job history. Keep it under 60 characters.');
+
+  // 32 bytes of CSPRNG. The `jbt_` prefix is so a token found in a file is recognisable for what
+  // it is, the way Supabase's own key prefixes work.
+  const token = `jbt_${randomBytes(32).toString('hex')}`;
+
+  const { data, error } = await db()
+    .from('bridge_token')
+    .insert({ restaurant_id: restaurantId, label, token_hash: hashToken(token) })
+    .select('id,label')
+    .single();
+  if (error) throw error;
+
+  await audit({
+    action: 'Set permissions',
+    // The label, never the token, and never a prefix of it.
+    detail: `Bridge token issued for ${label}`,
+    actor: input.actor,
+    confidential: true,
+  });
+
+  return { id: data.id as string, label: data.label as string, token };
+}
+
+/**
+ * Stop a bridge token working.
+ *
+ * A timestamp, not a delete: the job history says which PC carried which ticket, and a revoked
+ * token's label still has to resolve. Registers are append-only and this is one.
+ */
+export async function revokeBridgeToken(input: { tokenId: string; actor: Actor }): Promise<{ label: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data, error } = await db()
+    .from('bridge_token')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', input.tokenId)
+    .eq('restaurant_id', restaurantId)
+    .is('revoked_at', null)
+    .select('label')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('That bridge token is already revoked, or is not one of this restaurant’s.');
+
+  await audit({
+    action: 'Set permissions',
+    detail: `Bridge token revoked for ${data.label as string}`,
+    actor: input.actor,
+    confidential: true,
+  });
+
+  return { label: data.label as string };
 }

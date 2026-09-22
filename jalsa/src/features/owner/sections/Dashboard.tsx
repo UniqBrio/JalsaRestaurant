@@ -74,7 +74,13 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           <MetricTile
             label="Print failures"
             value={String(data.today.printFailures)}
-            note={data.today.printFailures ? 'Orders are safe — tickets are not' : 'Every ticket printed'}
+            note={
+              data.today.printFailures
+                ? 'Orders are safe — tickets are not'
+                : data.today.printWaiting
+                  ? `${data.today.printWaiting} still waiting to print`
+                  : 'Every ticket printed'
+            }
             onClick={() => go('orders')}
             testId="owner-kpi-print"
             tone={data.today.printFailures > 0 ? 'error' : 'neutral'}

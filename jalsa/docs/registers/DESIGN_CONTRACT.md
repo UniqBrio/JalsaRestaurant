@@ -25,6 +25,38 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-012 · The kitchen ticket carries its station, and the artboards do not show one
+
+**SOURCE** — `src/lib/print-routing.ts`, in its own words: *"The station the ticket was MEANT for,
+not the one it came out at. A tandoor ticket on the main kitchen machine has to say TANDOOR or the
+wrong cook picks it up."* Routing has carried `station` on every decision since Phase 1 and
+`print_job.station` has snapshotted it since the 19-Sep-2026 migration.
+
+**IMPLEMENTATION (before 22-Sep-2026)** — `TicketData` had no `station` member, `KOT_FIELDS` had
+no `station` key, and `buildKot` had no case for one. The value was carried the whole way and
+dropped at the last step. A fallback ticket printed at the main-kitchen machine was byte-identical
+to a main-kitchen ticket, so the mechanism cost everything and delivered nothing.
+
+**THE DESIGN SET** — the KOT artboards show no station line. This is therefore a divergence, added
+in the design's own idiom (a `leftRight` row in the Order band, the same shape as TABLE and BILL
+NO), not a new pattern.
+
+**DECIDED** — the field prints **by default**. Shipping it switched off would leave the divergence
+recorded and the defect shipped. `DEFAULT_OFF.kot` deliberately omits `'station'`, and the reason
+is written at that line.
+
+**NEW VISIBLE STRING** — `STATION`, in the existing all-caps label idiom (`TABLE`, `BILL NO`,
+`CAPTAIN`, `DATE`, `TIME`). Adopts existing terminology rather than introducing a synonym, per the
+freeze rule. Weight `bold` — an existing weight in the template vocabulary, chosen because a
+ticket that looks like every other ticket is the failure this field exists to prevent.
+
+**STATUS** — AUTHORISED (22-Sep-2026) and built. **NOT VERIFIED**: no physical ticket has been
+observed. Verification is Gate 7, on the RP3160. The byte-level change is pinned in
+`tests/unit/ticket-golden.unit.spec.ts` (Golden A vs Golden B) — 39 bytes at 58 mm, 55 at 80 mm,
+one line each, with a rung asserting nothing else moved.
+
+---
+
 ## DC-011 · Separating a table: the fourth group case, and what perTable was worth
 
 **SOURCE** — `Jalsa Product Plan.dc.html`, the group-bill section: *"Four cases have to be
@@ -250,7 +282,22 @@ certificate, payslip) merge from the employment record.
 reprint actions. It has **no** template editor, no routing matrix, no print history screen, and
 **zero print-related test ids**.
 
-**STATUS** — **RECORDED.** Not resolved, not authorised, not built. Scope decision outstanding.
+**STATUS** — **RESOLVED**, 19-Sep-2026. Recorded here rather than rewritten, because the register
+is append-only and what the entry got wrong is itself the finding.
+
+The decision above went stale without anybody noticing: the template editor, the routing matrix,
+the history screen and the `owner-print-*` test ids all shipped in
+`20260916110000_jalsa_print_setup`, and this entry still read **"Not resolved, not authorised, not
+built"** three days later. An entry that describes a gap which has since been filled is worse than
+no entry — it is read as current, and a reader plans around a shortfall that is not there.
+
+Phase 1 (19-Sep-2026) closed the part that really was missing, which this entry never named: the
+routing screen configured a decision the order path took differently, and a retry re-took it from
+scratch. See `docs/modules/printing.md`.
+
+**Still outstanding, and genuinely so:** the physical transport (KL-2), and what two machines
+claiming one category is supposed to mean — recorded as an ambiguity in the module document rather
+than guessed at.
 
 ---
 

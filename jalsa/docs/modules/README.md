@@ -8,8 +8,9 @@ One document per module, written in the same change that builds it.
 | Staff surface | `staff.md` | screens 14–21 — the floor, rounds, requests |
 | Owner console | `owner.md` | screens 23–29, 33 — live orders, payments, menu, people, audit |
 | Data layer | `data.md` | the bill/table model, the permission matrix, the number series |
+| Printing | `printing.md` | **written** — the job contract, routing, retry/reprint/redirect, and the Phase 2 bridge boundary |
 
-**None of these four exist yet.** They are named here rather than left to be discovered missing:
+**None of the four above exist yet** (`printing.md` does). They are named here rather than left to be discovered missing:
 the first change that touches a module writes its document in the same commit, which is the rule
 that stops documentation becoming a separate project nobody schedules.
 

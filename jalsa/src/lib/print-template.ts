@@ -92,6 +92,7 @@ export const KOT_FIELDS: FieldDef[] = [
   { key: 'branch', label: 'Branch and address', band: 'Header', hint: '' },
   { key: 'phone', label: 'Phone', band: 'Header', hint: '' },
   { key: 'kot', label: 'KOT number', band: 'Order', hint: 'large' },
+  { key: 'station', label: 'Station', band: 'Order', hint: 'where the round is cooked' },
   { key: 'order', label: 'Round number', band: 'Order', hint: '' },
   { key: 'table', label: 'Table', band: 'Order', hint: '' },
   { key: 'bill', label: 'Bill number', band: 'Order', hint: '' },
@@ -161,6 +162,13 @@ export interface TemplateConfig {
 export const DEFAULT_OFF: Record<TicketKind, string[]> = {
   // A kitchen ticket is read standing up in a hurry: the logo, the source and the category are
   // true but not useful, and every line they cost is a line of food pushed down the paper.
+  //
+  // `station` IS DELIBERATELY ABSENT FROM THIS LIST (22-Sep-2026), so it prints by default.
+  //   Routing already carried the station on every decision and every job for one stated reason:
+  //   *"A tandoor ticket on the main kitchen machine has to say TANDOOR or the wrong cook picks
+  //   it up."* It was never rendered, so a fallback ticket and a main-kitchen ticket were
+  //   byte-identical. Shipping it switched off would leave the mechanism costing everything and
+  //   delivering nothing. It is a visible change to every kitchen ticket and is recorded as one.
   kot: ['logo', 'source', 'order', 'customer', 'cat'],
   // A guest's bill omits the logo (it is the restaurant's own paper), the captain (named on the
   // tip line instead) and the per-unit rate (the amount is what is owed).
@@ -207,6 +215,11 @@ export interface TicketData {
   phone: string;
   gstin: string;
   kotCode: string;
+  /**
+   * The station the round is MEANT for - never the station of the machine it comes out of.
+   * On a fallback or a redirect those differ, and the one the cook needs is this one.
+   */
+  station: string;
   roundCode: string;
   billCode: string;
   table: string;
@@ -378,6 +391,14 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
         push('');
         push(centre(data.kotCode, cols), 'big');
         push(separatorLine(config, cols));
+        break;
+      case 'station':
+        // Skipped when empty, in the idiom `note` already uses: a blank STATION line costs a line
+        // of paper and tells the kitchen nothing. Bold because the whole point of the field is
+        // that it is noticed on a ticket that otherwise looks like every other ticket - bold is
+        // an existing weight in this vocabulary, not a new one.
+        if (!data.station) break;
+        push(leftRight('STATION', data.station, cols), 'bold');
         break;
       case 'order':
         push(leftRight('ROUND', data.roundCode, cols));

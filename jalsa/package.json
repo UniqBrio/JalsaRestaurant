@@ -31,7 +31,8 @@
     "theme:check": "node ../scripts/theme-build.mjs --tokens design/tokens.json --out src/theme --check",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "test:reset": "node scripts/reset-test-db.mjs"
+    "test:reset": "node scripts/reset-test-db.mjs",
+    "bridge:build": "esbuild bridge/src/main.ts --bundle --outfile=bridge/dist/main.js --platform=node --format=esm --target=node20 --log-level=warning"
   },
   "//": "Dependencies ARE pinned here, deliberately: the starter is a shape, but a restaurant that cannot reproduce tonight's build tomorrow morning has no build. Every version below was installed and verified at scaffold time and the lockfile is committed.",
   "dependencies": {
@@ -67,6 +68,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "dotenv": "^17.4.2",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "postcss": "^8.5.28",

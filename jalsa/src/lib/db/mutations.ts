@@ -1,17 +1,27 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
+/* MERGE 22-Sep-2026: the union of both sides. `FoodType` is the printing work's; `canAdvanceKot`
+   and `KOT_STATUS` are the KOT status workflow's. Nothing here conflicts in meaning — the two
+   branches simply imported different symbols from the same module. */
 import {
   billSeparability,
   canAdvanceKot,
   canHoldBillRole,
   kitchenHasStarted,
   KOT_STATUS,
+  type FoodType,
   type KotStatus,
 } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
-import { resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
+import {
+  resolvePrinter,
+  splitRound,
+  type RoundTicket,
+  type RoutablePrinter,
+  type RoutingDecision,
+} from '@/lib/print-routing';
 import { billTotals, chargeableLines, getBill, openBillForTable, readSettings } from './queries';
 import { BILL_STAFF_COLUMN, type Bill } from './types';
 
@@ -294,6 +304,11 @@ export async function placeRound(input: {
         name: item.name as string,
         unit_price: item.price as number,
         food_type: item.food_type as string,
+        // Snapshot, for the same reason the name and the price are snapshots: this is what a
+        // REPRINT routes on, hours later, after the category may have been renamed or the dish
+        // taken off the menu. Joined instead, a reprint would resolve differently from the
+        // original and land at the wrong station.
+        menu_category_name: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
         qty: line.qty,
       }))
     );
@@ -314,9 +329,10 @@ export async function placeRound(input: {
       kotId: kot.id as string,
       billId: input.billId,
       actor: input.actor,
-      categories: accepted.map(
-        ({ item }) => (item.menu_category as unknown as { name: string } | null)?.name ?? ''
-      ),
+      items: accepted.map(({ item }) => ({
+        category: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
+        foodType: item.food_type as FoodType,
+      })),
     }),
     audit({
       action: 'Order placed',
@@ -364,7 +380,14 @@ export async function changeQty(input: { kotItemId: string; qty: number; actor: 
   // A ticket the kitchen already holds is now wrong on paper. Reprinting it - marked as a
   // reprint - is the only thing that makes the paper and the screen agree again.
   if (kitchenHasStarted(kot.status)) {
-    await queuePrint({ kind: 'KOT', kotId: kot.id, billId: kot.bill_id, actor: input.actor, isReprint: true });
+    await queuePrint({
+      kind: 'KOT',
+      kotId: kot.id,
+      billId: kot.bill_id,
+      actor: input.actor,
+      isReprint: true,
+      items: await kotPrintableItems(kot.id),
+    });
   }
 
   await audit({
@@ -524,12 +547,17 @@ export async function reprintKot(input: { kotId: string; actor: Actor }): Promis
     .update({ reprint_count: ((kot.reprint_count as number) ?? 0) + 1 })
     .eq('id', input.kotId);
 
+  // WITHOUT THESE ITEMS A REPRINT ALWAYS FELL BACK. `queuePrint` with no items resolves the
+  // empty category, which no machine claims, so every reprint took the "nobody claims this"
+  // branch to the main kitchen — the tandoor's ticket reprinted in the wrong room, by
+  // construction, every single time. A reprint routes on exactly what the original routed on.
   await queuePrint({
     kind: 'KOT',
     kotId: input.kotId,
     billId: kot.bill_id as string,
     actor: input.actor,
     isReprint: true,
+    items: await kotPrintableItems(input.kotId),
   });
 
   await audit({
@@ -544,12 +572,159 @@ export async function reprintKot(input: { kotId: string; actor: Actor }): Promis
 /* ── Printing ──────────────────────────────────────────────────────────── */
 
 /**
- * Queue a print job and try it.
+ * What one item contributes to a routing decision.
  *
- * The TVS devices are an unvalidated dependency, so this deliberately does NOT pretend. With no
- * reachable printer the job lands as `failed` with a reason, the record shows a print-failed
- * badge, and a retry exists. That is the honest state, and it is the state the restaurant will
- * actually be in on day one.
+ * Both facts are SNAPSHOTS on `kot_item`, not joins through `menu_item`. That is what lets a
+ * reprint three hours later route exactly where the original went, after the category has been
+ * renamed or the dish taken off the menu.
+ */
+export interface PrintableItem {
+  category: string;
+  foodType: FoodType;
+}
+
+/**
+ * Every machine of one purpose, ORDERED.
+ *
+ * The order is the point. `resolvePrinter` breaks a tie on `machine_id`, and it can only do that
+ * if it is handed the machines in that order — a query with no ORDER BY returns whatever
+ * PostgREST feels like, which is how the owner's Routing screen (which orders by `machine_id`)
+ * and the order path came to disagree about which machine claims a category.
+ */
+async function routablePrinters(restaurantId: string, purpose: string): Promise<RoutablePrinter[]> {
+  const { data: rows } = await db()
+    .from('printer')
+    .select('id,machine_id,name,purpose,station,routes,online,enabled')
+    .eq('restaurant_id', restaurantId)
+    .eq('purpose', purpose)
+    .order('machine_id', { ascending: true });
+
+  return (rows ?? []).map((p) => ({
+    id: p.id as string,
+    machineId: p.machine_id as string,
+    name: p.name as string,
+    purpose: p.purpose as string,
+    station: (p.station as string) ?? 'Main Kitchen',
+    routes: (p.routes as string[]) ?? [],
+    online: p.online as boolean,
+    enabled: (p.enabled as boolean | null) ?? true,
+  }));
+}
+
+/**
+ * What a round still has on it, as routing sees it.
+ *
+ * Cancelled lines are left out: a ticket reprinted after a cancellation must not send the
+ * kitchen back to a station for a dish nobody is cooking any more.
+ */
+export async function kotPrintableItems(kotId: string): Promise<PrintableItem[]> {
+  const { data: lines } = await db()
+    .from('kot_item')
+    .select('menu_category_name,food_type,cancelled_at')
+    .eq('kot_id', kotId);
+
+  return (lines ?? [])
+    .filter((l) => l.cancelled_at === null)
+    .map((l) => ({
+      category: (l.menu_category_name as string) ?? '',
+      foodType: l.food_type as FoodType,
+    }));
+}
+
+/**
+ * `kot.print_status` recomputed from the jobs that actually exist.
+ *
+ * WHY THE KOT MIRRORS A SET AND NOT A JOB
+ *   A round spanning the tandoor and the main kitchen is TWO print jobs, and the badge on the
+ *   captain's screen is one badge. It answers "is this round's paper where it needs to be", so
+ *   it is the pessimistic aggregate: failed if any live job failed, printed only once every one
+ *   of them has printed, queued otherwise.
+ *
+ *   A job that has been superseded by a "Print elsewhere" is excluded — it is evidence of a
+ *   decision, not an outstanding ticket, and leaving it in would pin a round red forever after
+ *   the operator had already fixed it.
+ */
+async function syncKotPrintState(kotId: string): Promise<void> {
+  const { data: jobs } = await db()
+    .from('print_job')
+    .select('id,status,attempts,completed_at,redirected_from_job_id')
+    .eq('kot_id', kotId);
+
+  const all = jobs ?? [];
+  if (all.length === 0) return;
+
+  const superseded = new Set(all.map((j) => j.redirected_from_job_id as string | null).filter(Boolean));
+  const live = all.filter((j) => !superseded.has(j.id as string));
+  if (live.length === 0) return;
+
+  // Phase 2 added `processing`. A round with one ticket in flight is not "queued" — somebody is
+  // carrying it — and it is certainly not "printed". The order of the tests is the pessimism:
+  // any failure outranks everything, and `printed` requires ALL of them.
+  const status = live.some((j) => j.status === 'failed')
+    ? 'failed'
+    : live.every((j) => j.status === 'printed')
+      ? 'printed'
+      : live.some((j) => j.status === 'processing')
+        ? 'processing'
+        : 'queued';
+
+  await db()
+    .from('kot')
+    .update({
+      print_status: status,
+      print_attempts: live.reduce((most, j) => Math.max(most, (j.attempts as number) ?? 0), 0),
+      printed_at:
+        status === 'printed'
+          ? ((live.map((j) => j.completed_at as string | null).filter(Boolean).sort().pop() as string) ?? null)
+          : null,
+    })
+    .eq('id', kotId);
+}
+
+/**
+ * A bill's one ticket.
+ *
+ * A bill has no menu categories, so `resolvePrinter` answers it through the "nobody claims this"
+ * branch — which is the right MACHINE and the wrong WORD. Reported as `unrouted` it would put
+ * "  is not routed to a station" (with the empty category in front of it) on the history row of
+ * every bill the restaurant ever prints, describing a misconfiguration that does not exist. One
+ * invoice machine taking every invoice IS the routed outcome, and it is recorded as one.
+ */
+function billTicket(d: RoutingDecision): RoundTicket {
+  const found = d.printer !== null;
+  return {
+    printerId: d.printer?.id ?? null,
+    printerName: d.printer?.name ?? '',
+    station: found ? (d.printer?.station ?? d.station) : d.station,
+    rule: found ? 'routed' : 'none',
+    reason: found ? '' : d.reason,
+    foodTypes: [],
+    // A bill is never split. One side, carrying the whole thing — the same value every row
+    // written before 22-Sep-2026 carries, so nothing about a bill's identity changes.
+    side: 'all',
+    count: 0,
+  };
+}
+
+/**
+ * Turn a round or a bill into the print jobs that will deliver it.
+ *
+ * ONE JOB PER MACHINE, AND THE MACHINE IS DECIDED HERE, ONCE, FOREVER.
+ *   This function used to take the decision for the FIRST category in a round and write a single
+ *   job against it, naming the other stations in a sentence nothing reads. A round of chicken
+ *   tikka and butter chicken produced one ticket at one station, and the other station was told
+ *   nothing — which is not a routing bug that shows up as a wrong ticket, it is a round that is
+ *   half-cooked with nobody aware. `splitRound` produces one bucket per machine-and-heading and
+ *   each bucket is a row, so the tandoor's half and the kitchen's half are two tickets with two
+ *   assignments and two independent retries.
+ *
+ * WHY NOTHING HERE WRITES `printed`.
+ *   It used to: `reachable = chosen.online && chosen.enabled` decided the status, so "printed"
+ *   meant "a boolean column on another table was true". No socket was opened, no device
+ *   acknowledged anything, and no paper necessarily moved. A print job that claims success it
+ *   cannot possibly know is worse than one that claims nothing, because the kitchen stops
+ *   looking. Until the Phase 2 bridge reports back, an assigned job is `queued` and says so.
+ *   `failed` is reserved for the one failure this layer CAN see: nothing to assign it to.
  */
 export async function queuePrint(input: {
   kind: 'KOT' | 'Invoice';
@@ -558,90 +733,61 @@ export async function queuePrint(input: {
   actor: Actor;
   isReprint?: boolean;
   /**
-   * The menu categories this round contains. The caller already holds them — `placeRound` has
-   * just read the items — so routing costs no extra round trip on the hot path. Omitted, the
-   * decision falls back to "any machine of this kind", which is what it was before routing
-   * existed and is still the right answer for a bill.
+   * The round's items. Every KOT caller passes them — that is what makes routing route. A bill
+   * has no categories and takes the single-decision path below, which is the right answer for
+   * it rather than a shortfall.
    */
-  categories?: readonly string[];
+  items?: readonly PrintableItem[];
 }): Promise<void> {
   const restaurantId = await currentRestaurantId();
   const purpose = input.kind === 'KOT' ? 'KOT' : 'Invoice';
+  const printers = await routablePrinters(restaurantId, purpose);
 
-  const { data: rows } = await db()
-    .from('printer')
-    .select('id,name,purpose,station,routes,online,enabled')
-    .eq('restaurant_id', restaurantId)
-    .eq('purpose', purpose);
+  // The design puts the veg/non-veg split on the Routing screen as a switch, separate from the
+  // routing itself. Reading it here is what connects that switch to paper.
+  const splitByFoodType =
+    purpose === 'KOT' && (await readSettings('print', { splitByFoodType: false })).splitByFoodType === true;
 
-  const printers: RoutablePrinter[] = (rows ?? []).map((p) => ({
-    id: p.id as string,
-    name: p.name as string,
-    purpose: p.purpose as string,
-    station: (p.station as string) ?? 'Main Kitchen',
-    routes: (p.routes as string[]) ?? [],
-    online: p.online as boolean,
-    enabled: (p.enabled as boolean | null) ?? true,
+  const tickets: RoundTicket[] = input.items?.length
+    ? splitRound({ items: input.items, printers, splitByFoodType })
+    : [billTicket(resolvePrinter({ purpose, category: '', printers }))];
+
+  const rows = tickets.map((t) => ({
+    restaurant_id: restaurantId,
+    printer_id: t.printerId,
+    // Snapshots. The job must still say where it was sent after the machine is renamed, moved to
+    // another station, or removed — see the migration that added them.
+    printer_name: t.printerName,
+    station: t.station,
+    routing_rule: t.rule,
+    // WHICH HALF OF THE ROUND THIS IS (22-Sep-2026). The third segment of `splitRound`'s bucket
+    // key, which used to be discarded here — leaving two rows for one machine and station that
+    // nothing could tell apart. Taken from the ticket, never re-derived: a second calculation of
+    // the side is a second answer to it.
+    food_side: t.side,
+    kind: input.kind,
+    kot_id: input.kotId ?? null,
+    bill_id: input.billId,
+    // Assigned, and waiting for something that can actually deliver it. Not a claim about paper.
+    status: t.printerId ? 'queued' : 'failed',
+    attempts: 0,
+    is_reprint: input.isReprint ?? false,
+    requested_by: input.actor.label,
+    // Only when the decision was not the obvious one: nothing to assign to, or a fallback that
+    // put the ticket somewhere other than the station it is stamped for. A `routed` job needs no
+    // sentence — its three columns already say category, station and machine.
+    last_error: t.rule === 'routed' ? '' : t.reason,
+    completed_at: null,
   }));
 
-  /**
-   * ROUTING IS CONSULTED HERE OR IT IS DECORATION.
-   *
-   * The Routing section of Print Setup is a screen that says which machine prints which
-   * category. If this function kept picking the first reachable machine, that screen would
-   * configure nothing and the only symptom would be tandoor tickets appearing in the main
-   * kitchen — which looks exactly like the fallback working. A settings screen whose value is
-   * never read is worse than an absent one.
-   *
-   * A round can span two stations, so the DECISION is taken per category and the job is written
-   * against the machine the FIRST category resolves to, with every other station named in the
-   * reason. One job per round, not one per station: the print worker that fans a job out to
-   * machines does not exist yet, and writing four jobs no worker will read would be a queue
-   * that looks busier than the kitchen is.
-   */
-  const decisions = (input.categories?.length ? [...new Set(input.categories)] : ['']).map((category) =>
-    resolvePrinter({ purpose, category, printers })
-  );
-  const first = decisions[0] ?? { printer: null, rule: 'none' as const, station: '', reason: '' };
-  const chosen = first.printer;
-  const reachable = chosen && chosen.online && chosen.enabled ? chosen : null;
+  const { error: jobErr } = await db().from('print_job').insert(rows);
+  if (jobErr) throw jobErr;
 
-  const failure = chosen
-    ? decisions.map((d) => d.reason).filter(Boolean).join(' · ') || 'No printer for this route is reachable.'
-    : 'No printer for this route is reachable.';
-
-  await db()
-    .from('print_job')
-    .insert({
-      restaurant_id: restaurantId,
-      printer_id: chosen?.id ?? null,
-      kind: input.kind,
-      kot_id: input.kotId ?? null,
-      bill_id: input.billId,
-      status: reachable ? 'printed' : 'failed',
-      attempts: 1,
-      is_reprint: input.isReprint ?? false,
-      requested_by: input.actor.label,
-      // On success the reason is still recorded, because "it printed" does not say WHERE, and
-      // where is the question somebody asks when a station insists it never got the ticket.
-      last_error: reachable ? '' : failure,
-      completed_at: reachable ? new Date().toISOString() : null,
-    });
-
-  if (input.kotId) {
-    await db()
-      .from('kot')
-      .update({
-        print_status: reachable ? 'printed' : 'failed',
-        print_attempts: 1,
-        printed_at: reachable ? new Date().toISOString() : null,
-      })
-      .eq('id', input.kotId);
-  }
+  if (input.kotId) await syncKotPrintState(input.kotId);
 }
 
 /**
- * Try a failed or retrying job again.
+ * Try a job again — on the machine it was assigned to, and on no other.
  *
  * WHY THIS IS A NEW ATTEMPT ON THE SAME ROW AND NOT A NEW ROW
  *   The print history is the record of what the system tried. Three attempts at KOT-0041 are one
@@ -649,17 +795,33 @@ export async function queuePrint(input: {
  *   column precisely so a person can tell those apart. A new row per retry would show a kitchen
  *   three outstanding tickets and send somebody looking for two that do not exist.
  *
+ * WHY IT DOES NOT ROUTE
+ *   It used to. It re-read the printers, took the first one of the right purpose that answered,
+ *   and wrote that into `printer_id` — so a tandoor ticket that failed came back assigned to the
+ *   main kitchen, and the station it was meant for, which lived only in `last_error`, was cleared
+ *   on the way past. Routing is a decision taken once, when the round is placed, from the
+ *   categories the round contains; a retry has none of that context and must not pretend to. It
+ *   re-sends what was already decided. The database enforces this independently: `printer_id` is
+ *   immutable by trigger, so this function could not reassign the job even if it tried to.
+ *
  * A retry is NOT a reprint. It does not mark the ticket, because nothing came out of a machine
  * the first time. Reprinting a ticket that DID print is `reprintKot`, and that one marks it.
+ * Sending a ticket to a DIFFERENT machine on purpose is `printElsewhere`, and that one is a new
+ * job with its own assignment.
  */
-export async function retryPrintJob(input: { jobId: string; actor: Actor }): Promise<{ printed: boolean }> {
+export async function retryPrintJob(input: { jobId: string; actor: Actor }): Promise<{
+  retried: boolean;
+  printerName: string;
+  station: string;
+}> {
   demand(input.actor, 'orders.reprint');
   const restaurantId = await currentRestaurantId();
 
   const { data: job, error } = await db()
     .from('print_job')
-    .select('id,kind,kot_id,attempts,status')
+    .select('id,kind,kot_id,attempts,status,printer_id,printer_name,station')
     .eq('id', input.jobId)
+    .eq('restaurant_id', restaurantId)
     .single();
   if (error) throw error;
 
@@ -669,44 +831,135 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
     throw new Error('That ticket has already printed. Use Reprint, which marks the paper.');
   }
 
-  const { data: rows } = await db()
-    .from('printer')
-    .select('id,name,purpose,station,routes,online,enabled')
-    .eq('restaurant_id', restaurantId)
-    .eq('purpose', job.kind === 'KOT' ? 'KOT' : 'Invoice');
+  if (!job.printer_id) {
+    // The one case a retry cannot help, and the honest answer is to say so rather than to pick a
+    // machine on the operator's behalf — picking one is exactly the defect this phase removed.
+    throw new Error(
+      'This ticket was never assigned to a machine, so there is nothing to retry. Use Print elsewhere and choose one.'
+    );
+  }
 
-  const target = (rows ?? []).find((p) => p.online === true && ((p.enabled as boolean | null) ?? true)) ?? null;
   const attempts = ((job.attempts as number) ?? 0) + 1;
 
+  // `printer_id` is deliberately absent from this patch. So are `printer_name` and `station`.
   await db()
     .from('print_job')
     .update({
-      status: target ? 'printed' : 'failed',
+      status: 'queued',
       attempts,
-      printer_id: target?.id ?? null,
-      last_error: target ? '' : `Attempt ${attempts}: no machine of this kind answered.`,
-      completed_at: target ? new Date().toISOString() : null,
+      last_attempt_at: new Date().toISOString(),
+      last_error: '',
+      completed_at: null,
     })
     .eq('id', input.jobId);
 
-  if (job.kot_id) {
-    await db()
-      .from('kot')
-      .update({
-        print_status: target ? 'printed' : 'failed',
-        print_attempts: attempts,
-        printed_at: target ? new Date().toISOString() : null,
-      })
-      .eq('id', job.kot_id as string);
-  }
+  if (job.kot_id) await syncKotPrintState(job.kot_id as string);
 
   await audit({
     action: 'Reprint',
-    detail: `Print job retried — attempt ${attempts}, ${target ? `printed at ${target.name as string}` : 'still no machine answered'}`,
+    detail: `Print job re-sent to ${job.printer_name as string} (${job.station as string}) — attempt ${attempts}`,
     actor: input.actor,
   });
 
-  return { printed: !!target };
+  return { retried: true, printerName: job.printer_name as string, station: job.station as string };
+}
+
+/**
+ * Send a ticket to a DIFFERENT machine, because a person decided to.
+ *
+ * WHY THIS IS A NEW JOB AND NOT AN EDIT
+ *   The original job is the evidence of where the ticket was supposed to go, and nothing about
+ *   an operator's decision to work around a dead machine makes that untrue. Editing it would
+ *   destroy the only record that the tandoor was meant to get this round — the same loss the
+ *   old retry caused, arrived at deliberately instead of accidentally. So the redirect is its
+ *   own row, pointing back at the one it replaces, and the history shows both.
+ *
+ * WHY IT TAKES A PRINTER AND NEVER PICKS ONE
+ *   This is the ONLY way a ticket reaches a machine other than the one routing chose, and it
+ *   exists precisely so that no automatic path has to. A fallback that happens without anybody
+ *   asking for it is indistinguishable, from the kitchen, from routing that works.
+ */
+export async function printElsewhere(input: {
+  jobId: string;
+  printerId: string;
+  actor: Actor;
+}): Promise<{ printerName: string; station: string }> {
+  demand(input.actor, 'orders.reprint');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: job, error } = await db()
+    .from('print_job')
+    .select('id,kind,kot_id,bill_id,status,printer_id,printer_name,station,food_side')
+    .eq('id', input.jobId)
+    .eq('restaurant_id', restaurantId)
+    .single();
+  if (error) throw error;
+
+  const { data: printer, error: printerErr } = await db()
+    .from('printer')
+    .select('id,name,purpose,station,enabled')
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .single();
+  if (printerErr) throw printerErr;
+
+  if (printer.purpose !== job.kind) {
+    // A bill on a kitchen machine is the guest's total in the kitchen, and a KOT at the counter
+    // is a round nobody is cooking. The purposes are not interchangeable.
+    throw new Error(
+      `${printer.name as string} prints ${printer.purpose as string} tickets, and this is a ${job.kind as string}.`
+    );
+  }
+  if (((printer.enabled as boolean | null) ?? true) === false) {
+    throw new Error(`${printer.name as string} is switched off. Switch it on first, or choose another machine.`);
+  }
+  if (printer.id === job.printer_id) {
+    throw new Error(`This ticket is already assigned to ${printer.name as string}. Use Retry to send it again.`);
+  }
+
+  const { error: insertErr } = await db()
+    .from('print_job')
+    .insert({
+      restaurant_id: restaurantId,
+      printer_id: printer.id as string,
+      printer_name: printer.name as string,
+      station: printer.station as string,
+      // Not a routing rule — a person's decision. The column records WHO decided, not only what.
+      routing_rule: 'chosen',
+      // THE HALF IS THE ORIGINAL'S, NEVER THE DESTINATION'S (22-Sep-2026).
+      //   Redirecting a ticket changes WHERE it prints. It does not change WHAT is on it. Taking
+      //   the side from the chosen machine would be inventing a new ticket, and matching the
+      //   round by machine-and-station alone — which is what happened before this line existed —
+      //   composed whichever half the destination happened to claim. A tandoor round redirected
+      //   to the main kitchen printed the main kitchen's dishes a second time and the tandoor's
+      //   round never arrived at all.
+      food_side: (job.food_side as string | null) ?? 'all',
+      kind: job.kind as string,
+      kot_id: (job.kot_id as string | null) ?? null,
+      bill_id: job.bill_id as string,
+      status: 'queued',
+      attempts: 0,
+      // Paper that already came out of one machine must be marked before it comes out of another,
+      // or a cook reads the same round twice.
+      is_reprint: job.status === 'printed',
+      requested_by: input.actor.label,
+      last_error: '',
+      completed_at: null,
+      redirected_from_job_id: job.id as string,
+    });
+  if (insertErr) throw insertErr;
+
+  if (job.kot_id) await syncKotPrintState(job.kot_id as string);
+
+  await audit({
+    action: 'Reprint',
+    detail: `Ticket redirected from ${
+      (job.printer_name as string) || 'no machine'
+    } to ${printer.name as string} (${printer.station as string}) — chosen by ${input.actor.label}`,
+    actor: input.actor,
+  });
+
+  return { printerName: printer.name as string, station: printer.station as string };
 }
 
 /* ── Closure ───────────────────────────────────────────────────────────── */

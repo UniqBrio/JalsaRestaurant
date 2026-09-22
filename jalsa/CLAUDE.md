@@ -90,7 +90,10 @@ nothing. Fixed on 10-Sep-2026 after `/t/A5` was observed returning 500.
 - **The five permission questions** are answered in the plan, before build.
 - **Every backend change is a migration file.** No direct edits, however minor.
 - **No side effect inside a `setState` updater.** React 19 calls it twice.
-- **Test files are append-only.** Never overwrite an existing spec.
+- **Test files are append-only.** Never overwrite an existing spec — **except where a module's
+  contract changes**, in which case the superseded assertions may be rewritten in place with a
+  dated supersession note recording what they previously asserted. The exception covers spec
+  files only: **registers stay append-only without exception.** Pattern and precedent: JP-23.
 - **Nothing merges without a PASS from the gate.**
 
 ## Running the gate here

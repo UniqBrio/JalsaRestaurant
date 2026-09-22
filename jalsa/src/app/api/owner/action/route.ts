@@ -12,6 +12,7 @@ import {
   joinTableToBill,
   replyToSuggestion,
   reprintKot,
+  printElsewhere,
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
@@ -30,11 +31,13 @@ import {
   upsertExpense,
   upsertMenuItem,
   upsertPrinter,
+  testPrint,
+  issueBridgeToken,
+  revokeBridgeToken,
   upsertStaff,
   upsertTable,
   writeEmployment,
   writeIdentity,
-  testPrint,
   writeSetting,
 } from '@/lib/db/owner-mutations';
 
@@ -107,7 +110,14 @@ type Action =
       routes: string[];
       enabled: boolean;
     }
+  /* No token in, and the token out is returned ONCE. See issueBridgeToken. */
+  | { action: 'issue-bridge-token'; label: string }
+  | { action: 'revoke-bridge-token'; tokenId: string }
   | { action: 'retry-print'; jobId: string }
+  /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
+     path to a machine other than the assigned one, and it exists so no automatic path has
+     to. A redirect nobody asked for is indistinguishable, from a kitchen, from routing. */
+  | { action: 'print-elsewhere'; jobId: string; printerId: string }
   | { action: 'detach-table'; billId: string; tableId: string }
   | { action: 'write-employment'; staffId: string; patch: Record<string, string | number | null> };
 
@@ -249,7 +259,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'test-print': {
       /* The printer id goes straight through. Routing is not consulted and cannot redirect it —
-         a diagnostic that could land on a different machine would be worse than none. */
+         a diagnostic that could land on a different machine would be worse than none.
+         And it is an ORDINARY print job: the bridge lists it, claims it, composes it through
+         `buildTicket`, encodes it through `escpos.ts` and reports it like any kitchen ticket. */
       const result = await testPrint({ printerId: input.printerId, actor });
       return ok(result);
     }
@@ -322,8 +334,19 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         })
       );
 
+    case 'issue-bridge-token':
+      // THE ONLY TIME THE TOKEN EXISTS. It is not stored, not logged, not audited and not
+      // readable afterwards; only its SHA-256 is kept. A caller that loses it issues another.
+      return ok(await issueBridgeToken({ label: input.label, actor }));
+
+    case 'revoke-bridge-token':
+      return ok(await revokeBridgeToken({ tokenId: input.tokenId, actor }));
+
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));
+
+    case 'print-elsewhere':
+      return ok(await printElsewhere({ jobId: input.jobId, printerId: input.printerId, actor }));
 
     case 'detach-table':
       return ok(await detachTableFromBill({ billId: input.billId, tableId: input.tableId, actor }));

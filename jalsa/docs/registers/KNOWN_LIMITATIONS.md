@@ -23,6 +23,52 @@ Newest first.
 
 ## Active
 
+### KL-6 — No physical printer has ever printed a Jalsa ticket
+**Since** 22-Sep-2026 · **Category** environment, temporary · **Review by** the day an RP3160 is on a desk
+
+Gates 1 to 6 are green and every byte of the path is exercised: the claim, the composition, the
+ESC/POS encoding, both development transports, the Windows spooler transport behind an injected
+command, the report and every failure branch. None of it is evidence that paper came out.
+
+**The boundary, exactly.** `WindowsSpoolerTransport` reports that the SPOOLER ACCEPTED the bytes.
+Windows queues happily for a printer that is switched off, out of paper or asleep, and no
+spooler-based transport anywhere can promise more. `bridge-windows.unit.spec.ts` carries a rung
+whose only job is to say so.
+
+**What is therefore unverified.** Whether the RP3160 honours the `ESC t 0` codepage we declare;
+whether bold, double-size, feed and cut render as intended; whether 80 mm output fits; whether a
+disconnected printer fails the way the tests assume. All of it is listed, row by row, in
+`docs/GATE-7-HARDWARE-ACCEPTANCE.md`.
+
+**Consequence for reporting.** Every gate report must say Gate 7 is hardware-pending, and no
+document here may describe the printing system as validated end to end until those 32 rows have
+been run against a real machine.
+
+### KL-5 — A round split veg/non-veg BEFORE 22-Sep-2026 can never be printed
+**Since** 22-Sep-2026 · **Category** data, permanent for affected rows · **Review by** never — it
+expires on its own as the affected rows are superseded
+
+`splitRound` buckets a round on printer, station and which side of the veg/non-veg split the items
+fall on. Until 22-Sep-2026 `queuePrint` persisted the first two and discarded the third, so a round
+split to one machine wrote two `print_job` rows identical in every stored field.
+
+`print_job.food_side` (migration `20260922090000`) records the side from now on. Its backfill
+default is `'all'`, which is the correct reading for every row written while the split was OFF and
+is exactly as uninformative as before for a row written while it was ON.
+
+**What is blocked.** Composition refuses those legacy rows —
+`src/lib/ticket-compose.ts`, `BLOCKED_AMBIGUOUS`. Nothing prints; the job fails in front of a
+person on the history screen with a sentence saying why.
+
+**Why it is not fixed.** The information does not exist anywhere. A backfill would have to guess
+which half each row is, and a wrong guess prints the whole round twice at one machine — the one
+printing mistake that costs real food. Refusing is the cheaper error.
+
+**The remedy for an operator.** Re-send the round. The new jobs carry their own half.
+
+**Evidence.** `tests/unit/ticket-compose.unit.spec.ts` — "BLOCKED: a row that predates the
+food_side column is still refused"; database evidence in `TEST_SUMMARY.md`, 22-Sep-2026.
+
 ### KL-4 — The setup PIN is `1234` for every member of staff
 **Since** 10-Sep-2026 · **Category** deliberate, temporary · **Review by** first live service
 
@@ -43,17 +89,29 @@ mitigation. Rung: `set_own_pin` rejects the shared code (verified against the li
 
 ---
 
-### KL-2 — Thermal printers are unvalidated, so every KOT is written and then marked failed
-**Since** 10-Sep-2026 · **Category** unvalidated dependency
+### KL-2 — There is no printer transport, so no ticket is ever delivered
+**Since** 10-Sep-2026 · **Restated** 19-Sep-2026 (Phase 1) · **Category** unvalidated dependency
 
-No printer has been connected to this build. All four seeded printers carry `online = false`, and
-`queuePrint` persists the job first and then marks it `print_status = 'failed'` when no printer is
-reachable, with a visible retry on the KOT.
+Nothing in this repository opens a socket, a USB handle or a print API. A round is routed,
+assigned to a specific machine and written as a `print_job` with `status = 'queued'` — and there
+it stays, because the thing that would deliver it does not exist. Phase 2 (`docs/modules/printing.md`)
+is that thing.
+
+**What changed on 19-Sep-2026.** This entry used to say every KOT was *"marked failed"*, and that
+was true: `queuePrint` set the status from `printer.online`, so "printed" meant a boolean on
+another table was true and "failed" meant it was not. Neither word was about paper. A job now
+settles at `queued` — assigned, undelivered, and saying exactly that. `failed` is reserved for the
+one failure this layer can actually see (no machine could be assigned at all) and for Phase 2's
+reports; **`printed` is not written anywhere in this repository.**
 
 **Why not hide it.** A kitchen ticket that silently did not print is the single most expensive
 failure this application can have — the guest waits, the kitchen never knew, and nobody finds out
-until the table asks. A visible red retry on every KOT is the honest state until a printer is
-actually on the network, and it is what the staff surface is designed around.
+until the table asks. So every round names its machine and its station on all three surfaces and
+carries a retry, and "Waiting to print" is on screen for as long as that is what is true. The one
+thing the application must never do is claim a print it has no way of knowing about.
+
+**The mitigation is executable, not prose.** `tests/unit/print-assignment.unit.spec.ts` fails if
+any function in the print path becomes able to write `printed`, in any expression.
 
 ---
 

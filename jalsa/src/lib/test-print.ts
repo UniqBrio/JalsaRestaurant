@@ -1,99 +1,26 @@
 /**
- * test-print — the smallest ticket that proves a machine is wired up, laid out on its own paper.
+ * test-print — whether a machine can be tested, and what the owner is told afterwards.
  *
- * WHY IT IS BUILT HERE AND NOT IN THE COMPONENT
- *   The same reason `print-template.ts` exists: a thermal printer has character positions, not
- *   pixels, and a ticket composed in CSS wraps on word boundaries no printer has heard of. This
- *   returns the lines a machine would be handed, at that machine's own column count, so the test
- *   ticket obeys the same grid as every real one — and so it can be checked without a browser.
+ * MERGED 22-Sep-2026. This file arrived from `main` carrying a `buildTestTicket()` that laid out
+ * a test ticket on its own grid, written for a deployment where nothing could send bytes to a
+ * printer. On this branch something can: a test print is an ordinary `print_job`, composed by
+ * `buildTicket` through `test-ticket.ts`, encoded by `escpos.ts` and carried by the bridge.
  *
- * WHAT IT DELIBERATELY DOES NOT DO
- *   It does not read a bill, a round or a menu. The whole point of a connectivity test is that it
- *   works at four in the afternoon with the restaurant empty: needing an order to test a printer
- *   is how a printer goes untested until the first ticket is lost.
+ *   `buildTestTicket` was therefore REMOVED, not kept alongside. Two things that lay out a test
+ *   ticket is the defect this repository's own rule names — one blessed idiom per concern — and
+ *   the one that survives is the one whose output reaches paper. Its careful thinking was not
+ *   wasted: the reason it wrapped rather than centred (a 33-character printer name on a
+ *   32-column roll does not wrap on a thermal head, it disappears) is exactly what the width-check
+ *   line in `TEST_TICKET_ITEMS` exists to expose, and what Gate 7 row 11 checks on paper.
+ *
+ * WHAT SURVIVES, AND WHY EACH PIECE EARNED IT
+ *   `testPrintBlocker` — one definition of "is this machine testable", shared by the button and
+ *   the server. Two copies would eventually disagree, and the disagreement would be a button that
+ *   does nothing.
+ *
+ *   The two sentences — because what an owner is told after pressing a button is a promise, and
+ *   both of these had to be rewritten when the promise changed. See below.
  */
-
-import { centre, PAPER, separatorLine, wrap, type PaperWidth, type TemplateConfig } from './print-template';
-
-export interface TestPrintTarget {
-  name: string;
-  station: string;
-  paperMm: number;
-  connection: string;
-  address: string;
-}
-
-/**
- * The ticket, as lines.
- *
- * `restaurantName` is passed in rather than read: this module has no business knowing where the
- * restaurant's identity lives, and the caller already holds it. Empty is allowed and prints
- * nothing — an unconfigured restaurant gets a ticket without a header rather than somebody
- * else's name, which is the same rule the bill and the KOT follow.
- */
-export function buildTestTicket(input: {
-  restaurantName: string;
-  target: TestPrintTarget;
-  at: Date;
-}): string[] {
-  const width: PaperWidth = input.target.paperMm === 58 ? '58' : '80';
-  const cols = PAPER[width].cols.normal;
-
-  /* A separator needs a config to know which character to draw. Only these two fields are read,
-     so the test ticket does not depend on whichever template the owner last saved — a
-     connectivity test that changed shape because a bill template changed would be testing the
-     wrong thing. */
-  const rule = separatorLine({ width, separator: 'dash' } as TemplateConfig, cols);
-
-  const lines: string[] = [];
-  const name = input.restaurantName.trim();
-
-  lines.push(rule);
-  /* WRAPPED, NOT CENTRED-AND-HOPED. "Jalsa Hospitality Private Limited" is 33 characters and a
-     58 mm roll has 32 — centring alone produced a line one character too wide, and on a thermal
-     printer an over-width line does not wrap, it disappears. The 58 mm machine is also the one
-     most likely to be misconfigured, so it is the one the test ticket must not lose. */
-  if (name) for (const part of wrap(name.toUpperCase(), cols)) lines.push(centre(part, cols));
-  lines.push(centre('TEST PRINT', cols));
-  lines.push(rule);
-  lines.push('');
-
-  /* Label above value rather than beside it. A printer called "TVS RP 3160 Gold — Tandoor
-     station" is 33 characters and a 58 mm roll has 32, so a `left … right` pair would push the
-     name off the paper on the exact machine most likely to be misconfigured. */
-  const field = (label: string, value: string): void => {
-    if (!value) return;
-    lines.push(`${label}:`);
-    // Same reason as the header: a printer called "TVS RP 3160 Gold — Tandoor station" is 34
-    // characters wide and would vanish on the machine it is naming.
-    for (const part of wrap(value, cols)) lines.push(part);
-    lines.push('');
-  };
-
-  field('Printer', input.target.name);
-  field('Station', input.target.station);
-  field('Paper', `${input.target.paperMm} mm`);
-  field('Connection', input.target.connection);
-  field('Address', input.target.address);
-
-  lines.push(rule);
-  for (const part of wrap('If you can read this, this machine is wired up.', cols)) {
-    lines.push(centre(part, cols));
-  }
-  lines.push('');
-  lines.push(
-    centre(
-      `${input.at.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${input.at.toLocaleTimeString(
-        'en-IN',
-        { hour: 'numeric', minute: '2-digit', hour12: true }
-      )}`,
-      cols
-    )
-  );
-  lines.push(rule);
-
-  return lines;
-}
 
 /**
  * Why a test could not even be queued, or null when it can.
@@ -115,15 +42,27 @@ export function testPrintBlocker(printer: { enabled: boolean; connection: string
 /**
  * What the owner is told after a test job is written.
  *
- * THE STRONGEST TRUE SENTENCE, AND NOT ONE WORD STRONGER. Nothing in this deployment opens a
- * socket to a thermal printer — no ESC/POS, no port 9100, no WebUSB, no bridge, no agent — so
- * "printed" and even "sent" would both be inventions. The job is real, it is recorded against
- * this machine, and it is visible in History. That is what this says, and it says the rest too,
- * because an owner who thinks paper is coming will go and look for it.
+ * THE STRONGEST TRUE SENTENCE, AND NOT ONE WORD STRONGER.
+ *
+ * REWRITTEN 22-Sep-2026, because the previous one stopped being true. It read: *"Jalsa has no
+ * print service connected yet, so nothing has left the server — the job is in History."* That was
+ * accurate on `main`, where no ESC/POS, no transport and no bridge existed. Gates 2 to 6 built
+ * all three, so leaving the sentence alone would have been the more dangerous kind of stale copy:
+ * one that tells an owner not to go and look for paper that is, in fact, coming.
+ *
+ * It still does not say "printed". A queued job prints when a bridge collects it, and whether one
+ * is running on that PC is not something the server can see. Saying where to look is the strongest
+ * thing that is true from here.
  */
 export const TEST_PRINT_QUEUED = (printerName: string): string =>
-  `Test ticket queued for ${printerName}. Jalsa has no print service connected yet, so nothing has left the server — the job is in History.`;
+  `Test ticket queued for ${printerName}. It prints when the bridge on that PC collects it — the outcome appears in History.`;
 
-/** The standing note that sits beside the buttons, so nobody has to go and find it. */
+/**
+ * The standing note that sits beside the buttons, so nobody has to go and find it.
+ *
+ * Rewritten alongside the sentence above, and for the same reason. What it must still convey is
+ * the one thing an owner cannot see from this screen: a queued job waits rather than fails when
+ * no bridge is running, so silence is not the same as a broken printer.
+ */
 export const TEST_PRINT_NOTE =
-  'A test queues a real job against that one machine and records it in History. No paper will come out until a print service is connected — nothing in this deployment can open a connection to a thermal printer yet.';
+  'A test queues a real job against that one machine and records it in History. It travels the same path a kitchen ticket does — composed, encoded and carried by the bridge on that PC. If no bridge is collecting for that machine, the job waits in the queue instead of printing.';
