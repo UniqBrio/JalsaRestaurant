@@ -54,6 +54,39 @@ export interface JalsaApi {
   report(input: { jobId: string; outcome: ReportOutcome; error?: string }): Promise<{ applied: boolean }>;
 }
 
+/** One Jalsa printer this computer was told to serve, and the Windows queue to reach it by. */
+export interface Assignment {
+  printerId: string;
+  machineId: string;
+  printerName: string;
+  queueName: string;
+}
+
+/** What a paired computer says about the printers Windows shows it. */
+export interface ReportedPrinter {
+  queueName: string;
+  driverName: string;
+  portName: string;
+  status: 'ready' | 'offline' | 'error' | 'unknown';
+  isVirtual: boolean;
+}
+
+/**
+ * A paired bridge's one extra verb (23-Sep-2026). It reports what Windows shows and receives the
+ * owner's mapping. `printers` absent means "discovery failed this time" and leaves Jalsa's last
+ * snapshot alone, rather than telling the owner every printer vanished.
+ *
+ * STILL NO ROUTING VOCABULARY. The answer is a lookup keyed by machine id; there is nothing in it
+ * the bridge could choose between.
+ */
+export interface PairedApi extends JalsaApi {
+  sync(input: {
+    printers?: readonly ReportedPrinter[];
+    hostname: string;
+    bridgeVersion: string;
+  }): Promise<{ label: string; assignments: Assignment[] }>;
+}
+
 /** Thrown for transport-level faults talking to Jalsa — not for a job that failed to print. */
 export class ApiError extends Error {
   readonly status: number;
@@ -70,7 +103,7 @@ export class ApiError extends Error {
  * `fetch` and nothing else — no HTTP library, no retry middleware, no Supabase client. The token
  * is a bearer and is the ONLY credential this process holds.
  */
-export class HttpJalsaApi implements JalsaApi {
+export class HttpJalsaApi implements PairedApi {
   readonly #config: BridgeConfig;
   readonly #fetch: typeof fetch;
 
@@ -82,6 +115,9 @@ export class HttpJalsaApi implements JalsaApi {
   async #post<T>(payload: Record<string, unknown>): Promise<T> {
     const res = await this.#fetch(this.#config.apiUrl, {
       method: 'POST',
+      // A request that never answers must not wedge a kitchen PC's only loop. Twenty seconds is
+      // far longer than any healthy answer and short enough that a dead network is noticed.
+      signal: AbortSignal.timeout(20_000),
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${this.#config.token}`,
@@ -109,6 +145,19 @@ export class HttpJalsaApi implements JalsaApi {
 
   claim(input: { jobId: string }): Promise<ClaimResult> {
     return this.#post<ClaimResult>({ action: 'claim', jobId: input.jobId });
+  }
+
+  sync(input: {
+    printers?: readonly ReportedPrinter[];
+    hostname: string;
+    bridgeVersion: string;
+  }): Promise<{ label: string; assignments: Assignment[] }> {
+    return this.#post<{ label?: string; assignments?: Assignment[] }>({
+      action: 'sync',
+      ...(input.printers ? { printers: [...input.printers] } : {}),
+      hostname: input.hostname,
+      bridgeVersion: input.bridgeVersion,
+    }).then((d) => ({ label: d.label ?? '', assignments: Array.isArray(d.assignments) ? d.assignments : [] }));
   }
 
   report(input: { jobId: string; outcome: ReportOutcome; error?: string }): Promise<{ applied: boolean }> {

@@ -4,6 +4,152 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-23 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 4m 44s total - slowest G8 Functional / integration (4m 09s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (50ms)
+- **G3 Theme assets present per theme** - PASS (53ms)
+- **G4 No hard-coded colours** - PASS (68ms)
+- **G5 Types** - PASS (2.1s)
+- **G6 Lint** - PASS (11.7s)
+- **G7 Unit + pure specs** - PASS (17.3s)
+- **G8 Functional / integration** - FAIL (4m 09s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (57ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.2s)
+- **G11 Wide tables are configurable** - PASS (62ms)
+- **G12 Installable as an application** - PASS (69ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Application run - jalsa - 2026-09-23 - Printers: connect the printing computer (pairing, discovery, mapping, installer)
+
+**Software-tested · Windows-runtime PENDING (KL-7) · physical printer PENDING (KL-6).** Nothing
+below is evidence that install.ps1 ran, that a Scheduled Task started, or that paper came out.
+
+WHAT WAS BUILT (additive; no existing print contract rewritten)
+  Dashboard → Printers (14th section, DC-013) → Connect Printing Computer → Download for Windows →
+  Install → pairing code typed once → discovered printers → Select → Station → Save → Test Print.
+  Server: migration 20260923090000 (bridge_pairing_code, bridge_discovered_printer, bridge_printer,
+  bridge_token.source/hostname/bridge_version/last_sync_at); POST /api/bridge/pair (the one
+  unauthenticated door, spends a code by one conditional update, restaurant from the code's row);
+  /api/bridge gains `sync` (fourth verb, touches no job; a PAIRED token's list and claim are
+  intersected with its mapping server-side); owner actions issue-pairing-code /
+  save-printer-mapping / remove-printer-mapping; GET /api/owner/print-bridge/download
+  (hosted redirect · local stream · honest 404). Bridge: paired-config, pairing, windows/discovery
+  (Get-Printer parser), transport/windows-queue (RAW via winspool through Add-Type, queue name as
+  an env var), service (sync → runCycle unchanged, outage/401 handling), cli (pair/run/discover),
+  log-file; environment mode untouched. Package: bridge/package (zip writer/reader, pinned Node
+  v24.21.0 win-x64 from nodejs.org, SHA-256 verified) → bridge/dist/jalsa-print-bridge-windows.zip
+  (34.3 MB; read back by Python zipfile: testzip None, node.exe SHA-256 = nodejs.org's
+  win-x64/node.exe ba4e6d11…). Installer: bridge/windows (install.ps1, uninstall.ps1, two .cmd).
+
+SPEC SUPERSEDED (contract-change exception, dated note in the file)
+  bridge-contract.unit.spec.ts — "three verbs and no others" → "four verbs and no others", plus two
+  new rungs: sync cannot touch a job; a paired claim carries `.in('printer_id', mapped)`.
+
+FAIL-FIRST: 17 defects injected into the finished tree, all 17 observed failing, each on the rung
+written for it (script: one mutation, one spec file, restored after each).
+  M1  redeem loses `used_at IS NULL`                     1 failed | 17 passed  bridge-pairing
+  M2  pair route reads a restaurant from the request     1 failed | 17 passed  bridge-pairing
+  M3  bridge sends the code untidied                     1 failed | 17 passed  bridge-pairing
+  M4  config written in place, no rename                 1 failed |  6 passed  bridge-paired-config
+  M5  unreadable printer list → empty success            1 failed |  9 passed  bridge-discovery
+  M6  duplicate machine id takes the LAST queue          1 failed | 10 passed  bridge-service
+  M7  401 treated as an outage, not revocation           1 failed | 10 passed  bridge-service
+  M8  outage rethrown — service dies on first fault      1 failed | 10 passed  bridge-service
+  M9  queue name dropped from the script's environment   1 failed | 10 passed  bridge-service
+  M10 printer Windows no longer lists reads as Ready     1 failed |  5 passed  print-computer
+  M11 raw last_error shown to the owner                  1 failed |  5 passed  print-computer
+  M12 the screen grows a queue-name input                1 failed | 11 passed  printers-screen
+  M13 paired claim no longer limited to its mapping      1 failed | 24 passed  bridge-contract
+  M14 task registered as the user, not SYSTEM            1 failed | 10 passed  bridge-package
+  M15 README dropped from the package                    1 failed | 10 passed  bridge-package
+  M16 a bridge token committed in a tracked file         1 failed | 10 passed  bridge-package
+  M17 mapping save accepts any queue string              1 failed | 11 passed  printers-screen
+FAIL-FIRST: tests/unit/bridge-pairing.unit.spec.ts - M1, M2, M3 above.
+FAIL-FIRST: tests/unit/bridge-paired-config.unit.spec.ts - M4 above.
+FAIL-FIRST: tests/unit/bridge-discovery.unit.spec.ts - M5 above.
+FAIL-FIRST: tests/unit/bridge-service.unit.spec.ts - M6, M7, M8, M9 above.
+FAIL-FIRST: tests/unit/print-computer.unit.spec.ts - M10, M11 above.
+FAIL-FIRST: tests/unit/printers-screen.unit.spec.ts - M12, M17 above.
+FAIL-FIRST: tests/unit/bridge-package.unit.spec.ts - M14, M15, M16 above.
+
+THE BRIEF'S FIFTEEN, WHERE EACH IS EXECUTED
+  1 pairing success · 2 expired code · 3 single-use · 4 wrong restaurant cannot pair —
+  bridge-pairing (executed over an injected fetch; the spend and the scoping pinned from source);
+  5 config persistence · 6 restart/reconnect — bridge-paired-config, bridge-service (real HTTP
+  server, outage → recovery, 401 → unpaired); 7 discovery parsing — bridge-discovery; 8 printer
+  selection · 9 mapping · 10 missing mapping — printers-screen (server rules pinned) and
+  bridge-service (unmapped job never claimed; nothing mapped → nothing claimed, says so);
+  11 owner-readable errors — print-computer; 12 bridge authentication — bridge-service (bearer on
+  every verb, token never logged); 13 print-job lifecycle intact — every Gate 1–6 spec still
+  passes unchanged (855 → 932 unit); 14 transport cannot select/reroute — bridge-service +
+  bridge-transport (unchanged); 15 no secrets committed — bridge-package (tracked tree scanned).
+
+WHAT WAS RUN (this tree, 23-Sep-2026)
+  unit 932 passed (855 before) · render + degraded 266 passed (PLAYWRIGHT_CHROMIUM_PATH: the two
+  WebKit projects SKIPPED, said so on stderr) · typecheck clean · lint clean (react-hooks/purity
+  fixed: the clock is state) · jalsa audit:all 10/10 · framework audit:all 11/11 · guard:test 15/15
+  · next build clean · bridge:build clean · bridge:package clean (34.3 MB, verified) · CLI smoke:
+  discover / pair (no network → exit 4) / run (unpaired → exit 2), all in words.
+
+NOT EXECUTED, stated rather than claimed
+  The functional tier beyond degraded (needs a database this runner does not have); the migration
+  against either Supabase project (not applied — ENVIRONMENTS.md says so); anything on Windows
+  (KL-7, Gate 7 rows 33–42); anything on paper (KL-6); the Printers screen observed in a browser
+  with real data (the console needs a PIN and a database) — its strings and boundaries are pinned
+  by printers-screen.unit.spec.ts, and both themes are token-driven (colours audit clean), but
+  "looked at" is not claimed.
+
+DATABASE EVIDENCE (TEST project uxmyomxtosjlkvjxnvpy, 23-Sep-2026, via MCP, every check inside one
+transaction that was ROLLED BACK — the project holds 0 codes, 0 mappings, 0 tokens afterwards)
+  Migration 20260923090000 applied. Found first: an UNRECORDED draft migration `20260923075759
+  jalsa_bridge_pairing` on TEST only (bridge_pairing, bridge_printer with an `id` PK and a
+  `windows_queue` column, bridge_token.windows_printers/printers_seen_at/agent_version) — in no
+  repository file, 0 rows, absent from yxgxmbyilpivbmeemqkp. The repository migration now
+  converges it (rename windows_queue → queue_name, add the missing index) rather than leaving a
+  silent `create table if not exists` no-op; the draft's `bridge_pairing` table is left, unused.
+  After apply: bridge_pairing_code, bridge_discovered_printer, bridge_printer — RLS on, 0
+  policies; bridge_printer indexes bridge_printer_one_computer (printer_id) + (token, printer).
+    first spend of a live code (used_at is null and expires_at > now)   1 row
+    second spend of the same code                                       0 rows
+    spend of an expired code                                            0 rows
+    printer mapped on PC A, then upserted on conflict (printer_id) to PC B: 1 mapping, on PC B
+
+  Also applied to yxgxmbyilpivbmeemqkp (development, the project that becomes production) on
+  23-Sep-2026 at the owner's request: clean shape (no draft there), bridge_pairing_code /
+  bridge_discovered_printer / bridge_printer RLS on with 0 policies, bridge_printer_one_computer
+  and bridge_printer_unique present, bridge_token.source/hostname/bridge_version/last_sync_at added.
+
+GATE 7 IS UNAFFECTED AND STILL BLOCKED. Ten new rows (33–42) wait with the original 32.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - MERGE: main into the printing branch
 
 `main` had moved on by four commits while Gates 1-7 were built. One of them, `c35f64f`, adds a

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added — 23-Sep-2026 — set up the thermal printer from Printers
+
+**For Javeed.** A new **Printers** section on the console. Press *Connect Printing Computer*,
+download Jalsa Print Bridge for Windows, run the installer on the computer the printer is plugged
+into, and type the code the screen shows you — once. The computer then appears with the printers
+Windows found on it; pick one, say which station it serves, press *Test Print*. Nothing to type
+in the morning: the bridge starts with Windows and restarts itself. If it is switched off, not
+running, or the printer is unplugged, the Printers screen says so in plain words. *Manage* still
+opens the full print setup (templates, routing, history).
+
+Not yet: none of this has been run on a Windows machine or a real TVS RP3160 — see KL-6 and KL-7.
+
 ### Added — 10-Sep-2026 — the first build
 
 **For a guest.** Scan the code on your table and the menu is on your phone: veg, non-veg and egg

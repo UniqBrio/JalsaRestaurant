@@ -29,11 +29,21 @@
  * refuse the same thing for the same reason. Two copies of "is this printer testable" would
  * eventually disagree, and the disagreement would be a button that does nothing.
  */
-export function testPrintBlocker(printer: { enabled: boolean; connection: string; address: string }): string | null {
+export function testPrintBlocker(printer: {
+  enabled: boolean;
+  connection: string;
+  address: string;
+  /**
+   * Reached through a paired printing computer (`bridge_printer`, 23-Sep-2026). Such a machine
+   * is addressed by that computer's Windows queue, not by an IP on this row — so a missing
+   * address is not "unconfigured" for it. Optional: every caller before pairing is unchanged.
+   */
+  throughComputer?: boolean;
+}): string | null {
   if (!printer.enabled) return 'This printer is switched off. Switch it on in Configure first.';
   // A machine with no address is not unreachable — it is unconfigured, and saying so sends the
   // owner to the setting rather than to the kitchen.
-  if (printer.connection !== 'USB' && !printer.address.trim()) {
+  if (printer.connection !== 'USB' && !printer.throughComputer && !printer.address.trim()) {
     return 'This printer has no address yet, so there is nowhere to send a test. Add one in Configure.';
   }
   return null;

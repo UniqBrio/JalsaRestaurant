@@ -4,6 +4,12 @@ import { runLoop, type LoopDeps } from './loop';
 import { FileTransport } from './transport/file';
 import { NullTransport } from './transport/null';
 import { WindowsSpoolerTransport, windowsCopyCommand } from './transport/windows';
+import { windowsQueueTransport } from './transport/windows-queue';
+import { join as joinPath } from 'node:path';
+import { discoverCommand, pairCommand, serviceSetup, type CliDeps } from './cli';
+import { rotatingLog } from './log-file';
+import { bridgeHome, nodeConfigFs } from './paired-config';
+import { servePaired } from './service';
 import type { PrintTransport } from './transport/types';
 
 /**
@@ -79,6 +85,17 @@ export function transportFor(
           timeoutMs: config.spoolTimeoutMs,
         }),
       };
+
+    case 'windows-queue':
+      if (platform !== 'win32') {
+        return {
+          ok: false,
+          problems: [
+            `JALSA_BRIDGE_TRANSPORT is "windows-queue" but this host is ${platform}. Set it to "file" for development, or run the bridge on the PC the printer is attached to.`,
+          ],
+        };
+      }
+      return { ok: true, transport: windowsQueueTransport(config.spoolDir, config.spoolTimeoutMs) };
 
     case 'file':
       return {
@@ -186,27 +203,89 @@ export async function run(
 
 /* ── The process ───────────────────────────────────────────────────────── */
 
-/* c8 ignore start — the process wiring itself; every rule it applies is exported above. */
-if (process.argv[1] && process.argv[1].endsWith('main.js')) {
-  const log = jsonLogger((line) => process.stdout.write(`${line}\n`));
-  const started = startup(process.env, { log });
+/* c8 ignore start — the process wiring itself; every rule it applies is exported above or in cli.ts. */
+const COMMANDS = ['pair', 'run', 'discover'] as const;
 
-  if (!started.ok) {
-    for (const problem of started.problems) log({ event: 'bridge.refused', problem });
-    process.exit(2);
+async function paired(command: (typeof COMMANDS)[number], args: string[]): Promise<number> {
+  const [{ hostname }, { dirname }, { fileURLToPath }, fsSync] = await Promise.all([
+    import('node:os'),
+    import('node:path'),
+    import('node:url'),
+    import('node:fs'),
+  ]);
+  const deps: CliDeps = {
+    env: process.env,
+    platform: process.platform,
+    hostname: hostname(),
+    fs: await nodeConfigFs(),
+    installDir: dirname(fileURLToPath(import.meta.url)),
+    out: (line) => process.stdout.write(`${line}\n`),
+  };
+  if (command === 'pair') return pairCommand(args, deps);
+  if (command === 'discover') return discoverCommand(deps);
+
+  // `run`: the Scheduled Task. Nobody reads its console, so the log goes to a file as well.
+  const home = bridgeHome(process.env, process.platform);
+  const toFile = rotatingLog(fsSync, joinPath(home, 'logs'));
+  const log = jsonLogger((line) => {
+    process.stdout.write(`${line}\n`);
+    toFile(line);
+  });
+  const setup = await serviceSetup(deps, log);
+  if (!setup.ok) {
+    for (const problem of setup.problems) log({ event: 'bridge.refused', problem });
+    return 2;
+  }
+  let stopping = false;
+  const stop = (): void => {
+    if (stopping) return;
+    stopping = true;
+    log({ event: 'bridge.stopping', note: 'finishing the current ticket before exiting' });
+  };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+  process.on('SIGBREAK', stop);
+  await servePaired(setup.service, {
+    iterations: Number.POSITIVE_INFINITY,
+    sleep,
+    stopping: () => stopping,
+  });
+  log({ event: 'bridge.stopped' });
+  return 0;
+}
+
+if (process.argv[1] && process.argv[1].endsWith('main.js')) {
+  const command = process.argv[2] as (typeof COMMANDS)[number] | undefined;
+  if (command && (COMMANDS as readonly string[]).includes(command)) {
+    void paired(command, process.argv.slice(3)).then(
+      (code) => process.exit(code),
+      (err: unknown) => {
+        process.stdout.write(`${JSON.stringify({ event: 'bridge.crashed', note: err instanceof Error ? err.message : String(err) })}\n`);
+        process.exit(1);
+      }
+    );
   } else {
-    void run(
-      started.deps,
-      {
-        onStop: (handler) => {
-          process.on('SIGINT', handler);
-          process.on('SIGTERM', handler);
-          // Windows services and `Ctrl+Break` on a console.
-          process.on('SIGBREAK', handler);
+    // Environment-variable mode, exactly as Gate 5 shipped it.
+    const log = jsonLogger((line) => process.stdout.write(`${line}\n`));
+    const started = startup(process.env, { log });
+
+    if (!started.ok) {
+      for (const problem of started.problems) log({ event: 'bridge.refused', problem });
+      process.exit(2);
+    } else {
+      void run(
+        started.deps,
+        {
+          onStop: (handler) => {
+            process.on('SIGINT', handler);
+            process.on('SIGTERM', handler);
+            // Windows services and `Ctrl+Break` on a console.
+            process.on('SIGBREAK', handler);
+          },
         },
-      },
-      log
-    ).then(() => process.exit(0));
+        log
+      ).then(() => process.exit(0));
+    }
   }
 }
 /* c8 ignore stop */

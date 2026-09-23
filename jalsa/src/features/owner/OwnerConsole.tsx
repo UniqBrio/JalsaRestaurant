@@ -12,6 +12,7 @@ import { Dashboard } from './sections/Dashboard';
 import { LiveOrders } from './sections/LiveOrders';
 import { Payments } from './sections/Payments';
 import { MenuSection } from './sections/MenuSection';
+import { PrintersSection } from './sections/PrintersSection';
 import { StaffSection } from './sections/StaffSection';
 import { TipsSection, ExpensesSection } from './sections/LedgersSection';
 import { DaySetupSection } from './sections/DaySetupSection';
@@ -36,8 +37,8 @@ import { AuditSection } from './sections/AuditSection';
  */
 
 export type OwnerSection =
-  'dashboard' | 'day' | 'queue' | 'orders' | 'payments' | 'menu' | 'staff' | 'tips' | 'expenses' | 'reports' | 'uplift'
-  | 'settings' | 'audit';
+  'dashboard' | 'day' | 'queue' | 'orders' | 'payments' | 'menu' | 'printers' | 'staff' | 'tips' | 'expenses' | 'reports'
+  | 'uplift' | 'settings' | 'audit';
 
 export interface OwnerSectionProps {
   data: OwnerPayload;
@@ -55,6 +56,12 @@ const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> 
   { key: 'queue', label: 'Waitlist', permission: 'queue.view' },
   { key: 'payments', label: 'Payments', permission: 'bill.view' },
   { key: 'menu', label: 'Menu', permission: 'menu.view' },
+  // FOURTEENTH SECTION (23-Sep-2026). The flowchart files printing under Settings, as the
+  // Print setup screen still is. This is the OWNER'S entry to it — connect the computer, choose
+  // the printer, test it — and an entry three levels down under Settings is not one a restaurant
+  // owner finds on the day the printer arrives. Same grant as the settings panel it fronts.
+  // Recorded in docs/registers/DESIGN_CONTRACT.md (DC-013).
+  { key: 'printers', label: 'Printers', permission: 'set.printer' },
   { key: 'staff', label: 'Staff', permission: 'staff.view' },
   // Two sections, as the design set's nav has them — not one "Tips & expenses" screen.
   // They are not the same ledger: a tip is money held for somebody else and paid out in full,
@@ -200,6 +207,7 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
             {section === 'orders' ? <LiveOrders {...shared} /> : null}
             {section === 'payments' ? <Payments {...shared} /> : null}
             {section === 'menu' ? <MenuSection {...shared} /> : null}
+            {section === 'printers' ? <PrintersSection {...shared} /> : null}
             {section === 'staff' ? <StaffSection {...shared} /> : null}
             {section === 'tips' ? <TipsSection {...shared} /> : null}
             {section === 'expenses' ? <ExpensesSection {...shared} /> : null}

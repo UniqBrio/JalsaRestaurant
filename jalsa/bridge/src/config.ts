@@ -54,9 +54,14 @@ export interface BridgeConfig {
   spoolTimeoutMs: number;
 }
 
-export type TransportKind = 'file' | 'null' | 'windows';
+/**
+ * `windows-queue` (23-Sep-2026): raw bytes to a printer BY ITS WINDOWS NAME through the spooler
+ * API, with no printer sharing. What a paired computer uses; also accepted here so a developer
+ * configuring by environment can use a queue name instead of a share.
+ */
+export type TransportKind = 'file' | 'null' | 'windows' | 'windows-queue';
 
-const TRANSPORTS: readonly TransportKind[] = ['file', 'null', 'windows'];
+const TRANSPORTS: readonly TransportKind[] = ['file', 'null', 'windows', 'windows-queue'];
 
 const isTransport = (raw: string): raw is TransportKind => (TRANSPORTS as readonly string[]).includes(raw);
 

@@ -35,6 +35,9 @@ import {
   upsertPrinter,
   testPrint,
   issueBridgeToken,
+  issuePairingCode,
+  savePrinterMapping,
+  removePrinterMapping,
   revokeBridgeToken,
   upsertStaff,
   upsertTable,
@@ -116,6 +119,21 @@ type Action =
   /* No token in, and the token out is returned ONCE. See issueBridgeToken. */
   | { action: 'issue-bridge-token'; label: string }
   | { action: 'revoke-bridge-token'; tokenId: string }
+  /* Pairing (23-Sep-2026). The code comes OUT once, like a token. The mapping names a queue the
+     computer itself reported — the owner never types one, and the server checks it came from
+     discovery. */
+  | { action: 'issue-pairing-code'; label: string }
+  | {
+      action: 'save-printer-mapping';
+      computerId: string;
+      queueName: string;
+      printerId?: string;
+      name?: string;
+      station?: string;
+      paperMm?: number;
+      purpose?: string;
+    }
+  | { action: 'remove-printer-mapping'; printerId: string }
   | { action: 'retry-print'; jobId: string }
   /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
      path to a machine other than the assigned one, and it exists so no automatic path has
@@ -377,6 +395,30 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'revoke-bridge-token':
       return ok(await revokeBridgeToken({ tokenId: input.tokenId, actor }));
+
+    case 'issue-pairing-code':
+      // THE ONLY TIME THE CODE EXISTS, as with a token. Only its hash is kept.
+      return ok(await issuePairingCode({ label: input.label, actor }));
+
+    case 'save-printer-mapping':
+      return ok(
+        await savePrinterMapping({
+          computerId: input.computerId,
+          queueName: input.queueName,
+          target: input.printerId
+            ? { printerId: input.printerId }
+            : {
+                name: input.name ?? '',
+                station: input.station ?? '',
+                paperMm: input.paperMm ?? 80,
+                purpose: input.purpose ?? 'KOT',
+              },
+          actor,
+        })
+      );
+
+    case 'remove-printer-mapping':
+      return ok(await removePrinterMapping({ printerId: input.printerId, actor }));
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));

@@ -57,6 +57,13 @@ export interface WindowsSpoolerConfig {
   tempDir: string;
   /** A hung `copy` must not wedge the loop. */
   timeoutMs: number;
+  /**
+   * Which destinations this command can be trusted with (23-Sep-2026). Omitted — every Gate 5
+   * caller — it is the share/UNC whitelist below, because `copy /b` puts the destination on a
+   * `cmd.exe` command line. The queue command (`windows-queue.ts`) passes the destination as an
+   * environment variable instead, so it supplies its own, wider rule for real printer names.
+   */
+  destination?: { accepts: (destination: string) => boolean; refusal: string };
 }
 
 /**
@@ -129,10 +136,11 @@ export class WindowsSpoolerTransport implements PrintTransport {
   }
 
   async send(bytes: Uint8Array, target: TransportTarget): Promise<TransportResult> {
-    if (unusable(target.destination)) {
+    const rule = this.#config.destination;
+    if (rule ? !rule.accepts(target.destination) : unusable(target.destination)) {
       return {
         ok: false,
-        error: `Windows spooler refused the queue name ${JSON.stringify(target.destination)}: it is not a printer share or a UNC path.`,
+        error: `Windows spooler refused the queue name ${JSON.stringify(target.destination)}: ${rule ? rule.refusal : 'it is not a printer share or a UNC path.'}`,
         retryable: false,
       };
     }

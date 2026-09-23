@@ -150,6 +150,12 @@ jobs:
       - name: Degraded surfaces
         run: npx playwright test tests/functional/degraded.functional.spec.ts
 
+      # The bridge is bundled by esbuild from bridge/src and typechecked by the same tsconfig; a
+      # change that breaks the bundle must be red here, not on a kitchen PC. Packaging (which
+      # downloads the pinned Node runtime) is a release step, not a per-commit one.
+      - name: Print bridge bundles
+        run: npm run bridge:build
+
       - name: Production build
         run: npm run build
 

@@ -46,8 +46,30 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
   const replies = ((data.settings.replies ?? {}) as { items?: Array<{ name: string; text: string }> }).items ?? [];
   const unanswered = data.suggestions.filter((s) => !s.repliedAt);
 
+  /* The one setup nudge on the dashboard (23-Sep-2026): until a printing computer is connected
+     nothing physically prints, and that is discovered mid-service by paper that never arrives.
+     Shown only to somebody who can act on it, and gone the moment one computer connects. */
+  const noPrintingComputer = data.grants.includes('set.printer') && data.printComputers.length === 0;
+
   return (
     <div className="flex flex-col gap-5" data-testid="owner-dashboard">
+      {noPrintingComputer ? (
+        <button
+          type="button"
+          data-testid="owner-dashboard-connect-printer"
+          onClick={() => go('printers')}
+          className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] bg-[var(--warning-surface)] px-4 py-3 text-left text-[var(--on-warning-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block type-body font-semibold">Connect your printing computer</span>
+            <span className="block type-caption leading-relaxed">
+              Kitchen tickets wait in the queue until the computer with the thermal printer is connected. Open Printers to set it up.
+            </span>
+          </span>
+          <span className="type-body font-semibold">Printers →</span>
+        </button>
+      ) : null}
+
       <section>
         <SectionLabel>Today</SectionLabel>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
