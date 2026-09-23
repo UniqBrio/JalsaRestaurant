@@ -3,11 +3,16 @@ import { fail, handler, ok } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
 import { billTotals, listClosedBillsBetween, listExpensesBetween, readAllSettings } from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
-import { checkRange, summarise, type RangeBill, type RangeExpense } from '@/lib/report-range';
+import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
 import { dayIn, nowForRangeCheck } from '@/lib/restaurant-time';
 
 /* The same three words the console uses. Duplicated nowhere else: a fourth spelling of "guest
  * phone" is how a report and a bill detail end up disagreeing about where an order came from. */
+/** Money formatted once, on the server, like every other figure this route sends. */
+function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxLabel: string } {
+  return { grossLabel: rupees(side.gross), netLabel: rupees(side.net), taxLabel: rupees(side.tax) };
+}
+
 const SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
   guest: 'Guest phone',
   captain: 'Captain',
@@ -84,6 +89,9 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       tip: t.tip,
       restaurantIncome: t.restaurantIncome,
       covers: b.guests,
+      // The payment chart is a projection of this; it needs no second read, and it is not
+      // recomputed in the browser (Standard 7.4).
+      paymentMode: b.paymentMode ?? '',
     };
   });
 
@@ -98,11 +106,23 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
   // What sold, over the range. Built from the same lines the totals came from, so the top
   // sellers add up to the sales figure above them rather than to a near-miss.
   const products = new Map<string, { name: string; qty: number; revenue: number }>();
+  /* What sold, by the category it sold under. The same walk as the products map below and in
+     the same loop on purpose: two walks over the same lines is how a category total ends up
+     disagreeing with the dishes listed inside it. */
+  const categories = new Map<string, { category: string; qty: number; revenue: number; dishes: Set<string> }>();
   for (const b of bills) {
     for (const k of b.kots) {
       if (k.status === 'cancelled') continue;
       for (const i of k.items) {
         if (i.cancelledAt) continue;
+        const line = i.unitPrice * i.qty;
+        // A round placed before the category was snapshotted still sold something.
+        const catKey = i.category || 'Uncategorised';
+        const cat = categories.get(catKey) ?? { category: catKey, qty: 0, revenue: 0, dishes: new Set<string>() };
+        cat.qty += i.qty;
+        cat.revenue += line;
+        cat.dishes.add(i.name);
+        categories.set(catKey, cat);
         const seen = products.get(i.name) ?? { name: i.name, qty: 0, revenue: 0 };
         seen.qty += i.qty;
         // The price the round was PLACED at, not today's menu price. A dish repriced mid-month
@@ -126,8 +146,22 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       taxLabel: rupees(summary.tax),
       averageBillLabel: rupees(summary.averageBill),
       byCategory: summary.byCategory.map((c) => ({ ...c, amountLabel: rupees(c.amount) })),
+      gstSplit: {
+        gst: { ...summary.gstSplit.gst, ...sideLabels(summary.gstSplit.gst) },
+        nonGst: { ...summary.gstSplit.nonGst, ...sideLabels(summary.gstSplit.nonGst) },
+      },
+      byPaymentMode: summary.byPaymentMode.map((m) => ({
+        ...m,
+        amountLabel: rupees(m.amount),
+        // The share each mode took, for the chart. Guarded, because a range with no bills
+        // would otherwise divide by zero and print NaN% on a screen that reconciles cash.
+        share: summary.sales > 0 ? Math.round((m.amount / summary.sales) * 100) : 0,
+      })),
     },
     products: [...products.values()].sort((a, b) => b.revenue - a.revenue),
+    categories: [...categories.values()]
+      .map((c) => ({ category: c.category, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))
+      .sort((a, b) => b.revenue - a.revenue),
     orders: bills.map((b, i) => {
       const t = rangeBills[i]!;
       const payable = billTotals(b).payable;

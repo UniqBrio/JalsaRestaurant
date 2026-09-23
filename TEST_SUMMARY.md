@@ -403,6 +403,61 @@ Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and li
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/report-gst-split.unit.spec.ts - run against the five source files
+as they stood before this change, restored from the index with nothing else touched:
+**11 failed, 0 passed**. Every case failed, which is the honest result for a split, a category
+breakdown and a payment panel that did not exist: `summarise` returned no `gstSplit` and no
+`byPaymentMode`, a line carried no category, and the screen had neither panel. Restored from
+saved copies and re-run: **11 passed**.
+Full suite: **1070 passed** (unit + render), 0 failed - main's 1059 plus exactly these 11.
+Chromium only; the WebKit-backed tablet and mobile-ios projects cannot run in this container.
+
+WHAT MARKS A BILL AS GST, STATED BECAUSE IT IS A JUDGEMENT AND NOT A LOOKUP: nothing in the
+database says "this bill was billed under GST". What it records is the tax actually charged, so
+a bill that carried tax is counted as a GST bill and one that carried none is not. That is the
+honest reading of what was stored. A flag invented now could not be backfilled onto bills already
+closed and would disagree with their printed copies, and adding a column would have meant a
+migration deployed ahead of code - the exact ordering that took the application down on
+22-Sep-2026. The screen states the rule out loud, because a reconciliation done against a number
+whose rule is unstated is one nobody can check. If GST status ever needs to differ from "tax was
+charged" - a zero-rated item under GST, say - that is a column plus a control at closure, applied
+to production BEFORE the code that reads it ships.
+
+GROSS, NET, AND THE TAX BETWEEN THEM: gross is `restaurantIncome`, what the customer paid less
+any tip, which was never the restaurant's. Net is the base before GST, DERIVED as gross minus
+tax rather than carried as a third number that could be passed in disagreeing with the other two.
+A case asserts `gross - net === tax` for exactly that reason, and another asserts a tip never
+reaches either side.
+
+SALES BY CATEGORY: built in the SAME walk over the lines that the dish list already made - a case
+counts the loops and fails at two, because two walks over one set of lines is how a category
+total ends up disagreeing with the dishes listed inside it. The category is the one `placeRound`
+snapshots into `kot_item.menu_category_name`, so a category renamed or deleted next month cannot
+rewrite what last month sold. Rounds placed before that column existed are shown as Uncategorised
+rather than dropped: a sale that happened is not a sale that can be hidden. The column is in
+production already - it arrived with the print-bridge migration applied on 22-Sep - so reading it
+needs no migration of its own, which was checked before the select was widened.
+
+PAYMENT DISTRIBUTION: cash, card, UPI, ordered by amount, each with its share and bill count. A
+bill closed before the mode was captured gets its own Unrecorded row rather than being folded
+into Cash, because overstating the one figure a cash reconciliation is done against is worse than
+an honest gap. The share is guarded against an empty range so the panel cannot print NaN%.
+
+NO DATABASE CHANGE: no migration, no new column, no new permission. The one query change widens
+an existing select by a column production already has.
+
+NOT BUILT, AND NOT STARTED: submenu category. `menu_category` is a flat table with no second
+level, so a breakdown below category needs a schema change plus menu-editing changes, and it is
+reported rather than half-built. The Jalsa QR with the logo, the Google review QR and the menu
+card scan instructions are separate items from the same request and are not in this change.
+
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so the panels were not rendered against live
+bills. The arithmetic is exercised against the real `summarise` with constructed bills; the
+screen is pinned at the source level only.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/owner-new-round.unit.spec.ts - run against the owner route and the
 dashboard as they stood before this change, restored from the index with nothing else touched:
 **9 failed, 0 passed**. Every case failed, which is the honest result for a verb and a control

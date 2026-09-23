@@ -127,6 +127,14 @@ export interface RangeBill {
   /** What the restaurant earned. Excludes the tip. */
   restaurantIncome: number;
   covers: number;
+  /**
+   * How it was settled: 'Cash', 'Card', 'UPI'.
+   *
+   * Optional because a bill closed before the mode was captured genuinely has none, and the
+   * roll-up gives those their own row rather than folding them into Cash - overstating the one
+   * number a cash reconciliation is done against is worse than an honest Unrecorded.
+   */
+  paymentMode?: string;
 }
 
 export interface RangeExpense {
@@ -149,6 +157,34 @@ export interface RangeSummary {
   net: number;
   averageBill: number;
   byCategory: Array<{ category: string; amount: number }>;
+  /**
+   * The two halves of the book, side by side.
+   *
+   * WHAT MARKS A BILL AS GST, AND WHY IT IS DERIVED
+   *   Nothing in the database says 'this bill was billed under GST'. What it records is the
+   *   tax actually charged, so a bill that carried tax IS a GST bill and one that carried
+   *   none is not. That is the honest reading of what was stored; a flag invented now could
+   *   not be backfilled onto bills already closed, and would disagree with their printed
+   *   copies. If the two ever need to differ - a zero-rated item under GST, say - that is a
+   *   column and a control at closure, not a cleverer derivation here.
+   */
+  gstSplit: {
+    gst: GstSide;
+    nonGst: GstSide;
+  };
+  /** Cash, Card, UPI. Ordered by amount, because the biggest share is the one being asked about. */
+  byPaymentMode: Array<{ mode: string; amount: number; bills: number }>;
+}
+
+export interface GstSide {
+  /** How many bills were settled this way. Item 1 of the request. */
+  orders: number;
+  /** With GST. The customer's total, less any tip, which is never the restaurant's. */
+  gross: number;
+  /** Before GST: the taxable base. `gross - net` is the tax, by construction. */
+  net: number;
+  /** GST collected. Zero on the non-GST side, by definition of the split. */
+  tax: number;
 }
 
 export function summarise(input: { bills: readonly RangeBill[]; expenses: readonly RangeExpense[] }): RangeSummary {
@@ -162,6 +198,30 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
     byCategory.set(key, (byCategory.get(key) ?? 0) + e.amount);
   });
 
+  /* One pass, two sides. A bill that carried tax is a GST bill; see `gstSplit` above for why
+     that is a derivation rather than a column. */
+  const side = (bills: readonly RangeBill[]): GstSide => ({
+    orders: bills.length,
+    gross: bills.reduce((a, b) => a + b.restaurantIncome, 0),
+    /* Before GST. `restaurantIncome` IS taxable + tax (money.ts), so the base is that minus
+       the tax - derived rather than carried, so the two can never be passed in disagreeing. */
+    net: bills.reduce((a, b) => a + (b.restaurantIncome - b.tax), 0),
+    tax: bills.reduce((a, b) => a + b.tax, 0),
+  });
+  const gstBills = input.bills.filter((b) => b.tax > 0);
+  const nonGstBills = input.bills.filter((b) => b.tax <= 0);
+
+  /* Unrecorded rather than guessed: a bill closed before the mode was captured is its own
+     row, because folding it into Cash would overstate the one number a reconciliation uses. */
+  const modes = new Map<string, { amount: number; bills: number }>();
+  input.bills.forEach((b) => {
+    const key = b.paymentMode || 'Unrecorded';
+    const seen = modes.get(key) ?? { amount: 0, bills: 0 };
+    seen.amount += b.restaurantIncome;
+    seen.bills += 1;
+    modes.set(key, seen);
+  });
+
   return {
     bills: input.bills.length,
     covers,
@@ -171,6 +231,10 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
     tips: input.bills.reduce((a, b) => a + b.tip, 0),
     purchases,
     net: sales - purchases,
+    gstSplit: { gst: side(gstBills), nonGst: side(nonGstBills) },
+    byPaymentMode: [...modes.entries()]
+      .map(([mode, v]) => ({ mode, amount: v.amount, bills: v.bills }))
+      .sort((a, b) => b.amount - a.amount),
     // Rounded, because an average is a summary figure and nobody reconciles against it. It is
     // the ONE rounded number here, and it is rounded once.
     averageBill: input.bills.length ? Math.round(sales / input.bills.length) : 0,

@@ -128,7 +128,7 @@ const BILL_SELECT = `
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason ),
+    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name ),
     print_job (
       id, status, attempts, is_reprint, last_error,
       printer_id, printer_name, station, routing_rule, redirected_from_job_id
@@ -218,6 +218,7 @@ function shapeBill(row: Record<string, unknown>): Bill {
           qtyBefore: (i.qty_before as number) ?? null,
           cancelledAt: (i.cancelled_at as string) ?? null,
           cancelReason: (i.cancel_reason as string) ?? '',
+          category: (i.menu_category_name as string) ?? '',
         })),
       };
     })

@@ -42,6 +42,16 @@ export interface KotItem {
   qtyBefore: number | null;
   cancelledAt: string | null;
   cancelReason: string;
+  /**
+   * The menu category the dish was in WHEN THE ROUND WAS PLACED, snapshotted by `placeRound`
+   * into `kot_item.menu_category_name`.
+   *
+   * Snapshot rather than joined, for the same reason the name and the price are: a category
+   * renamed or deleted next month must not rewrite what last month sold. Empty on rounds
+   * placed before the column existed, which the report shows as Uncategorised rather than
+   * dropping the line - a sale that happened is not a sale that can be hidden.
+   */
+  category: string;
 }
 
 export interface Kot {

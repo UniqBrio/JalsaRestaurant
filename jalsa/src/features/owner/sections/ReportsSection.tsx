@@ -70,8 +70,14 @@ interface RangeReport {
     taxLabel: string;
     averageBillLabel: string;
     byCategory: Array<{ category: string; amount: number; amountLabel: string }>;
+    gstSplit: {
+      gst: GstPanelSide;
+      nonGst: GstPanelSide;
+    };
+    byPaymentMode: Array<{ mode: string; amount: number; bills: number; amountLabel: string; share: number }>;
   };
   products: Array<{ name: string; qty: number; revenue: number }>;
+  categories: Array<{ category: string; qty: number; revenue: number; dishes: number }>;
   orders: Array<{
     id: string;
     code: string;
@@ -234,6 +240,119 @@ export function ReportsSection({ data }: OwnerSectionProps) {
   );
 }
 
+interface GstPanelSide {
+  orders: number;
+  gross: number;
+  net: number;
+  tax: number;
+  grossLabel: string;
+  netLabel: string;
+  taxLabel: string;
+}
+
+/**
+ * GST and non-GST, side by side.
+ *
+ * WHAT MARKS A BILL AS GST
+ *   The tax it actually carried. Nothing in the database says 'this one was billed under
+ *   GST', so the honest reading of what was stored is that a bill with tax on it is a GST
+ *   bill. The screen says so out loud rather than leaving the owner to assume a flag exists
+ *   that does not — a reconciliation done against a number whose rule is unstated is a
+ *   reconciliation nobody can check.
+ *
+ * GROSS, NET AND THE TAX BETWEEN THEM
+ *   Gross is what the customer paid less any tip, which was never the restaurant's. Net is
+ *   the base before GST. Gross minus net IS the tax, by construction rather than by a third
+ *   sum that could drift from the other two.
+ */
+function GstPanel({ report }: { report: RangeReport }) {
+  const { gst, nonGst } = report.summary.gstSplit;
+  const sides: Array<[string, GstPanelSide, string]> = [
+    ['With GST', gst, 'owner-rep-gst'],
+    ['Without GST', nonGst, 'owner-rep-nongst'],
+  ];
+  return (
+    <section data-testid="owner-rep-gst-split">
+      <SectionLabel>GST and non-GST</SectionLabel>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {sides.map(([label, side, testId]) => (
+          <Card key={label} className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="type-body font-semibold">{label}</span>
+              <span className="type-caption text-[var(--text-muted)]" data-testid={`${testId}-orders`}>
+                {side.orders === 1 ? '1 order' : `${side.orders} orders`}
+              </span>
+            </div>
+            <dl className="m-0 grid grid-cols-3 gap-2">
+              <div>
+                <dt className="m-0 type-caption text-[var(--text-muted)]">Gross</dt>
+                <dd className="m-0 type-body font-semibold tabular-nums" data-testid={`${testId}-gross`}>
+                  {side.grossLabel}
+                </dd>
+              </div>
+              <div>
+                <dt className="m-0 type-caption text-[var(--text-muted)]">Net</dt>
+                <dd className="m-0 type-body font-semibold tabular-nums" data-testid={`${testId}-net`}>
+                  {side.netLabel}
+                </dd>
+              </div>
+              <div>
+                <dt className="m-0 type-caption text-[var(--text-muted)]">GST</dt>
+                <dd className="m-0 type-body font-semibold tabular-nums" data-testid={`${testId}-tax`}>
+                  {side.taxLabel}
+                </dd>
+              </div>
+            </dl>
+          </Card>
+        ))}
+      </div>
+      <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
+        A bill counts as GST when tax was charged on it. Gross is what the customer paid less any tip; net is the
+        base before GST, so the difference between them is the GST column.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Where the money came in — cash, card, UPI.
+ *
+ * A bar per mode rather than a pie: the question being asked is "how much cash should be in
+ * the drawer", which is a comparison of lengths, and a pie answers it worst. A bill closed
+ * before the mode was captured is its own Unrecorded row for the same reason — folding it into
+ * Cash would overstate the only figure this panel exists to reconcile.
+ */
+function PaymentPanel({ report }: { report: RangeReport }) {
+  const modes = report.summary.byPaymentMode;
+  if (modes.length === 0) return null;
+  return (
+    <section data-testid="owner-rep-payments">
+      <SectionLabel>How it was paid</SectionLabel>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {modes.map((m) => (
+          <li key={m.mode} data-testid={`owner-rep-pay-${m.mode.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="type-body font-semibold">{m.mode}</span>
+              <span className="type-caption text-[var(--text-muted)]">
+                <span className="tabular-nums">{m.amountLabel}</span> · {m.share}% ·{' '}
+                {m.bills === 1 ? '1 bill' : `${m.bills} bills`}
+              </span>
+            </div>
+            {/* The bar is the figure beside it drawn to scale, and it is marked decorative:
+                a screen reader that read both would say the same number twice. */}
+            <div aria-hidden className="mt-1 h-2 w-full rounded-full bg-[var(--surface-sunken)]">
+              <div
+                className="h-2 rounded-full bg-[var(--primary)]"
+                style={{ width: `${Math.max(m.share, m.amount > 0 ? 2 : 0)}%` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /* ── Sales and products ────────────────────────────────────────────────── */
 
 function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney: boolean }) {
@@ -269,6 +388,43 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
             them; the restaurant did not earn them.
           </p>
         ) : null}
+      </section>
+
+      <GstPanel report={report} />
+
+      <PaymentPanel report={report} />
+
+      <section>
+        <SectionLabel>What sold by category · {report.categories.length} categories</SectionLabel>
+        {report.categories.length === 0 ? null : (
+          <DataTable
+            rows={report.categories}
+            rowKey={(c) => c.category}
+            defaultSort={{ key: 'revenue', direction: 'desc' }}
+            exportName="jalsa-categories"
+            emptyTitle="Nothing sold in this range"
+            emptyNote="Closed bills fill this in."
+            searchPlaceholder="Search a category"
+            testId="owner-categories-table"
+            columns={[
+              {
+                key: 'category',
+                header: 'Category',
+                cell: (c) => <span className="font-semibold">{c.category}</span>,
+                value: (c) => c.category,
+              },
+              { key: 'dishes', header: 'Dishes', cell: (c) => c.dishes, value: (c) => c.dishes, align: 'right' },
+              { key: 'qty', header: 'Sold', cell: (c) => c.qty, value: (c) => c.qty, align: 'right' },
+              {
+                key: 'revenue',
+                header: 'Revenue',
+                cell: (c) => <span className="tabular-nums">{rupees(c.revenue)}</span>,
+                value: (c) => c.revenue,
+                align: 'right',
+              },
+            ]}
+          />
+        )}
       </section>
 
       <section>
