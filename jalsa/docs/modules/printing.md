@@ -1,8 +1,9 @@
 # Printing — the module document
 
-Written in the change that built it (19-Sep-2026, Phase 1). It describes what the **application**
-decides about printing, and it ends precisely where the physical device begins, because in this
-repository nothing crosses that line yet.
+Written in the change that built it (19-Sep-2026, Phase 1); Phase 2 (21–22-Sep) and the
+customer setup (23-Sep) are appended at the end rather than rewritten in — the Phase 1 sections
+are still exactly what the **application** decides. Where a Phase 1 sentence says "does not
+exist yet", the section **The bridge, as built** below says what now does.
 
 ---
 
@@ -20,7 +21,8 @@ Everything below is either that rule or a consequence of it.
 | | Decides | Never decides |
 |---|---|---|
 | **Jalsa** (this repo) | WHAT prints · WHERE it is meant for (station) · WHICH machine (`printer_id`) · when a ticket is a reprint | how bytes reach a device |
-| **Print Bridge** (Phase 2, does not exist) | how to hand a job to a local device, and what came back | which machine a ticket belongs to |
+| **Print Bridge** (`jalsa/bridge`, built) | how to hand a job to a local device, and what came back | which machine a ticket belongs to |
+| **Transport** (`bridge/src/transport`) | bytes to one named destination | anything else — no list, no fallback, no order data |
 
 A bridge that re-derives routing is a second implementation of the restaurant's rules, sitting on
 one laptop, and the day it disagrees with this one is the day a station stops getting tickets for
@@ -188,3 +190,49 @@ write `printer_id`. The trigger will reject the last one.
 
 Only step 2 may write `printed`, and only from a device acknowledgement. Every rule above exists
 so that when it does, the word is worth something.
+
+
+---
+
+## The bridge, as built (Phase 2, Gates 1–6, 21–22-Sep-2026)
+
+Everything the Phase 2 contract above asked for exists, with two corrections to it:
+
+- **Claim** — `queued → processing` by one conditional update (`claimPrintJob`), with
+  `claimed_by`/`claimed_at`. A stale claim is expired by a server-side sweeper to **`failed`**,
+  never back to `queued` (a re-queue could print a round twice).
+- **Report** — `printed` or `failed`, on a job this bridge holds. `printed` means **the spooler
+  accepted the bytes** — not that paper came out. No transport built on a spooler can say more.
+- **No heartbeat to `printer.online`.** The bridge's own `last_seen_at` on `bridge_token` is
+  the liveness fact; `printer.online` stays what it was.
+
+The bridge's vocabulary is `list · claim · report`, plus `sync` (below). It composes nothing:
+the server renders `TicketLine[]` on claim (`bridge-payload.ts`) and the bridge encodes with the
+same `escpos.ts` the golden-byte tests pin. `bridge/README.md` is the runbook.
+
+## The customer setup (23-Sep-2026)
+
+> The owner sets up a **printer**, not a bridge. Dashboard → **Printers** → Connect Printing
+> Computer → Download for Windows → Install → type the pairing code once → the computer's printers
+> appear → Select → Station → Save → Test Print.
+
+| Piece | Where | What it decides |
+|---|---|---|
+| Pairing code | `bridge_pairing_code`, `bridge-pairing-code.ts`, `POST /api/bridge/pair` | 8 chars from a 31-symbol alphabet, 10 min, **single-use by one conditional update**, hashed. Redeeming creates an ordinary `bridge_token` (`source = 'paired'`) whose `restaurant_id` comes from the code's own row — the request cannot name one. |
+| Discovery | `bridge/src/windows/discovery.ts` (`Get-Printer`), `bridge_discovered_printer` | What Windows shows the PC. Reported on every `sync`; a snapshot, never chosen from. |
+| Mapping | `bridge_printer` (`bridge_token_id`, `printer_id`, `queue_name`), `savePrinterMapping` | The owner's choice. The queue must be one that computer reported. One printer → one computer. `printer` keeps its identity, station and routes. |
+| `sync` | fourth bridge verb, `syncBridge` | Discovery in, mapping out. Touches no job. A **paired** token's `list` and `claim` are intersected with its mapping **server-side**. |
+| Transport | `windows-queue` (`WindowsSpoolerTransport` + `windows-queue.ts`) | RAW bytes to a queue **by name** through `winspool.drv`, declared in C# and compiled by PowerShell's `Add-Type`. No printer sharing. Queue name travels as an environment variable, never on a command line. |
+| Service | `bridge/src/service.ts`, `cli.ts` | `node main.js run`: sync every 30 s (every poll while unmapped), `runCycle` unchanged, outages logged and retried, a 401 becomes "not connected to this restaurant". Config in `%ProgramData%\Jalsa\PrintBridge\config.json`, log in `logs\bridge.log`. |
+| Installer | `bridge/windows/install.ps1` + `.cmd` | ProgramData, one prompt (the code), Scheduled Task as SYSTEM at startup with restart-on-failure, waits for `state.json` to say connected. |
+| Package | `npm run bridge:package -- --origin <origin>` → `bridge/dist/jalsa-print-bridge-windows.zip` | bridge + pinned Node 24 `node.exe` (SHA-256 verified from nodejs.org) + installer + `jalsa.json` (the origin, so no URL is ever typed). |
+| Download | `GET /api/owner/print-bridge/download`, `PRINT_BRIDGE_DOWNLOAD_URL` | Redirects to the published artifact, streams the local one, or says it is not published. Never a fabricated link. |
+| Owner's words | `src/lib/print-computer.ts` | not installed · not running · not connected · not configured for this computer · not available on this computer · unavailable (check it is on) · Sending test print… · Test print completed. Raw `last_error` stays in History. |
+
+**What did not move.** `print_job`, its immutable `printer_id`, routing, retry, reprint, redirect,
+`queuePrint`, `testPrint` (still an ordinary job), the three original verbs, the environment-
+variable bridge and the `windows` (`copy /b`) transport. Environment mode is what Gate 7 rows
+5–8 still use; the paired service is rows 33–42.
+
+**Unvalidated:** KL-6 (paper) and KL-7 (Windows runtime). The unit tier exercises everything with
+an injectable boundary; nothing here has run on Windows.

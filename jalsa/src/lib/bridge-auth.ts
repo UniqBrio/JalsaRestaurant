@@ -37,6 +37,12 @@ export interface Bridge {
   restaurantId: string;
   /** What a person calls the machine — "Kitchen PC". This is what lands in `claimed_by`. */
   label: string;
+  /**
+   * Came from a pairing code rather than a hand-issued token (20260923090000). A paired bridge
+   * is served ONLY the printers mapped to it in `bridge_printer`, enforced here on the server —
+   * not merely by the bridge asking politely for the right machine ids.
+   */
+  paired: boolean;
 }
 
 /* The pure halves — hashing and header parsing — live in `bridge-token.ts`, outside the
@@ -56,7 +62,7 @@ export async function authenticateBridge(req: Request): Promise<Bridge | null> {
 
   const { data, error } = await db()
     .from('bridge_token')
-    .select('id,restaurant_id,label,token_hash,revoked_at')
+    .select('id,restaurant_id,label,token_hash,revoked_at,source')
     .eq('token_hash', hashToken(token))
     .maybeSingle();
 
@@ -74,6 +80,7 @@ export async function authenticateBridge(req: Request): Promise<Bridge | null> {
     id: data.id as string,
     restaurantId: data.restaurant_id as string,
     label: data.label as string,
+    paired: (data.source as string | null) === 'paired',
   };
 }
 

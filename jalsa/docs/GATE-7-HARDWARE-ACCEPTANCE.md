@@ -111,9 +111,30 @@ Phase 1 was spent removing, and it would arrive here wearing a different hat.
 
 ---
 
+---
+
+## F · The customer setup (added 23-Sep-2026 — KL-7)
+
+Run BEFORE section B if the PC is being set up the way a restaurant would: from the download,
+never from a checkout. `Print setup → Bridges` and the environment-variable bridge stay valid for
+sections B–E; this section is the paired path.
+
+| # | Check | How | Pass looks like |
+|---|---|---|---|
+| 33 | The download opens | **Printers → Connect Printing Computer → Download for Windows** | `Jalsa-Print-Bridge-Windows.zip`, ~35 MB, opens in Explorer with `Install Jalsa Print Bridge.cmd` inside |
+| 34 | The installer elevates and installs | Double-click the `.cmd`, accept the UAC prompt | Files under `%ProgramData%\Jalsa\PrintBridge\app`; `config`, `spool`, `logs` folders exist; ordinary users cannot open `config.json` |
+| 35 | Pairing takes the code once | Type the code from **Printers → Show pairing code** | *"This computer is now connected to Jalsa as …"*; the Printers screen shows the computer **Connected** within a minute |
+| 36 | A wrong, used or expired code is refused in words | Type a wrong code, then the used one | The sentence names the next step; the installer asks again; nothing is written |
+| 37 | The task exists and restarts | `Get-ScheduledTask 'Jalsa Print Bridge'`; End the `node.exe` in Task Manager | Runs as SYSTEM, trigger At startup; it is running again within ~1 minute |
+| 38 | Discovery lists the RP3160 | **Printers → Printing computer → Available printers** | The TVS queue listed as *Available* on USB; software printers last |
+| 39 | Select → station → Save → Test Print | Choose it, pick *Tandoor*, save, Test Print | *Sending test print…* then *Test print completed*; paper within a poll interval. **This is row 9 by the customer path.** |
+| 40 | Reboot | Restart the PC, place a round | The ticket prints with nobody logging in or running anything |
+| 41 | Printer unplugged | Unplug the USB, Test Print | *"TVS … is not available on this computer"* or *"Printer is unavailable …"* — never *completed* |
+| 42 | Disconnect | **Printers → Disconnect** the computer | The bridge log shows `bridge.unpaired`; nothing prints; pairing again with the same name brings it back with its printers |
+
 ## What "Gate 7 passed" means
 
-All 32 rows PASS, or a row is FAIL/BLOCKED with a written reason and a decision about it. Then,
+All 42 rows PASS, or a row is FAIL/BLOCKED with a written reason and a decision about it. Then,
 and only then:
 
 - append the run to `jalsa/TEST_SUMMARY.md` with the date, the firmware/driver versions and who ran it;

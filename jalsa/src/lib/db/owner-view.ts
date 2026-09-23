@@ -13,6 +13,9 @@ import {
   listOpenRequests,
   listPrinters,
   listBridgeTokens,
+  listPrintComputers,
+  listPrinterMappings,
+  pendingPairing,
   listPrintJobs,
   listStaff,
   listSuggestions,
@@ -23,8 +26,9 @@ import {
 } from './queries';
 import type { SignedInStaff } from './auth';
 import { db } from '@/lib/supabase/server';
+import { currentBridgeDownload } from '@/lib/print-bridge-artifact';
 import type {
-  AuditRow, Bill, BridgeTokenRow, ExpenseRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
+  AuditRow, Bill, BridgeTokenRow, ExpenseRow, PrintComputerRow, PrinterMappingRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
 } from './types';
 
 /**
@@ -194,6 +198,13 @@ export interface OwnerPayload {
   printers: PrinterRow[];
   /** The PCs holding a bridge token. Never the token, and never its hash. */
   bridges: BridgeTokenRow[];
+  /** The Printers screen (23-Sep-2026): live computers, what each one found, and the mappings. */
+  printComputers: PrintComputerRow[];
+  printerMappings: PrinterMappingRow[];
+  /** A pairing code still waiting to be typed — its name and deadline, never the code. */
+  pairing: { label: string; expiresAt: string } | null;
+  /** Whether "Download for Windows" leads anywhere real on this server. */
+  printBridgeDownload: { available: boolean };
   /** Tonight's print trail — the History section of Print Setup. Newest first. */
   printJobs: PrintJobRow[];
   audit: AuditRow[];
@@ -300,6 +311,9 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     printJobs,
     audit,
     waitlist,
+    printComputers,
+    printerMappings,
+    pairing,
   ] = await Promise.all([
     readRestaurant(),
     readAllSettings(),
@@ -317,6 +331,9 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     listPrintJobs(),
     listAudit(),
     listWaitlist(),
+    listPrintComputers(),
+    listPrinterMappings(),
+    pendingPairing(),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -454,6 +471,10 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     expensesTotalLabel: rupees(expenses.reduce((a, e) => a + e.amount, 0)),
     printers,
     bridges,
+    printComputers,
+    printerMappings,
+    pairing,
+    printBridgeDownload: { available: currentBridgeDownload().kind !== 'none' },
     printJobs,
     audit,
     // Position is 1-based and computed HERE, from the order the query already guarantees

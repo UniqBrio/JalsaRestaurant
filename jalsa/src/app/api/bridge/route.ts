@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { authenticateBridge, touchBridge } from '@/lib/bridge-auth';
-import { claimPrintJob, listBridgeJobs, reportPrintJob } from '@/lib/db/bridge-mutations';
+import { claimPrintJob, cleanDiscovery, listBridgeJobs, reportPrintJob, syncBridge } from '@/lib/db/bridge-mutations';
 import { ticketPayloadFor } from '@/lib/db/bridge-payload';
 
 /**
@@ -25,6 +25,12 @@ import { ticketPayloadFor } from '@/lib/db/bridge-payload';
  *   it is polled by every bridge in the building every few seconds, and rendering every waiting
  *   ticket on every poll would compose most of them repeatedly and print none of them.
  *
+ * THE FOURTH VERB, `sync` (23-Sep-2026, pairing)
+ *   A paired computer reports the printers Windows shows it and is told which Jalsa printers the
+ *   owner mapped to it, and the Windows queue for each. It is the Gate 4 environment variable
+ *   (`JALSA_BRIDGE_DESTINATIONS`) moved onto the owner's screen — a lookup BY machine id, handed
+ *   down. It touches no job: it cannot claim, report, re-queue or re-point one.
+ *
  * NOTE WHAT `report` DOES NOT ACCEPT. Its input carries an outcome and an error string. There is
  * no printer field anywhere in this file, so the most a compromised or buggy bridge can say is
  * "this job succeeded" or "this job failed" about a job it already holds. Rerouting is not
@@ -35,7 +41,9 @@ type BridgeRequest =
   | { action: 'list'; machineIds: string[]; limit?: number }
   | { action: 'claim'; jobId: string }
   /* No printerId. No printer. No station. Deliberately — see the note above. */
-  | { action: 'report'; jobId: string; outcome: 'printed' | 'failed'; error?: string };
+  | { action: 'report'; jobId: string; outcome: 'printed' | 'failed'; error?: string }
+  /* What Windows shows this PC, in; the owner's mapping, out. No job, no printer choice. */
+  | { action: 'sync'; printers: unknown; hostname?: string; bridgeVersion?: string };
 
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const bridge = await authenticateBridge(req);
@@ -100,6 +108,16 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         });
       }
       return ok({ applied: true });
+    }
+
+    case 'sync': {
+      const synced = await syncBridge({
+        bridge,
+        printers: cleanDiscovery(input.printers),
+        hostname: typeof input.hostname === 'string' ? input.hostname : '',
+        bridgeVersion: typeof input.bridgeVersion === 'string' ? input.bridgeVersion : '',
+      });
+      return ok({ label: bridge.label, assignments: synced.assignments });
     }
 
     default:

@@ -50,13 +50,20 @@ export async function listBridgeJobs(input: {
   machineIds: readonly string[];
   limit?: number;
 }): Promise<BridgeJob[]> {
-  if (input.machineIds.length === 0) return [];
+  // A PAIRED bridge is held to its mapping here, on the server. It names machine ids like any
+  // bridge, but the answer is intersected with what `bridge_printer` says this computer reaches —
+  // so a paired PC is never handed a job for a printer plugged into a different PC.
+  const mapped = input.bridge.paired ? await mappedPrinters(input.bridge) : null;
+  const asked = mapped
+    ? input.machineIds.filter((m) => [...mapped.values()].some((p) => p.machineId === m))
+    : input.machineIds;
+  if (asked.length === 0) return [];
 
   const { data: printers, error: pErr } = await db()
     .from('printer')
     .select('id,machine_id')
     .eq('restaurant_id', input.bridge.restaurantId)
-    .in('machine_id', input.machineIds as string[]);
+    .in('machine_id', asked as string[]);
   if (pErr) throw pErr;
 
   const byId = new Map((printers ?? []).map((p) => [p.id as string, p.machine_id as string]));
@@ -98,7 +105,12 @@ export async function listBridgeJobs(input: {
  *   a duplicate on the paper. Verified against the TEST database: A updated 1 row, B updated 0.
  */
 export async function claimPrintJob(input: { bridge: Bridge; jobId: string }): Promise<BridgeJob | null> {
-  const { data, error } = await db()
+  // A paired bridge may only take jobs for printers mapped to it. Part of the SAME conditional
+  // update below, never a read-then-check: the mapping is read first, the job is not.
+  const mapped = input.bridge.paired ? [...(await mappedPrinters(input.bridge)).keys()] : null;
+  if (mapped && mapped.length === 0) return null;
+
+  let claim = db()
     .from('print_job')
     .update({
       status: 'processing',
@@ -108,8 +120,9 @@ export async function claimPrintJob(input: { bridge: Bridge; jobId: string }): P
     .eq('id', input.jobId)
     .eq('restaurant_id', input.bridge.restaurantId)
     // The whole of the concurrency control.
-    .eq('status', 'queued')
-    .select('id,kind,printer_id,printer_name,station,is_reprint,attempts,created_at');
+    .eq('status', 'queued');
+  if (mapped) claim = claim.in('printer_id', mapped);
+  const { data, error } = await claim.select('id,kind,printer_id,printer_name,station,is_reprint,attempts,created_at');
   if (error) throw error;
 
   const row = (data ?? [])[0];
@@ -251,4 +264,146 @@ async function syncKotFromJobs(kotId: string): Promise<void> {
           : null,
     })
     .eq('id', kotId);
+}
+
+/* ── Paired bridges (20260923090000) ───────────────────────────────────── */
+
+/** One Jalsa printer, as one paired computer reaches it. */
+export interface BridgeAssignment {
+  printerId: string;
+  /** Jalsa's identity for the machine. What a job carries and what the loop matches on. */
+  machineId: string;
+  printerName: string;
+  /** The Windows queue on THIS computer. The only PC-specific fact, and it lives in the mapping. */
+  queueName: string;
+}
+
+/**
+ * The printers mapped to this computer, keyed by `printer.id`.
+ *
+ * Restaurant-scoped twice — the mapping row and the printer row — so a mapping that somehow named
+ * another restaurant's printer would simply not resolve.
+ */
+export async function mappedPrinters(bridge: Bridge): Promise<Map<string, BridgeAssignment>> {
+  const { data: maps, error } = await db()
+    .from('bridge_printer')
+    .select('printer_id,queue_name')
+    .eq('bridge_token_id', bridge.id)
+    .eq('restaurant_id', bridge.restaurantId);
+  if (error) throw error;
+  const ids = (maps ?? []).map((m) => m.printer_id as string);
+  if (ids.length === 0) return new Map();
+
+  const { data: printers, error: pErr } = await db()
+    .from('printer')
+    .select('id,machine_id,name')
+    .eq('restaurant_id', bridge.restaurantId)
+    .in('id', ids);
+  if (pErr) throw pErr;
+
+  const byId = new Map((printers ?? []).map((p) => [p.id as string, p]));
+  const out = new Map<string, BridgeAssignment>();
+  for (const m of maps ?? []) {
+    const p = byId.get(m.printer_id as string);
+    if (!p) continue;
+    out.set(p.id as string, {
+      printerId: p.id as string,
+      machineId: p.machine_id as string,
+      printerName: p.name as string,
+      queueName: m.queue_name as string,
+    });
+  }
+  return out;
+}
+
+/** What a bridge may say about the printers Windows shows it. Anything else is dropped. */
+export interface DiscoveredPrinterInput {
+  queueName: string;
+  driverName: string;
+  portName: string;
+  status: 'ready' | 'offline' | 'error' | 'unknown';
+  isVirtual: boolean;
+}
+
+const STATUSES = new Set(['ready', 'offline', 'error', 'unknown']);
+const text = (v: unknown, max: number): string => (typeof v === 'string' ? v.slice(0, max) : '');
+
+/** Untrusted input from a PC, narrowed to the shape above. A bridge is a client like any other. */
+export function cleanDiscovery(raw: unknown): DiscoveredPrinterInput[] | null {
+  // Absent means "discovery failed on the PC this time" — keep the last snapshot rather than
+  // telling the owner every printer vanished.
+  if (!Array.isArray(raw)) return null;
+  const seen = new Set<string>();
+  const out: DiscoveredPrinterInput[] = [];
+  for (const r of raw.slice(0, 50)) {
+    if (!r || typeof r !== 'object') continue;
+    const o = r as Record<string, unknown>;
+    const queueName = text(o.queueName, 200).trim();
+    if (!queueName || seen.has(queueName)) continue;
+    seen.add(queueName);
+    out.push({
+      queueName,
+      driverName: text(o.driverName, 200),
+      portName: text(o.portName, 200),
+      status: (STATUSES.has(o.status as string) ? o.status : 'unknown') as DiscoveredPrinterInput['status'],
+      isVirtual: o.isVirtual === true,
+    });
+  }
+  return out;
+}
+
+/**
+ * The fourth verb, and still not a routing one.
+ *
+ * The bridge says what Windows shows it; Jalsa answers with the printers the OWNER mapped to this
+ * computer. Nothing here touches `print_job` — a sync cannot claim, report, re-queue or re-point a
+ * ticket. The answer is the same `machine_id` → destination lookup Gate 4's environment variable
+ * held, except the owner chose it on a screen instead of typing it on the PC.
+ */
+export async function syncBridge(input: {
+  bridge: Bridge;
+  printers: DiscoveredPrinterInput[] | null;
+  hostname: string;
+  bridgeVersion: string;
+}): Promise<{ assignments: BridgeAssignment[] }> {
+  const now = new Date().toISOString();
+
+  if (input.printers && input.printers.length) {
+    const { error } = await db()
+      .from('bridge_discovered_printer')
+      .upsert(
+        input.printers.map((p) => ({
+          bridge_token_id: input.bridge.id,
+          restaurant_id: input.bridge.restaurantId,
+          queue_name: p.queueName,
+          driver_name: p.driverName,
+          port_name: p.portName,
+          status: p.status,
+          is_virtual: p.isVirtual,
+          reported_at: now,
+        })),
+        { onConflict: 'bridge_token_id,queue_name' }
+      );
+    if (error) throw error;
+  }
+  // A snapshot, not a history: whatever this sync did not report is no longer on the PC.
+  if (input.printers) {
+    const { error: delErr } = await db()
+      .from('bridge_discovered_printer')
+      .delete()
+      .eq('bridge_token_id', input.bridge.id)
+      .lt('reported_at', now);
+    if (delErr) throw delErr;
+  }
+
+  await db()
+    .from('bridge_token')
+    .update({
+      hostname: input.hostname.slice(0, 100),
+      bridge_version: input.bridgeVersion.slice(0, 40),
+      last_sync_at: now,
+    })
+    .eq('id', input.bridge.id);
+
+  return { assignments: [...(await mappedPrinters(input.bridge)).values()] };
 }

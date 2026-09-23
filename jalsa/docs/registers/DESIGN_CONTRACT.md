@@ -25,6 +25,26 @@ components for weeks while every gate read green — that is what "code exists" 
 
 ---
 
+## DC-013 · "Printers" is a fourteenth top-level section; the flowchart files printing under Settings
+
+**SOURCE** — `Jalsa Navigation Flowchart.dc.html` puts print setup under Settings, where
+**Settings → Printers & machines** still is. `Jalsa Print Setup.dc.html` draws no computer, no
+pairing and no installer: nothing in the design set describes how a thermal printer comes to be
+reachable at all.
+
+**DIFFERENCE** — 23-Sep-2026: a top-level **Printers** section (grant `set.printer`, the same as
+the settings panel) that fronts the owner's journey — connect the computer, choose the printer,
+assign the station, Test Print — and reaches the existing five-section Print setup through
+*Manage*. The Dashboard shows a one-line nudge to it until a computer is connected.
+
+**WHY** — the owner's explicit product decision for this change: "bridge" is an implementation
+concept; the owner is setting up a printer, and the entry point must be Dashboard → Printers, not
+a technical area three levels down. Same precedent as Uplift (the thirteenth section).
+
+**STATUS** — AUTHORISED (owner directive, 23-Sep-2026). Not VERIFIED: the screen has not been
+observed against a real printing computer (KL-7). Strings on it are new and adopt the console's
+existing terminology (Test print, Printers & machines, station).
+
 ## DC-012 · The kitchen ticket carries its station, and the artboards do not show one
 
 **SOURCE** — `src/lib/print-routing.ts`, in its own words: *"The station the ticket was MEANT for,

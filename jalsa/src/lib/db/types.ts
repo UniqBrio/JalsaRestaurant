@@ -420,3 +420,39 @@ export interface BridgeTokenRow {
   lastSeenAt: string | null;
   revokedAt: string | null;
 }
+
+/**
+ * A printing computer, as the owner's Printers screen sees it (23-Sep-2026).
+ *
+ * The same row as `BridgeTokenRow`, seen from the other side: what the PC reported about itself
+ * and what Windows shows it. Never the token and never its hash.
+ */
+export interface PrintComputerRow {
+  id: string;
+  label: string;
+  /** 'paired' came from a pairing code; 'manual' was issued by hand under Print setup → Bridges. */
+  source: 'manual' | 'paired';
+  /** The PC's own Windows name, as the bridge reported it. Empty for a hand-issued token. */
+  hostname: string;
+  bridgeVersion: string;
+  lastSeenAt: string | null;
+  createdAt: string;
+  /** What `Get-Printer` found on it at the last sync — a snapshot, never typed by a person. */
+  discovered: DiscoveredPrinterRow[];
+}
+
+export interface DiscoveredPrinterRow {
+  queueName: string;
+  driverName: string;
+  portName: string;
+  status: 'ready' | 'offline' | 'error' | 'unknown';
+  isVirtual: boolean;
+  reportedAt: string;
+}
+
+/** Jalsa printer → the computer that reaches it, and the Windows queue on that computer. */
+export interface PrinterMappingRow {
+  printerId: string;
+  computerId: string;
+  queueName: string;
+}

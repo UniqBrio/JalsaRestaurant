@@ -44,6 +44,7 @@ menu. Until then, treat every migration as if it were production, because it is.
 | `SUPABASE_SECRET_KEY` | **server only** — `.env.local` and the deployment environment | bypasses RLS entirely. Never `NEXT_PUBLIC_`, never imported from a `'use client'` file, never committed |
 | `SESSION_SECRET` | **server only** | HMACs the staff cookie. Rotating it signs everyone out, which is the correct behaviour if it ever leaks |
 | `NEXT_PUBLIC_QR_ORIGIN` | anywhere | what the printed table QRs point at. Wrong here means reprinting every stand |
+| `PRINT_BRIDGE_DOWNLOAD_URL` | **server only, optional** | an **https** address where the deployment has published `jalsa-print-bridge-windows.zip` (built by `npm run bridge:package -- --origin <this deployment's origin>`). Set: *Download for Windows* redirects there. Unset: the route streams `bridge/dist/jalsa-print-bridge-windows.zip` if it exists on the server's disk, otherwise the Printers screen says the installer is not published. A serverless host cannot stream a 35 MB file, so production sets this. Never a credential — the package holds none. |
 
 In CI the same variables come from repository secrets — `SESSION_SECRET`,
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` —
@@ -60,6 +61,18 @@ Confirmed with `git check-ignore .env.local` before the first commit.
 
 ---
 
+## Publishing the Windows installer (production step, not yet done)
+
+1. `npm run bridge:package -- --origin https://<the production origin>` — downloads the pinned
+   Node 24 Windows runtime from nodejs.org (SHA-256 verified), bundles the bridge, writes
+   `jalsa/bridge/dist/jalsa-print-bridge-windows.zip` (~35 MB) and its manifest.
+2. Upload the zip to object storage / a CDN under an https address.
+3. Set `PRINT_BRIDGE_DOWNLOAD_URL` to that address in the production environment.
+
+Rebuild and re-upload whenever `bridge/src` or `bridge/windows` changes (bump `BRIDGE_VERSION`).
+Until step 3 is done the owner's *Download for Windows* button shows the honest sentence rather
+than a link. `20260923090000` is applied to TEST; the development/production project still needs it.
+
 ## Applied migrations
 
 > **This table was three rows stale on 16-Sep-2026** and said so to anybody who read it: the
@@ -72,6 +85,7 @@ Confirmed with `git check-ignore .env.local` before the first commit.
 | `20260910070000_jalsa_core_schema.sql` | ✅ 10-Sep | ✅ 11-Sep | 22 tables, RLS enabled with no policies, the bill/table membership model, `next_number` |
 | `20260910071000_jalsa_seed_and_pin.sql` | ✅ 10-Sep | ✅ 11-Sep | restaurant, 11 settings, 20 tables, 11 categories, 57 items, 27 staff, 4 printers, 5 expenses |
 | `20260910072000_jalsa_bootstrap_pins_and_permissions.sql` | ✅ 10-Sep | ✅ 11-Sep | role presets — 278 permission rows |
+| `20260923090000_jalsa_print_bridge_pairing.sql` | ❌ not applied | ✅ 23-Sep (over an unrecorded draft `20260923075759 jalsa_bridge_pairing` present on TEST only; the file converges it — see its RECONCILIATION note) | `bridge_pairing_code`, `bridge_discovered_printer`, `bridge_printer`; `bridge_token.source/hostname/bridge_version/last_sync_at` |
 | `20260910073000_jalsa_provisional_pins.sql` | ✅ 10-Sep | ✅ 11-Sep | `pin_provisional`, `set_own_pin`, the `1234` setup code (KL-4) |
 | `20260912100000_jalsa_free_a_table.sql` | ✅ 12-Sep | ✅ 16-Sep | `tables.free` to the owner |
 | `20260912110000_jalsa_discount_type.sql` | ✅ 12-Sep | ✅ 12-Sep | the discount kind on a bill |

@@ -2,6 +2,29 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-23 - Printers: connect the printing computer
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`** (the mutation table, the fifteen cases of the
+brief and where each executes, what was run, what was not, and the database evidence). This block
+exists because guard G3 reads only the root file.
+
+Software-tested; Windows runtime pending (KL-7); physical printer pending (KL-6). 17 defects
+injected into the finished tree, all 17 observed failing on the rung written for each:
+
+FAIL-FIRST: jalsa/tests/unit/bridge-pairing.unit.spec.ts - redeem without `used_at IS NULL`: 1 failed (SINGLE-USE); the pair route reading a restaurant from the request: 1 failed (RESTAURANT-SCOPED); the code sent untidied: 1 failed (PAIRING SUCCESS).
+FAIL-FIRST: jalsa/tests/unit/bridge-paired-config.unit.spec.ts - config written in place with no rename: 1 failed (a write that fails midway leaves the previous config intact).
+FAIL-FIRST: jalsa/tests/unit/bridge-discovery.unit.spec.ts - an unreadable printer list returned as an empty success: 1 failed (a list this bridge cannot read is a FAILURE).
+FAIL-FIRST: jalsa/tests/unit/bridge-service.unit.spec.ts - duplicate machine id taking the LAST queue: 1 failed; a 401 treated as an outage: 1 failed (REVOKED); the outage rethrown: 1 failed (RESTART / RECONNECT); the queue name dropped from the script environment: 1 failed.
+FAIL-FIRST: jalsa/tests/unit/print-computer.unit.spec.ts - a printer Windows no longer lists reading as Ready: 1 failed (READINESS); a raw last_error shown to the owner: 1 failed (ERROR MAPPING).
+FAIL-FIRST: jalsa/tests/unit/printers-screen.unit.spec.ts - the screen given a queue-name input: 1 failed (THE OWNER NEVER TYPES); the mapping save accepting any queue string: 1 failed (PRINTER MAPPING).
+FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts - the task registered as the installing user: 1 failed; the README dropped from the package: 1 failed; a bridge token committed in a tracked file: 1 failed (NO SECRETS COMMITTED).
+FAIL-FIRST: jalsa/tests/unit/bridge-contract.unit.spec.ts (superseded, four verbs) - a paired claim no longer limited to its mapping: 1 failed | 24 passed.
+
+Gate run (jalsa): G8 functional FAIL/BLOCKED on this runner - no database, as every prior run
+here; every other step PASS. unit 932, render + degraded 266, framework audits 11/11, guards 15/15.
+
+---
+
 ## Application run - jalsa - 2026-09-22 - MERGE: main into the printing branch
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** This block exists because guard G3 reads

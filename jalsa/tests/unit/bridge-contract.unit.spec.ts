@@ -229,13 +229,44 @@ test('the sweeper is server-side only — a bridge cannot adjudicate its own dea
 
 /* ── The surface as a whole ────────────────────────────────────────────── */
 
-test('the bridge can reach three verbs and no others', () => {
+/*
+ * SUPERSEDED 23-Sep-2026 (pairing), under the contract-change exception in jalsa/CLAUDE.md.
+ *   As written for Gate 1 this rung asserted `['claim', 'list', 'report']` — three verbs and no
+ *   others. Pairing adds a FOURTH, `sync`: a paired computer reports the printers Windows shows it
+ *   and receives the owner's mapping (the `JALSA_BRIDGE_DESTINATIONS` lookup, handed down instead
+ *   of typed). The assertion that changed is the list. What is added, rather than loosened, is the
+ *   rung below it: `sync` touches no job and no printer assignment — it cannot claim, report,
+ *   re-queue or re-point anything — so the property the three-verb rule protected still holds.
+ */
+test('the bridge can reach four verbs and no others', () => {
   const actions = [...ROUTE.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]).sort();
-  expect(actions).toEqual(['claim', 'list', 'report']);
+  expect(actions).toEqual(['claim', 'list', 'report', 'sync']);
   // Nothing about bills, guests, menus or staff is importable here.
   for (const forbidden of ['closeBill', 'placeRound', 'listMenu', 'currentStaff', 'reprintKot']) {
     expect(ROUTE, `the bridge route must not import ${forbidden}`).not.toContain(forbidden);
   }
+});
+
+test('THE FOURTH VERB CANNOT TOUCH A JOB — sync reports printers and receives a mapping, nothing else', () => {
+  const body = bodyOf(MUT, 'syncBridge') ?? '';
+  expect(body.length, 'syncBridge was located').toBeGreaterThan(100);
+  // It writes to exactly two tables: the discovered-printer snapshot and the token's own row.
+  const tables = [...body.matchAll(/\.from\('([a-z_]+)'\)/g)].map((m) => m[1]).sort();
+  expect(new Set(tables)).toEqual(new Set(['bridge_discovered_printer', 'bridge_token']));
+  // (`status:` on its own is the discovered printer's status word — ready/offline — not a job's.)
+  for (const forbidden of ['print_job', 'printer_id:', "'queued'", "'processing'", "'printed'", "'failed'", 'claimPrintJob', 'reportPrintJob']) {
+    expect(body, `sync must not reach ${forbidden}`).not.toContain(forbidden);
+  }
+  // And the answer is a lookup keyed by machine id, built by the mapping function alone.
+  expect(body).toContain('mappedPrinters(input.bridge)');
+});
+
+test('a PAIRED bridge is held to its mapping on the server, in the claim itself', () => {
+  const c = bodyOf(MUT, 'claimPrintJob') ?? '';
+  expect(c).toContain("claim.in('printer_id', mapped)");
+  expect(c, 'a paired bridge with nothing mapped claims nothing').toContain('if (mapped && mapped.length === 0) return null;');
+  const l = bodyOf(MUT, 'listBridgeJobs') ?? '';
+  expect(l).toContain('input.bridge.paired ? await mappedPrinters(input.bridge) : null');
 });
 
 test('an unauthenticated caller is refused before the body is read', () => {

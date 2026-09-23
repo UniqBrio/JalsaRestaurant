@@ -22,6 +22,9 @@ import type {
   TableRequest,
   TipRow,
   BridgeTokenRow,
+  DiscoveredPrinterRow,
+  PrintComputerRow,
+  PrinterMappingRow,
 } from './types';
 
 /**
@@ -1035,4 +1038,91 @@ export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
     lastSeenAt: (t.last_seen_at as string | null) ?? null,
     revokedAt: (t.revoked_at as string | null) ?? null,
   }));
+}
+
+/**
+ * The printing computers — live tokens only — with what each one's Windows reported (23-Sep-2026).
+ *
+ * Revoked computers are left out HERE (the Printers screen is about what can print now) and kept
+ * by `listBridgeTokens`, which the job history still needs. No token, no hash.
+ */
+export async function listPrintComputers(): Promise<PrintComputerRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bridge_token')
+    .select('id,label,source,hostname,bridge_version,last_seen_at,created_at')
+    .eq('restaurant_id', restaurantId)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const ids = (data ?? []).map((t) => t.id as string);
+
+  const found = new Map<string, DiscoveredPrinterRow[]>();
+  if (ids.length) {
+    const { data: rows, error: dErr } = await db()
+      .from('bridge_discovered_printer')
+      .select('bridge_token_id,queue_name,driver_name,port_name,status,is_virtual,reported_at')
+      .eq('restaurant_id', restaurantId)
+      .in('bridge_token_id', ids)
+      .order('queue_name', { ascending: true });
+    if (dErr) throw dErr;
+    for (const r of rows ?? []) {
+      const list = found.get(r.bridge_token_id as string) ?? [];
+      list.push({
+        queueName: r.queue_name as string,
+        driverName: (r.driver_name as string) ?? '',
+        portName: (r.port_name as string) ?? '',
+        status: ((r.status as string) ?? 'unknown') as DiscoveredPrinterRow['status'],
+        isVirtual: (r.is_virtual as boolean) ?? false,
+        reportedAt: r.reported_at as string,
+      });
+      found.set(r.bridge_token_id as string, list);
+    }
+  }
+
+  return (data ?? []).map((t) => ({
+    id: t.id as string,
+    label: t.label as string,
+    source: ((t.source as string) === 'paired' ? 'paired' : 'manual') as PrintComputerRow['source'],
+    hostname: (t.hostname as string) ?? '',
+    bridgeVersion: (t.bridge_version as string) ?? '',
+    lastSeenAt: (t.last_seen_at as string | null) ?? null,
+    createdAt: t.created_at as string,
+    discovered: found.get(t.id as string) ?? [],
+  }));
+}
+
+/** Which computer reaches which Jalsa printer. Restaurant-scoped. */
+export async function listPrinterMappings(): Promise<PrinterMappingRow[]> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bridge_printer')
+    .select('printer_id,bridge_token_id,queue_name')
+    .eq('restaurant_id', restaurantId);
+  if (error) throw error;
+  return (data ?? []).map((m) => ({
+    printerId: m.printer_id as string,
+    computerId: m.bridge_token_id as string,
+    queueName: m.queue_name as string,
+  }));
+}
+
+/**
+ * The pairing code still waiting to be typed, WITHOUT the code — only its name and deadline, so
+ * the screen can say "waiting for Kitchen PC" after a reload. The code itself exists only in the
+ * response that issued it.
+ */
+export async function pendingPairing(): Promise<{ label: string; expiresAt: string } | null> {
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bridge_pairing_code')
+    .select('label,expires_at')
+    .eq('restaurant_id', restaurantId)
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? { label: row.label as string, expiresAt: row.expires_at as string } : null;
 }

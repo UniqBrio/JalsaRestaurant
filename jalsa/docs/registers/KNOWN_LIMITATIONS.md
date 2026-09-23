@@ -23,6 +23,27 @@ Newest first.
 
 ## Active
 
+### KL-7 — The Windows installer, the Scheduled Task and the raw-print script have never run on Windows
+**Since** 23-Sep-2026 · **Category** environment, temporary · **Review by** the same desk as KL-6
+
+The customer-facing setup (Printers → Connect Printing Computer → download → install → pair →
+choose printer → Test Print) was built on Linux. Everything with an injectable boundary is
+executed by the unit tier: the pairing exchange over a real HTTP server, config persistence in a
+real directory, the `Get-Printer` parser against every shape `ConvertTo-Json` produces, the
+service loop through outage, revocation and recovery, the queue transport through an injected
+runner, the package written and read back (and read by Python).
+
+**What is therefore unverified, exactly.** `bridge/windows/install.ps1` and its `.cmd` launcher
+(elevation, `icacls`, `Register-ScheduledTask` as SYSTEM at startup with restart-on-failure);
+whether SYSTEM may open a USB printer's queue on a given PC; that PowerShell 5.1's `Add-Type`
+compiles the `winspool.drv` declarations in `windows-queue.ts` and that `WritePrinter` with the
+`RAW` datatype puts ESC/POS on the paper; that `[string]$_.PrinterStatus` yields the enum's name
+on the installed build; that the bundled Node 24 `node.exe` runs the ESM bundle. Rows 33–40 of
+`docs/GATE-7-HARDWARE-ACCEPTANCE.md` cover them, and are BLOCKED until somebody runs them.
+
+**Consequence for reporting.** "Software-tested" and "Windows-runtime pending" are different
+words and every report about this feature uses both. Nothing here moves KL-6.
+
 ### KL-6 — No physical printer has ever printed a Jalsa ticket
 **Since** 22-Sep-2026 · **Category** environment, temporary · **Review by** the day an RP3160 is on a desk
 

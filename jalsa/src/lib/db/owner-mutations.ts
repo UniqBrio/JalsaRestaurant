@@ -6,6 +6,7 @@ import { testPrintBlocker } from '@/lib/test-print';
 import { audit, nextNumber, type Actor } from './mutations';
 import { randomBytes } from 'node:crypto';
 import { hashToken } from '@/lib/bridge-token';
+import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
 
 /**
  * owner-mutations — the configuration writes, kept apart from the operational ones.
@@ -939,10 +940,17 @@ export async function testPrint(input: { printerId: string; actor: Actor }): Pro
   /* ONE definition of "is this machine testable", shared with the button. Two copies would
      eventually disagree, and the disagreement would be a button that does nothing. Returned
      rather than thrown, so the screen can say WHICH machine and WHY without parsing an error. */
+  const { data: viaComputer } = await db()
+    .from('bridge_printer')
+    .select('printer_id')
+    .eq('printer_id', printer.id as string)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
   const blocker = testPrintBlocker({
     enabled: (printer.enabled as boolean | null) ?? true,
     connection: (printer.connection as string) ?? '',
     address: (printer.address as string) ?? '',
+    throughComputer: !!viaComputer,
   });
   if (blocker) return { queued: false, jobId: null, printerName: name, station, reason: blocker };
 
@@ -1064,4 +1072,208 @@ export async function revokeBridgeToken(input: { tokenId: string; actor: Actor }
   });
 
   return { label: data.label as string };
+}
+
+/* ── Printing computers: pairing and printer mapping (20260923090000) ─── */
+
+/**
+ * A pairing code for the computer the owner is about to set up.
+ *
+ * THE CODE, LIKE THE TOKEN, EXISTS ONCE. Only its hash is stored; the return value is the only
+ * copy, shown in the sheet that asked for it. Asking again spends every unused code this
+ * restaurant still has, so at most one code is ever live — a photographed code is useless once
+ * the owner has moved on, and an attacker gets exactly one ten-minute target, not a pile of them.
+ */
+export async function issuePairingCode(input: { label: string; actor: Actor }): Promise<{
+  code: string;
+  label: string;
+  expiresAt: string;
+}> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const label = input.label.trim();
+  if (!label) throw new Error('Give the computer a name first — it is how you will find it in Jalsa.');
+  if (label.length > 60) throw new Error('That name is too long. Keep it under 60 characters.');
+
+  // A HAND-ISSUED token under the same name would share `claimed_by` with the new computer, and a
+  // report is matched on it. A PAIRED one is replaced on redemption (the reinstall case).
+  const { data: clash } = await db()
+    .from('bridge_token')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('label', label)
+    .eq('source', 'manual')
+    .is('revoked_at', null)
+    .limit(1);
+  if ((clash ?? []).length) {
+    throw new Error(`A computer called ${label} is already set up by hand. Use a different name, or revoke it under Print setup → Bridges.`);
+  }
+
+  const now = new Date();
+  // Spend, never delete: the history of who asked for a code, and when, survives.
+  await db()
+    .from('bridge_pairing_code')
+    .update({ used_at: now.toISOString() })
+    .eq('restaurant_id', restaurantId)
+    .is('used_at', null);
+
+  const code = newPairingCode();
+  const expiresAt = pairingExpiry(now);
+  const { error } = await db().from('bridge_pairing_code').insert({
+    restaurant_id: restaurantId,
+    code_hash: hashPairingCode(code),
+    label,
+    created_by: input.actor.label,
+    expires_at: expiresAt,
+  });
+  if (error) throw error;
+
+  await audit({
+    action: 'Printer',
+    // The name, never the code.
+    detail: `Pairing code issued for ${label}`,
+    actor: input.actor,
+    confidential: true,
+  });
+
+  return { code: formatPairingCode(code), label, expiresAt };
+}
+
+/** A new Jalsa printer's machine id, from the name the owner gave it. Unique per restaurant. */
+function machineIdFor(name: string, taken: ReadonlySet<string>): string {
+  const base = `PC-${name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'PRINTER'}`;
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n += 1) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+/**
+ * The owner chose a printer this computer found, and said what Jalsa should use it for.
+ *
+ * WHAT THE OWNER NEVER TYPES: the Windows queue name. `queueName` must be one the bridge itself
+ * reported in `bridge_discovered_printer` for THIS computer — the screen offers only those, and
+ * this function refuses anything else, so a crafted request cannot point a printer at a string
+ * nobody's Windows produced.
+ *
+ * WHAT STAYS JALSA'S: the printer's identity, its station and its routes. Mapping to an existing
+ * Jalsa printer keeps every one of them; creating one uses the station chosen here. The only
+ * PC-specific fact — the queue — goes in `bridge_printer`, never on `printer`.
+ *
+ * Restaurant-scoped on every read: the computer, the discovered queue and the printer must all be
+ * this restaurant's, so Restaurant A cannot map a printer onto Restaurant B's computer.
+ */
+export async function savePrinterMapping(input: {
+  computerId: string;
+  queueName: string;
+  target: { printerId: string } | { name: string; station: string; paperMm: number; purpose: string };
+  actor: Actor;
+}): Promise<{ printerId: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: computer } = await db()
+    .from('bridge_token')
+    .select('id,label')
+    .eq('id', input.computerId)
+    .eq('restaurant_id', restaurantId)
+    .is('revoked_at', null)
+    .maybeSingle();
+  if (!computer) throw new Error('That computer is no longer connected to this restaurant. Reload the page.');
+
+  const { data: found } = await db()
+    .from('bridge_discovered_printer')
+    .select('queue_name,port_name')
+    .eq('bridge_token_id', input.computerId)
+    .eq('restaurant_id', restaurantId)
+    .eq('queue_name', input.queueName)
+    .maybeSingle();
+  if (!found) throw new Error('That printer is no longer on this computer. Check it is plugged in, then look again.');
+
+  const viaUsb = ((found.port_name as string) ?? '').toUpperCase().startsWith('USB');
+  let printerId: string;
+  let printerName: string;
+
+  if ('printerId' in input.target) {
+    const { data: printer } = await db()
+      .from('printer')
+      .select('id,name')
+      .eq('id', input.target.printerId)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle();
+    if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
+    printerId = printer.id as string;
+    printerName = printer.name as string;
+    // Its routes, station and paper stay exactly as the owner configured them. Only how it is
+    // reached changes, and only when Windows says it is on USB.
+    if (viaUsb) await db().from('printer').update({ connection: 'USB', address: '', port: 0 }).eq('id', printerId);
+  } else {
+    const name = input.target.name.trim();
+    if (!name) throw new Error('Give the printer a name first — somebody has to find it in a kitchen.');
+    const { data: existing } = await db().from('printer').select('machine_id').eq('restaurant_id', restaurantId);
+    const taken = new Set((existing ?? []).map((p) => p.machine_id as string));
+    const { data: created, error } = await db()
+      .from('printer')
+      .insert({
+        restaurant_id: restaurantId,
+        machine_id: machineIdFor(name, taken),
+        name,
+        purpose: input.target.purpose === 'Invoice' ? 'Invoice' : 'KOT',
+        station: input.target.station.trim() || 'Main Kitchen',
+        paper_mm: input.target.paperMm === 58 ? 58 : 80,
+        // Reached through this computer, whatever the cable: no address of its own, and no
+        // network port — `online: false` is what satisfies `printer_address_when_networked`.
+        connection: viaUsb ? 'USB' : 'Ethernet',
+        address: '',
+        port: 0,
+        routes: [],
+        enabled: true,
+        online: false,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    printerId = created.id as string;
+    printerName = name;
+  }
+
+  // ONE COMPUTER PER PRINTER. Moving it to this computer replaces the old mapping.
+  const { error: mapErr } = await db()
+    .from('bridge_printer')
+    .upsert(
+      {
+        bridge_token_id: input.computerId,
+        printer_id: printerId,
+        restaurant_id: restaurantId,
+        queue_name: input.queueName,
+        created_by: input.actor.label,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'printer_id' }
+    );
+  if (mapErr) throw mapErr;
+
+  await audit({
+    action: 'Printer',
+    detail: `${printerName} connected through ${computer.label as string}`,
+    actor: input.actor,
+  });
+
+  return { printerId };
+}
+
+/** Take a printer off its computer. The Jalsa printer, its routes and its history stay. */
+export async function removePrinterMapping(input: { printerId: string; actor: Actor }): Promise<{ done: true }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+  const { data, error } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('printer_id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .select('printer_id');
+  if (error) throw error;
+  if (!(data ?? []).length) throw new Error('That printer was not connected to a computer.');
+
+  await audit({ action: 'Printer', detail: 'A printer was disconnected from its computer', actor: input.actor });
+  return { done: true };
 }
