@@ -141,6 +141,11 @@ transaction that was ROLLED BACK — the project holds 0 codes, 0 mappings, 0 to
     spend of an expired code                                            0 rows
     printer mapped on PC A, then upserted on conflict (printer_id) to PC B: 1 mapping, on PC B
 
+  Also applied to yxgxmbyilpivbmeemqkp (development, the project that becomes production) on
+  23-Sep-2026 at the owner's request: clean shape (no draft there), bridge_pairing_code /
+  bridge_discovered_printer / bridge_printer RLS on with 0 policies, bridge_printer_one_computer
+  and bridge_printer_unique present, bridge_token.source/hostname/bridge_version/last_sync_at added.
+
 GATE 7 IS UNAFFECTED AND STILL BLOCKED. Ten new rows (33–42) wait with the original 32.
 
 ---

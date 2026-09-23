@@ -28,9 +28,9 @@
 
 `bridge/src/{api,config,main,transport/windows}.ts` · `src/app/api/bridge/route.ts` · `src/app/api/owner/action/route.ts` · `src/lib/{bridge-auth,test-print}.ts` · `src/lib/db/{bridge-mutations,owner-mutations,owner-view,queries,types}.ts` · `src/features/owner/OwnerConsole.tsx` · `src/features/owner/sections/Dashboard.tsx` · `package.json` (`bridge:package`) · `.env.example` · `.github/workflows/ci.yml` (bridge:build step) · `tests/unit/bridge-contract.unit.spec.ts` (superseded, dated) · `bridge/README.md` · `docs/modules/{printing,README}.md` · `docs/GATE-7-HARDWARE-ACCEPTANCE.md` (rows 33–42) · `docs/registers/{KNOWN_LIMITATIONS (KL-7),DESIGN_CONTRACT (DC-013),ENVIRONMENTS}.md` · `CHANGELOG.md` · `TEST_SUMMARY.md`.
 
-## E · Migration (additive, RLS on, no policy) — applied to TEST, **not yet to the development/production project**
+## E · Migration (additive, RLS on, no policy) — applied to TEST and to the development project (23-Sep)
 
-Applied to TEST (uxmyomxtosjlkvjxnvpy) on 23-Sep over an unrecorded draft that the file now converges (see the migration's RECONCILIATION note and TEST_SUMMARY.md); not applied to yxgxmbyilpivbmeemqkp. `bridge_token` + `source ('manual'|'paired')`, `hostname`, `bridge_version`, `last_sync_at` · `bridge_pairing_code` (hash only, `expires_at`, `used_at`, `used_by_token_id`) · `bridge_discovered_printer` (snapshot per token, PK `(bridge_token_id, queue_name)`) · `bridge_printer` (PK `(bridge_token_id, printer_id)`, **unique `printer_id`** — one computer per printer).
+Applied to TEST (uxmyomxtosjlkvjxnvpy) on 23-Sep over an unrecorded draft that the file now converges (see the migration's RECONCILIATION note and TEST_SUMMARY.md); applied to yxgxmbyilpivbmeemqkp the same day — clean shape, verified (RLS on, no policy, both indexes). `bridge_token` + `source ('manual'|'paired')`, `hostname`, `bridge_version`, `last_sync_at` · `bridge_pairing_code` (hash only, `expires_at`, `used_at`, `used_by_token_id`) · `bridge_discovered_printer` (snapshot per token, PK `(bridge_token_id, queue_name)`) · `bridge_printer` (PK `(bridge_token_id, printer_id)`, **unique `printer_id`** — one computer per printer).
 
 ## F · API
 
@@ -74,7 +74,7 @@ UAC elevation via the `.cmd`; `icacls`; `Register-ScheduledTask` as SYSTEM and w
 
 ## O · Production download — the one remaining deployment step
 
-`ENVIRONMENTS.md` → *Publishing the Windows installer*: build the package with the production origin, upload the zip to an **https** location, set `PRINT_BRIDGE_DOWNLOAD_URL`. Also: apply migration `20260923090000` to the development/production project (TEST already has it). Until then the Printers screen says the installer is not published — no fake URL was invented, and a serverless function cannot stream a 35 MB file (Vercel's 4.5 MB response limit), which is why the hosted redirect is the production shape.
+`ENVIRONMENTS.md` → *Publishing the Windows installer*: build the package with the production origin, upload the zip to an **https** location, set `PRINT_BRIDGE_DOWNLOAD_URL`. Migration `20260923090000` is applied to both projects. Until then the Printers screen says the installer is not published — no fake URL was invented, and a serverless function cannot stream a 35 MB file (Vercel's 4.5 MB response limit), which is why the hosted redirect is the production shape.
 
 ## P · Risks
 

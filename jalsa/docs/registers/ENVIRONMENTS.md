@@ -71,7 +71,7 @@ Confirmed with `git check-ignore .env.local` before the first commit.
 
 Rebuild and re-upload whenever `bridge/src` or `bridge/windows` changes (bump `BRIDGE_VERSION`).
 Until step 3 is done the owner's *Download for Windows* button shows the honest sentence rather
-than a link. `20260923090000` is applied to TEST; the development/production project still needs it.
+than a link. `20260923090000` is applied to both projects (23-Sep-2026).
 
 ## Applied migrations
 
@@ -85,7 +85,7 @@ than a link. `20260923090000` is applied to TEST; the development/production pro
 | `20260910070000_jalsa_core_schema.sql` | ✅ 10-Sep | ✅ 11-Sep | 22 tables, RLS enabled with no policies, the bill/table membership model, `next_number` |
 | `20260910071000_jalsa_seed_and_pin.sql` | ✅ 10-Sep | ✅ 11-Sep | restaurant, 11 settings, 20 tables, 11 categories, 57 items, 27 staff, 4 printers, 5 expenses |
 | `20260910072000_jalsa_bootstrap_pins_and_permissions.sql` | ✅ 10-Sep | ✅ 11-Sep | role presets — 278 permission rows |
-| `20260923090000_jalsa_print_bridge_pairing.sql` | ❌ not applied | ✅ 23-Sep (over an unrecorded draft `20260923075759 jalsa_bridge_pairing` present on TEST only; the file converges it — see its RECONCILIATION note) | `bridge_pairing_code`, `bridge_discovered_printer`, `bridge_printer`; `bridge_token.source/hostname/bridge_version/last_sync_at` |
+| `20260923090000_jalsa_print_bridge_pairing.sql` | ✅ 23-Sep (clean: no draft present) | ✅ 23-Sep (over an unrecorded draft `20260923075759 jalsa_bridge_pairing` present on TEST only; the file converges it — see its RECONCILIATION note) | `bridge_pairing_code`, `bridge_discovered_printer`, `bridge_printer`; `bridge_token.source/hostname/bridge_version/last_sync_at` |
 | `20260910073000_jalsa_provisional_pins.sql` | ✅ 10-Sep | ✅ 11-Sep | `pin_provisional`, `set_own_pin`, the `1234` setup code (KL-4) |
 | `20260912100000_jalsa_free_a_table.sql` | ✅ 12-Sep | ✅ 16-Sep | `tables.free` to the owner |
 | `20260912110000_jalsa_discount_type.sql` | ✅ 12-Sep | ✅ 12-Sep | the discount kind on a bill |
