@@ -46,6 +46,61 @@ _Merge blocked. Every FAIL above must resolve. No partial merges._
 
 ---
 
+## Application run - jalsa - 2026-09-23 - Bug: the Windows installer would not parse (bridge 2.0.1)
+
+**First real Windows run of the production download: the installer FAILED to parse.** Reported:
+install.ps1 125:97 "The string is missing the terminator: '", then missing '}' at 124, 77, 73.
+
+ROOT CAUSE (encoding, not syntax; not generated - install.ps1 ships verbatim from bridge/windows/)
+  The script held `->` written as `→` (UTF-8 E2 86 92) and `—`. With no byte-order mark, Windows
+  PowerShell 5.1 decodes a .ps1 in the ANSI code page (Windows-1252), where byte 0x92 is `’` -
+  which PowerShell accepts as a single-quote delimiter. The string on line 125 closed at the
+  arrow, its real `'` opened an unterminated one, and every enclosing `{` was reported unclosed.
+  REPRODUCED here with PowerShell 7.4.6 (downloaded for this): the shipped bytes decoded as
+  Windows-1252 -> exactly the customer's four errors (125:97 TerminatorExpectedAtEndOfString,
+  124:8 / 77:17 / 73:8 MissingEndCurlyBrace); the same bytes decoded as UTF-8 -> OK.
+  `--format=esm--target=node20` in the earlier transcript was display wrapping: package.json line
+  36 has the space; the bundle it built is the one every unit spec imports.
+
+THE FIX (source + packager, not the zip)
+  bridge/windows/* are ASCII-only (`→` -> `->`, `—` -> `-`, box-drawing rules -> `-`).
+  bridge/package/powershell-lint.ts: the ASCII rule with line:column; a tokenizer for PowerShell
+  strings ('' and `" escapes, here-strings, line and block comments, brace/paren balance) that
+  treats typographic quotes as PowerShell does; `ansiView` (the Windows-1252 reading of the bytes);
+  `prepareForWindows` (CRLF everywhere; UTF-8 BOM on .ps1 ONLY - cmd.exe cannot read a BOM and
+  would refuse `@echo off`).
+  bridge/package/build.ts: `validateWindowsScripts` runs before anything is assembled - ASCII +
+  tokenizer on each script as written AND as Windows PowerShell 5.1 would read it without a BOM,
+  and PowerShell's own parser when `pwsh`/`powershell`/`JALSA_PWSH` is on the packaging machine.
+  Any failure: exit 3, no artifact. BRIDGE_VERSION 2.0.1.
+
+FAIL-FIRST: 5 defects injected, all 5 observed failing (tests/unit/bridge-package.unit.spec.ts,
+appended rungs; no new spec file):
+  N1 the arrow put back into install.ps1                      1 failed | 15 passed
+  N2 the packager stops writing the BOM                       1 failed | 15 passed
+  N3 tokenizer stops treating typographic quotes as quotes    2 failed | 15 passed (the regression rung)
+  N4 the packager skips validation                            1 failed | 16 passed
+  N5 (cmd.exe rule) BOM on a .cmd                             covered by the rewritten BOM rung, observed
+     failing on the first package build (all five entries carried a BOM) before the fix
+  The regression fixture is `git show 1504bb9:jalsa/bridge/windows/install.ps1` - the exact file
+  that shipped - decoded as Windows-1252; the real-parser rung asserts the customer's error ids.
+
+WHAT WAS RUN
+  unit 938 passed (932 + 6 new rungs, real PowerShell parser present via JALSA_PWSH; the rung says
+  SKIPPED loudly on a machine without one) · typecheck clean · lint clean · bridge:package clean:
+  "Windows scripts validated (real PowerShell parser + tokenizer)"; the packaged install.ps1
+  extracted and parsed OK by PowerShell 7; every .ps1 BOM+CRLF+ASCII, every .cmd ASCII+CRLF, no
+  BOM, starting `@echo off`. Package 34.3 MB for https://jalsa-restaurant-phi.vercel.app,
+  sha256 1533f5a38da7fa8c1e33f767abd662ef2fe6f31f165cb25ba017af01ad4e0079.
+
+NOT VALIDATED, stated plainly
+  PowerShell 7 on Linux parses the file; it is not Windows PowerShell 5.1 on the customer's PC, and
+  parsing is not running. The corrected package has NOT been run on Windows. Gate 7 row 33a is the
+  re-run: Download -> Extract -> "Install Jalsa Print Bridge" -> completes. Rows 34-42 stay BLOCKED
+  behind it. The Blob upload must be repeated with the 2.0.1 zip.
+
+---
+
 ## Application run - jalsa - 2026-09-23 - Printers: connect the printing computer (pairing, discovery, mapping, installer)
 
 **Software-tested · Windows-runtime PENDING (KL-7) · physical printer PENDING (KL-6).** Nothing

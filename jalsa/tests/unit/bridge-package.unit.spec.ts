@@ -161,3 +161,130 @@ test('NO SECRETS COMMITTED: no live bridge token, pairing hash or Supabase secre
   // The test env file and the package artifact are ignored, by rule.
   expect(execFileSync('git', ['check-ignore', '.env.test', 'bridge/dist/jalsa-print-bridge-windows.zip'], { encoding: 'utf8' }).trim().split('\n')).toHaveLength(2);
 });
+
+/* ── The installer must parse on Windows (added 23-Sep-2026, after the first real Windows run) ── */
+
+/**
+ * WHAT HAPPENED: `install.ps1` line 125 held `→`. With no BOM, Windows PowerShell 5.1 decoded the
+ * file as Windows-1252, where the arrow's byte 0x92 is `’` — a quote character to PowerShell — so
+ * the string closed early: "The string is missing the terminator: '" at 125:97, then unclosed `{`
+ * at 124, 77, 73. PowerShell 7 on Linux reproduces those four errors from the same bytes decoded
+ * as Windows-1252. The rungs below hold the scripts to ASCII, hold the packager to a BOM, and
+ * keep the exact failing file as a fixture so the tokenizer can be shown to catch it.
+ *
+ * FAIL-FIRST EVIDENCE (23-Sep-2026): recorded in TEST_SUMMARY.md.
+ */
+import { ansiView, lintPowerShell, nonAscii, prepareForWindows, tokenizeErrors, BOM } from '../../bridge/package/powershell-lint';
+import { WINDOWS_SCRIPTS, parseWithPowerShell, realPowerShell, validateWindowsScripts } from '../../bridge/package/build';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+/** The file exactly as it shipped in 1504bb9, reconstructed from git so the fixture cannot drift. */
+const OLD_INSTALL = execFileSync('git', ['show', '1504bb9:jalsa/bridge/windows/install.ps1']);
+
+test('THE REGRESSION: the shipped installer, read as Windows PowerShell 5.1 read it, fails at 125:97 on a missing terminator', () => {
+  const asAnsi = ansiView(OLD_INSTALL);
+  expect(asAnsi).toContain('â†’'); // what the arrow became — and the ’ inside it is a quote to PowerShell
+  const r = lintPowerShell(asAnsi);
+  expect(r.ok).toBe(false);
+  if (r.ok) return;
+  const structural = tokenizeErrors(asAnsi);
+  expect(structural[0]).toMatchObject({ line: 125, message: "The string is missing the terminator: '" });
+  // And the same bytes decoded as UTF-8 were never a syntax error — the defect was the encoding.
+  expect(tokenizeErrors(OLD_INSTALL.toString('utf8'))).toEqual([]);
+  // The ASCII rule alone also catches it, on the file as written, naming the first arrow.
+  expect(nonAscii(OLD_INSTALL.toString('utf8'))[0]?.message).toContain('non-ASCII character U+2014');
+});
+
+test('the real PowerShell parser agrees, when one is on this machine (loud SKIP otherwise)', () => {
+  const pwsh = realPowerShell();
+  if (!pwsh) {
+    process.stderr.write('SKIPPED: no pwsh/powershell on this machine — the real-parser rung did NOT run; the tokenizer rungs did.\n');
+    return;
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'jalsa-ps1-'));
+  writeFileSync(join(dir, 'old-as-ansi.ps1'), ansiView(OLD_INSTALL), 'utf8');
+  const errors = parseWithPowerShell(pwsh, join(dir, 'old-as-ansi.ps1'));
+  expect(errors).toContain('125:97 TerminatorExpectedAtEndOfString');
+  expect(errors).toContain('124:8 MissingEndCurlyBrace');
+  for (const name of WINDOWS_SCRIPTS.filter((n) => n.endsWith('.ps1'))) {
+    expect(parseWithPowerShell(pwsh, join('bridge/windows', name)), name).toBe('');
+  }
+});
+
+test('every script the package ships is ASCII, tokenizes clean, and still does as Windows PowerShell 5.1 would read it', () => {
+  for (const name of WINDOWS_SCRIPTS) {
+    const bytes = readFileSync(join('bridge/windows', name));
+    expect(nonAscii(bytes.toString('utf8')), name).toEqual([]);
+    if (name.endsWith('.ps1')) {
+      expect(lintPowerShell(bytes.toString('utf8')), name).toEqual({ ok: true });
+      expect(lintPowerShell(ansiView(bytes)), `${name} as ANSI`).toEqual({ ok: true });
+    }
+  }
+  const v = validateWindowsScripts('bridge/windows');
+  expect(v.ok).toBe(true);
+});
+
+test('the tokenizer knows PowerShell strings: escapes, here-strings, comments — and refuses what is not closed', () => {
+  expect(tokenizeErrors("Write-Host 'it''s fine'")).toEqual([]);
+  expect(tokenizeErrors('Write-Host "a `" quote and a "" quote"')).toEqual([]);
+  expect(tokenizeErrors("$s = @'\nline with ' and \" and }\n'@\nif ($s) { 1 }")).toEqual([]);
+  expect(tokenizeErrors("<# a { comment ' #>\n# another ' one\nif (1) { 2 }")).toEqual([]);
+  expect(tokenizeErrors("Say 'open")[0]?.message).toBe("The string is missing the terminator: '");
+  expect(tokenizeErrors('if (1) { Say "x"')[0]?.message).toContain("Missing closing '}'");
+  expect(tokenizeErrors('if (1) { Say "x" } }')[0]?.message).toContain("unexpected '}'");
+  // Typographic quotes are quotes to PowerShell, so they are quotes here.
+  expect(tokenizeErrors("Say ‘smart’")).toEqual([]);
+  expect(tokenizeErrors("Say 'Jalsa ’ Printers'")[0]?.message).toContain('missing the terminator');
+  // The ASCII rule reports where, in a form a person can go to.
+  expect(nonAscii("line one\nSay 'Jalsa → Printers'")[0]).toMatchObject({ line: 2, column: 12 });
+});
+
+test('the packager ships .ps1 with a BOM, .cmd WITHOUT one (cmd.exe cannot read a BOM), all CRLF — and refuses a script that would not run', () => {
+  const out = prepareForWindows("Say 'hi'\nSay 'there'\n", 'ps1');
+  expect(out.subarray(0, 3).equals(BOM)).toBe(true);
+  expect(out.subarray(3).toString('utf8')).toBe("Say 'hi'\r\nSay 'there'\r\n");
+  // Already-CRLF input is not doubled.
+  expect(prepareForWindows("a\r\nb\n", 'ps1').subarray(3).toString('utf8')).toBe('a\r\nb\r\n');
+  // A batch file: the three BOM bytes would become part of `@echo off` and cmd.exe would refuse it.
+  const cmd = prepareForWindows('@echo off\nrem x\n', 'plain');
+  expect(cmd.subarray(0, 3).equals(BOM)).toBe(false);
+  expect(cmd.toString('utf8')).toBe('@echo off\r\nrem x\r\n');
+
+  const entries = assemble({
+    mainJs: Buffer.from('// bridge'),
+    origin: 'https://jalsa.example',
+    runtime: { exe: Buffer.from('MZ'), license: Buffer.from('MIT') },
+    windowsDir: 'bridge/windows',
+    builtAt: new Date('2026-09-23T10:00:00Z'),
+  });
+  for (const name of WINDOWS_SCRIPTS) {
+    const data = Buffer.from(entries.find((e) => e.name === name)!.data);
+    expect(data.subarray(0, 3).equals(BOM), `${name} BOM`).toBe(name.endsWith('.ps1'));
+    expect(data.toString('utf8')).not.toMatch(/[^\r]\n/);
+    if (name.endsWith('.cmd')) expect(data.toString('utf8').startsWith('@echo off\r\n'), `${name} starts with @echo off`).toBe(true);
+  }
+
+  // A directory holding the old installer is refused, naming the line.
+  const dir = mkdtempSync(join(tmpdir(), 'jalsa-winscripts-'));
+  for (const name of WINDOWS_SCRIPTS) writeFileSync(join(dir, name), readFileSync(join('bridge/windows', name)));
+  writeFileSync(join(dir, 'install.ps1'), OLD_INSTALL);
+  const refused = validateWindowsScripts(dir);
+  expect(refused.ok).toBe(false);
+  expect(!refused.ok && refused.problems.join('\n')).toMatch(/install\.ps1:2:\d+ non-ASCII/);
+  expect(!refused.ok && refused.problems.join('\n')).toContain('as Windows PowerShell 5.1 reads it without a BOM');
+});
+
+test('the packager cannot skip the check: the command refuses (exit 3) on a script that would not run', () => {
+  const build = read('bridge/package/build.ts');
+  const main = build.slice(build.indexOf('async function main('));
+  const at = main.indexOf('validateWindowsScripts(join(root');
+  expect(at, 'main validates the scripts').toBeGreaterThan(-1);
+  const after = main.slice(at, at + 400);
+  expect(after).toContain('if (!scripts.ok) {');
+  expect(after).toContain('return 3;');
+  // Validation happens BEFORE anything is assembled or written.
+  expect(at).toBeLessThan(main.indexOf('assemble({'));
+  expect(at).toBeLessThan(main.indexOf('writeFileSync(join(dist, PACKAGE_FILE)'));
+});
