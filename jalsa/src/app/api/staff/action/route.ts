@@ -89,7 +89,10 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           message: `Nothing was sent — ${result.refused.join(', ')} ${result.refused.length === 1 ? 'is' : 'are'} off the menu.`,
         });
       }
-      return ok({ kotCode: result.kotCode, refused: result.refused });
+      /* The bill id, because this call may have CREATED it: a round placed on a free table opens
+         its bill through `ensureOpenBill`, and without this the screen has nothing to open next
+         and has to wait for the poll to notice. */
+      return ok({ kotCode: result.kotCode, refused: result.refused, billId: bill.id });
     }
 
     case 'change-qty':

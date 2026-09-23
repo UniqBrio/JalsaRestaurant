@@ -30,6 +30,17 @@ export type StaffTab = 'floor' | 'table' | 'menu' | 'ready' | 'kots' | 'clean' |
 export interface StaffScreenProps {
   data: StaffPayload;
   go: (tab: StaffTab, arg?: string) => void;
+  /**
+   * The table a round is being started on BEFORE it has a bill.
+   *
+   * Kept separate from `selectedBillId` rather than overloading it. One slot holding "either a
+   * bill or a table" reads fine on the day it is written and is a trap afterwards: every screen
+   * that receives it has to guess which kind it holds, and the guess is invisible in a type.
+   * Null whenever the round belongs to a bill that already exists, which is the common case.
+   */
+  selectedTableId: string | null;
+  /** Start a round on a free table. Clears any bill selection — the two are never both live. */
+  goFreeTable: (tableId: string) => void;
   selectedBillId: string | null;
   send: <R>(path: string, payload: unknown) => Promise<R>;
   busy: boolean;
@@ -43,6 +54,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
 
   const [tab, setTab] = React.useState<StaffTab>(initial.isWaiter ? 'ready' : 'floor');
   const [selectedBillId, setSelectedBillId] = React.useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
   const runBusy = React.useCallback(
@@ -60,10 +72,20 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
 
   const go = React.useCallback((next: StaffTab, arg?: string) => {
     if (arg !== undefined) setSelectedBillId(arg);
+    // Any navigation that names a bill leaves the free-table path; leaving it set would make the
+    // next Send post a tableId for a table nobody is looking at.
+    if (arg !== undefined) setSelectedTableId(null);
     setTab(next);
   }, []);
 
-  const shared: StaffScreenProps = { data, go, selectedBillId, send, busy, runBusy };
+  /** Tap a table under "Free right now": straight to the menu, with no bill open yet. */
+  const goFreeTable = React.useCallback((tableId: string) => {
+    setSelectedBillId(null);
+    setSelectedTableId(tableId);
+    setTab('menu');
+  }, []);
+
+  const shared: StaffScreenProps = { data, go, selectedBillId, selectedTableId, goFreeTable, send, busy, runBusy };
 
   const unclearedRequests = data.requests.length;
   // Tables the party has left that nobody has reset. The waiter's second job, and until the
@@ -112,7 +134,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
           <button
             data-testid="staff-back"
             type="button"
-            onClick={() => go(tab === 'menu' ? 'table' : 'floor')}
+            onClick={() => go(tab === 'menu' && selectedBillId ? 'table' : 'floor')}
             aria-label="Back"
 
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none hover:bg-[var(--primary-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--on-primary)]"
@@ -128,8 +150,8 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="m-0 truncate type-body font-semibold">{titleFor(tab, data, selectedBillId)}</p>
-          <p className="m-0 truncate type-caption opacity-85">{subtitleFor(tab, data, selectedBillId)}</p>
+          <p className="m-0 truncate type-body font-semibold">{titleFor(tab, data, selectedBillId, selectedTableId)}</p>
+          <p className="m-0 truncate type-caption opacity-85">{subtitleFor(tab, data, selectedBillId, selectedTableId)}</p>
         </div>
       </header>
 
@@ -211,8 +233,9 @@ function selected(data: StaffPayload, billId: string | null) {
   return data.bills.find((b) => b.id === billId) ?? null;
 }
 
-function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null): string {
+function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null, tableId: string | null): string {
   const bill = selected(data, billId);
+  const freeTable = bill ? null : (data.tables.find((t) => t.id === tableId) ?? null);
   switch (tab) {
     case 'floor':
       return 'My tables';
@@ -221,7 +244,9 @@ function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null): str
         ? `${bill.groupCode ? `Group ${bill.groupCode}` : `Table ${bill.tables.join(', ')}`} · ${bill.code}`
         : 'Table';
     case 'menu':
-      return bill ? `Add items · ${bill.tables.join(', ')}` : 'Add items';
+      if (bill) return `Add items · ${bill.tables.join(', ')}`;
+      // A walk-in: the table is named before it has a bill to name it by.
+      return freeTable ? `New round · ${freeTable.name}` : 'Add items';
     case 'ready':
       return data.isWaiter ? 'Ready to run' : 'Ready to collect';
     case 'kots':
@@ -235,14 +260,18 @@ function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null): str
   }
 }
 
-function subtitleFor(tab: StaffTab, data: StaffPayload, billId: string | null): string {
+function subtitleFor(tab: StaffTab, data: StaffPayload, billId: string | null, tableId: string | null): string {
   const bill = selected(data, billId);
+  const freeTable = bill ? null : (data.tables.find((t) => t.id === tableId) ?? null);
   switch (tab) {
     case 'floor':
       return `${data.myTables.length || data.tables.filter((t) => t.billId).length} live · ${data.me.name}`;
     case 'table':
       return bill ? `${bill.guests} guests · opened ${bill.openedAt}` : '';
     case 'menu':
+      // Two different promises, and saying the wrong one is how a captain opens a bill
+      // they did not mean to open.
+      if (freeTable) return `Seats ${freeTable.seats} · the bill opens when this round is sent`;
       return 'A new round on the same bill';
     case 'ready':
       return data.ready.length === 1 ? '1 round waiting' : `${data.ready.length} rounds waiting`;

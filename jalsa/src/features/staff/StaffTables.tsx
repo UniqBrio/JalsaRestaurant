@@ -46,7 +46,7 @@ const PAYMENT_MODES = ['Cash', 'Digital / UPI', 'Card'] as const;
 
 /* ── 15. The floor ─────────────────────────────────────────────────────── */
 
-export function FloorScreen({ data, go, send, runBusy, busy }: StaffScreenProps) {
+export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
   const live = data.tables.filter((t) => t.billId !== null);
   const free = data.tables.filter((t) => t.billId === null && t.active);
@@ -165,12 +165,20 @@ export function FloorScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
           <SectionLabel>Free right now</SectionLabel>
           <div className="flex flex-wrap gap-2">
             {free.map((t) => (
-              <span
+              /* A button, not a label. These were inert for as long as the screen existed, which
+                 made the floor's most common action — a walk-in sitting down — the one thing the
+                 captain could not start here. `add-round` has always opened a bill for a table
+                 that has none; only the way in was missing. */
+              <button
                 key={t.id}
-                className="rounded-full bg-[var(--surface)] px-3 py-1.5 type-caption font-semibold text-[var(--text-muted)] shadow-[var(--shadow-card)]"
+                type="button"
+                data-testid={`staff-free-${t.id}`}
+                onClick={() => goFreeTable(t.id)}
+                aria-label={`Start a round on table ${t.name}, ${t.seats} seats`}
+                className="min-h-11 rounded-full bg-[var(--surface)] px-4 py-1.5 type-caption font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] hover:bg-[var(--surface-raised)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 {t.name} · {t.seats}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -649,26 +657,31 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
 
 /* ── 17. Add items for a table ─────────────────────────────────────────── */
 
-export function AddItemsScreen({ data, go, selectedBillId, send, runBusy, busy }: StaffScreenProps) {
+export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
   const bill = data.bills.find((b) => b.id === selectedBillId) ?? null;
+  /* The walk-in path: a table tapped under Free right now has no bill yet, and gets one when
+     the first round is sent. Only a table that is genuinely still free qualifies - if the poll
+     has since shown it seated, the bill above takes over and this is null. */
+  const freeTable = bill ? null : (data.tables.find((t) => t.id === selectedTableId && !t.billId) ?? null);
   const [query, setQuery] = React.useState('');
   const [category, setCategory] = React.useState('All');
   const [cart, setCart] = React.useState<Record<string, number>>({});
 
-  if (!bill) {
+  if (!bill && !freeTable) {
     return (
       <FirstRunState
-        title="No bill selected"
-        note="Open a table first — a round has to belong to a bill."
+        title="No table selected"
+        note="Pick a table first — a round has to belong to one."
         action={{ label: 'My tables', onClick: () => go('floor'), testId: 'staff-add-back' }}
         testId="staff-add-missing"
       />
     );
   }
 
-  const tableId =
-    data.tables.find((t) => t.name === bill.hostTable)?.id ?? data.tables.find((t) => t.billId === bill.id)?.id;
+  const tableId = bill
+    ? (data.tables.find((t) => t.name === bill.hostTable)?.id ?? data.tables.find((t) => t.billId === bill.id)?.id)
+    : freeTable?.id;
 
   const filtered = data.menu.filter((m) => {
     if (category !== 'All' && m.category !== category) return false;
@@ -760,18 +773,25 @@ export function AddItemsScreen({ data, go, selectedBillId, send, runBusy, busy }
                 const lines = Object.entries(cart)
                   .filter(([, n]) => n > 0)
                   .map(([menuItemId, qty]) => ({ menuItemId, qty }));
-                const res = await send<{ kotCode: string; refused: string[] }>('/api/staff/action', {
-                  action: 'add-round',
-                  tableId,
-                  billId: bill.id,
-                  lines,
-                });
+                /* `billId` is sent only when one exists. Omitted, the server opens the bill for
+                   this table through `ensureOpenBill` - which is how a walk-in starts - and
+                   answers with the id, so the screen can open the table it just seated rather
+                   than waiting for the next poll to notice it. */
+                const res = await send<{ kotCode: string; refused: string[]; billId: string }>(
+                  '/api/staff/action',
+                  {
+                    action: 'add-round',
+                    tableId,
+                    ...(bill ? { billId: bill.id } : {}),
+                    lines,
+                  }
+                );
                 setCart({});
                 toast.show(
                   `${res.kotCode} sent to the kitchen · ${lines.length === 1 ? '1 line' : `${lines.length} lines`}`,
                   { tone: 'success' }
                 );
-                go('table', bill.id);
+                go('table', res.billId);
               })
             }
           >

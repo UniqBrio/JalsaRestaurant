@@ -403,6 +403,44 @@ Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and li
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/free-table-order.unit.spec.ts - run against the three source files
+as they stood before this change, restored from the index with nothing else touched:
+**8 failed, 0 passed**. Every case failed, which is the honest result for a control that did not
+exist: the chip was a `<span>`, the shell had no second selection, the menu screen refused a
+table without a bill, the request always carried a `billId`, the route never answered with one,
+and the header promised "a new round on the same bill" for a table that had none. Restored from
+saved copies and re-run: **8 passed**.
+Full suite: **1050 passed** (unit + render), 0 failed - main's 1042 plus exactly these 8.
+Chromium only; the WebKit-backed tablet and mobile-ios projects cannot run in this container.
+
+WHAT THIS IS: the tables listed under "Free right now" on the captain's floor are now the way a
+walk-in starts. Tapping one opens the menu for that table and the first round sent opens its
+bill. WHAT IT IS NOT: a new rule about who may open a bill, and no new bill lifecycle.
+`add-round` has opened a bill for a table that has none since it was written - `ensureOpenBill`,
+reached whenever the request carries no `billId` - so the verb, the permission and the lifecycle
+were already there and are unchanged. Only the way in was missing. The one server change is
+additive: the response now also carries `billId`, because the call may have CREATED that bill and
+the screen otherwise has to wait for the next poll to learn its id.
+
+DESIGN NOTE, RECORDED BECAUSE THE ALTERNATIVE LOOKED CHEAPER: the table being seated is held in
+its own `selectedTableId` rather than reusing `selectedBillId`. One slot meaning "either a bill
+or a table" needs no signature change and is a trap afterwards - every screen receiving it has to
+guess which kind it holds, and the guess is invisible in the type. Choosing a bill clears the
+table and choosing a table clears the bill, so the two are never both live.
+
+NO DATABASE CHANGE: no migration, no new column, no new verb, no permission change.
+
+NOT DONE, AND NOT STARTED: the request also asked for this under the owner console. The owner
+console has no "Free right now" list and no ordering surface at all - `api/owner/action` has no
+`add-round` and `features/owner/` contains no menu screen. That is a new section plus a server
+verb, not a wiring change, so it is reported rather than half-built.
+
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no walk-in was seated against a live table and
+no bill was opened. The flow is pinned at the source level only; nobody has tapped the chip.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/report-timezone.unit.spec.ts - the original defect restored inside
 the new helper (`startOfDay` back to ``new Date(`${day}T00:00:00`)`` and `dayIn` back to
 `toISOString().slice(0, 10)`), nothing else touched: **7 failed, 2 passed**. The two that stayed
