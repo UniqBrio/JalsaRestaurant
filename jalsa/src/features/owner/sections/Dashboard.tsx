@@ -4,10 +4,12 @@ import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, Pill, SectionLabel } from '@/components/ui/atoms';
-import { Textarea } from '@/components/ui/field';
+import { Input, Textarea } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
+import { rupees } from '@/lib/money';
+import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -33,6 +35,13 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
      with it, which is the whole of what was asked for. */
   const [freeing, setFreeing] = React.useState<(typeof data.floor)[number] | null>(null);
   const canFree = data.grants.includes('tables.free');
+
+  /* Starting a round from here is for the walk-in nobody is on the floor for. Offered only
+     where the grant is held, for the same reason Mark free is: a control that is offered and
+     then refused is worse than one that was never there (Standard 5.6). The server checks it
+     again inside `placeRound`, which is where the rule actually lives. */
+  const [seating, setSeating] = React.useState<(typeof data.floor)[number] | null>(null);
+  const canOrder = data.grants.includes('orders.add_items');
 
   const replies = ((data.settings.replies ?? {}) as { items?: Array<{ name: string; text: string }> }).items ?? [];
   const unanswered = data.suggestions.filter((s) => !s.repliedAt);
@@ -166,6 +175,20 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         </p>
       </section>
 
+      {/* Keyed by the table, so choosing a different one remounts the sheet and its cart starts
+          empty. A cart left over from a table the owner decided against would otherwise be sent
+          to the next one — and resetting it in an effect is a render that fixes a render. */}
+      <NewRoundSheet
+        key={seating?.id ?? 'none'}
+        table={seating}
+        onClose={() => setSeating(null)}
+        menu={data.menu}
+        send={send}
+        runBusy={runBusy}
+        busy={busy}
+        go={go}
+      />
+
       <section>
         <SectionLabel>Floor right now</SectionLabel>
         <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-4 lg:grid-cols-6">
@@ -174,8 +197,10 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
               <button
                 data-testid={`owner-floor-${t.name}`}
                 type="button"
-                disabled={!t.billId}
-                onClick={() => t.billId && go('orders', t.billId)}
+                /* Seated: open its bill. Free and orderable: start a round on it. Otherwise
+                   inert, which is what an off-duty table should be. */
+                disabled={!t.billId && !(canOrder && t.active)}
+                onClick={() => (t.billId ? go('orders', t.billId) : setSeating(t))}
 
                 className={cn(
                   'w-full rounded-[var(--radius-md)] p-3 text-left shadow-[var(--shadow-card)] transition-colors',
@@ -363,5 +388,153 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         ) : null}
       </section>
     </div>
+  );
+}
+
+/* ── Starting a round from the owner's floor ───────────────────────────── */
+
+/**
+ * NewRoundSheet — the owner seats a walk-in and sends its first round.
+ *
+ * WHY A SHEET AND NOT A SCREEN
+ *   The captain's phone has a whole ordering screen because ordering is what that phone is for.
+ *   The owner does this rarely, for the table nobody is on the floor for, and leaving the
+ *   dashboard to do it would lose the floor they were looking at. A sheet keeps the answer to
+ *   "which table am I seating" on screen the whole time.
+ *
+ * WHY IT SENDS ONE REQUEST AND NOT TWO
+ *   There is no "open the bill" step. `add-round` opens it, because a bill opened by a separate
+ *   call is a bill that can be left open by a cart nobody sends — an empty tab on a table nobody
+ *   is sitting at, which someone then has to notice and free. Nothing exists until food is
+ *   ordered, and then everything does.
+ *
+ * SOLD-OUT ITEMS ARE SHOWN, NOT HIDDEN
+ *   The same choice the captain's screen makes. An owner looking for a dish needs to learn that
+ *   it is off tonight; a dish that silently vanishes reads as a bug in the menu.
+ */
+function NewRoundSheet({
+  table,
+  onClose,
+  menu,
+  send,
+  runBusy,
+  busy,
+  go,
+}: {
+  table: OwnerPayload['floor'][number] | null;
+  onClose: () => void;
+  menu: OwnerPayload['menu'];
+  send: OwnerSectionProps['send'];
+  runBusy: OwnerSectionProps['runBusy'];
+  busy: boolean;
+  go: OwnerSectionProps['go'];
+}) {
+  const toast = useToast();
+  const [query, setQuery] = React.useState('');
+  const [cart, setCart] = React.useState<Record<string, number>>({});
+
+  const filtered = menu.filter((m) => {
+    const q = query.trim().toLowerCase();
+    return !q || `${m.name} ${m.category}`.toLowerCase().includes(q);
+  });
+
+  const lines = Object.entries(cart).filter(([, n]) => n > 0);
+  const count = lines.reduce((a, [, n]) => a + n, 0);
+  const value = lines.reduce((a, [id, n]) => a + (menu.find((m) => m.id === id)?.price ?? 0) * n, 0);
+
+  return (
+    <Sheet
+      open={table !== null}
+      onOpenChange={(open) => !open && onClose()}
+      title={table ? `New round · ${table.name}` : 'New round'}
+      description={
+        table
+          ? `Seats ${table.seats} · the bill opens when this round is sent, and the round goes to the kitchen.`
+          : ''
+      }
+      testId="owner-new-round"
+      footer={
+        <Button
+          data-testid="owner-new-round-send"
+          size="lg"
+          disabled={busy || count === 0 || !table}
+          onClick={() =>
+            runBusy(async () => {
+              if (!table) return;
+              const res = await send<{ kotCode: string; refused: string[]; billId: string }>('/api/owner/action', {
+                action: 'add-round',
+                tableId: table.id,
+                lines: lines.map(([menuItemId, qty]) => ({ menuItemId, qty })),
+              });
+              onClose();
+              toast.show(`${res.kotCode} sent to the kitchen · ${table.name}`, { tone: 'success' });
+              // Straight to the bill this just opened, so the next thing the owner does — a
+              // second round, the closure — is one tap away rather than a hunt on the floor.
+              go('orders', res.billId);
+            })
+          }
+        >
+          {count === 0 ? 'Pick something first' : `Send · ${count === 1 ? '1 item' : `${count} items`} · ${rupees(value)}`}
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Input
+          data-testid="owner-new-round-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search the menu"
+          aria-label="Search the menu"
+        />
+        <ul className="m-0 flex max-h-[50vh] list-none flex-col gap-2 overflow-y-auto p-0">
+          {filtered.map((m) => {
+            const qty = cart[m.id] ?? 0;
+            return (
+              <li key={m.id}>
+                <Card className={cn('flex items-center gap-3 p-3', !m.available && 'opacity-60')}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate type-body font-semibold">{m.name}</span>
+                    <span className="block type-caption text-[var(--text-muted)]">
+                      {m.available ? `${m.category} · ${m.priceLabel}` : 'Out of stock — off the menu tonight'}
+                    </span>
+                  </span>
+                  {m.available ? (
+                    <span className="flex items-center gap-2">
+                      {qty > 0 ? (
+                        <Button
+                          data-testid={`owner-new-round-less-${m.id}`}
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setCart((c) => ({ ...c, [m.id]: Math.max(0, qty - 1) }))}
+                          aria-label={`One less ${m.name}`}
+                        >
+                          −
+                        </Button>
+                      ) : null}
+                      {qty > 0 ? <span className="type-body font-semibold tabular-nums">{qty}</span> : null}
+                      <Button
+                        data-testid={`owner-new-round-add-${m.id}`}
+                        size="icon"
+                        onClick={() => setCart((c) => ({ ...c, [m.id]: qty + 1 }))}
+                        aria-label={`Add ${m.name}`}
+                      >
+                        +
+                      </Button>
+                    </span>
+                  ) : (
+                    <Pill tone="neutral">Sold out</Pill>
+                  )}
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
+        {filtered.length === 0 ? (
+          <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+            Nothing on the menu matches that.
+          </p>
+        ) : null}
+      </div>
+    </Sheet>
   );
 }

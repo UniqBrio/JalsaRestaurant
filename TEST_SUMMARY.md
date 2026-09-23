@@ -403,6 +403,46 @@ Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and li
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/owner-new-round.unit.spec.ts - run against the owner route and the
+dashboard as they stood before this change, restored from the index with nothing else touched:
+**9 failed, 0 passed**. Every case failed, which is the honest result for a verb and a control
+that did not exist: the route had no `add-round`, and the floor tile was `disabled={!t.billId}`,
+so a free table was inert by construction. Restored from saved copies and re-run: **9 passed**.
+Full suite: **1059 passed** (unit + render), 0 failed - main's 1050 plus exactly these 9.
+Chromium only; the WebKit-backed tablet and mobile-ios projects cannot run in this container.
+
+WHAT THIS IS: the owner half of the free-table ordering the captain's floor gained in 56075f3.
+A free, active table on "Floor right now" opens a sheet with the menu; the round sent from it
+opens the table's bill and goes to the kitchen, and the dashboard then opens that bill.
+
+ONE OPERATION, NOT TWO: the route calls `ensureOpenBill` then `placeRound` - the same pair the
+captain's route calls - with `source: 'owner'`, which the bill and every report already read to
+say where an order came from. The verb has no `billId` mode: adding to a bill that exists is the
+captain's screen, and a branch here for it would never be walked. A case pins the absence.
+
+WHERE THE PERMISSION LIVES: `placeRound` already demands `orders.add_items` for every non-guest
+source, so the route does NOT check again. The dashboard checks the grant only to decide whether
+to OFFER the control (Standard 5.6, the argument `free-table` makes in the same file). Two cases
+hold both halves of that: the control is offered on the grant, and the door does not re-check.
+
+ONE REQUEST, SO NO EMPTY TAB: there is deliberately no "open the bill" step. A bill opened by its
+own call is a tab on a table nobody is sitting at, waiting for somebody to notice and free it.
+Nothing exists until food is ordered.
+
+A LINT RULE CHANGED THE DESIGN, CORRECTLY: the sheet first cleared its cart in an effect, which
+`react-hooks/set-state-in-effect` refused - a render that fixes a render. It is keyed by the
+table instead, so choosing a different one remounts it and the cart starts empty. The case pins
+the key rather than the effect.
+
+NO DATABASE CHANGE: no migration, no new column, no new permission. One additive field on the
+response (`billId`), because the call may have created that bill.
+
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so no walk-in was seated from the owner console
+and no bill was opened. Pinned at the source level only; nobody has opened the sheet.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/free-table-order.unit.spec.ts - run against the three source files
 as they stood before this change, restored from the index with nothing else touched:
 **8 failed, 0 passed**. Every case failed, which is the honest result for a control that did not

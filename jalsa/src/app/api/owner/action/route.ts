@@ -8,6 +8,8 @@ import {
   completeRequest,
   detachTableFromBill,
   freeTable,
+  ensureOpenBill,
+  placeRound,
   reassignBillStaff,
   joinTableToBill,
   replyToSuggestion,
@@ -58,6 +60,7 @@ type Action =
   | { action: 'reprint'; kotId: string }
   | { action: 'complete-request'; requestId: string }
   | { action: 'join-table'; billId: string; tableId: string }
+  | { action: 'add-round'; tableId: string; lines: Array<{ menuItemId: string; qty: number }> }
   | { action: 'free-table'; tableId: string }
   | { action: 'reassign-bill-staff'; billId: string; role: 'captain' | 'waiter'; staffId: string | null }
   | { action: 'reply-suggestion'; suggestionId: string; reply: string }
@@ -175,6 +178,39 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         actor,
       });
       return ok({ done: true, tipMoved: res.tipMoved });
+    }
+
+    case 'add-round': {
+      /* The owner's own way to start a round, for the walk-in nobody is on the floor for.
+
+         It is the SAME operation the captain's phone performs: `ensureOpenBill` when the table
+         has no bill, then `placeRound`. Not a second ordering path — a second implementation
+         is how the two surfaces end up disagreeing about what a round costs. `source: 'owner'`
+         is the only difference, and it is what the bill and every report already read to say
+         where an order came from.
+
+         No permission check here on purpose: `placeRound` demands `orders.add_items` for any
+         non-guest source, and the rule belongs to the operation rather than to each door into
+         it — the same argument `free-table` makes below. */
+      /* Always `ensureOpenBill`: this door exists for a table with no bill. Adding to a bill
+         that already exists is the captain's screen, and giving this verb a second mode nothing
+         calls would be a branch no test ever walks. */
+      const bill = await ensureOpenBill(input.tableId);
+      const placed = await placeRound({
+        billId: bill.id,
+        tableId: input.tableId,
+        lines: input.lines,
+        source: 'owner',
+        actor,
+      });
+      if (!placed.kotId) {
+        return fail(409, {
+          code: 'conflict',
+          message: `Nothing was sent — ${placed.refused.join(', ')} ${placed.refused.length === 1 ? 'is' : 'are'} off the menu.`,
+        });
+      }
+      // The bill id, because this call may have created it.
+      return ok({ kotCode: placed.kotCode, refused: placed.refused, billId: bill.id });
     }
 
     case 'free-table':
