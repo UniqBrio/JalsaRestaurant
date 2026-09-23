@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import QRCode from 'qrcode';
 import { fail, handler } from '@/lib/route';
 import { publicConfig } from '@/lib/config';
 import { currentStaff } from '@/lib/db/auth';
-import { themeValues } from '@/theme/tokens.generated';
+import { brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
 
 /**
  * The tabletop QR code, as an image.
@@ -14,11 +13,11 @@ import { themeValues } from '@/theme/tokens.generated';
  *   table in Settings does not invalidate it. A stored image would be a second copy of a fact
  *   that changes.
  *
- * COLOUR COMES FROM THE TOKEN MAP, NOT FROM A LITERAL
- *   A QR is painted by a library that cannot read a stylesheet, so it needs real values — the
- *   same reason the browser-chrome colour does. Taking them from the generated token map means
- *   a rebrand carries the printed codes with it, and the contrast that makes a code SCANNABLE
- *   is the same contrast the theme gate already measured.
+ * SINCE 23-Sep-2026 THE PICTURE CARRIES THE BADGE
+ *   What the code ENCODES is unchanged, and the target expression below is byte for byte what
+ *   it was. What changed is the picture: a vector with the Jalsa mark in its centre, made by
+ *   `lib/qr-svg.ts`, which also explains why it is an SVG and why the mark is drawn rather than
+ *   loaded. Colour still comes from the token map and never from a literal.
  */
 export const GET = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff();
@@ -37,12 +36,11 @@ export const GET = handler(async (req: Request): Promise<NextResponse> => {
     TWO CODES, ONE GENERATOR.
 
     A table's code points at `/t/<table>`; the entrance code points at `/q`. They are the same
-    kind of object — a PNG of a URL that identifies a PLACE and nothing else — so they are made
-    the same way rather than by a second endpoint with its own size, colours and cache policy.
-
-    `?table=` absent means the entrance. Not a separate `?kind=` parameter: the presence of a
-    table name is already the only question being asked, and a second parameter would allow the
-    nonsensical pair (kind=queue, table=A5) that this shape simply cannot express.
+    kind of object — a picture of a URL that identifies a PLACE and nothing else — so they are
+    made the same way rather than by a second endpoint with its own size, colours and cache
+    policy. `?table=` absent means the entrance: the presence of a table name is already the
+    only question being asked, and a `?kind=` parameter would admit the nonsensical pair
+    (kind=queue, table=A5) that this shape simply cannot express.
 
     THE ENTRANCE CODE CARRIES NOTHING ABOUT A PARTY. No token, no party size, no queue row id,
     no session. It is the same laminated card every night, whoever is standing at the door, and
@@ -51,22 +49,9 @@ export const GET = handler(async (req: Request): Promise<NextResponse> => {
   const table = new URL(req.url).searchParams.get('table');
   const origin = publicConfig.qrOrigin.replace(/\/+$/, '');
   const target = table ? `${origin}/t/${encodeURIComponent(table)}` : `${origin}/q`;
-  const png = await QRCode.toBuffer(target, {
-    type: 'png',
-    width: 720,
-    // High correction, because these live on a table under a water jug and get scratched.
-    errorCorrectionLevel: 'H',
-    margin: 2,
-    color: { dark: themeValues.light.primary, light: themeValues.light.surface },
-  });
+  const svg = await brandedQrSvg(target);
 
-  return new NextResponse(new Uint8Array(png), {
-    headers: {
-      'content-type': 'image/png',
-      // Immutable for a day: the content is a pure function of origin + table name, and a
-      // captain flicking through twenty tables should not re-render twenty images.
-      'cache-control': 'private, max-age=86400',
-      'content-disposition': `inline; filename="${table ? `jalsa-table-${table}` : 'jalsa-entrance-queue'}.png"`,
-    },
+  return new NextResponse(svg, {
+    headers: svgHeaders(table ? `jalsa-table-${table}` : 'jalsa-entrance-queue'),
   });
 });

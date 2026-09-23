@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
 import { PrintSetupSection } from './PrintSetupSection';
+import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -693,6 +694,10 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     active: boolean;
   } | null>(null);
   const [qrFor, setQrFor] = React.useState<string | null>(null);
+  /* The printable stand: both faces, from the same code the QR sheet shows. Its own
+     selection rather than a mode on `qrFor`, because the two sheets are different objects
+     - one is an image to save, the other is a print with two pages. */
+  const [standFor, setStandFor] = React.useState<string | null>(null);
 
   const zones = [...new Set(data.floor.map((t) => t.zone))];
 
@@ -735,6 +740,14 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       onClick={() => setQrFor(t.name)}
                     >
                       QR
+                    </Button>
+                    <Button
+                      data-testid={`owner-stand-${t.name}`}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setStandFor(t.name)}
+                    >
+                      Stand
                     </Button>
                     <Button
                       data-testid={`owner-edit-table-${t.name}`}
@@ -879,6 +892,14 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </div>
         ) : null}
       </Sheet>
+
+      <TableStandSheet
+        table={standFor}
+        onClose={() => setStandFor(null)}
+        qrOrigin={data.qrOrigin}
+        restaurant={data.restaurant}
+        settings={data.settings}
+      />
     </div>
   );
 }

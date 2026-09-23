@@ -403,6 +403,66 @@ Finished tree: 507 unit, 181 render, 20 degraded, 10/10 audits, typecheck and li
 
 ---
 
+FAIL-FIRST: jalsa/tests/unit/qr-stand.unit.spec.ts - run against the tree as it stood before
+this change (the three modified sources restored from the index and the three new sources moved
+aside, nothing else touched): the file could not load at all - `Cannot find module
+'src/lib/qr-svg'` - because the generator it exercises did not exist. That is the honest
+result for a spec whose first import is the thing being built, and Playwright reports it as the
+whole file failing. Restored from saved copies, every file verified byte-identical by `cmp`:
+**12 passed**, including the real generator producing a real SVG.
+FAIL-FIRST: jalsa/tests/render/table-stand.render.spec.ts - same pre-change tree, run alone:
+**1 failed, 18 passed**. The one that failed is the pin - `ENOENT` on TableStandSheet.tsx,
+which did not exist - and it is the ONLY case that can fail there: the eighteen width cases
+build their own DOM from the pinned strings and measure that, so they are green on either tree.
+The pin is what binds the measurement to the component, and it is the one that fired. Restored:
+**19 passed**.
+Full suite: **1101 passed** (unit + render), 0 failed - main's 1070 plus exactly these 31.
+Chromium only; the WebKit-backed tablet and mobile-ios projects cannot run in this container.
+
+WHAT THIS IS: the three QR items from the 23-Sep request. (6) The table and entrance codes now
+carry the Jalsa badge in their centre. (7) A Google review code for the back of the stand. (8)
+The scan instructions, in the owner's own words, printed on the front. Plus the thing that makes
+7 and 8 a single object: a printable two-faced stand, opened from Tables & QR beside the existing
+QR button, previewed side by side and printed as two pages to fold.
+
+WHY THE CODE BECAME A VECTOR, AND WHAT DID NOT CHANGE: the badge needs compositing, and a PNG is
+pixels with no compositor installed. The QR library emits SVG as a path, and a second shape can
+be written into a path with string arithmetic. What the table code ENCODES is untouched -
+`indoor-queue.unit.spec.ts` pins that target expression byte for byte and still passes. The
+badge is 22% of the width, about 5% of the area, inside level H's 30% recovery margin - the
+level the code already used because it lives under a water jug.
+
+WHY THE MARK IS DRAWN AND NOT LOADED: an SVG served as an image may not reference another file,
+and a runtime read of `public/brand/mark-light.svg` from a serverless function is a file the
+bundle may not carry. The glyph's path data lives in `lib/qr-svg.ts`, byte for byte the shape in
+the asset, and EVERY colour comes from the token map - the hardcoded-colour audit scans that file
+and ratchets on a literal. A case asserts the source carries none and that the output carries no
+external reference.
+
+WHY THE REVIEW CODE IS ITS OWN ROUTE AND TAKES NO INPUT: a `?url=` would let any signed-in staff
+member print a code pointing anywhere and hand it to a guest as the restaurant's. The link is
+read from `settings.engagement.reviewUrl` - the SAME setting the guest's phone offers after the
+meal, already set in production - so the card and the phone can never disagree. No link set is a
+404 that names the setting to fill; a link that is not `https://` is a 422. Both are pinned.
+
+ONE FINDING THE RENDER PROBE MADE BEFORE IT SHIPPED: an address has no spaces to wrap at, and at
+320px it set the face's floor width and pushed it out of the dialog. `break-all` on that element
+was added before the first green run, and the pin now asserts it - the measurement exists for
+exactly this class of defect.
+
+NO DATABASE CHANGE: no migration, no new column, no new setting. The review link was already a
+setting; the stand only reads it.
+
+NOT BUILT: submenu category, from the same request, which needs a second level on a flat
+`menu_category` table plus menu-editing changes and is reported rather than half-built.
+
+Gate for this change: **BLOCKED** - G8 functional did not run. This container's egress policy
+refuses the CONNECT tunnel to `*.supabase.co`, so the stand was not opened against a live table
+row and no code was scanned by a phone. The generator is exercised for real in the unit spec; the
+routes and the sheet are pinned at the source level; the layout is measured at nine widths.
+
+---
+
 FAIL-FIRST: jalsa/tests/unit/report-gst-split.unit.spec.ts - run against the five source files
 as they stood before this change, restored from the index with nothing else touched:
 **11 failed, 0 passed**. Every case failed, which is the honest result for a split, a category

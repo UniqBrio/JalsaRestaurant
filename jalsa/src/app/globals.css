@@ -308,6 +308,14 @@ h6 {
     display: none !important;
   }
 
+  /* A two-faced card: the element carrying this starts on its own sheet of paper, so the
+     front and the back of a tabletop stand come out as two pages to fold, not one page to
+     cut. Both spellings, because the old one is what some print engines still read. */
+  .j-print-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
   /*
    * PRINTING ONE PANEL, NOT THE CONSOLE BEHIND IT.
    *
