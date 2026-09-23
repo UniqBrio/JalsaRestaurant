@@ -41,6 +41,17 @@ compiles the `winspool.drv` declarations in `windows-queue.ts` and that `WritePr
 on the installed build; that the bundled Node 24 `node.exe` runs the ESM bundle. Rows 33–40 of
 `docs/GATE-7-HARDWARE-ACCEPTANCE.md` cover them, and are BLOCKED until somebody runs them.
 
+**First Windows run, 23-Sep-2026 (row 34 FAILED, then fixed).** The customer's download opened
+and `install.ps1` refused to parse: *"The string is missing the terminator: '"* at 125:97. Cause:
+the script held `→` and `—`; without a BOM, Windows PowerShell 5.1 decoded it as Windows-1252,
+where the arrow's byte 0x92 is `’`, which PowerShell accepts as a quote. Fixed at the source
+(`bridge/windows/*` are ASCII-only), in the packager (every script ships with a BOM and CRLF, and
+`bridge:package` refuses a script that fails the tokenizer, its Windows-1252 view, or — when a
+PowerShell is on the packaging machine — PowerShell's own parser), and with a regression rung
+holding the exact failing file. PowerShell 7 on Linux reproduces the customer's four errors from
+the old bytes and none from the new. **The corrected package (bridge 2.0.1) has not yet been run on
+Windows**; rows 34–42 stay BLOCKED until it has.
+
 **Consequence for reporting.** "Software-tested" and "Windows-runtime pending" are different
 words and every report about this feature uses both. Nothing here moves KL-6.
 

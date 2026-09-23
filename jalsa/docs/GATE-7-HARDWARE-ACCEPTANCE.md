@@ -122,6 +122,7 @@ sections B–E; this section is the paired path.
 | # | Check | How | Pass looks like |
 |---|---|---|---|
 | 33 | The download opens | **Printers → Connect Printing Computer → Download for Windows** | `Jalsa-Print-Bridge-Windows.zip`, ~35 MB, opens in Explorer with `Install Jalsa Print Bridge.cmd` inside |
+| 33a | **The installer parses** | Run the `.cmd`; the PowerShell window must not show a red parse error | No *TerminatorExpectedAtEndOfString* / *MissingEndCurlyBrace*. **FAILED 23-Sep-2026 on bridge 2.0.0** (non-ASCII `→` read as a quote under the ANSI code page); fixed in 2.0.1 — re-run |
 | 34 | The installer elevates and installs | Double-click the `.cmd`, accept the UAC prompt | Files under `%ProgramData%\Jalsa\PrintBridge\app`; `config`, `spool`, `logs` folders exist; ordinary users cannot open `config.json` |
 | 35 | Pairing takes the code once | Type the code from **Printers → Show pairing code** | *"This computer is now connected to Jalsa as …"*; the Printers screen shows the computer **Connected** within a minute |
 | 36 | A wrong, used or expired code is refused in words | Type a wrong code, then the used one | The sentence names the next step; the installer asks again; nothing is written |

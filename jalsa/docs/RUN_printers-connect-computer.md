@@ -76,6 +76,10 @@ UAC elevation via the `.cmd`; `icacls`; `Register-ScheduledTask` as SYSTEM and w
 
 `ENVIRONMENTS.md` → *Publishing the Windows installer*: build the package with the production origin, upload the zip to an **https** location, set `PRINT_BRIDGE_DOWNLOAD_URL`. Migration `20260923090000` is applied to both projects. Until then the Printers screen says the installer is not published — no fake URL was invented, and a serverless function cannot stream a 35 MB file (Vercel's 4.5 MB response limit), which is why the hosted redirect is the production shape.
 
+## N2 · First Windows run (23-Sep-2026) — the installer failed to parse; fixed in 2.0.1
+
+Row 33a FAILED: `install.ps1` held `→`, decoded by Windows PowerShell 5.1 (no BOM, ANSI code page) as the quote `’`. Reproduced with PowerShell 7 on Linux from the shipped bytes. Fix: ASCII-only sources; `bridge/package/powershell-lint.ts` + `validateWindowsScripts` in the packager (tokenizer, Windows-1252 view, real parser when available; exit 3 on failure); `.ps1` with BOM+CRLF, `.cmd` without a BOM. The corrected package has not yet been run on Windows.
+
 ## P · Risks
 
 1. `config.json` holds the bearer token in plaintext on the PC (as env mode always did); mitigated by the folder ACL, revocation from Jalsa, and single-restaurant scope. DPAPI would be the next step.

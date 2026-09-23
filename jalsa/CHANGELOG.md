@@ -14,6 +14,12 @@ opens the full print setup (templates, routing, history).
 
 Not yet: none of this has been run on a Windows machine or a real TVS RP3160 — see KL-6 and KL-7.
 
+**Fixed — 23-Sep-2026 — the installer would not start.** The first real Windows run of the download
+stopped at once with a PowerShell error before asking for anything. The installer's text used an
+arrow character that Windows read as a quotation mark. It now uses plain characters, and the
+download is checked the way Windows will read it before it is built. Download the installer again
+(Jalsa Print Bridge 2.0.1).
+
 ### Added — 10-Sep-2026 — the first build
 
 **For a guest.** Scan the code on your table and the menu is on your phone: veg, non-veg and egg

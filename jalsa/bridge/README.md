@@ -61,6 +61,14 @@ npm run bridge:package -- --origin https://<the production origin>
 # → jalsa/bridge/dist/jalsa-print-bridge-windows.zip  (+ .json manifest with its SHA-256)
 ```
 
+`bridge:package` refuses to write an artifact whose scripts Windows would not run: every file in
+`bridge/windows` must be ASCII, must tokenize as PowerShell both as written and as Windows
+PowerShell 5.1 reads a file without a BOM (Windows-1252), and — when `pwsh` or `powershell` is on
+the packaging machine, or `JALSA_PWSH` names one — must parse under PowerShell's own parser.
+`.ps1` files ship with a UTF-8 BOM and CRLF; `.cmd` files ship plain ASCII with CRLF (cmd.exe
+cannot read a BOM). Bridge 2.0.1 exists because 2.0.0's installer held a `→` that Windows read as
+a quote.
+
 Upload the zip to an https address and set `PRINT_BRIDGE_DOWNLOAD_URL` in the production
 environment. A self-hosted `next start` can instead leave the file in `bridge/dist/` and the
 download route streams it. Until one of those is true the Printers screen says the installer is

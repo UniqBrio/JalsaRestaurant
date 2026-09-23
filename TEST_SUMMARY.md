@@ -2,6 +2,21 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-23 - Bug: the Windows installer would not parse (bridge 2.0.1)
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** First real Windows run: install.ps1 failed
+at 125:97 (a `→`, read as the quote `’` by Windows PowerShell 5.1 in the ANSI code page, no BOM).
+Reproduced with PowerShell 7; sources made ASCII-only; the packager now validates every script
+(tokenizer, Windows-1252 view, real parser when present) and ships .ps1 with a BOM, .cmd without.
+
+FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts (appended rungs) - the arrow put back: 1 failed; BOM dropped: 1 failed; typographic quotes ignored by the tokenizer: 2 failed; validation skipped in the packager: 1 failed.
+
+Gate run (jalsa): unit 938 passed, typecheck and lint clean, bridge:package clean with the real
+PowerShell parser; G8 functional BLOCKED on this runner (no database), as before. The corrected
+package has NOT been run on Windows yet.
+
+---
+
 ## Application run - jalsa - 2026-09-23 - Printers: connect the printing computer
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`** (the mutation table, the fifteen cases of the

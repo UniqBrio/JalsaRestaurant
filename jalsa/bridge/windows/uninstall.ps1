@@ -1,5 +1,5 @@
 <#
-  Jalsa Print Bridge — remove it from this PC.
+  Jalsa Print Bridge - remove it from this PC.
   Stops and deletes the Scheduled Task and removes %ProgramData%\Jalsa\PrintBridge, including the
   computer's credential. The computer stays listed in Jalsa until it is disconnected there too.
 #>
@@ -14,5 +14,5 @@ Start-Sleep -Seconds 2
 Remove-Item -Recurse -Force $Home_
 Write-Host ''
 Write-Host '  Jalsa Print Bridge has been removed from this computer.'
-Write-Host '  In Jalsa → Printers, use Disconnect on this computer so tickets stop waiting for it.'
+Write-Host '  In Jalsa -> Printers, use Disconnect on this computer so tickets stop waiting for it.'
 Write-Host ''
