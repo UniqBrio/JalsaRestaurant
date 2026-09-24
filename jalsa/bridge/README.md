@@ -1,5 +1,7 @@
 # Jalsa Print Bridge
 
+> Installing on a Windows computer? Follow [`docs/PRINT-BRIDGE-WINDOWS-INSTALL.md`](../docs/PRINT-BRIDGE-WINDOWS-INSTALL.md).
+
 The small program on the Windows PC a thermal printer is plugged into. It asks Jalsa what is
 waiting, takes one ticket at a time, turns it into ESC/POS bytes and hands them to the printer's
 Windows queue. **It decides nothing about printing** — which printer, which station, what happens

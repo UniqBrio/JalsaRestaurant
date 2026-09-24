@@ -64,7 +64,12 @@ export function PrintersSection(props: OwnerSectionProps) {
   const canEdit = data.grants.includes('set.printer');
   const [manage, setManage] = React.useState(false);
   const [setupOpen, setSetupOpen] = React.useState(false);
-  const [choosing, setChoosing] = React.useState<{ computer: PrintComputerRow; printer: DiscoveredPrinterRow } | null>(null);
+  const [choosing, setChoosing] = React.useState<{
+    computer: PrintComputerRow;
+    printer: DiscoveredPrinterRow;
+    /** The Jalsa printer this Windows printer prints as now, when it is being CHANGED (B3). */
+    currentPrinterId?: string;
+  } | null>(null);
   const [disconnecting, setDisconnecting] = React.useState<PrintComputerRow | null>(null);
   /* WHICH printer is being tested, and the job it queued — so the line beside the button follows
      that one job through History rather than guessing from the latest row. */
@@ -291,7 +296,33 @@ export function PrintersSection(props: OwnerSectionProps) {
                                 </span>
                                 <Pill tone={d.status === 'ready' ? 'success' : d.status === 'unknown' ? 'neutral' : 'error'}>{word}</Pill>
                                 {jalsaPrinter ? (
-                                  <span className="type-caption font-semibold">→ {jalsaPrinter.station} · {jalsaPrinter.name}</span>
+                                  <>
+                                    <span className="type-caption font-semibold">→ {jalsaPrinter.station} · {jalsaPrinter.name}</span>
+                                    {/* Change what it prints as, or stop using it, from right here (B3):
+                                        a mapped printer used to show no control at all. */}
+                                    {canEdit ? (
+                                      <>
+                                        <Button
+                                          data-testid={`owner-printers-change-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
+                                          size="sm"
+                                          variant="secondary"
+                                          disabled={busy}
+                                          onClick={() => setChoosing({ computer: c, printer: d, currentPrinterId: jalsaPrinter.id })}
+                                        >
+                                          Change
+                                        </Button>
+                                        <Button
+                                          data-testid={`owner-printers-stop-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled={busy}
+                                          onClick={() => removeMapping(jalsaPrinter)}
+                                        >
+                                          Stop using
+                                        </Button>
+                                      </>
+                                    ) : null}
+                                  </>
                                 ) : canEdit ? (
                                   <Button
                                     data-testid={`owner-printers-select-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
@@ -336,7 +367,14 @@ export function PrintersSection(props: OwnerSectionProps) {
         {...props}
         choosing={choosing}
         onClose={() => setChoosing(null)}
-        existing={data.printers.filter((p) => !mappingByPrinter.has(p.id))}
+        existing={data.printers}
+        placeOf={(id) => {
+          // Where a printer is now, so choosing it here says it will MOVE (B3). The server's
+          // one-computer-per-printer upsert already moved it; the chooser used to hide it.
+          const m = mappingByPrinter.get(id);
+          if (!m) return null;
+          return `${computerById.get(m.computerId)?.label ?? 'another computer'} · ${m.queueName}`;
+        }}
       />
 
       <ConfirmDialog
@@ -506,10 +544,12 @@ function ChoosePrinterSheet({
   choosing,
   onClose,
   existing,
+  placeOf,
 }: OwnerSectionProps & {
-  choosing: { computer: PrintComputerRow; printer: DiscoveredPrinterRow } | null;
+  choosing: { computer: PrintComputerRow; printer: DiscoveredPrinterRow; currentPrinterId?: string } | null;
   onClose: () => void;
   existing: PrinterRow[];
+  placeOf: (printerId: string) => string | null;
 }) {
   const toast = useToast();
   const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' });
@@ -519,7 +559,11 @@ function ChoosePrinterSheet({
   const [formKey, setFormKey] = React.useState(key);
   if (key !== formKey) {
     setFormKey(key);
-    setTarget({ kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' });
+    setTarget(
+      choosing?.currentPrinterId
+        ? { kind: 'existing', printerId: choosing.currentPrinterId }
+        : { kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' }
+    );
   }
 
   const stations = [...new Set(['Main Kitchen', 'Tandoor', 'Billing', ...existing.map((p) => p.station)])];
@@ -580,7 +624,14 @@ function ChoosePrinterSheet({
               }
               options={[
                 { value: 'new', label: 'A new printer' },
-                ...existing.map((p) => ({ value: p.id, label: p.name, hint: `${p.station} · already in Jalsa` })),
+                ...existing.map((p) => {
+                  const place = p.id === choosing.currentPrinterId ? null : placeOf(p.id);
+                  return {
+                    value: p.id,
+                    label: p.name,
+                    hint: place ? `${p.station} · now on ${place} — moves here` : `${p.station} · already in Jalsa`,
+                  };
+                }),
               ]}
               placeholder="A new printer, or one already in Jalsa"
             />

@@ -38,6 +38,7 @@ import {
   issuePairingCode,
   savePrinterMapping,
   removePrinterMapping,
+  deletePrinter,
   revokeBridgeToken,
   upsertStaff,
   upsertTable,
@@ -134,6 +135,7 @@ type Action =
       purpose?: string;
     }
   | { action: 'remove-printer-mapping'; printerId: string }
+  | { action: 'delete-printer'; printerId: string }
   | { action: 'retry-print'; jobId: string }
   /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
      path to a machine other than the assigned one, and it exists so no automatic path has
@@ -422,6 +424,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'remove-printer-mapping':
       return ok(await removePrinterMapping({ printerId: input.printerId, actor }));
+
+    case 'delete-printer':
+      return ok(await deletePrinter({ printerId: input.printerId, actor }));
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));

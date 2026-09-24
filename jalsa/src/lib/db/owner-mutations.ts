@@ -776,7 +776,20 @@ export async function upsertPrinter(input: {
   const restaurantId = await currentRestaurantId();
 
   if (!input.name.trim()) throw new Error('Give the machine a name first — somebody has to find it in a kitchen.');
-  if (input.connection !== 'USB' && !input.address.trim()) {
+  /* A printer reached THROUGH A PRINTING COMPUTER has no address of its own - the computer is
+     how it is reached (24-Sep list, B1). `savePrinterMapping` creates those with no address, so
+     this rule refused every save on them: switching one off and pressing Save did nothing. The
+     same exemption `testPrintBlocker` already makes for them. */
+  const { data: mapping, error: mappingErr } = input.id
+    ? await db()
+        .from('bridge_printer')
+        .select('printer_id')
+        .eq('printer_id', input.id)
+        .eq('restaurant_id', restaurantId)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (mappingErr) throw mappingErr;
+  if (input.connection !== 'USB' && !input.address.trim() && !mapping) {
     throw new Error('A network machine needs an address, or nothing can reach it.');
   }
 
@@ -800,8 +813,16 @@ export async function upsertPrinter(input: {
       .eq('id', input.id)
       .maybeSingle();
 
-    const { error } = await db().from('printer').update(patch).eq('id', input.id);
+    // Scoped to this restaurant, and it must actually change one row: a save that touched
+    // nothing is not reported as saved (B1).
+    const { data: saved, error } = await db()
+      .from('printer')
+      .update(patch)
+      .eq('id', input.id)
+      .eq('restaurant_id', restaurantId)
+      .select('id');
     if (error) throw error;
+    if ((saved ?? []).length !== 1) throw new Error('That printer is no longer configured. Reload the page.');
 
     const wasEnabled = (before?.enabled as boolean | null) ?? true;
     const routesChanged = JSON.stringify((before?.routes as string[]) ?? []) !== JSON.stringify(input.routes);
@@ -1113,6 +1134,63 @@ export async function issueBridgeToken(input: { label: string; actor: Actor }): 
 }
 
 /**
+ * Delete a printer (24-Sep list, B2).
+ *
+ * WHAT GOES WITH IT, AND WHAT STAYS
+ *   - Its mapping to a printing computer goes with it (`bridge_printer` cascades).
+ *   - Its category routes go with it - they are a column on the row - so those categories print
+ *     at the main kitchen's fallback, exactly as if it had been switched off. The confirmation
+ *     says so before anyone presses Delete.
+ *   - Its HISTORY stays: every print job snapshots the printer's name and station, and the job's
+ *     link becomes empty (`on delete set null`) rather than the job disappearing.
+ *
+ * REFUSED WHILE TICKETS ARE WAITING ON IT. A queued or printing job whose printer vanished is a
+ * ticket no computer will ever claim - a kitchen order lost silently. The owner is told how many
+ * and where, and can reprint them to another machine first.
+ */
+export async function deletePrinter(input: { printerId: string; actor: Actor }): Promise<{ name: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: printer, error: readErr } = await db()
+    .from('printer')
+    .select('id,name')
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
+  const name = printer.name as string;
+
+  const { count, error: jobsErr } = await db()
+    .from('print_job')
+    .select('id', { count: 'exact', head: true })
+    .eq('printer_id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['queued', 'processing']);
+  if (jobsErr) throw jobsErr;
+  if ((count ?? 0) > 0) {
+    throw new Error(
+      `${name} still has ${count} ${count === 1 ? 'ticket' : 'tickets'} waiting to print. Reprint ${
+        count === 1 ? 'it' : 'them'
+      } to another printer from History, then delete it.`
+    );
+  }
+
+  const { data: gone, error } = await db()
+    .from('printer')
+    .delete()
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  if ((gone ?? []).length !== 1) throw new Error('That printer is no longer configured. Reload the page.');
+
+  await audit({ action: 'Printer', detail: `${name} deleted`, actor: input.actor });
+  return { name };
+}
+
+/**
  * Stop a bridge token working.
  *
  * A timestamp, not a delete: the job history says which PC carried which ticket, and a revoked
@@ -1132,6 +1210,16 @@ export async function revokeBridgeToken(input: { tokenId: string; actor: Actor }
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('That bridge token is already revoked, or is not one of this restaurant’s.');
+
+  /* A disconnected computer prints nothing, so it is no longer where any printer is (B3). Left
+     in place, its mappings kept those printers "on a computer" that no longer exists: hidden
+     from the chooser, and stuck until someone knew to press Remove on each first. */
+  const { error: unmapErr } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('bridge_token_id', input.tokenId)
+    .eq('restaurant_id', restaurantId);
+  if (unmapErr) throw unmapErr;
 
   await audit({
     action: 'Set permissions',
@@ -1304,6 +1392,18 @@ export async function savePrinterMapping(input: {
     printerId = created.id as string;
     printerName = name;
   }
+
+  /* ONE JALSA PRINTER PER WINDOWS PRINTER (B3). Changing what this queue prints as replaces
+     whatever it printed as before; two Jalsa printers on one paper roll would print every
+     ticket twice. */
+  const { error: clearErr } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('bridge_token_id', input.computerId)
+    .eq('restaurant_id', restaurantId)
+    .eq('queue_name', input.queueName)
+    .neq('printer_id', printerId);
+  if (clearErr) throw clearErr;
 
   // ONE COMPUTER PER PRINTER. Moving it to this computer replaces the old mapping.
   const { error: mapErr } = await db()

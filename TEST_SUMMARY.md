@@ -2,6 +2,22 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, batch 3 (B1-B4 printers)
+
+FAIL-FIRST: jalsa/tests/unit/printer-management.unit.spec.ts - against HEAD's sources: **8 failed** of 8; after: 8 passed. Unit tier: 983 passed.
+SUPERSEDED IN PLACE: jalsa/tests/unit/print-config.unit.spec.ts "revoking is a timestamp, never a delete" - previously "no .delete( at all"; now "the bridge_token row is never deleted, its bridge_printer mappings are" (dated note).
+
+Live evidence (read-only): all five printers are USB, three already saved enabled=false; the paired
+computer "Bill counter PC" (last seen 24-Sep) has NO printer mapped - consistent with B3 (no way to
+change a mapping, chooser hiding mapped printers, revoked computers keeping theirs).
+NOT VERIFIED: the save / delete / change paths against a running app and database (G8 not run
+here). B1's confirmed cause is the address rule on computer-reached printers; if the tester's
+failing save was on a USB printer, that path was not reproduced from here.
+B4: jalsa/docs/PRINT-BRIDGE-WINDOWS-INSTALL.md, written from install.ps1, uninstall.ps1, the package
+builder and the on-screen labels; no screenshots exist in the repository (KL-7).
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, batch 2 (F2, F3)
 
 FAIL-FIRST: jalsa/tests/unit/queue-seat-and-closed.unit.spec.ts - against HEAD's sources (new shared sentence kept): **7 failed**, 1 passed (the sentence-shape case, which is new surface: NOT OBSERVED FAILING for that one); after: 8 passed. Unit tier: 975 passed.

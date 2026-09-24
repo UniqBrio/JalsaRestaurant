@@ -6,7 +6,7 @@ import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, Input, Select, Toggle } from '@/components/ui/field';
-import { Sheet } from '@/components/ui/sheet';
+import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { PRINT_STATUS } from '@/components/ui/print';
 import { useToast } from '@/components/ui/toast';
@@ -322,7 +322,10 @@ const blankPrinter = (): PrinterForm => ({
 function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const [form, setForm] = React.useState<PrinterForm | null>(null);
+  const [deleting, setDeleting] = React.useState<PrinterForm | null>(null);
   const canEdit = data.grants.includes('set.printer');
+  // Reached through a printing computer: it has no address of its own, and needs none (B1).
+  const throughComputer = new Set(data.printerMappings.map((m) => m.printerId));
   /* WHICH printer is being tested, not WHETHER one is. Testing the tandoor must not disable the
      counter's button — four machines are usually tested one after another. */
   const [testing, setTesting] = React.useState<string | null>(null);
@@ -376,6 +379,19 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       });
       setForm(null);
       toast.show(`${f.name} saved · ${f.paperMm} mm · ${f.purpose} template`, { tone: 'success' });
+    });
+  };
+
+  /* Delete (B2). Only after the server confirms: the sheet stays open and the toast says why if
+     it is refused - tickets still waiting on it, most often. */
+  const remove = (f: PrinterForm): void => {
+    if (!f.id) return;
+    const id = f.id;
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'delete-printer', printerId: id });
+      setDeleting(null);
+      setForm(null);
+      toast.show(`${f.name} deleted`, { tone: 'success' });
     });
   };
 
@@ -486,12 +502,27 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-print-form"
         footer={
           <>
+            {form?.id && canEdit ? (
+              <Button
+                data-testid="owner-print-delete"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setDeleting(form)}
+                className="mr-auto text-[var(--error)]"
+              >
+                Delete
+              </Button>
+            ) : null}
             <Button data-testid="owner-print-cancel" variant="ghost" onClick={() => setForm(null)}>
               Cancel
             </Button>
             <Button
               data-testid="owner-print-save"
-              disabled={busy || !form?.name.trim() || (form.connection !== 'USB' && !form.address.trim())}
+              disabled={
+                busy ||
+                !form?.name.trim() ||
+                (form.connection !== 'USB' && !form.address.trim() && !(form.id && throughComputer.has(form.id)))
+              }
               onClick={() => form && save(form)}
             >
               {form?.id ? 'Save changes' : 'Add the printer'}
@@ -591,6 +622,25 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </div>
         ) : null}
       </Sheet>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={deleting ? `Delete ${deleting.name}?` : 'Delete printer'}
+        consequence={
+          deleting
+            ? `${deleting.name} is removed from Jalsa${
+                deleting.routes.length
+                  ? `, and ${deleting.routes.join(', ')} will print at the main kitchen printer instead`
+                  : ''
+              }. Tickets it has already printed keep its name in History. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete printer"
+        onConfirm={() => deleting && remove(deleting)}
+        busy={busy}
+        testId="owner-print-delete-confirm"
+      />
     </div>
   );
 }
