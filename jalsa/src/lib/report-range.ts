@@ -243,3 +243,26 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
       .sort((a, b) => b.amount - a.amount),
   };
 }
+
+/* ── Reading the route's answer ────────────────────────────────────────── */
+
+/**
+ * What `/api/owner/report` answered, read into a report or a sentence.
+ *
+ * THE SHAPE IS THE ONE `ok()` AND `fail()` SEND (`src/lib/route.ts`): the report IS the body,
+ * and a refusal is `{ code, message }` at the top level. There is no `{ data, error }` envelope
+ * on the wire. Reading one here discarded every report the route ever returned and showed the
+ * empty state in its place, for every range (RC-015) - an answer that arrived and a range with
+ * nothing in it looked identical, which is exactly what a fallback must never do.
+ *
+ * When the refusal carries no reason, the sentence still says the report failed rather than
+ * that the range was empty.
+ */
+export function readReportAnswer<R>(ok: boolean, body: unknown): { report: R | null; problem: string | null } {
+  if (ok) return { report: (body ?? null) as R | null, problem: null };
+  const message = (body as { message?: unknown } | null)?.message;
+  return {
+    report: null,
+    problem: typeof message === 'string' && message ? message : 'The report could not be read.',
+  };
+}

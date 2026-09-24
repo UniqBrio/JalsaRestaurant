@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+**Fixed — 24-Sep-2026 — Reports showed nothing, whatever dates you picked.** Every payment you
+recorded was saved and the report was worked out correctly, but the Reports screen threw the
+answer away and said "Nothing in this range" instead. It now shows the figures. Nothing was lost:
+open Reports, pick the dates again, and every bill closed since the start is there. When a report
+cannot be shown (for example, a role without access to sales), the screen now says why instead of
+a general message. The same kind of mistake is fixed on the guest's waiting-list screen, which now
+says "the queue has closed" in its own words.
+
 ### Added — 23-Sep-2026 — set up the thermal printer from Printers
 
 **For Javeed.** A new **Printers** section on the console. Press *Connect Printing Computer*,

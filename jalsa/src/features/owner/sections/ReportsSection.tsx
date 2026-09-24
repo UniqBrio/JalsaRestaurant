@@ -11,6 +11,7 @@ import {
   PRESET_LABEL,
   checkRange,
   rangeLabel,
+  readReportAnswer,
   resolvePreset,
   type DateRange,
   type RangePreset,
@@ -121,15 +122,11 @@ export function ReportsSection({ data }: OwnerSectionProps) {
     const [from, to] = key.split('|');
     fetch(`/api/owner/report?from=${from}&to=${to}`)
       .then(async (res) => {
-        const body = (await res.json()) as { data?: RangeReport; error?: { message?: string } };
+        const body: unknown = await res.json();
         if (cancelled) return;
         // The reason the SERVER gave, not a generic one: a report that will not load is either a
         // question about permission or one about the dates, and those need different actions.
-        setResult({
-          key,
-          report: res.ok ? (body.data ?? null) : null,
-          problem: res.ok ? null : (body.error?.message ?? 'The report could not be read.'),
-        });
+        setResult({ key, ...readReportAnswer<RangeReport>(res.ok, body) });
       })
       .catch(() => {
         if (!cancelled) {

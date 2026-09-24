@@ -2,6 +2,27 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Bug: Reports showed nothing for any range (RC-015, R-025 second report)
+
+ROOT CAUSE: the Reports screen read `body.data` / `body.error.message`, an envelope nothing on the
+server sends; `ok()` returns the report as the bare body and `fail()` returns `{ code, message }`.
+Every report reached the screen and was discarded into "Nothing in this range". Proven from
+Supabase edge logs: after B-1044 closed (23-Sep 08:00:05Z), eight report reads for 23-Sep returned
+one row each. Sibling: GuestQueue read refusals the same way, so its "queue closed" screen could
+never appear. Sweep: 6 `res.json()` sites in src; 2 wrong, both fixed.
+
+FAIL-FIRST: jalsa/tests/unit/report-answer.unit.spec.ts - against the screen's pre-fix parsing (moved verbatim into `readReportAnswer` before the fix): **3 failed, 1 passed** - "expected report, received null" (twice) and "expected the 403 sentence, received 'The report could not be read.'". After the fix: 4 passed.
+FAIL-FIRST: jalsa/tests/unit/indoor-queue.unit.spec.ts (appended rung 2e) - against HEAD's GuestQueue.tsx: **1 failed, 22 passed**; with the fix: 23 passed.
+
+Gate (jalsa): G1-G7 and G9-G12 PASS, unit 942 then 943 after rung 2e; G8 functional BLOCKED, as
+recorded with --skip G8: `*.supabase.co` CONNECT is refused from this container (403), so the
+corrected screen was NOT opened against live rows. The first gate run of the day is also recorded
+as FAIL: G7/G8 timed out because the dev servers had no environment; the rerun supplied
+placeholder, non-secret values. Verify on the deployment: open Reports, pick 23-Sep, expect
+1 bill (B-1044, UPI).
+
+---
+
 ## Application run - jalsa - 2026-09-23 - Bug: the Windows installer would not parse (bridge 2.0.1)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** First real Windows run: install.ps1 failed

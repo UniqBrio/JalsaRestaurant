@@ -4,6 +4,136 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 37.1s total - slowest G7 Unit + pure specs (19.3s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (59ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (55ms)
+- **G3 Theme assets present per theme** - PASS (52ms)
+- **G4 No hard-coded colours** - PASS (82ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (11.7s)
+- **G7 Unit + pure specs** - PASS (19.3s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (CONNECT to *.supabase.co refused, 403); fix proven by tests/unit/report-answer.unit.spec.ts and indoor-queue rung 2e
+- **G9 Automation addressability** - PASS (66ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (57ms)
+- **G12 Installable as an application** - PASS (70ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Run - 2026-09-24 - Bug: Reports showed nothing for any range (RC-015, R-025 second report)
+
+ROOT CAUSE: the Reports screen read `body.data` / `body.error.message`, an envelope nothing on the
+server sends; `ok()` returns the report as the bare body and `fail()` returns `{ code, message }`.
+Every report reached the screen and was discarded into "Nothing in this range". Proven from
+Supabase edge logs: after B-1044 closed (23-Sep 08:00:05Z), eight report reads for 23-Sep returned
+one row each. Sibling: GuestQueue read refusals the same way, so its "queue closed" screen could
+never appear. Sweep: 6 `res.json()` sites in src; 2 wrong, both fixed.
+
+FAIL-FIRST: jalsa/tests/unit/report-answer.unit.spec.ts - against the screen's pre-fix parsing (moved verbatim into `readReportAnswer` before the fix): **3 failed, 1 passed** - "expected report, received null" (twice) and "expected the 403 sentence, received 'The report could not be read.'". After the fix: 4 passed.
+FAIL-FIRST: jalsa/tests/unit/indoor-queue.unit.spec.ts (appended rung 2e) - against HEAD's GuestQueue.tsx: **1 failed, 22 passed**; with the fix: 23 passed.
+
+Gate (jalsa): G1-G7 and G9-G12 PASS, unit 942 then 943 after rung 2e; G8 functional BLOCKED, as
+recorded with --skip G8: `*.supabase.co` CONNECT is refused from this container (403), so the
+corrected screen was NOT opened against live rows. The first gate run of the day is also recorded
+as FAIL: G7/G8 timed out because the dev servers had no environment; the rerun supplied
+placeholder, non-secret values. Verify on the deployment: open Reports, pick 23-Sep, expect
+1 bill (B-1044, UPI).
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 43.9s total - slowest G7 Unit + pure specs (24.7s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (62ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (57ms)
+- **G3 Theme assets present per theme** - PASS (59ms)
+- **G4 No hard-coded colours** - PASS (90ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (12.7s)
+- **G7 Unit + pure specs** - PASS (24.7s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (egress to *.supabase.co refused); the fix is proven by tests/unit/report-answer.unit.spec.ts
+- **G9 Automation addressability** - PASS (60ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (59ms)
+- **G12 Installable as an application** - PASS (71ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: FAIL
+
+Steps: 10 pass, 2 fail, 0 blocked.
+Time: 6m 24s total - slowest G8 Functional / integration (3m 03s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (71ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (56ms)
+- **G3 Theme assets present per theme** - PASS (54ms)
+- **G4 No hard-coded colours** - PASS (74ms)
+- **G5 Types** - PASS (2.3s)
+- **G6 Lint** - PASS (12.0s)
+- **G7 Unit + pure specs** - FAIL (3m 03s)
+
+```
+Error: Timed out waiting 180000ms from config.webServer.
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+```
+
+- **G8 Functional / integration** - FAIL (3m 03s)
+
+```
+Error: Timed out waiting 180000ms from config.webServer.
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+```
+
+- **G9 Automation addressability** - PASS (66ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (85ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## Gate run - 2026-09-23 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.

@@ -59,6 +59,63 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-015 — The Reports screen read an envelope the server never sends, so every report arrived and was shown as "Nothing in this range"
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, guest queue
+
+**Symptom** — "When I recorded a payment it's not reflecting under reports" (owner, 24-Sep-2026),
+the second report of R-025 ("In Reports, nothing is showing up", 17-Sep-2026) after RC-014 was
+shipped as its fix.
+
+**Root cause** — a contract mismatch between one screen and the route it calls. `ok()` in
+`src/lib/route.ts` sends the payload as the bare JSON body and `fail()` sends `{ code, message }`
+at the top level. `ReportsSection` was written (1c6aa5c, 16-Sep) against the `{ data, error }`
+envelope of the scaffold's `src/lib/api-client.ts`, which nothing in the app uses and no route
+produces. It read `body.data`, always `undefined`, so `report` was always null and the screen
+fell through to its empty state; a refusal's `body.error.message` was likewise always missing.
+The empty state and a discarded answer looked identical, so nothing on screen said a read had
+been thrown away.
+
+**Proof it was real, not theoretical** — Supabase edge logs for 23-Sep: after bill B-1044 was
+closed at 08:00:05Z, eight report reads for 23-Sep (08:00:15Z to 12:41:57Z) each returned
+`content-range: 0-0/*` (one row, B-1044), and a 30-day read returned seven rows. The data reached
+the route every time; the screen still showed nothing. RC-014 fixed a real window defect on the
+same path, but not this one, which is why R-025 recurred.
+
+**Fix** — the screen's parsing moved into `readReportAnswer` (`src/lib/report-range.ts`), which
+reads the shape `ok()`/`fail()` actually send: the body IS the report; a refusal's reason is the
+top-level `message`, with a fixed sentence when there is none. `GuestQueue` read a refusal the
+same wrong way and now reads `message`.
+
+**Files** — `jalsa/src/lib/report-range.ts`, `jalsa/src/features/owner/sections/ReportsSection.tsx`,
+`jalsa/src/features/guest/GuestQueue.tsx`, `jalsa/tests/unit/report-answer.unit.spec.ts` (new).
+
+**How to verify** — run `tests/unit/report-answer.unit.spec.ts`. It builds responses with
+`NextResponse.json` exactly as `ok()` and `fail()` do and asserts the report survives, an empty
+range stays an empty report, and a 403 shows the server's sentence. Against the pre-fix parsing
+three of its four cases fail, which was observed. In the running app: close a bill, open Reports
+on its day, and the Sales tile and All orders list include it.
+
+**Recurrence risk** — the class is "a client reading a response shape the server does not send".
+Swept every `res.json()` in `jalsa/src` (6 sites, `grep -rn "json()" src`): `ReportsSection`
+(success and error, fixed), `GuestQueue` (error, fixed), `useLiveData`, `ChoosePin`, `PinSignIn`
+(correct), and `api-client.ts` (the envelope reader itself - unused by any screen, left in place;
+its presence is what made the wrong shape look canonical). The route side is one helper, so
+the server has one shape.
+
+**Prevention** — `jalsa/tests/unit/report-answer.unit.spec.ts` pins the Reports contract. No
+rung yet stops a NEW screen from reading `.data`: the unused `api-client.ts` still advertises the
+envelope and `src/app/README.md` still calls it "CP-4: one client". Retiring it, or making the
+routes use it, is a decision for the owner of the pattern register, not a bug fix - recorded here
+rather than done.
+
+**Process check** — yes. R-025 was closed by RC-014 with its screen never opened ("G8 functional
+did not run ... evidence of the DATA, not of the screen"). A fix for "nothing is showing up" was
+accepted without anything observing the screen show something; a rung asserting the parse of the
+route's real response would have caught it on 16-Sep. The framework-update question is whether a
+display-bug fix may close with the display unobserved; raised with the user, not run here.
+
+---
+
 ## RC-014 — A calendar day was turned into an instant in the SERVER's timezone, so every report began five and a half hours into the day it claimed to cover
 **Date:** 22-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, db/queries
 
