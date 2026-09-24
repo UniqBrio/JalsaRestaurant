@@ -126,6 +126,12 @@ export interface GuestPayload {
   replies: GuestReply[];
   callNumber: string;
   rescanMinutes: number;
+  /**
+   * The queue is closed and this table has no bill: nobody has been seated here, so the phone
+   * shows the closed screen instead of a menu it cannot order from (24-Sep list, F3). A table
+   * already seated - by staff, the queue, or its own first round - is never affected.
+   */
+  newTablesClosed: boolean;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
@@ -262,6 +268,9 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
   }));
 
   const todayName = DAYS[weekdayIn()];
+  // The owner's queue switch - the one existing open/closed state (`queue.open`, open unless set
+  // false), not a second one. It stops NEW tables; a seated table keeps ordering.
+  const queueOpen = ((settings.queue ?? {}) as { open?: boolean }).open !== false;
 
   return {
     phase: ctx.phase,
@@ -309,5 +318,6 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
     replies,
     callNumber: engagement.callNumber ?? '',
     rescanMinutes: ctx.rescanMinutes,
+    newTablesClosed: !queueOpen && !bill,
   };
 }

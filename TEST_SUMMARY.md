@@ -2,6 +2,18 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, batch 2 (F2, F3)
+
+FAIL-FIRST: jalsa/tests/unit/queue-seat-and-closed.unit.spec.ts - against HEAD's sources (new shared sentence kept): **7 failed**, 1 passed (the sentence-shape case, which is new surface: NOT OBSERVED FAILING for that one); after: 8 passed. Unit tier: 975 passed.
+
+F2 evidence (read-only, live): W-1 seated 19-Sep 17:59 IST with seated_table_id = A2; no bill was
+opened on A2 that evening. Seating now opens the bill (owner decision 24-Sep: "Open a bill").
+F3: the queue's own switch (settings.queue.open) now stops NEW tables on the table code, screen and
+server; a table with a bill keeps ordering. Chosen over a new switch because the correction list
+says to use the existing queue state.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, batch 1 (A2/I5, A1, F1, G2, C1)
 
 FAIL-FIRST: jalsa/tests/unit/restaurant-day.unit.spec.ts - with the call sites reverted (new helpers kept): **2 failed** (source pins: a server "today" from the host clock; screens naming today with the UTC date), 6 passed; after, under TZ=UTC as on Vercel: 8 passed. The six helper cases cover functions that did not exist before: NOT OBSERVED FAILING for those six - new surface, no prior behaviour.

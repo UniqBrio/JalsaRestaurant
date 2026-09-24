@@ -363,7 +363,10 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       return ok({ done: true });
 
     case 'seat-waitlist':
-      await seatWaitlist({ id: input.id, ...(input.tableId ? { tableId: input.tableId } : {}), actor });
+      // A seat is AT a table: seating now opens that table's bill, so there is no seat without one.
+      if (!input.tableId)
+        return fail(400, { code: 'validation', message: 'Choose the table this party is sitting at.' });
+      await seatWaitlist({ id: input.id, tableId: input.tableId, actor });
       return ok({ done: true });
 
     case 'remove-waitlist':

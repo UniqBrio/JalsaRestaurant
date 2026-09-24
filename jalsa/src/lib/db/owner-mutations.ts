@@ -3,7 +3,8 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
 import { testPrintBlocker } from '@/lib/test-print';
-import { audit, nextNumber, type Actor } from './mutations';
+import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
+import { openBillForTable } from './queries';
 import { randomBytes } from 'node:crypto';
 import { hashToken } from '@/lib/bridge-token';
 import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
@@ -636,36 +637,84 @@ export async function notifyWaitlist(input: { id: string; actor: Actor }): Promi
 }
 
 /**
- * Seated. This stamps the queue row and NOTHING ELSE — it opens no bill and touches no table.
+ * Seated: the party is at a table, and the table has their bill (24-Sep list, F2).
  *
- * Seating and opening a bill are two acts by two people at two moments: the host walks them to
- * a table, the captain takes the first order. There is exactly one way a bill is opened
- * (`ensureOpenBill`, which owns the one-open-bill-per-table rule), and a queue that could open
- * a second would eventually disagree with it about a table that already has a party on it.
+ * WHAT CHANGED AND WHY
+ *   This used to stamp the queue row and nothing else, on the reasoning that seating and opening
+ *   a bill are two acts. In service they were not: the floor reads occupancy from an open bill,
+ *   so a seated party's table still showed FREE on every screen, was offered again to the next
+ *   party in this very sheet, and "the table is not actually assigned" was the report. W-1 on
+ *   19-Sep was seated at A2 with no bill ever opened there. Seating now opens the bill, through
+ *   `ensureOpenBill` - still the ONE way a bill is opened, so the one-open-bill-per-table rule
+ *   has one owner - with the party's size as its guests.
+ *
+ * ORDER, SO A FAILURE LEAVES NOTHING HALF-DONE
+ *   1. The table is checked here, not only in the sheet: in service, no bill on it, not waiting
+ *      to be cleared. A table taken between render and tap is refused, not double-seated.
+ *   2. The queue row is CLAIMED with a guarded update that must match exactly one row. Seated or
+ *      removed already (two hosts, one party) is refused before any bill exists.
+ *   3. The bill is opened. If that fails, the claim is released, so the party is back in the
+ *      queue rather than seated at a table that has no bill.
  */
-export async function seatWaitlist(input: { id: string; tableId?: string; actor: Actor }): Promise<void> {
+export async function seatWaitlist(input: { id: string; tableId: string; actor: Actor }): Promise<void> {
   demand(input.actor, 'queue.seat');
-  const { data: row } = await db().from('waitlist_entry').select('token').eq('id', input.id).maybeSingle();
+  const restaurantId = await currentRestaurantId();
 
-  // WHICH table, recorded. The guest's own screen (Customer Patterns 6c) reads "W-18 · 4 guests
-  // · Table A4" — without the id the alert can only say "your table is ready" and leave a party
-  // of four scanning a dining room. It records where the host SENT them; it still opens no bill.
-  const { error } = await db()
+  const [{ data: table, error: tableErr }, openBill, { data: clearing, error: clearingErr }] = await Promise.all([
+    db()
+      .from('dining_table')
+      .select('id,name,active')
+      .eq('id', input.tableId)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle(),
+    openBillForTable(input.tableId),
+    db()
+      .from('bill_table')
+      .select('table_id')
+      .eq('table_id', input.tableId)
+      .not('released_at', 'is', null)
+      .is('cleared_at', null)
+      .limit(1),
+  ]);
+  if (tableErr) throw tableErr;
+  if (clearingErr) throw clearingErr;
+  if (!table) throw new Error('That table is not on the floor plan.');
+  const tableName = table.name as string;
+  if (table.active !== true) throw new Error(`${tableName} is not in service tonight.`);
+  if (openBill) throw new Error(`${tableName} already has a party on it. Choose another table.`);
+  if ((clearing ?? []).length > 0) throw new Error(`${tableName} is waiting to be cleared. Clear it first.`);
+
+  const { data: claimed, error } = await db()
     .from('waitlist_entry')
     .update({
       seated_at: new Date().toISOString(),
       actor_label: input.actor.label,
-      ...(input.tableId ? { seated_table_id: input.tableId } : {}),
+      seated_table_id: input.tableId,
     })
     .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
     .is('seated_at', null)
-    .is('removed_at', null);
+    .is('removed_at', null)
+    .select('token,party_size');
   if (error) throw error;
+  const row = (claimed ?? [])[0];
+  if (!row) throw new Error('That party is no longer waiting - someone may have seated or removed them already.');
+
+  try {
+    await ensureOpenBill(input.tableId, { guests: (row.party_size as number) || 2, actor: input.actor });
+  } catch (err) {
+    await db()
+      .from('waitlist_entry')
+      .update({ seated_at: null, seated_table_id: null })
+      .eq('id', input.id)
+      .eq('seated_table_id', input.tableId);
+    throw err;
+  }
 
   await audit({
     action: 'Waitlist',
-    detail: `${(row?.token as string) ?? 'A party'} seated by ${input.actor.label}`,
-    ...(input.tableId ? { tableId: input.tableId } : {}),
+    detail: `${(row.token as string) ?? 'A party'} seated at ${tableName} by ${input.actor.label}`,
+    tableId: input.tableId,
     actor: input.actor,
   });
 }

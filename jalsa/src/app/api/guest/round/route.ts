@@ -3,6 +3,8 @@ import { body, fail, handler, ok } from '@/lib/route';
 import { freshState } from '@/lib/db/guest-echo';
 import { attachBillToSession, currentGuestSession } from '@/lib/db/guest';
 import { clearCart, ensureOpenBill, GUEST_ACTOR, placeRound, readCart } from '@/lib/db/mutations';
+import { openBillForTable, readSettings } from '@/lib/db/queries';
+import { NEW_TABLES_CLOSED } from '@/lib/queue-closed';
 
 /**
  * Send this cart to the kitchen as a round.
@@ -32,7 +34,18 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     return fail(400, { code: 'validation', message: 'There is nothing in your order yet.' });
   }
 
-  const bill = await ensureOpenBill(session.tableId);
+  /* The queue's closed switch stops NEW tables (24-Sep list, F3). A table that already has its
+     bill - seated by staff, from the queue, or by an earlier round - keeps ordering; one nobody
+     has seated is refused here as well as shown the closed screen, so a phone that loaded the
+     menu before the switch flipped cannot open a bill through it. */
+  const [existing, queue] = await Promise.all([
+    openBillForTable(session.tableId),
+    readSettings('queue', { open: true }),
+  ]);
+  if (!existing && queue.open === false) {
+    return fail(409, { code: 'conflict', message: NEW_TABLES_CLOSED });
+  }
+  const bill = existing ?? (await ensureOpenBill(session.tableId));
 
   /**
    * TWO WRITES THAT DO NOT READ EACH OTHER.
