@@ -7,6 +7,29 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-09-24 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.
+Time: 49.9s total - slowest G7 Unit + pure specs (30.9s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (78ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (67ms)
+- **G3 Theme assets present per theme** - PASS (76ms)
+- **G4 No hard-coded colours** - PASS (96ms)
+- **G5 Types** - PASS (2.5s)
+- **G6 Lint** - PASS (12.5s)
+- **G7 Unit + pure specs** - PASS (30.9s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (CONNECT to *.supabase.co refused, 403); screens not observed against live rows
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (69ms)
+- **G12 Installable as an application** - PASS (71ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
 Time: 37.1s total - slowest G7 Unit + pure specs (19.0s).
 Application steps ran in .
 
@@ -47,6 +70,15 @@ Application steps ran in .
 - **G12 Installable as an application** - PASS (70ms)
 
 _One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, final validation
+
+Typecheck: PASS. Lint (whole app, --max-warnings 0): PASS. Unit tier: 1016 passed, 0 failed (also under TZ=UTC). Production build (`next build`, placeholder non-secret config): PASS, 19 static pages. audit:all 10/10. Gate: BLOCKED - G1-G7, G9-G12 PASS; G8 functional BLOCKED (no database reachable from this container; CONNECT to *.supabase.co refused, 403).
+Sweeps: host-clock day boundaries - two left, both inert (`dates.ts` dayRange unused; `analytics/format.ts` Intl-failure fallback). Server toLocale* without a zone - none. Printer mapping writes - only savePrinterMapping, removePrinterMapping, revokeBridgeToken and the re-pair move. Source label maps - one (KOT_SOURCE_LABEL). Staff identity fallbacks - `opts.actor ?? GUEST_ACTOR` only, whose sole actor-less caller is the guest round; no fallback from one staff member to another.
+K "Catch Your Craving": no code on any remote branch; mentioned only in TEST_SUMMARY notes on origin/claude/jalsa-restaurant-app-dev-j6k218 (quick-add, promotions, craving lost to a checkout, recovered only in a local tree). Nothing to integrate from this repository; left untouched.
+Not built: E1 (no "favorite menu" flow exists to add a "+" to), I3 sub-menu categories (needs a menu_category level + migration applied to live first). Live migration outstanding: 20260917120000_jalsa_drop_ambiguous_set_staff_pin (in the repo since 17-Sep, never applied to yxgxmbyilpivbmeemqkp).
 
 ---
 

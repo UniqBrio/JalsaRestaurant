@@ -2,6 +2,15 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, final validation
+
+Typecheck: PASS. Lint (whole app, --max-warnings 0): PASS. Unit tier: 1016 passed, 0 failed (also under TZ=UTC). Production build (`next build`, placeholder non-secret config): PASS, 19 static pages. audit:all 10/10. Gate: BLOCKED - G1-G7, G9-G12 PASS; G8 functional BLOCKED (no database reachable from this container; CONNECT to *.supabase.co refused, 403).
+Sweeps: host-clock day boundaries - two left, both inert (`dates.ts` dayRange unused; `analytics/format.ts` Intl-failure fallback). Server toLocale* without a zone - none. Printer mapping writes - only savePrinterMapping, removePrinterMapping, revokeBridgeToken and the re-pair move. Source label maps - one (KOT_SOURCE_LABEL). Staff identity fallbacks - `opts.actor ?? GUEST_ACTOR` only, whose sole actor-less caller is the guest round; no fallback from one staff member to another.
+K "Catch Your Craving": no code on any remote branch; mentioned only in TEST_SUMMARY notes on origin/claude/jalsa-restaurant-app-dev-j6k218 (quick-add, promotions, craving lost to a checkout, recovered only in a local tree). Nothing to integrate from this repository; left untouched.
+Not built: E1 (no "favorite menu" flow exists to add a "+" to), I3 sub-menu categories (needs a menu_category level + migration applied to live first). Live migration outstanding: 20260917120000_jalsa_drop_ambiguous_set_staff_pin (in the repo since 17-Sep, never applied to yxgxmbyilpivbmeemqkp).
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, D1 welcome drinks
 
 FAIL-FIRST: jalsa/tests/unit/welcome-drinks.unit.spec.ts - isFirstOrder injected to always true and reverted: **1 failed**; against HEAD's wiring: **1 failed**; after: 7 passed. Unit tier: 1016 passed. The rule cases for offer/add/added are new surface (functions did not exist): NOT OBSERVED FAILING for those beyond the injection above.
