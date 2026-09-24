@@ -28,6 +28,19 @@ export interface StatusWord {
   tone: Tone;
 }
 
+/**
+ * Where a round came from, in words (24-Sep list, C3). Read from `kot.source` - the column the
+ * route that placed the round wrote - never inferred from a name or a screen.
+ *
+ * ONE map, used by the owner's board, the report's orders table and the printed KOT. It was
+ * written out twice before, each copy noting that it was "duplicated nowhere else".
+ */
+export const KOT_SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
+  guest: 'Guest phone',
+  captain: 'Captain',
+  owner: 'Owner',
+};
+
 export const KOT_STATUS: Record<KotStatus, StatusWord> = {
   // "Order received" rather than the "Sent to the kitchen" this shipped with: the reference
   // design draws the first step as Order received, and CLAUDE.md makes the design set the

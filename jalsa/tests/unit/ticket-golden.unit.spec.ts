@@ -84,6 +84,22 @@ function compose(width: PaperWidth, station: boolean): TicketLine[] {
 const ticket = (width: PaperWidth, station: boolean): string =>
   hex(encodeTicket(compose(width, station), { ...DEFAULT_ENCODER, width }));
 
+/**
+ * The ticket with its SOURCE line taken out (24-Sep-2026, C3).
+ *
+ * The order source became a LOCKED field - every KOT now says Captain, Owner or Guest phone,
+ * whatever a stored template says. That adds one line to every KOT, so goldens A and B, captured
+ * before it, can no longer be produced directly. They are kept byte for byte, and compared with
+ * today's ticket minus exactly that one line: if ANYTHING else on the paper moved, these fail.
+ */
+const withoutSource = (width: PaperWidth, station: boolean): string =>
+  hex(
+    encodeTicket(
+      compose(width, station).filter((l) => !l.text.startsWith('SOURCE ')),
+      { ...DEFAULT_ENCODER, width }
+    )
+  );
+
 /* ── GOLDEN A — captured from the tree BEFORE the 22-Sep-2026 remediation ── */
 
 const GOLDEN_A_58 =
@@ -219,21 +235,25 @@ const GOLDEN_B_80 =
 /* ── R4-1: the un-split path did not move ──────────────────────────────── */
 
 test('58 mm: a round that was never split encodes exactly as it did before R4-1', () => {
-  expect(ticket('58', false)).toBe(GOLDEN_A_58);
+  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('58', false)`. Same golden, minus the SOURCE line.
+  expect(withoutSource('58', false)).toBe(GOLDEN_A_58);
 });
 
 test('80 mm: a round that was never split encodes exactly as it did before R4-1', () => {
-  expect(ticket('80', false)).toBe(GOLDEN_A_80);
+  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('80', false)`. Same golden, minus the SOURCE line.
+  expect(withoutSource('80', false)).toBe(GOLDEN_A_80);
 });
 
 /* ── R4-2: the station line, recorded as the deliberate change ─────────── */
 
 test('58 mm: the ticket as it prints today, station line included', () => {
-  expect(ticket('58', true)).toBe(GOLDEN_B_58);
+  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('58', true)`. Same golden, minus the SOURCE line.
+  expect(withoutSource('58', true)).toBe(GOLDEN_B_58);
 });
 
 test('80 mm: the ticket as it prints today, station line included', () => {
-  expect(ticket('80', true)).toBe(GOLDEN_B_80);
+  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('80', true)`. Same golden, minus the SOURCE line.
+  expect(withoutSource('80', true)).toBe(GOLDEN_B_80);
 });
 
 test('the ONLY difference between A and B is the station line', () => {
@@ -269,5 +289,31 @@ test('the station line fits the paper at both widths', () => {
     // The encoder never wraps, so a line wider than the roll is lost on the paper rather than
     // rejected. This is the only place that is caught.
     expect(station[0]?.text.length, `${width} mm`).toBe(PAPER[width].cols.normal);
+  }
+});
+
+/* ── C3: every KOT names its source (24-Sep-2026) ──────────────────────── */
+
+test('every KOT prints its order source, right after the captain, whatever the template says', () => {
+  for (const width of ['58', '80'] as PaperWidth[]) {
+    const base = defaultTemplate('kot', width);
+    // The live template had `source: false` saved. Locked now: it prints anyway.
+    const stored = { ...base, on: { ...base.on, source: false } };
+    const result = composeTicket({
+      job: { id: 'g', kind: 'kot', printerId: 'p3', station: 'Tandoor', foodSide: 'all', isReprint: false },
+      width,
+      template: stored,
+      printers: PRINTERS,
+      splitByFoodType: false,
+      header: HEADER,
+      items: ITEMS,
+    });
+    if (!result.ok) throw new Error(result.blocked);
+    const texts = result.lines.map((l) => l.text);
+    const at = texts.findIndex((t) => t.startsWith('SOURCE '));
+    expect(at, `${width} mm: the source prints`).toBeGreaterThan(-1);
+    expect(texts[at]).toContain('Guest phone');
+    expect(texts[at - 1]?.startsWith('CAPTAIN '), `${width} mm: after the captain`).toBe(true);
+    expect(texts[at]?.length, `${width} mm: it fits the paper`).toBe(PAPER[width].cols.normal);
   }
 });

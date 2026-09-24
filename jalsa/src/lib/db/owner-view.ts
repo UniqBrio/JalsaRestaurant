@@ -1,7 +1,7 @@
 import 'server-only';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
-import { KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
+import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
   billTotals,
@@ -217,11 +217,6 @@ const timeLabel = (iso: string): string => timeLabelIn(iso);
 
 const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 
-const SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
-  guest: 'Guest phone',
-  captain: 'Captain',
-  owner: 'Owner',
-};
 
 function shapeBill(b: Bill, taxRate: number): OwnerBillView {
   const totals = billTotals(b);
@@ -277,7 +272,7 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       tone: KOT_STATUS[k.status].tone,
       fromTable: k.tableName,
       source: k.source,
-      sourceLabel: SOURCE_LABEL[k.source],
+      sourceLabel: KOT_SOURCE_LABEL[k.source],
       placedAt: timeLabel(k.createdAt),
       printStatus: k.printStatus,
       reprintCount: k.reprintCount,

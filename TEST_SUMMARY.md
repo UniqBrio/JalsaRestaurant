@@ -2,6 +2,14 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, C3 KOT source
+
+FAIL-FIRST: jalsa/tests/unit/kot-source.unit.spec.ts - against HEAD's sources (shared map kept): **2 failed** (one map; printed words + locked field), 2 passed - those two verify EXISTING correct behaviour (each route already stamps captain/owner/guest), so they are verification, not fail-first.
+FAIL-FIRST: jalsa/tests/unit/ticket-golden.unit.spec.ts - the four golden byte rungs failed when source became locked (every KOT gains one SOURCE line). SUPERSEDED IN PLACE with dated notes: goldens A and B are kept byte for byte and compared with today's ticket minus exactly the SOURCE line; a new rung pins the SOURCE line (Guest phone, after CAPTAIN, full width) even with a template that stored source off. Unit tier: 995 passed.
+Live evidence (read-only): setting 'print'.kot.on has "source": false stored - why a default change alone would not have reached the paper.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, H3 cash change
 
 FAIL-FIRST: jalsa/tests/unit/cash-change.unit.spec.ts - defect injected into cashChange (a shortfall returned as negative change) and reverted: **2 failed**, 5 passed; after: 7 passed. Unit tier: 990 passed. The UI (CashChangeField on both closure screens) is new surface: NOT OBSERVED FAILING beyond the source pin that both screens use it.
