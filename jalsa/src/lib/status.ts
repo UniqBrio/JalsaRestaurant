@@ -296,6 +296,25 @@ export function canHoldBillRole(role: 'captain' | 'waiter', staffRole: string): 
 }
 
 /**
+ * The captain's own door into `reassignBillStaff` (G1): the WAITER, on a bill that is theirs and
+ * still open, under `tables.assign`. Exported for the payload, which offers the control exactly
+ * where this is true, and for the rung that pins it.
+ */
+export function captainMayAssignWaiter(input: {
+  role: 'captain' | 'waiter';
+  actor: { staffId: string | null; grants?: { can(key: string): boolean } };
+  bill: { captainId: string | null; status: string };
+}): boolean {
+  return (
+    input.role === 'waiter' &&
+    input.bill.status !== 'closed' &&
+    input.actor.staffId !== null &&
+    input.bill.captainId === input.actor.staffId &&
+    (input.actor.grants?.can('tables.assign') ?? false)
+  );
+}
+
+/**
  * The people a picker may offer for a position.
  *
  * The CURRENT holder is always included, whatever their role. Somebody wrongly made captain by

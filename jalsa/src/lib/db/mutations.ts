@@ -14,6 +14,7 @@ import {
 } from '@/lib/status';
 import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
+import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import {
   resolvePrinter,
@@ -1272,10 +1273,18 @@ export async function reassignBillStaff(input: {
   staffId: string | null;
   actor: Actor;
 }): Promise<{ tipMoved: number }> {
-  demand(input.actor, 'bill.reassign_staff');
-
   const bill = await getBill(input.billId);
   if (!bill) throw new Error('No such bill.');
+
+  /* WHO MAY DO THIS (24-Sep list, G1). The owner's grant covers either position on any bill.
+     A captain may set the WAITER on their OWN open bill, under the grant they already hold for
+     running tables (`tables.assign`) - the waiter moves no money, the tip follows the captain,
+     so the captain's own position stays behind the owner's grant. */
+  if (!(input.actor.grants?.can('bill.reassign_staff') ?? false)) {
+    if (!captainMayAssignWaiter({ role: input.role, actor: input.actor, bill })) {
+      throw new PermissionDenied('bill.reassign_staff');
+    }
+  }
 
   const wasName = input.role === 'captain' ? bill.captain : bill.waiter;
   const column = BILL_STAFF_COLUMN[input.role];

@@ -233,6 +233,8 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
   const [discount, setDiscount] = React.useState<DiscountEntry>(NO_DISCOUNT);
   /** Cash received, as typed (H3). */
   const [tendered, setTendered] = React.useState('');
+  /** The waiter picker (G1). */
+  const [choosingWaiter, setChoosingWaiter] = React.useState(false);
 
   if (!bill) {
     return (
@@ -254,6 +256,62 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
   return (
     <div className="flex flex-col gap-4" data-testid="staff-table">
       <IdentitySpine fields={bill.spine} />
+
+      {/* The captain sets the waiter on their own bill (G1). Offered exactly where the server
+          will accept it: this person is the bill's captain and holds tables.assign. */}
+      {bill.canAssignWaiter ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="type-caption text-[var(--text-muted)]">
+            Waiter: <strong className="text-[var(--text-heading)]">{bill.spine.waiter || 'nobody yet'}</strong>
+          </span>
+          <Button
+            data-testid="staff-assign-waiter"
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => setChoosingWaiter(true)}
+          >
+            {bill.spine.waiter ? 'Change waiter' : 'Assign a waiter'}
+          </Button>
+        </div>
+      ) : null}
+
+      <Sheet
+        open={choosingWaiter}
+        onOpenChange={setChoosingWaiter}
+        title={`Waiter for ${bill.code}`}
+        description="They are named on the bill and see its table on their phone. The tip stays with the captain."
+        testId="staff-waiter-sheet"
+      >
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {[...data.waiters, { id: '', name: 'Nobody', role: '' }].map((w) => (
+            <li key={w.id || 'nobody'}>
+              <Button
+                data-testid={`staff-waiter-${w.id || 'nobody'}`}
+                variant={(bill.waiterId ?? '') === w.id ? 'primary' : 'secondary'}
+                className="w-full justify-between"
+                disabled={busy}
+                onClick={() =>
+                  runBusy(async () => {
+                    await send('/api/staff/action', {
+                      action: 'assign-waiter',
+                      billId: bill.id,
+                      staffId: w.id || null,
+                    });
+                    setChoosingWaiter(false);
+                    toast.show(w.id ? `${w.name} is the waiter on ${bill.code}` : `No waiter on ${bill.code}`, {
+                      tone: 'success',
+                    });
+                  })
+                }
+              >
+                <span>{w.name}</span>
+                {w.role ? <span className="type-caption">{w.role}</span> : null}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
 
       {bill.groupCode ? (
         <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 type-caption leading-relaxed text-[var(--on-info-surface)]">

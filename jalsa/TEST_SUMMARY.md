@@ -50,6 +50,12 @@ _One or more classes could NOT be verified. This is a decision for the owner, no
 
 ---
 
+## Run - 2026-09-24 - 24-Sep correction list, G1 captain assigns waiter
+
+FAIL-FIRST: jalsa/tests/unit/assign-waiter.unit.spec.ts - rule injected to ignore the position (captain allowed too) and reverted: **1 failed** (the captain position); against HEAD's wiring: **2 failed** (server door, captain phone); after: 5 passed. Unit tier: 1000 passed. RBAC_MATRIX: one row added.
+
+---
+
 ## Run - 2026-09-24 - 24-Sep correction list, C3 KOT source
 
 FAIL-FIRST: jalsa/tests/unit/kot-source.unit.spec.ts - against HEAD's sources (shared map kept): **2 failed** (one map; printed words + locked field), 2 passed - those two verify EXISTING correct behaviour (each route already stamps captain/owner/guest), so they are verification, not fail-first.

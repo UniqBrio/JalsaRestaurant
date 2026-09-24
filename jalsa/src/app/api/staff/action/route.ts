@@ -13,6 +13,7 @@ import {
   joinTableToBill,
   placeRound,
   reprintKot,
+  reassignBillStaff,
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
@@ -61,7 +62,8 @@ type Action =
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'free-table'; tableId: string }
   | { action: 'clear-table'; tableId: string }
-  | { action: 'set-availability'; itemId: string; available: boolean; reason?: string };
+  | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
+  | { action: 'assign-waiter'; billId: string; staffId: string | null };
 
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff();
@@ -169,6 +171,12 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         ...(input.reason ? { reason: input.reason } : {}),
         actor,
       });
+      return ok({ done: true });
+
+    case 'assign-waiter':
+      // The captain's door into the owner's operation (G1): the rule of who may lives in
+      // `reassignBillStaff`, not here, so the two doors cannot disagree.
+      await reassignBillStaff({ billId: input.billId, role: 'waiter', staffId: input.staffId, actor });
       return ok({ done: true });
 
     default:
