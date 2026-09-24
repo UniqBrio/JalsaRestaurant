@@ -2,6 +2,26 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Bug RC-015, review follow-up
+
+Code review (REQUEST CHANGES; the fix itself judged correct) raised: the changelog claimed a
+screen nobody had seen (now carries a "Not yet" line and the check to run); the new spec's claim
+that server drift would fail it was untrue (now pinned: a case reads route.ts's ok()/fail()
+lines); a 200 with a null body still read as an empty range (now a problem); and an empty range
+had lost the designed "Nothing in this range" state (now `rangeIsEmpty`: no bill and no expense).
+
+FAIL-FIRST: jalsa/tests/unit/report-answer.unit.spec.ts (appended cases) - null-body and empty-range cases: **2 failed** against the pre-follow-up code (rangeIsEmpty stubbed to the screen's old behaviour). Server-contract pin: **1 failed** with route.ts ok() re-wrapped as `{ data }`, injected and reverted (route.ts unchanged in this commit). After: 71 passed across the report and queue specs.
+
+CORRECTION TO RC-015 (the register is append-only, so recorded here): its Files list omits
+jalsa/tests/unit/indoor-queue.unit.spec.ts (rung 2e), which is part of the fix. Where this run's
+gate line says the fix is "proven by" unit specs, read "the parser is proven by"; the SCREEN was
+not observed. Rung 2e is a source assertion in that file's own idiom and would not catch every
+spelling of the old read; a behavioural reader for queue refusals was not built here.
+RC-015 also collides by number with an unrelated RC-015 in framework-upstream/'s own register;
+the two registers are separate files and are not merged.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Bug: Reports showed nothing for any range (RC-015, R-025 second report)
 
 ROOT CAUSE: the Reports screen read `body.data` / `body.error.message`, an envelope nothing on the

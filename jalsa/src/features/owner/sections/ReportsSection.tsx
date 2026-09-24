@@ -11,6 +11,7 @@ import {
   PRESET_LABEL,
   checkRange,
   rangeLabel,
+  rangeIsEmpty,
   readReportAnswer,
   resolvePreset,
   type DateRange,
@@ -213,7 +214,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         ))}
       </nav>
 
-      {!report ? (
+      {!report || rangeIsEmpty(report) ? (
         problem ? null : (
           <FirstRunState
             title={loading ? 'Reading the range' : 'Nothing in this range'}

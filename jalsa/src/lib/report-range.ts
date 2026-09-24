@@ -259,10 +259,24 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
  * that the range was empty.
  */
 export function readReportAnswer<R>(ok: boolean, body: unknown): { report: R | null; problem: string | null } {
-  if (ok) return { report: (body ?? null) as R | null, problem: null };
+  if (ok) {
+    // A 200 with nothing in it is a broken answer, not an empty range.
+    return body == null
+      ? { report: null, problem: 'The report could not be read.' }
+      : { report: body as R, problem: null };
+  }
   const message = (body as { message?: unknown } | null)?.message;
   return {
     report: null,
     problem: typeof message === 'string' && message ? message : 'The report could not be read.',
   };
+}
+
+/**
+ * A range with no bill closed and no expense recorded - the ONE state the screen shows as
+ * "Nothing in this range". Decided from a report that ARRIVED, never from a missing one: a
+ * report that was not read is a problem, and says so (RC-015).
+ */
+export function rangeIsEmpty(report: { summary: { bills: number }; expenses: readonly unknown[] }): boolean {
+  return report.summary.bills === 0 && report.expenses.length === 0;
 }

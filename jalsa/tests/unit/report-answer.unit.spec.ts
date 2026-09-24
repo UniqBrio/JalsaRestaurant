@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { NextResponse } from 'next/server.js';
-import { readReportAnswer } from '../../src/lib/report-range';
+import { readFileSync } from 'node:fs';
+import { rangeIsEmpty, readReportAnswer } from '../../src/lib/report-range';
 
 /**
  * The Reports screen reading what `/api/owner/report` actually sends.
@@ -57,4 +58,27 @@ test('a refusal with no readable reason still says the report could not be read'
   const read = await answer(NextResponse.json({}, { status: 500 }));
   expect(read.report).toBeNull();
   expect(read.problem).toBe('The report could not be read.');
+});
+
+/* ── Appended 24-Sep-2026, after review ──────────────────────────────────── */
+
+test('the SERVER half of the contract: ok() sends the bare payload, fail() the bare error', () => {
+  // The cases above hand-build what ok() and fail() send, because route.ts imports 'server-only'
+  // and cannot load here. This pins that those hand-built shapes are still what route.ts does, so
+  // re-wrapping the payload on the server fails here instead of silently emptying Reports again.
+  const route = readFileSync('src/lib/route.ts', 'utf8');
+  expect(route).toContain('return NextResponse.json(data as object, { status: 200, ...init });');
+  expect(route).toContain('return NextResponse.json(body, { status });');
+});
+
+test('a successful answer with no body is a failure to read, never an empty range', async () => {
+  const read = await answer(NextResponse.json(null, { status: 200 }));
+  expect(read.report).toBeNull();
+  expect(read.problem).toBe('The report could not be read.');
+});
+
+test('a range with no bill and no expense is the designed empty state; one with either is not', () => {
+  expect(rangeIsEmpty({ summary: { bills: 0 }, expenses: [] })).toBe(true);
+  expect(rangeIsEmpty({ summary: { bills: 1 }, expenses: [] })).toBe(false);
+  expect(rangeIsEmpty({ summary: { bills: 0 }, expenses: [{}] })).toBe(false);
 });
