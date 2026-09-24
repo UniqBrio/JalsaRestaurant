@@ -307,7 +307,7 @@ export function captainMayAssignWaiter(input: {
 }): boolean {
   return (
     input.role === 'waiter' &&
-    input.bill.status !== 'closed' &&
+    (input.bill.status === 'open' || input.bill.status === 'payment_requested') &&
     input.actor.staffId !== null &&
     input.bill.captainId === input.actor.staffId &&
     (input.actor.grants?.can('tables.assign') ?? false)

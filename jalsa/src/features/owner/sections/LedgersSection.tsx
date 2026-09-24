@@ -238,6 +238,14 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
   const incomeProblem = income?.key === key ? income.problem : null;
 
   const inRange = expensesInRange(data.expenses, range);
+  /* Net from the SAME two figures on screen: the report's income and the live expense total.
+     The report's own net was fetched once per range and went stale the moment an expense was
+     added or deleted here, leaving Net ≠ Income − Expenses on one screen. */
+  const netLabel = figures ? rupees(figures.summary.sales - inRange.total) : '…';
+  /* Every entry, for correcting: the range governs the totals, but an expense outside it - older
+     than 30 days, or a typo dated next year - must still be findable to edit or delete. */
+  const [allEntries, setAllEntries] = React.useState(false);
+  const ledgerRows = allEntries ? data.expenses : inRange.rows;
   const expenseTotal = inRange.total;
 
   return (
@@ -275,12 +283,7 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
             testId="owner-expense-total"
           />
           {canSeeIncome ? (
-            <MetricTile
-              label="Net"
-              value={figures ? figures.summary.netLabel : '…'}
-              note="Income minus expenses"
-              testId="owner-finance-net"
-            />
+            <MetricTile label="Net" value={netLabel} note="Income minus expenses" testId="owner-finance-net" />
           ) : null}
         </div>
         {incomeProblem ? (
@@ -302,6 +305,9 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <SectionLabel className="mb-0">Expenses — entered by hand, never inferred</SectionLabel>
+          <Chip on={allEntries} onClick={() => setAllEntries((v) => !v)} data-testid="owner-expenses-all">
+            {allEntries ? 'Showing every entry' : 'Show every entry'}
+          </Chip>
           {canExpense ? (
             <Button
               data-testid="owner-add-expense"
@@ -322,7 +328,7 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
         </div>
 
         <DataTable
-          rows={inRange.rows}
+          rows={ledgerRows}
           rowKey={(e) => e.id}
           defaultSort={{ key: 'date', direction: 'desc' }}
           exportName="jalsa-expenses"

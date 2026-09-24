@@ -69,3 +69,18 @@ test('the captain phone offers it exactly where the server allows it', () => {
   expect(ui).toContain('{bill.canAssignWaiter ? (');
   expect(ui).toContain("action: 'assign-waiter'");
 });
+
+/* ── Appended 24-Sep-2026, after review ──────────────────────────────── */
+
+test('not on a voided bill either - only one that is open or asked to pay', () => {
+  expect(captainMayAssignWaiter({ role: 'waiter', actor: IMRAN, bill: { captainId: 'imran', status: 'void' } })).toBe(
+    false
+  );
+  expect(
+    captainMayAssignWaiter({
+      role: 'waiter',
+      actor: IMRAN,
+      bill: { captainId: 'imran', status: 'payment_requested' },
+    })
+  ).toBe(true);
+});

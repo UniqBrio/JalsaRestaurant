@@ -48,8 +48,12 @@ test('income is READ from the closed-bill report, never entered, and gated like 
   expect(ui).toContain('fetch(`/api/owner/report?from=${from}&to=${to}`)');
   expect(ui).toContain("const canSeeIncome = data.grants.includes('rep.sales');");
   expect(ui).toContain('figures.summary.salesLabel');
-  expect(ui).toContain('figures.summary.netLabel');
-  expect(ui).toContain('rows={inRange.rows}');
+  /* SUPERSEDED 24-Sep-2026 (review): previously pinned `figures.summary.netLabel` and
+     `rows={inRange.rows}`. Net is now the report's income minus the LIVE expense total, so it
+     cannot go stale beside the Expenses tile; and every entry can be shown for correcting. */
+  expect(ui).toContain('rupees(figures.summary.sales - inRange.total)');
+  expect(ui).toContain('const ledgerRows = allEntries ? data.expenses : inRange.rows;');
+  expect(ui).toContain('rows={ledgerRows}');
   // No income ledger: nothing on this screen writes an income row.
   expect(ui).not.toMatch(/action: 'upsert-income'|from\('income'\)/);
   expect(code('src/features/owner/OwnerConsole.tsx')).toContain("label: 'Income & expenses'");

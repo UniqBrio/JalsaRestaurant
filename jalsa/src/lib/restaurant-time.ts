@@ -177,12 +177,10 @@ export function timeLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZO
 
 /** "24 Sep 2026" in the restaurant's calendar. */
 export function dateLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZONE): string {
-  return new Date(at).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: zone,
-  });
+  // Spelled from the IST date's own parts, like `shortDayLabel`: Intl's short month is "Sep" or
+  // "Sept" depending on the runtime, and this is printed on every ticket.
+  const [y, m, d] = dayIn(new Date(at), zone).split('-');
+  return `${d} ${MONTHS[Number(m) - 1] ?? ''} ${y}`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

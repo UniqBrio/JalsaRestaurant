@@ -18,6 +18,7 @@ import {
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { getBill } from '@/lib/db/queries';
+import { db } from '@/lib/supabase/server';
 import type { KotStatus } from '@/lib/status';
 
 /**
@@ -83,8 +84,17 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           });
       /* A round goes onto an OPEN bill (C1). A bill closed or moved while the menu was open must
          not quietly take a round; the screen is told, and reloads. */
-      if (!bill || bill.status === 'closed') {
-        return fail(404, { code: 'not-found', message: 'That bill is no longer open.' });
+      /* Only a LIVE bill takes a round: open, or asked to pay (a guest may still order), and
+         still on this table. A closed or voided bill - freed by hand while this screen was
+         open - or a table moved off it, is refused, never cooked with nowhere to charge it. */
+      const { data: tableRow } = await db().from('dining_table').select('name').eq('id', input.tableId).maybeSingle();
+      if (
+        !bill ||
+        (bill.status !== 'open' && bill.status !== 'payment_requested') ||
+        !tableRow ||
+        !bill.tables.includes(tableRow.name as string)
+      ) {
+        return fail(404, { code: 'not-found', message: 'That bill is no longer open on this table.' });
       }
       const result = await placeRound({
         billId: bill.id,

@@ -281,8 +281,9 @@ export async function issuePin(input: { staffId: string; actor: Actor }): Promis
   const heldByAnother = async (candidate: string): Promise<boolean> => {
     const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: candidate });
     if (error) throw error;
-    const row = (data as Array<{ id: string }> | null)?.[0];
-    return !!row && row.id !== input.staffId;
+    // ANY holder - including this person - redraws: `verify_staff_pin` returns one row, so a
+    // PIN held by both this person and someone else could come back as this person's own row.
+    return ((data as Array<{ id: string }> | null) ?? []).length > 0;
   };
   let pin = '';
   for (let tries = 0; ; tries += 1) {
@@ -704,11 +705,15 @@ export async function seatWaitlist(input: { id: string; tableId: string; actor: 
   if (!row) throw new Error('That party is no longer waiting - someone may have seated or removed them already.');
 
   try {
-    await ensureOpenBill(input.tableId, { guests: (row.party_size as number) || 2, actor: input.actor });
+    await ensureOpenBill(input.tableId, {
+      guests: (row.party_size as number) || 2,
+      actor: input.actor,
+      mustBeNew: true,
+    });
   } catch (err) {
     await db()
       .from('waitlist_entry')
-      .update({ seated_at: null, seated_table_id: null })
+      .update({ seated_at: null, seated_table_id: null, actor_label: '' })
       .eq('id', input.id)
       .eq('seated_table_id', input.tableId);
     throw err;
@@ -1365,7 +1370,14 @@ export async function savePrinterMapping(input: {
     printerName = printer.name as string;
     // Its routes, station and paper stay exactly as the owner configured them. Only how it is
     // reached changes, and only when Windows says it is on USB.
-    if (viaUsb) await db().from('printer').update({ connection: 'USB', address: '', port: 0 }).eq('id', printerId);
+    if (viaUsb) {
+      const { error: usbErr } = await db()
+        .from('printer')
+        .update({ connection: 'USB', address: '', port: 0 })
+        .eq('id', printerId)
+        .eq('restaurant_id', restaurantId);
+      if (usbErr) throw usbErr;
+    }
   } else {
     const name = input.target.name.trim();
     if (!name) throw new Error('Give the printer a name first — somebody has to find it in a kitchen.');

@@ -43,7 +43,10 @@ test('F1: a reissued PIN names all three arguments, so it resolves and is provis
 test('G2: an issued PIN is never one another member of staff already signs in with', () => {
   const fn = bodyOf(OWNER, 'export async function issuePin');
   expect(fn).toContain("rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: candidate })");
-  expect(fn).toContain('row.id !== input.staffId');
+  /* SUPERSEDED 24-Sep-2026 (review): previously `row.id !== input.staffId`. `verify_staff_pin`
+     returns ONE row, so a PIN held by both this person and another could come back as their own
+     row and pass. Any holder at all now redraws. */
+  expect(fn).toContain('return ((data as Array<{ id: string }> | null) ?? []).length > 0;');
 });
 
 test('G2: "Bill opened" names whoever opened it; staff and owner routes say who', () => {
@@ -74,7 +77,11 @@ test('G2: every sign-in is recorded with the person and the surface', () => {
 test('C1: staff cannot open a bill on a table out of service, or add to a closed bill', () => {
   const fn = bodyOf(MUTATIONS, 'export async function ensureOpenBill');
   expect(fn).toContain('opts.actor && tableRow && tableRow.active === false');
-  expect(code('src/app/api/staff/action/route.ts')).toContain("if (!bill || bill.status === 'closed')");
+  /* SUPERSEDED 24-Sep-2026 (review): previously `bill.status === 'closed'` only. A VOIDED bill
+     (freed by hand) and a table moved off the bill are refused too. */
+  const staffRoute = code('src/app/api/staff/action/route.ts');
+  expect(staffRoute).toContain("(bill.status !== 'open' && bill.status !== 'payment_requested')");
+  expect(staffRoute).toContain('!bill.tables.includes(tableRow.name as string)');
 });
 
 test('C1: a table waiting to be cleared is not offered as free, on either surface', () => {

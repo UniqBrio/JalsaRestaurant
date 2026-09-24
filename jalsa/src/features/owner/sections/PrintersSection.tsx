@@ -383,8 +383,9 @@ export function PrintersSection(props: OwnerSectionProps) {
         title={disconnecting ? `Disconnect ${disconnecting.label}?` : 'Disconnect'}
         consequence={
           <>
-            Tickets for the printers on <strong>{disconnecting?.label}</strong> will wait in the queue and nothing will print
-            there until it is connected again. The computer itself is not changed.
+            Its printers are taken off <strong>{disconnecting?.label}</strong>, and their tickets go to the main kitchen
+            printer. To use this computer again, connect it with a new pairing code and select its printers again. The
+            computer itself is not changed.
           </>
         }
         confirmLabel="Disconnect the computer"

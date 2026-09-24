@@ -34,9 +34,16 @@ const OWNER = 'src/lib/db/owner-mutations.ts';
 
 test('F2: seating opens the bill on that table, with the party as its guests', () => {
   const fn = bodyOf(OWNER, 'export async function seatWaitlist');
-  expect(fn).toContain(
-    'ensureOpenBill(input.tableId, { guests: (row.party_size as number) || 2, actor: input.actor })'
+  /* SUPERSEDED 24-Sep-2026 (review): previously without `mustBeNew`. Two hosts seating two
+     parties at one table at once both passed the free check, and the second joined the first's
+     bill through ensureOpenBill's "return the existing bill" path. A seat now refuses instead. */
+  expect(fn).toMatch(
+    /ensureOpenBill\(input\.tableId, \{\s*guests: \(row\.party_size as number\) \|\| 2,\s*actor: input\.actor,\s*mustBeNew: true,/
   );
+  const m = code('src/lib/db/mutations.ts');
+  const open = m.slice(m.indexOf('export async function ensureOpenBill'));
+  expect(open).toMatch(/if \(existing\) \{\s*if \(opts\.mustBeNew\) throw new Error/);
+  expect(open).toMatch(/if \(won && opts\.mustBeNew\) \{\s*throw new Error/);
   expect(fn).toContain('seated_table_id: input.tableId');
 });
 

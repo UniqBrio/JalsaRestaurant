@@ -2,6 +2,14 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, code-review fixes
+
+Review (REQUEST CHANGES) found, and this run fixed: seating race could join a second party onto the first party's bill (ensureOpenBill `mustBeNew`, 23505 refused); add-round accepted a VOID bill or a table moved off the bill (only open/payment_requested, table must be on the bill; same status rule for the waiter picker); issuePin could pass a PIN held by both the person and another; Net went stale beside a live Expenses tile (now income - live expenses); entries outside the range could not be edited (Show every entry); the Disconnect dialog promised tickets would wait; sign-in audit could fail a successful sign-in; an unchecked write in savePrinterMapping; "No guest has answered" overclaimed; ticket month spelling depended on ICU.
+FAIL-FIRST: finance-section, pin-and-attribution, queue-seat-and-closed, assign-waiter (appended) - with the review fixes reverted: **5 failed**, 20 passed; after: all pass. Unit tier: 1017 passed. Specs updated in place with dated SUPERSEDED notes (they were added in this same unmerged branch).
+NOT CHANGED, raised with the owner: set_own_pin has no uniqueness check (a refusal would reveal a colleague's PIN); provisional PINs are gated by the pages, not the API routes, and "Skip for now" deliberately lets a provisional session proceed (KL-4) - an API-level block would contradict that design.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, final validation
 
 Typecheck: PASS. Lint (whole app, --max-warnings 0): PASS. Unit tier: 1016 passed, 0 failed (also under TZ=UTC). Production build (`next build`, placeholder non-secret config): PASS, 19 static pages. audit:all 10/10. Gate: BLOCKED - G1-G7, G9-G12 PASS; G8 functional BLOCKED (no database reachable from this container; CONNECT to *.supabase.co refused, 403).

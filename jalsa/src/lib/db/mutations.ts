@@ -111,10 +111,19 @@ export async function ensureOpenBill(
     actor?: Actor;
     /** A captain opening a table nobody is standing captain of becomes its captain (C1/G2). */
     openerCaptainId?: string;
+    /**
+     * Refuse rather than join an existing bill (seating from the queue). The default - return
+     * the bill already on the table - is right for a round and wrong for a SEAT: two hosts
+     * seating two parties at one table would otherwise both succeed onto one bill.
+     */
+    mustBeNew?: boolean;
   } = {}
 ): Promise<Bill> {
   const existing = await openBillForTable(tableId);
-  if (existing) return existing;
+  if (existing) {
+    if (opts.mustBeNew) throw new Error(`${existing.tables.join(', ')} already has a party on it. Choose another table.`);
+    return existing;
+  }
 
   const restaurantId = await currentRestaurantId();
 
@@ -185,6 +194,9 @@ export async function ensureOpenBill(
       .delete()
       .eq('id', billRow.id as string);
     const won = await openBillForTable(tableId);
+    if (won && opts.mustBeNew) {
+      throw new Error(`${won.tables.join(', ')} was just taken by another party. Choose another table.`);
+    }
     if (won) return won;
     throw linkErr;
   }
