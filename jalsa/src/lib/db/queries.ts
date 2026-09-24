@@ -1,5 +1,5 @@
 import 'server-only';
-import { dayWindow } from '@/lib/restaurant-time';
+import { dayWindow, todayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { tableStateFrom, type KotStatus } from '@/lib/status';
 import { totalBill } from '@/lib/money';
@@ -337,14 +337,18 @@ export async function listOpenBills(): Promise<Bill[]> {
 
 export async function listClosedBillsToday(): Promise<Bill[]> {
   const restaurantId = await currentRestaurantId();
-  const since = new Date();
-  since.setHours(0, 0, 0, 0);
+  /* The restaurant's day, not the host's (RC-016). `setHours(0,0,0,0)` on a UTC server began
+     "today" at 05:30 IST, so a bill settled at 00:20 counted on the previous day - and between
+     midnight and 05:30 "today" still showed yesterday's evening. The same window every one-day
+     Report uses, so the two agree by construction. */
+  const { start, end } = todayWindow();
   const { data, error } = await db()
     .from('bill')
     .select(BILL_SELECT)
     .eq('restaurant_id', restaurantId)
     .eq('status', 'closed')
-    .gte('closed_at', since.toISOString())
+    .gte('closed_at', start.toISOString())
+    .lt('closed_at', end.toISOString())
     .order('closed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));

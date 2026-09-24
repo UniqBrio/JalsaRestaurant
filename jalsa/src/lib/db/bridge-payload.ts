@@ -1,4 +1,5 @@
 import 'server-only';
+import { dateLabelIn, timeLabelIn } from '@/lib/restaurant-time';
 import { db } from '@/lib/supabase/server';
 import type { Bridge } from '@/lib/bridge-auth';
 import { totalBill } from '@/lib/money';
@@ -92,10 +93,10 @@ async function settingsFor<T extends Record<string, unknown>>(
   return { ...fallback, ...((data?.value as T) ?? {}) };
 }
 
-const dateOf = (iso: string): string =>
-  new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const timeOf = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+// Printed on paper in the restaurant, so read on the restaurant's clock (RC-016): the server's
+// host is UTC, which printed a 00:20 ticket as 6:50 pm the previous day.
+const dateOf = (iso: string): string => dateLabelIn(iso);
+const timeOf = (iso: string): string => timeLabelIn(iso);
 
 /**
  * The lines for one job.

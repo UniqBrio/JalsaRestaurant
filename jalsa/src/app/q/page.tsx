@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { NotConfiguredState, UnreachableState } from '@/components/ui/states';
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
 import { readQueueEntry, listWaitlist, readAllSettings, readRestaurant } from '@/lib/db/queries';
+import { weekdayIn } from '@/lib/restaurant-time';
 import { GuestQueue } from '@/features/guest/GuestQueue';
 
 /**
@@ -51,7 +52,7 @@ export default async function QueuePage() {
       days?: Array<{ day: string; open: string; close: string; shut: boolean }>;
       note?: string;
     };
-    const today = DAYS[new Date().getDay()];
+    const today = DAYS[weekdayIn()];
     return {
       waiting: waiting.length,
       entry,

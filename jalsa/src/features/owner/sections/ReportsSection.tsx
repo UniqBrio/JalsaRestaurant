@@ -17,6 +17,7 @@ import {
   type DateRange,
   type RangePreset,
 } from '@/lib/report-range';
+import { nowForRangeCheck } from '@/lib/restaurant-time';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -98,7 +99,7 @@ interface RangeReport {
 export function ReportsSection({ data }: OwnerSectionProps) {
   const [tab, setTab] = React.useState<ReportTab>('sales');
   const [preset, setPreset] = React.useState<RangePreset>('today');
-  const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', new Date()));
+  const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', nowForRangeCheck()));
   /**
    * ONE PIECE OF STATE, STAMPED WITH THE RANGE IT ANSWERS.
    *
@@ -114,7 +115,10 @@ export function ReportsSection({ data }: OwnerSectionProps) {
     problem: string | null;
   } | null>(null);
 
-  const verdict = checkRange(range, new Date());
+  /* The restaurant's today, not the device's (RC-016): a phone set to another zone, or with a
+     wrong clock, named the wrong day for Today and Yesterday, and disagreed with the server's
+     own check of the same range. */
+  const verdict = checkRange(range, nowForRangeCheck());
   const key = `${range.from}|${range.to}`;
 
   React.useEffect(() => {
@@ -147,7 +151,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
 
   const pick = (p: RangePreset): void => {
     setPreset(p);
-    setRange(resolvePreset(p, new Date()));
+    setRange(resolvePreset(p, nowForRangeCheck()));
   };
 
   const canSeeMoney = data.grants.includes('rep.sales');

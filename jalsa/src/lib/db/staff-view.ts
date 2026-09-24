@@ -1,4 +1,5 @@
 import 'server-only';
+import { timeLabelIn } from '@/lib/restaurant-time';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, TABLE_STATE, type KotStatus, type Tone } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
@@ -102,8 +103,8 @@ export interface StaffPayload {
   myTables: string[];
 }
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+// The restaurant's wall clock, not the host's (RC-016): the server runs in UTC.
+const timeLabel = (iso: string): string => timeLabelIn(iso);
 
 const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 

@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import type { ExpenseRow } from '@/lib/db/types';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
+import { todayIn } from '@/lib/restaurant-time';
 
 /**
  * Screens 30 and 31 — the tips ledger and expenses, as TWO sections.
@@ -191,7 +192,7 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
               size="sm"
               onClick={() =>
                 setEditing({
-                  spentOn: new Date().toISOString().slice(0, 10),
+                  spentOn: todayIn(),
                   category: EXPENSE_CATEGORIES[0] ?? 'Other',
                   note: '',
                   amount: '',

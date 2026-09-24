@@ -1,4 +1,5 @@
 import 'server-only';
+import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
@@ -211,8 +212,8 @@ export interface OwnerPayload {
   qrOrigin: string;
 }
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+// The restaurant's wall clock, not the host's (RC-016): the server runs in UTC.
+const timeLabel = (iso: string): string => timeLabelIn(iso);
 
 const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 
@@ -365,9 +366,12 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
 
   // Today's tips are the ledger's own rows, not a column on a bill — so the figure on the
   // dashboard and the figure on the Tips tab are the same rows counted once.
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const tipsToday = tips.filter((t) => new Date(t.createdAt) >= startOfDay);
+  // The restaurant's day (RC-016), bounded at both ends like every other "today".
+  const { start: dayStart, end: dayEnd } = todayWindow();
+  const tipsToday = tips.filter((t) => {
+    const at = new Date(t.createdAt);
+    return at >= dayStart && at < dayEnd;
+  });
   const tipsTotal = tipsToday.reduce((a, t) => a + t.amount, 0);
 
   const mix = new Map<string, { amount: number; count: number }>();

@@ -1,4 +1,5 @@
 import 'server-only';
+import { timeLabelIn, weekdayIn } from '@/lib/restaurant-time';
 import { rupees, totalBill, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, type FoodType, type KotStatus } from '@/lib/status';
 import {
@@ -129,8 +130,8 @@ export interface GuestPayload {
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+// The restaurant's wall clock, not the host's (RC-016): the server runs in UTC.
+const timeLabel = (iso: string): string => timeLabelIn(iso);
 
 /**
  * The payload for a table, resolving the guest session from scratch.
@@ -260,7 +261,7 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
       })),
   }));
 
-  const todayName = DAYS[new Date().getDay()];
+  const todayName = DAYS[weekdayIn()];
 
   return {
     phase: ctx.phase,
