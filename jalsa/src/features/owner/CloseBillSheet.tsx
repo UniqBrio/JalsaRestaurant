@@ -9,6 +9,7 @@ import { TotalsBlock } from '@/components/ui/bill';
 import { Field, Input } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { discountBothWays, rupees } from '@/lib/money';
+import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
 import {
   DiscountFields,
   NO_DISCOUNT,
@@ -72,6 +73,8 @@ export function CloseBillSheet({
   /* ONE discount, two views, and which box was typed in. The pair is the same control the
      captain's Close sheet uses — see src/components/ui/discount-fields.tsx. */
   const [discount, setDiscount] = React.useState<DiscountEntry>(NO_DISCOUNT);
+  /** Cash received, as typed. Only read when the mode is Cash (H3). */
+  const [tendered, setTendered] = React.useState('');
 
   // Opening the dialog on a DIFFERENT bill clears the form, during render rather than in an
   // effect. A discount typed for one table must never be sitting in the box when the next one
@@ -83,6 +86,7 @@ export function CloseBillSheet({
     setMode(MODES[1]);
     setReference('');
     setDiscount(NO_DISCOUNT);
+    setTendered('');
   }
 
   if (!bill) return null;
@@ -96,6 +100,9 @@ export function CloseBillSheet({
   const problem = discountProblem(discount, bill.subtotal);
   // The derived value, shown as it is typed (Standard 3.4). ONE discount — not the sum of two
   // boxes — because the two boxes are two views of the same figure.
+  // Change is for cash only, against what is charged at this moment (H3).
+  const payableNow = payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount });
+  const tenderProblem = mode === 'Cash' ? cashProblem(payableNow, tendered) : null;
   const discountPreview = payload
     ? discountBothWays({ base: bill.subtotal, typed: payload.discountType, value: payload.discountValue }).amount
     : 0;
@@ -115,7 +122,7 @@ export function CloseBillSheet({
           </Button>
           <Button
             data-testid="owner-close-confirm"
-            disabled={busy || problem !== null}
+            disabled={busy || problem !== null || tenderProblem !== null}
             onClick={() =>
               runBusy(async () => {
                 const res = await send<{ payable: number }>('/api/owner/action', {
@@ -252,6 +259,16 @@ export function CloseBillSheet({
             ))}
           </div>
         </div>
+
+        {mode === 'Cash' ? (
+          <CashChangeField
+            payable={payableNow}
+            value={tendered}
+            onChange={setTendered}
+            disabled={busy}
+            testIdPrefix="owner-close"
+          />
+        ) : null}
 
         <Field
           label="Reference"

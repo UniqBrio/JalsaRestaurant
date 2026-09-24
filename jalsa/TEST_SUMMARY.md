@@ -50,6 +50,12 @@ _One or more classes could NOT be verified. This is a decision for the owner, no
 
 ---
 
+## Run - 2026-09-24 - 24-Sep correction list, H3 cash change
+
+FAIL-FIRST: jalsa/tests/unit/cash-change.unit.spec.ts - defect injected into cashChange (a shortfall returned as negative change) and reverted: **2 failed**, 5 passed; after: 7 passed. Unit tier: 990 passed. The UI (CashChangeField on both closure screens) is new surface: NOT OBSERVED FAILING beyond the source pin that both screens use it.
+
+---
+
 ## Run - 2026-09-24 - 24-Sep correction list, batch 3 (B1-B4 printers)
 
 FAIL-FIRST: jalsa/tests/unit/printer-management.unit.spec.ts - against HEAD's sources: **8 failed** of 8; after: 8 passed. Unit tier: 983 passed.

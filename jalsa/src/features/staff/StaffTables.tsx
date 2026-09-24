@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/discount-fields';
 import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
+import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
 
 /**
  * The floor, one bill, and adding a round to it — screens 15 to 20 of the design set.
@@ -230,6 +231,8 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
   const [mode, setMode] = React.useState<string>(PAYMENT_MODES[1]);
   const [reference, setReference] = React.useState('');
   const [discount, setDiscount] = React.useState<DiscountEntry>(NO_DISCOUNT);
+  /** Cash received, as typed (H3). */
+  const [tendered, setTendered] = React.useState('');
 
   if (!bill) {
     return (
@@ -577,7 +580,16 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             </Button>
             <Button
               data-testid="staff-close-confirm"
-              disabled={busy || (bill.subtotal !== null && discountProblem(discount, bill.subtotal) !== null)}
+              disabled={
+                busy ||
+                (bill.subtotal !== null && discountProblem(discount, bill.subtotal) !== null) ||
+                (mode === 'Cash' &&
+                  bill.subtotal !== null &&
+                  cashProblem(
+                    payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount }),
+                    tendered
+                  ) !== null)
+              }
               onClick={() =>
                 runBusy(async () => {
                   // Only the box that was typed in, and which one it was. The server derives the
@@ -637,6 +649,17 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
               ))}
             </div>
           </div>
+
+          {/* Only where this person sees money: a waiter has no subtotal, so no change to work out. */}
+          {mode === 'Cash' && bill.subtotal !== null ? (
+            <CashChangeField
+              payable={payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount })}
+              value={tendered}
+              onChange={setTendered}
+              disabled={busy}
+              testIdPrefix="staff-close"
+            />
+          ) : null}
 
           <Field label="Reference" htmlFor="staff-reference" hint="Optional — a UPI reference or a receipt number.">
             <Input
