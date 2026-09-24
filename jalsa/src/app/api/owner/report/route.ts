@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
 import { fail, handler, ok } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
-import { billTotals, listClosedBillsBetween, listExpensesBetween, readAllSettings } from '@/lib/db/queries';
+import {
+  billTotals,
+  lastClosedBillBefore,
+  listClosedBillsBetween,
+  listExpensesBetween,
+  readAllSettings,
+} from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
 import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
-import { dayIn, nowForRangeCheck } from '@/lib/restaurant-time';
+import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
 
 /* The same three words the console uses. Duplicated nowhere else: a fourth spelling of "guest
  * phone" is how a report and a bill detail end up disagreeing about where an order came from. */
@@ -68,10 +74,12 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     return fail(400, { code: 'validation', message: verdict.problem });
   }
 
-  const [bills, expenses, settings] = await Promise.all([
+  const [bills, expenses, settings, lastBefore] = await Promise.all([
     listClosedBillsBetween(from, to),
     listExpensesBetween(from, to),
     readAllSettings(),
+    // The actual last bill before this range, for the empty state's "Last bill" line (A1).
+    lastClosedBillBefore(from),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -179,5 +187,12 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       };
     }),
     expenses,
+    lastBillBefore: lastBefore
+      ? {
+          code: lastBefore.code,
+          closedOn: dayIn(new Date(lastBefore.closedAt)),
+          closedOnLabel: shortDayLabel(dayIn(new Date(lastBefore.closedAt))),
+        }
+      : null,
   });
 });

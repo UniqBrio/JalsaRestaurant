@@ -59,10 +59,7 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
    * payload build: the first page render, the six-second poll, and the write-echo that decides
    * when `guest-placed` appears.
    */
-  const [
-    { data, error },
-    { data: cats },
-  ] = await Promise.all([
+  const [{ data, error }, { data: cats }] = await Promise.all([
     db()
       .from('menu_item')
       .select(
@@ -70,7 +67,11 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
       )
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
-    db().from('menu_category').select('id,name,sort').eq('restaurant_id', restaurantId).order('sort', { ascending: true }),
+    db()
+      .from('menu_category')
+      .select('id,name,sort')
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
   ]);
   if (error) throw error;
 
@@ -158,22 +159,24 @@ function livePrintJobs(raw: unknown): KotPrintJob[] {
     jobs.map((j) => j.redirected_from_job_id as string | null).filter((id): id is string => !!id)
   );
 
-  return jobs
-    .filter((j) => !superseded.has(j.id as string))
-    .map((j) => ({
-      id: j.id as string,
-      status: j.status as KotPrintJob['status'],
-      attempts: (j.attempts as number) ?? 0,
-      isReprint: (j.is_reprint as boolean) ?? false,
-      lastError: (j.last_error as string) ?? '',
-      printerId: (j.printer_id as string | null) ?? null,
-      printerName: (j.printer_name as string) ?? '',
-      station: (j.station as string) ?? '',
-      routingRule: ((j.routing_rule as string) ?? '') as KotPrintJob['routingRule'],
-    }))
-    // Stable on the screen: the same round reads the same way every poll, whatever order
-    // PostgREST returned the rows in.
-    .sort((a, b) => a.station.localeCompare(b.station) || a.printerName.localeCompare(b.printerName));
+  return (
+    jobs
+      .filter((j) => !superseded.has(j.id as string))
+      .map((j) => ({
+        id: j.id as string,
+        status: j.status as KotPrintJob['status'],
+        attempts: (j.attempts as number) ?? 0,
+        isReprint: (j.is_reprint as boolean) ?? false,
+        lastError: (j.last_error as string) ?? '',
+        printerId: (j.printer_id as string | null) ?? null,
+        printerName: (j.printer_name as string) ?? '',
+        station: (j.station as string) ?? '',
+        routingRule: ((j.routing_rule as string) ?? '') as KotPrintJob['routingRule'],
+      }))
+      // Stable on the screen: the same round reads the same way every poll, whatever order
+      // PostgREST returned the rows in.
+      .sort((a, b) => a.station.localeCompare(b.station) || a.printerName.localeCompare(b.printerName))
+  );
 }
 
 function shapeBill(row: Record<string, unknown>): Bill {
@@ -385,6 +388,29 @@ export async function listClosedBillsBetween(from: string, to: string): Promise<
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
 }
 
+/**
+ * The most recent bill closed BEFORE a range began - read, never guessed.
+ *
+ * For the empty Today state (24-Sep list, A1): "no bills closed today" is true and unhelpful on
+ * its own the morning after a busy night, so the screen names the actual last bill and offers
+ * the day it belongs to. Only the code and the instant are read; nothing here is a figure.
+ */
+export async function lastClosedBillBefore(from: string): Promise<{ code: string; closedAt: string } | null> {
+  const restaurantId = await currentRestaurantId();
+  const { start } = dayWindow(from, from);
+  const { data, error } = await db()
+    .from('bill')
+    .select('code, closed_at')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'closed')
+    .lt('closed_at', start.toISOString())
+    .order('closed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { code: data.code as string, closedAt: data.closed_at as string } : null;
+}
+
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */
 export async function listExpensesBetween(from: string, to: string): Promise<ExpenseRow[]> {
   const restaurantId = await currentRestaurantId();
@@ -590,7 +616,9 @@ export async function listStaff(): Promise<StaffMember[]> {
   const [staffRes, bills] = await Promise.all([
     db()
       .from('staff')
-      .select('id,name,role,initials,mobile,email,active,on_duty,pin_hash,employee_code,designation,department,joined_on,last_working_day,gender,employment_type,monthly_salary,reports_to,shift,home_address,pan,uan,bank_last4,staff_table(dining_table:table_id(name))')
+      .select(
+        'id,name,role,initials,mobile,email,active,on_duty,pin_hash,employee_code,designation,department,joined_on,last_working_day,gender,employment_type,monthly_salary,reports_to,shift,home_address,pan,uan,bank_last4,staff_table(dining_table:table_id(name))'
+      )
       .eq('restaurant_id', restaurantId)
       .is('removed_at', null)
       .order('name', { ascending: true }),
@@ -759,7 +787,9 @@ export async function listPrinters(): Promise<PrinterRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('printer')
-    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at')
+    .select(
+      'id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at'
+    )
     .eq('restaurant_id', restaurantId)
     .order('machine_id', { ascending: true });
   if (error) throw error;
@@ -797,7 +827,9 @@ export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('print_job')
-    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id),bill(code)')
+    .select(
+      'id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id),bill(code)'
+    )
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
     .limit(limit);

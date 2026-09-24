@@ -184,3 +184,15 @@ export function dateLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZO
     timeZone: zone,
   });
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "23 Sep" for a `YYYY-MM-DD`. Spelled from the date's own parts, because `Intl`'s short month
+ * for September is "Sept" in some runtimes and "Sep" in others - a label that changes with the
+ * server's ICU version is a label nobody can write a test for.
+ */
+export function shortDayLabel(day: string): string {
+  const [, m, d] = day.split('-').map(Number);
+  return `${d ?? ''} ${MONTHS[(m ?? 1) - 1] ?? ''}`;
+}

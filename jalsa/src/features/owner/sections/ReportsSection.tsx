@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
+import { Button } from '@/components/ui/button';
 import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Field, Input } from '@/components/ui/field';
@@ -10,11 +11,14 @@ import { rupees } from '@/lib/money';
 import {
   PRESET_LABEL,
   checkRange,
+  emptyRangeCopy,
   rangeLabel,
   rangeIsEmpty,
   readReportAnswer,
   resolvePreset,
   type DateRange,
+  type EmptyRangeCopy,
+  type LastBillBefore,
   type RangePreset,
 } from '@/lib/report-range';
 import { nowForRangeCheck } from '@/lib/restaurant-time';
@@ -94,6 +98,8 @@ interface RangeReport {
     payableLabel: string;
   }>;
   expenses: Array<{ id: string; spentOn: string; category: string; note: string; amount: number; enteredBy: string }>;
+  /** The actual last bill closed before this range, for the empty Today state. */
+  lastBillBefore: LastBillBefore | null;
 }
 
 export function ReportsSection({ data }: OwnerSectionProps) {
@@ -135,7 +141,11 @@ export function ReportsSection({ data }: OwnerSectionProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setResult({ key, report: null, problem: 'The report could not be read — the connection may have dropped.' });
+          setResult({
+            key,
+            report: null,
+            problem: 'The report could not be read — the connection may have dropped.',
+          });
         }
       });
     return () => {
@@ -219,19 +229,26 @@ export function ReportsSection({ data }: OwnerSectionProps) {
       </nav>
 
       {!report || rangeIsEmpty(report) ? (
-        problem ? null : (
+        problem ? null : loading || !report ? (
           <FirstRunState
-            title={loading ? 'Reading the range' : 'Nothing in this range'}
-            note={
-              loading
-                ? 'The rows are being read for the dates above.'
-                : 'No bill was closed and no expense was recorded between these dates. Every panel below is a projection of the same rows, so all four are empty together rather than disagreeing.'
-            }
+            title="Reading the range"
+            note="The rows are being read for the dates above."
             testId="owner-rep-empty"
           />
+        ) : (
+          <EmptyRange copy={emptyRangeCopy(preset, report.lastBillBefore)} onYesterday={() => pick('yesterday')} />
         )
       ) : (
         <>
+          {/* Today with expenses but no bill yet: the panels still show the expenses, and the
+              notice says where the takings went (A1). */}
+          {preset === 'today' && report.summary.bills === 0 ? (
+            <EmptyRange
+              copy={emptyRangeCopy('today', report.lastBillBefore)}
+              onYesterday={() => pick('yesterday')}
+              compact
+            />
+          ) : null}
           {tab === 'sales' ? <SalesPanel report={report} canSeeMoney={canSeeMoney} /> : null}
           {tab === 'orders' ? <OrdersPanel report={report} /> : null}
           {tab === 'expenses' ? <ExpensesPanel report={report} /> : null}
@@ -239,6 +256,51 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * A range with no bill closed. On Today it names the real last bill and offers Yesterday (A1);
+ * `compact` is the one-line form shown above panels that still have expenses to show.
+ */
+function EmptyRange({
+  copy,
+  onYesterday,
+  compact = false,
+}: {
+  copy: EmptyRangeCopy;
+  onYesterday: () => void;
+  compact?: boolean;
+}) {
+  const action = copy.offerYesterday
+    ? { label: 'View Yesterday', onClick: onYesterday, testId: 'owner-rep-view-yesterday' }
+    : undefined;
+  if (!compact) {
+    return (
+      <FirstRunState
+        title={copy.title}
+        note={copy.lastBill ? `${copy.lastBill}. ${copy.note}` : copy.note}
+        {...(action ? { action } : {})}
+        testId="owner-rep-empty"
+      />
+    );
+  }
+  return (
+    <Card className="flex flex-wrap items-center gap-3" data-testid="owner-rep-no-bills-today">
+      <span className="min-w-0 flex-1">
+        <span className="block type-body font-semibold">{copy.title}</span>
+        {copy.lastBill ? (
+          <span className="block type-caption text-[var(--text-muted)]" data-testid="owner-rep-last-bill">
+            {copy.lastBill}
+          </span>
+        ) : null}
+      </span>
+      {action ? (
+        <Button variant="secondary" data-testid={action.testId} onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
+    </Card>
   );
 }
 
@@ -309,8 +371,8 @@ function GstPanel({ report }: { report: RangeReport }) {
         ))}
       </div>
       <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-        A bill counts as GST when tax was charged on it. Gross is what the customer paid less any tip; net is the
-        base before GST, so the difference between them is the GST column.
+        A bill counts as GST when tax was charged on it. Gross is what the customer paid less any tip; net is the base
+        before GST, so the difference between them is the GST column.
       </p>
     </section>
   );
@@ -386,8 +448,8 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
         </div>
         {canSeeMoney ? (
           <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-            Tips over this range came to <strong>{s.tipsLabel}</strong> and are not in the sales figure. The guest owed
-            them; the restaurant did not earn them.
+            Tips over this range came to <strong>{s.tipsLabel}</strong> and are not in the sales figure. The guest
+            owed them; the restaurant did not earn them.
           </p>
         ) : null}
       </section>
@@ -516,8 +578,8 @@ function OrdersPanel({ report }: { report: RangeReport }) {
         ]}
       />
       <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-        &ldquo;Placed by&rdquo; is recorded on every round as it is created and cannot be reconstructed afterwards — it
-        is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
+        &ldquo;Placed by&rdquo; is recorded on every round as it is created and cannot be reconstructed afterwards —
+        it is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
       </p>
     </section>
   );
@@ -569,7 +631,12 @@ function FinalPanel({ report }: { report: RangeReport }) {
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <MetricTile label="Income" value={s.salesLabel} note="Sales, tips excluded" testId="owner-final-income" />
-        <MetricTile label="Purchases" value={s.purchasesLabel} note="Everything entered" testId="owner-final-purchases" />
+        <MetricTile
+          label="Purchases"
+          value={s.purchasesLabel}
+          note="Everything entered"
+          testId="owner-final-purchases"
+        />
         <MetricTile
           label="Net"
           value={s.netLabel}
@@ -602,11 +669,20 @@ function FinalPanel({ report }: { report: RangeReport }) {
         <SectionLabel>What is in each figure, and what is not</SectionLabel>
         <dl className="m-0 flex flex-col gap-1">
           {[
-            ['Income', `${s.salesLabel} — what the restaurant earned, over ${s.bills} closed ${s.bills === 1 ? 'bill' : 'bills'}`],
+            [
+              'Income',
+              `${s.salesLabel} — what the restaurant earned, over ${s.bills} closed ${s.bills === 1 ? 'bill' : 'bills'}`,
+            ],
             ['Tips', `${s.tipsLabel} — collected on the staff's behalf and owed to them. Never income.`],
-            ['GST', `${s.taxLabel} — collected and owed onward. It is inside what the guest paid and outside what the restaurant earned.`],
+            [
+              'GST',
+              `${s.taxLabel} — collected and owed onward. It is inside what the guest paid and outside what the restaurant earned.`,
+            ],
             ['Discounts', `${s.discountsLabel} — taken off before tax, each one named to whoever gave it.`],
-            ['Purchases', `${s.purchasesLabel} — only what somebody typed into the Expenses ledger. Nothing is inferred.`],
+            [
+              'Purchases',
+              `${s.purchasesLabel} — only what somebody typed into the Expenses ledger. Nothing is inferred.`,
+            ],
           ].map(([k, v]) => (
             <div key={k} className="flex flex-wrap gap-2 border-b border-[var(--border)] py-1.5 last:border-b-0">
               <dt className="min-w-[6rem] type-caption font-semibold">{k}</dt>

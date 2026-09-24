@@ -280,3 +280,47 @@ export function readReportAnswer<R>(ok: boolean, body: unknown): { report: R | n
 export function rangeIsEmpty(report: { summary: { bills: number }; expenses: readonly unknown[] }): boolean {
   return report.summary.bills === 0 && report.expenses.length === 0;
 }
+
+/* ── The empty state's words ───────────────────────────────────────────── */
+
+export interface LastBillBefore {
+  code: string;
+  /** `YYYY-MM-DD` in the restaurant's calendar. */
+  closedOn: string;
+  /** "23 Sep". */
+  closedOnLabel: string;
+}
+
+export interface EmptyRangeCopy {
+  title: string;
+  note: string;
+  /** "Last bill: B-1044 • 23 Sep" - only when such a bill was actually read. */
+  lastBill: string | null;
+  /** Offer the Yesterday preset. Only on Today, where yesterday is the question being asked. */
+  offerYesterday: boolean;
+}
+
+/**
+ * What the Reports screen says when a range closed no bills (24-Sep list, A1).
+ *
+ * On Today the generic sentence was true and confusing: the morning after a busy night it read
+ * as "the report lost last night". So Today says so in its own words, names the real last bill
+ * when there is one, and offers Yesterday. Nothing here is invented: with no earlier bill there
+ * is no "Last bill" line, and every other range keeps the generic sentence.
+ */
+export function emptyRangeCopy(preset: RangePreset, lastBillBefore: LastBillBefore | null): EmptyRangeCopy {
+  if (preset !== 'today') {
+    return {
+      title: 'Nothing in this range',
+      note: 'No bill was closed and no expense was recorded between these dates. Every panel below is a projection of the same rows, so all four are empty together rather than disagreeing.',
+      lastBill: null,
+      offerYesterday: false,
+    };
+  }
+  return {
+    title: 'No bills closed today.',
+    note: 'Bills appear here the moment a payment is recorded.',
+    lastBill: lastBillBefore ? `Last bill: ${lastBillBefore.code} • ${lastBillBefore.closedOnLabel}` : null,
+    offerYesterday: lastBillBefore !== null,
+  };
+}
