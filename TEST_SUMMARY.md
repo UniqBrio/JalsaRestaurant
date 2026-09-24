@@ -2,6 +2,20 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Latency fix 1 of 5: functions next to the database
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`** and `jalsa/requests/2026-09-24-app-feels-slow-measure-first.md`.
+The functions ran in Vercel's default iad1 (Washington DC); Supabase is Sydney. Measured ≈250–375 ms
+per database call, against ~1 ms of Postgres time. `jalsa/vercel.json` now pins `syd1`.
+
+FAIL-FIRST: jalsa/tests/unit/function-region.unit.spec.ts - "ENOENT: no such file or directory, open '.../jalsa/vercel.json'" against the pre-fix tree.
+
+Gate run (jalsa): unit 940 passed, typecheck and lint clean. G8 functional was NOT run on this
+runner (no database reachable from the container). The effect on real latency is measured after
+deploy from the Supabase edge logs, not here.
+
+---
+
 ## Application run - jalsa - 2026-09-23 - Bug: the Windows installer would not parse (bridge 2.0.1)
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** First real Windows run: install.ps1 failed

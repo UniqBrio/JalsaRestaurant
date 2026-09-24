@@ -12,6 +12,8 @@
 | **staging** | Pre-production verification | not provisioned | — | deploys only | no |
 | **production** | Real service at Jalsa, Hosur | not provisioned | — | **approved deploys only** | **NEVER** |
 
+**Server functions run in `syd1` (Sydney), next to both Supabase projects (24-Sep-2026, `jalsa/vercel.json`).** Before that they ran in Vercel's default `iad1` (Washington DC), and every database call paid ≈250–375 ms (requests/2026-09-24-app-feels-slow-measure-first.md). Guarded by `tests/unit/function-region.unit.spec.ts`.
+
 **There are now two Supabase projects.** `yxgxmbyilpivbmeemqkp` does development duty and will become production; `uxmyomxtosjlkvjxnvpy` exists so the suite has somewhere to write. The reset script refuses the first by ref. Staging is still not provisioned.
 
 ~~**There is currently one Supabase project and it is doing development duty.**~~ That is stated

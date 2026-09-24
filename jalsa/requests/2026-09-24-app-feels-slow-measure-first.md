@@ -106,3 +106,27 @@ estimate from the build manifest puts the full guest screen at 239 KB gzip.
 
 Side finding, not part of the everyday slowness: when the database is unreachable, `supabase-js`
 retries for **≈7 s** before the designed "unavailable" screen appears (measured locally, 7.03–7.17 s).
+
+## APPROVED (24-Sep-2026, from the requester, verbatim)
+> Approved, in this order, separate commits, re-measure after each (before/after table):
+> 1. Vercel functions → syd1 (next to the database). Re-measure guest-screen server time.
+> 2. Guest screen: 8 sequential rounds → ≤3 (parallelise independent reads).
+> 3. Staff/owner actions return the updated screen state — no second request.
+> 4. Polling: replace "re-read everything every 6 s" with a cheap change check (one
+>    updated-at value per table/order) and reload only on change — or Supabase Realtime,
+>    whichever is simpler here. Report calls/second at 40 open tables, before and after.
+> 5. Outage: fail fast (~2 s) to the unavailable screen instead of the 7 s retry.
+> Users/diners are located in: <India | Australia>. No database move until I confirm.
+
+- Diner location: **India**, from `jalsa/CLAUDE.md` ("one restaurant in Hosur, Tamil Nadu"). No database move.
+- Fix 4 uses a **change check, not Supabase Realtime**. Realtime would make the browser subscribe to
+  Supabase directly, which breaks binding guardrail 3 ("the browser never speaks to Supabase").
+- Re-measurement method (requester's choice): after each push, the requester uses the preview on
+  a phone in India, and the timings are read from the Supabase edge logs as before.
+- Region is set in code (`jalsa/vercel.json`), not the dashboard (requester's choice).
+
+## BEFORE / AFTER (guest-screen server time, Supabase edge logs)
+| Step | Function region (edge `cf.colo`) | Per-call time (origin_time p50) | Guest load/poll server time | Measured |
+|---|---|---|---|---|
+| Before | iad1 (IAD) | 375 ms (min 229) | ≈2.9 s | 24-Sep 03:06 trace |
+| After fix 1 | *pending: requester's phone run* | | | |

@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 1 of the latency run - 2026-09-24 - functions next to the database
+
+FAIL-FIRST: tests/unit/function-region.unit.spec.ts - "ENOENT: no such file or directory, open '.../jalsa/vercel.json'" against the pre-fix tree (functions on the iad1 default). After `vercel.json` `regions: ["syd1"]`: 2 passed.
+NOT OBSERVED FAILING: tests/unit/function-region.unit.spec.ts "no route overrides the pinned region" - no route has ever set `preferredRegion`; it guards the fix, it did not detect the cause.
+
+---
+
 ## Gate run - 2026-09-23 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.
