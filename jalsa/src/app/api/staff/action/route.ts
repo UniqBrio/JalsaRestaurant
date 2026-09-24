@@ -73,8 +73,17 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
   switch (input.action) {
     case 'add-round': {
-      const bill = input.billId ? await getBill(input.billId) : await ensureOpenBill(input.tableId);
-      if (!bill) return fail(404, { code: 'not-found', message: 'That bill is no longer open.' });
+      const bill = input.billId
+        ? await getBill(input.billId)
+        : await ensureOpenBill(input.tableId, {
+            actor,
+            ...(staff.role === 'Captain' ? { openerCaptainId: staff.staffId } : {}),
+          });
+      /* A round goes onto an OPEN bill (C1). A bill closed or moved while the menu was open must
+         not quietly take a round; the screen is told, and reloads. */
+      if (!bill || bill.status === 'closed') {
+        return fail(404, { code: 'not-found', message: 'That bill is no longer open.' });
+      }
       const result = await placeRound({
         billId: bill.id,
         tableId: input.tableId,

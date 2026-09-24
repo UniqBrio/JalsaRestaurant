@@ -213,7 +213,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       /* Always `ensureOpenBill`: this door exists for a table with no bill. Adding to a bill
          that already exists is the captain's screen, and giving this verb a second mode nothing
          calls would be a branch no test ever walks. */
-      const bill = await ensureOpenBill(input.tableId);
+      const bill = await ensureOpenBill(input.tableId, { actor });
       const placed = await placeRound({
         billId: bill.id,
         tableId: input.tableId,

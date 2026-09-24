@@ -49,7 +49,9 @@ const PAYMENT_MODES = ['Cash', 'Digital / UPI', 'Card'] as const;
 export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
   const live = data.tables.filter((t) => t.billId !== null);
-  const free = data.tables.filter((t) => t.billId === null && t.active);
+  // Free = in service, no bill, and not waiting to be cleared (C1) - the same rule the queue's
+  // Seat sheet uses, so a table still covered in the last party's plates is not offered.
+  const free = data.tables.filter((t) => t.billId === null && t.active && t.clearing === null);
 
   /* The same grant the owner holds, doing the same thing on the captain's floor. `tables.free`
      is not a role — the owner hands it to whoever they trust with it, and this screen simply

@@ -272,12 +272,32 @@ export async function issuePin(input: { staffId: string; actor: Actor }): Promis
     '1234',
     '4321',
   ]);
+  /* NOT A PIN SOMEONE ELSE ALREADY HOLDS (24-Sep list, G2). Sign-in looks a person up by PIN
+     alone (`verify_staff_pin` ... limit 1), so two people with the same four digits sign in as
+     whichever row Postgres returns first - and every round the second one places is recorded
+     against the first. The server draws this PIN, so checking it reveals nothing to anyone. */
+  const restaurantId = await currentRestaurantId();
+  const heldByAnother = async (candidate: string): Promise<boolean> => {
+    const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: candidate });
+    if (error) throw error;
+    const row = (data as Array<{ id: string }> | null)?.[0];
+    return !!row && row.id !== input.staffId;
+  };
   let pin = '';
-  do {
+  for (let tries = 0; ; tries += 1) {
     pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  } while (banned.has(pin));
+    if (banned.has(pin)) continue;
+    if (!(await heldByAnother(pin))) break;
+    if (tries > 50) throw new Error('A free PIN could not be drawn. Try again.');
+  }
 
-  const { error } = await db().rpc('set_staff_pin', { p_staff: input.staffId, p_pin: pin });
+  /* `p_provisional: true` (24-Sep list, F1). Without it the call named two arguments, which
+     matched BOTH `set_staff_pin(uuid,text)` and `set_staff_pin(uuid,text,boolean)` on any
+     database where 20260917120000 had not been applied - PostgREST refused it as ambiguous and
+     Reissue PIN failed every time. Naming the third argument resolves to the one function that
+     has it, and makes the issued PIN provisional: it opens "choose your own PIN" and nothing
+     else (guardrail 5), as that migration's own note intended. */
+  const { error } = await db().rpc('set_staff_pin', { p_staff: input.staffId, p_pin: pin, p_provisional: true });
   if (error) throw error;
 
   const { data: person } = await db().from('staff').select('name').eq('id', input.staffId).maybeSingle();

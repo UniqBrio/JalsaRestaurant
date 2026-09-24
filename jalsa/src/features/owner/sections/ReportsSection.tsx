@@ -141,11 +141,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setResult({
-            key,
-            report: null,
-            problem: 'The report could not be read — the connection may have dropped.',
-          });
+          setResult({ key, report: null, problem: 'The report could not be read — the connection may have dropped.' });
         }
       });
     return () => {
@@ -230,11 +226,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
 
       {!report || rangeIsEmpty(report) ? (
         problem ? null : loading || !report ? (
-          <FirstRunState
-            title="Reading the range"
-            note="The rows are being read for the dates above."
-            testId="owner-rep-empty"
-          />
+          <FirstRunState title="Reading the range" note="The rows are being read for the dates above." testId="owner-rep-empty" />
         ) : (
           <EmptyRange copy={emptyRangeCopy(preset, report.lastBillBefore)} onYesterday={() => pick('yesterday')} />
         )
@@ -243,11 +235,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
           {/* Today with expenses but no bill yet: the panels still show the expenses, and the
               notice says where the takings went (A1). */}
           {preset === 'today' && report.summary.bills === 0 ? (
-            <EmptyRange
-              copy={emptyRangeCopy('today', report.lastBillBefore)}
-              onYesterday={() => pick('yesterday')}
-              compact
-            />
+            <EmptyRange copy={emptyRangeCopy('today', report.lastBillBefore)} onYesterday={() => pick('yesterday')} compact />
           ) : null}
           {tab === 'sales' ? <SalesPanel report={report} canSeeMoney={canSeeMoney} /> : null}
           {tab === 'orders' ? <OrdersPanel report={report} /> : null}
@@ -371,8 +359,8 @@ function GstPanel({ report }: { report: RangeReport }) {
         ))}
       </div>
       <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-        A bill counts as GST when tax was charged on it. Gross is what the customer paid less any tip; net is the base
-        before GST, so the difference between them is the GST column.
+        A bill counts as GST when tax was charged on it. Gross is what the customer paid less any tip; net is the
+        base before GST, so the difference between them is the GST column.
       </p>
     </section>
   );
@@ -448,8 +436,8 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
         </div>
         {canSeeMoney ? (
           <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-            Tips over this range came to <strong>{s.tipsLabel}</strong> and are not in the sales figure. The guest
-            owed them; the restaurant did not earn them.
+            Tips over this range came to <strong>{s.tipsLabel}</strong> and are not in the sales figure. The guest owed
+            them; the restaurant did not earn them.
           </p>
         ) : null}
       </section>
@@ -578,8 +566,8 @@ function OrdersPanel({ report }: { report: RangeReport }) {
         ]}
       />
       <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-        &ldquo;Placed by&rdquo; is recorded on every round as it is created and cannot be reconstructed afterwards —
-        it is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
+        &ldquo;Placed by&rdquo; is recorded on every round as it is created and cannot be reconstructed afterwards — it
+        is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
       </p>
     </section>
   );
@@ -631,12 +619,7 @@ function FinalPanel({ report }: { report: RangeReport }) {
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <MetricTile label="Income" value={s.salesLabel} note="Sales, tips excluded" testId="owner-final-income" />
-        <MetricTile
-          label="Purchases"
-          value={s.purchasesLabel}
-          note="Everything entered"
-          testId="owner-final-purchases"
-        />
+        <MetricTile label="Purchases" value={s.purchasesLabel} note="Everything entered" testId="owner-final-purchases" />
         <MetricTile
           label="Net"
           value={s.netLabel}
@@ -669,20 +652,11 @@ function FinalPanel({ report }: { report: RangeReport }) {
         <SectionLabel>What is in each figure, and what is not</SectionLabel>
         <dl className="m-0 flex flex-col gap-1">
           {[
-            [
-              'Income',
-              `${s.salesLabel} — what the restaurant earned, over ${s.bills} closed ${s.bills === 1 ? 'bill' : 'bills'}`,
-            ],
+            ['Income', `${s.salesLabel} — what the restaurant earned, over ${s.bills} closed ${s.bills === 1 ? 'bill' : 'bills'}`],
             ['Tips', `${s.tipsLabel} — collected on the staff's behalf and owed to them. Never income.`],
-            [
-              'GST',
-              `${s.taxLabel} — collected and owed onward. It is inside what the guest paid and outside what the restaurant earned.`,
-            ],
+            ['GST', `${s.taxLabel} — collected and owed onward. It is inside what the guest paid and outside what the restaurant earned.`],
             ['Discounts', `${s.discountsLabel} — taken off before tax, each one named to whoever gave it.`],
-            [
-              'Purchases',
-              `${s.purchasesLabel} — only what somebody typed into the Expenses ledger. Nothing is inferred.`,
-            ],
+            ['Purchases', `${s.purchasesLabel} — only what somebody typed into the Expenses ledger. Nothing is inferred.`],
           ].map(([k, v]) => (
             <div key={k} className="flex flex-wrap gap-2 border-b border-[var(--border)] py-1.5 last:border-b-0">
               <dt className="min-w-[6rem] type-caption font-semibold">{k}</dt>

@@ -221,7 +221,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                 type="button"
                 /* Seated: open its bill. Free and orderable: start a round on it. Otherwise
                    inert, which is what an off-duty table should be. */
-                disabled={!t.billId && !(canOrder && t.active)}
+                disabled={!t.billId && !(canOrder && t.active && t.clearing === null)}
                 onClick={() => (t.billId ? go('orders', t.billId) : setSeating(t))}
 
                 className={cn(

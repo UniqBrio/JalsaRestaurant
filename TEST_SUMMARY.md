@@ -2,6 +2,21 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, batch 1 (A2/I5, A1, F1, G2, C1)
+
+FAIL-FIRST: jalsa/tests/unit/restaurant-day.unit.spec.ts - with the call sites reverted (new helpers kept): **2 failed** (source pins: a server "today" from the host clock; screens naming today with the UTC date), 6 passed; after, under TZ=UTC as on Vercel: 8 passed. The six helper cases cover functions that did not exist before: NOT OBSERVED FAILING for those six - new surface, no prior behaviour.
+FAIL-FIRST: jalsa/tests/unit/report-empty-today.unit.spec.ts - emptyRangeCopy stubbed to the old screen's generic sentence: **2 failed** (both Today cases), 4 passed; after: 6 passed. Live read for Today = 24-Sep returns B-1044, closed 23-Sep IST.
+FAIL-FIRST: jalsa/tests/unit/pin-and-attribution.unit.spec.ts - against HEAD's sources: **7 failed** of 7; after: 7 passed.
+SUPERSEDED IN PLACE: jalsa/tests/unit/owner-new-round.unit.spec.ts - two assertions, with dated notes (ensureOpenBill now takes the actor; tables awaiting clearing are not free).
+
+Evidence (read-only, live project yxgxmbyilpivbmeemqkp): pg_proc has set_staff_pin(uuid,text) AND
+(uuid,text,boolean) - migration 20260917120000 not applied; the test project has only the
+3-argument one. KOT-129 (24-Sep 08:33 IST, B-1052, captain Imran) is source=captain,
+placed_by = Javeed Ahmed (Owner/Admin); its "Bill opened" entry reads Guest - QR. No two staff
+share a PIN hash today. Unit tier: 967 passed. G8 functional not run (no database from here).
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Bug RC-015, review follow-up
 
 Code review (REQUEST CHANGES; the fix itself judged correct) raised: the changelog claimed a

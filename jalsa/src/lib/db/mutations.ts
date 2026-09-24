@@ -102,7 +102,16 @@ async function nextNumber(kind: 'bill' | 'kot' | 'group' | 'waitlist'): Promise<
  * because by then the first insert has produced exactly the bill the second caller wanted
  * (Standard 8.3).
  */
-export async function ensureOpenBill(tableId: string, opts: { guests?: number } = {}): Promise<Bill> {
+export async function ensureOpenBill(
+  tableId: string,
+  opts: {
+    guests?: number;
+    /** Who is opening it. Absent means a guest's phone. Recorded on the "Bill opened" entry. */
+    actor?: Actor;
+    /** A captain opening a table nobody is standing captain of becomes its captain (C1/G2). */
+    openerCaptainId?: string;
+  } = {}
+): Promise<Bill> {
   const existing = await openBillForTable(tableId);
   if (existing) return existing;
 
@@ -130,7 +139,7 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
     nextNumber('bill'),
     // The name this bill is being opened on. Read HERE, in a wave that was already being waited
     // for, so that the audit entry below no longer has to wait for `getBill` to learn it.
-    db().from('dining_table').select('name').eq('id', tableId).maybeSingle(),
+    db().from('dining_table').select('name, active').eq('id', tableId).maybeSingle(),
   ]);
   type Assigned = { staff: { id: string; role: string; on_duty: boolean } | null };
   const people = ((assigned ?? []) as unknown as Assigned[])
@@ -138,6 +147,13 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
     .filter((s): s is { id: string; role: string; on_duty: boolean } => !!s && s.on_duty);
   const captain = people.find((p) => p.role === 'Captain') ?? null;
   const waiter = people.find((p) => p.role === 'Waiter') ?? null;
+
+  /* Staff can only open a bill on a table that is in service (C1). The floor offers only active
+     tables; this is the same rule where it cannot be routed around. A guest's scan keeps its
+     existing behaviour - the table page already refuses an unknown table. */
+  if (opts.actor && tableRow && tableRow.active === false) {
+    throw new Error(`${(tableRow.name as string) ?? 'That table'} is not in service, so no bill can be opened on it.`);
+  }
 
   const { data: billRow, error: billErr } = await db()
     .from('bill')
@@ -147,7 +163,9 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
       host_table_id: tableId,
       guests: opts.guests ?? 2,
       tax_rate: tax,
-      captain_staff_id: captain?.id ?? null,
+      // The table's standing captain; failing that, the captain who opened it - a walk-in seated by
+      // Imran on a table with no standing captain is Imran's, not "Unassigned" (G2).
+      captain_staff_id: captain?.id ?? opts.openerCaptainId ?? null,
       waiter_staff_id: waiter?.id ?? null,
     })
     .select('id')
@@ -190,7 +208,9 @@ export async function ensureOpenBill(tableId: string, opts: { guests?: number } 
     audit({
       action: 'Bill opened',
       detail: `${code} opened on ${tableName}`,
-      actor: GUEST_ACTOR,
+      // Whoever actually opened it (G2). This said "Guest · QR" for every bill, including the
+      // ones a captain or the owner opened from their own screens.
+      actor: opts.actor ?? GUEST_ACTOR,
       billId: billRow.id as string,
       tableId,
     }),
