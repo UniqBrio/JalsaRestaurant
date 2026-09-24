@@ -2,6 +2,13 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, H2 heard-about in Uplift
+
+FAIL-FIRST: jalsa/tests/unit/heard-about-uplift.unit.spec.ts - case folding injected away and reverted: **1 failed**; against HEAD's wiring (no query, route or card): **2 failed**; after: 5 passed. Unit tier: 1005 passed.
+Live evidence (read-only): guest_session.heard_about holds 2 answers ("Friend recommended" x2). Caveat recorded: a session row is deleted when a phone moves to another table or a table with no kitchen rounds is freed by hand, and its answer goes with it - that is the existing store, unchanged.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, G1 captain assigns waiter
 
 FAIL-FIRST: jalsa/tests/unit/assign-waiter.unit.spec.ts - rule injected to ignore the position (captain allowed too) and reverted: **1 failed** (the captain position); against HEAD's wiring: **2 failed** (server door, captain phone); after: 5 passed. Unit tier: 1000 passed. RBAC_MATRIX: one row added.

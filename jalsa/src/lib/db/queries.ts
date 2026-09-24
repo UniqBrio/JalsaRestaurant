@@ -408,6 +408,24 @@ export async function lastClosedBillBefore(from: string): Promise<{ code: string
   return data ? { code: data.code as string, closedAt: data.closed_at as string } : null;
 }
 
+/**
+ * Every "how did you hear about us" answer given on a visit that began in the range (H2), read
+ * from the one place it is stored. The day is the restaurant's (`dayWindow`), like every range.
+ */
+export async function listHeardAboutBetween(from: string, to: string): Promise<string[]> {
+  const restaurantId = await currentRestaurantId();
+  const { start, end } = dayWindow(from, to);
+  const { data, error } = await db()
+    .from('guest_session')
+    .select('heard_about')
+    .eq('restaurant_id', restaurantId)
+    .neq('heard_about', '')
+    .gte('created_at', start.toISOString())
+    .lt('created_at', end.toISOString());
+  if (error) throw error;
+  return (data ?? []).map((r) => (r.heard_about as string) ?? '');
+}
+
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */
 export async function listExpensesBetween(from: string, to: string): Promise<ExpenseRow[]> {
   const restaurantId = await currentRestaurantId();
