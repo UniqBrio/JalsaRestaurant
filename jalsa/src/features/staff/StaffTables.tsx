@@ -22,6 +22,8 @@ import {
 import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
 import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
+import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { isFirstOrder, welcomeDrinksToOffer } from '@/lib/welcome-drinks';
 
 /**
  * The floor, one bill, and adding a round to it — screens 15 to 20 of the design set.
@@ -778,8 +780,19 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
     return a + (item ? item.price * n : 0);
   }, 0);
 
+  // A table's first order - no bill yet, or none of its rounds sent - offers the welcome drinks (D1).
+  const welcome = welcomeDrinksToOffer(data.welcomeDrinks, isFirstOrder(bill), data.menu);
+
   return (
     <div className="flex flex-col gap-3" data-testid="staff-add-items">
+      <WelcomeDrinksOffer
+        drinks={welcome}
+        guests={bill?.guests ?? 1}
+        cart={cart}
+        onCart={setCart}
+        testIdPrefix="staff-add"
+      />
+
       <SearchField
         value={query}
         onChange={setQuery}

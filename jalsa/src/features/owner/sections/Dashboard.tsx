@@ -11,6 +11,8 @@ import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
+import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { readWelcomeDrinks, welcomeDrinksToOffer, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
 
 /**
  * Screen 22 — the dashboard, and the landing screen.
@@ -205,6 +207,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         table={seating}
         onClose={() => setSeating(null)}
         menu={data.menu}
+        welcomeDrinks={readWelcomeDrinks(data.settings.welcomeDrinks)}
         send={send}
         runBusy={runBusy}
         busy={busy}
@@ -438,6 +441,7 @@ function NewRoundSheet({
   table,
   onClose,
   menu,
+  welcomeDrinks,
   send,
   runBusy,
   busy,
@@ -446,6 +450,7 @@ function NewRoundSheet({
   table: OwnerPayload['floor'][number] | null;
   onClose: () => void;
   menu: OwnerPayload['menu'];
+  welcomeDrinks: WelcomeDrinksConfig;
   send: OwnerSectionProps['send'];
   runBusy: OwnerSectionProps['runBusy'];
   busy: boolean;
@@ -460,6 +465,8 @@ function NewRoundSheet({
     return !q || `${m.name} ${m.category}`.toLowerCase().includes(q);
   });
 
+  // This sheet only ever opens a free table, so every round from it is a first order (D1).
+  const welcome = welcomeDrinksToOffer(welcomeDrinks, true, menu);
   const lines = Object.entries(cart).filter(([, n]) => n > 0);
   const count = lines.reduce((a, [, n]) => a + n, 0);
   const value = lines.reduce((a, [id, n]) => a + (menu.find((m) => m.id === id)?.price ?? 0) * n, 0);
@@ -501,6 +508,8 @@ function NewRoundSheet({
       }
     >
       <div className="flex flex-col gap-3">
+        {/* A walk-in's party size is not known yet: one of each, adjustable on the rows below. */}
+        <WelcomeDrinksOffer drinks={welcome} guests={1} cart={cart} onCart={setCart} testIdPrefix="owner-new-round" />
         <Input
           data-testid="owner-new-round-search"
           value={query}

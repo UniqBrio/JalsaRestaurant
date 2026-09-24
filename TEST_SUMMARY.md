@@ -2,6 +2,13 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, D1 welcome drinks
+
+FAIL-FIRST: jalsa/tests/unit/welcome-drinks.unit.spec.ts - isFirstOrder injected to always true and reverted: **1 failed**; against HEAD's wiring: **1 failed**; after: 7 passed. Unit tier: 1016 passed. The rule cases for offer/add/added are new surface (functions did not exist): NOT OBSERVED FAILING for those beyond the injection above.
+Stored in the existing `setting` table under key welcomeDrinks ({enabled, itemIds}); permission set.features. No migration.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, H1 income & expenses
 
 FAIL-FIRST: jalsa/tests/unit/finance-section.unit.spec.ts - range end made exclusive (injected, reverted): **2 failed**; against HEAD's screen: **1 failed**; after: 4 passed. Unit tier: 1009 passed.

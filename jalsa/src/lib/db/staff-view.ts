@@ -11,6 +11,7 @@ import {
 } from '@/lib/status';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { actorFor, type SignedInStaff } from './auth';
+import { readWelcomeDrinks, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
 import type { SpineFields } from '@/components/ui/bill';
 import { billTotals, listFloor, listMenu, listOpenBills, listOpenRequests, readAllSettings } from './queries';
 import type { Bill, FloorTable, KotPrintJob, PrintJobStatus } from './types';
@@ -98,6 +99,8 @@ export interface StaffPayload {
     }
   >;
   bills: StaffBillView[];
+  /** The welcome drinks offered on a table's first order (D1). */
+  welcomeDrinks: WelcomeDrinksConfig;
   /** Who can be the waiter on a bill: active staff whose role may hold it (G1). */
   waiters: Array<{ id: string; name: string; role: string }>;
   /** Rounds the kitchen has marked ready, oldest first — the run list. */
@@ -246,6 +249,7 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       total: canSeeMoney ? t.total : 0,
     })),
     bills: shapedBills,
+    welcomeDrinks: readWelcomeDrinks(settings.welcomeDrinks),
     waiters: (peopleRes.data ?? [])
       .filter((p) => p.active === true && canHoldBillRole('waiter', p.role as string))
       .map((p) => ({ id: p.id as string, name: p.name as string, role: p.role as string })),

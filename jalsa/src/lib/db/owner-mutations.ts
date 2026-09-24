@@ -410,6 +410,9 @@ const SETTING_PERMISSION: Record<string, string> = {
   // Print Setup surface that is not a machine is one key, because it is one screen's worth of
   // decisions and splitting it would mean four writes for one Save.
   print: 'set.printer',
+  // Which menu items are the welcome drinks, and whether they are offered (24-Sep list, D1):
+  // a guest-facing switch like the ones under customerFeatures.
+  welcomeDrinks: 'set.features',
 };
 
 export async function writeSetting(input: {

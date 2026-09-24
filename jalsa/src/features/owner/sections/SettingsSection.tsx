@@ -14,6 +14,7 @@ import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
 import { PrintSetupSection } from './PrintSetupSection';
 import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
+import { readWelcomeDrinks } from '@/lib/welcome-drinks';
 
 /**
  * Screen 33 — Settings, split into named sub-tabs rather than one long scroll.
@@ -95,7 +96,12 @@ export function SettingsSection(props: OwnerSectionProps) {
       {panel === 'tax' ? <TaxPanel {...props} /> : null}
       {panel === 'invoice' ? <InvoicePanel {...props} /> : null}
       {panel === 'tables' ? <TablesPanel {...props} /> : null}
-      {panel === 'features' ? <FeaturesPanel {...props} /> : null}
+      {panel === 'features' ? (
+        <>
+          <FeaturesPanel {...props} />
+          <WelcomeDrinksPanel {...props} />
+        </>
+      ) : null}
       {panel === 'copy' ? <CopyPanel {...props} /> : null}
       {panel === 'replies' ? <RepliesPanel {...props} /> : null}
       {panel === 'engage' ? <EngagementPanel {...props} /> : null}
@@ -1009,6 +1015,85 @@ function FeaturesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         }
       >
         Save what the customer sees
+      </Button>
+    </Card>
+  );
+}
+
+/* ── Welcome drinks (24-Sep list, D1) ──────────────────────────────────── */
+
+/**
+ * Which menu items are the welcome drinks, and whether they are offered at all.
+ *
+ * Offered on a table's FIRST order only, on the captain's phone and the owner's new-round
+ * sheet, as one tap that puts them in the round being built. They are ordinary menu items -
+ * priced, printed and billed like anything else; complimentary means priced at ₹0 in the menu.
+ */
+function WelcomeDrinksPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const stored = readWelcomeDrinks(data.settings.welcomeDrinks);
+  const [enabled, setEnabled] = React.useState(stored.enabled);
+  const [itemIds, setItemIds] = React.useState<string[]>(stored.itemIds);
+  const [query, setQuery] = React.useState('');
+
+  const chosen = itemIds
+    .map((id) => data.menu.find((m) => m.id === id))
+    .filter((m): m is (typeof data.menu)[number] => !!m);
+  const q = query.trim().toLowerCase();
+  const matches = data.menu.filter((m) => !q || `${m.name} ${m.category}`.toLowerCase().includes(q)).slice(0, 30);
+  const toggle = (id: string): void =>
+    setItemIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  return (
+    <Card className="flex flex-col gap-4" data-testid="owner-welcome-drinks">
+      <SectionLabel>Welcome drinks</SectionLabel>
+      <Toggle
+        checked={enabled}
+        onCheckedChange={setEnabled}
+        label="Offer welcome drinks on a table's first order"
+        consequence="Captains and the owner see one button that adds them to the first round. Never offered on a later round, and never added without that tap."
+        testId="owner-welcome-enabled"
+      />
+      <div>
+        <p className="m-0 mb-2 type-caption text-[var(--text-muted)]" data-testid="owner-welcome-chosen">
+          {chosen.length
+            ? `Chosen: ${chosen.map((m) => `${m.name} (${m.priceLabel})`).join(', ')}`
+            : 'No drinks chosen yet. Pick them from the menu below.'}
+        </p>
+        <Input
+          value={query}
+          placeholder="Search the menu for the drinks"
+          onChange={(e) => setQuery(e.target.value)}
+          data-testid="owner-welcome-search"
+          aria-label="Search the menu for the welcome drinks"
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {matches.map((m) => (
+            <Chip key={m.id} on={itemIds.includes(m.id)} onClick={() => toggle(m.id)} data-testid={`owner-welcome-item-${m.id}`}>
+              {m.name}
+            </Chip>
+          ))}
+        </div>
+      </div>
+      <Button
+        data-testid="owner-welcome-save"
+        disabled={busy || (enabled && itemIds.length === 0)}
+        className="self-start"
+        onClick={() =>
+          runBusy(async () => {
+            await send('/api/owner/action', {
+              action: 'write-setting',
+              key: 'welcomeDrinks',
+              value: { enabled, itemIds },
+            });
+            toast.show(
+              enabled ? `Welcome drinks on — ${chosen.map((m) => m.name).join(', ')}` : 'Welcome drinks off',
+              { tone: 'success' }
+            );
+          })
+        }
+      >
+        Save welcome drinks
       </Button>
     </Card>
   );
