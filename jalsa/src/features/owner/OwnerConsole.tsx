@@ -69,7 +69,8 @@ const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> 
   // section could not express — a manager who may enter purchases but must not see what the
   // floor earned had to be given both or neither.
   { key: 'tips', label: 'Tips', permission: 'tips.all' },
-  { key: 'expenses', label: 'Expenses', permission: 'expense.manage' },
+  // Income and expenses over one range (24-Sep list, H1). Key unchanged; income is read from bills.
+  { key: 'expenses', label: 'Income & expenses', permission: 'expense.manage' },
   { key: 'reports', label: 'Reports', permission: 'rep.products' },
   // THIRTEENTH SECTION. Jalsa Navigation Flowchart.dc.html lists Uplift at the top level;
   // Jalsa Owner Admin.dc.html files it under Reports. The brief names the flowchart

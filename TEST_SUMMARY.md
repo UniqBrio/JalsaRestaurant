@@ -2,6 +2,13 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - 24-Sep correction list, H1 income & expenses
+
+FAIL-FIRST: jalsa/tests/unit/finance-section.unit.spec.ts - range end made exclusive (injected, reverted): **2 failed**; against HEAD's screen: **1 failed**; after: 4 passed. Unit tier: 1009 passed.
+Decision (owner delegated to engineering, 24-Sep): Income = closed-bill revenue (tips excluded), read from the report route over the chosen IST range; no manual income ledger and no new table, so nothing can be counted twice. A manual "other income" ledger would be a new table + migration - not built.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, H2 heard-about in Uplift
 
 FAIL-FIRST: jalsa/tests/unit/heard-about-uplift.unit.spec.ts - case folding injected away and reverted: **1 failed**; against HEAD's wiring (no query, route or card): **2 failed**; after: 5 passed. Unit tier: 1005 passed.

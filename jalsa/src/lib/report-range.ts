@@ -324,3 +324,23 @@ export function emptyRangeCopy(preset: RangePreset, lastBillBefore: LastBillBefo
     offerYesterday: lastBillBefore !== null,
   };
 }
+
+/* ── Finance: income and expenses over one range (24-Sep list, H1) ─────── */
+
+/**
+ * Whether a `YYYY-MM-DD` falls in the range, both ends included - the SAME predicate
+ * `listExpensesBetween` applies in SQL (`spent_on >= from and spent_on <= to`), so the ledger on
+ * the Finance screen and the purchases figure in Reports count the same rows.
+ */
+export function dayInRange(day: string, range: DateRange): boolean {
+  return day >= range.from && day <= range.to;
+}
+
+/** The expenses entered for days inside the range, and their total. */
+export function expensesInRange<E extends { spentOn: string; amount: number }>(
+  rows: readonly E[],
+  range: DateRange
+): { rows: E[]; total: number } {
+  const inside = rows.filter((e) => dayInRange(e.spentOn, range));
+  return { rows: inside, total: inside.reduce((a, e) => a + e.amount, 0) };
+}
