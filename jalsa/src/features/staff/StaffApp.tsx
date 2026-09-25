@@ -50,7 +50,10 @@ export interface StaffScreenProps {
 export function StaffApp({ initial }: { initial: StaffPayload }) {
   const router = useRouter();
   const toast = useToast();
-  const { data, staleReason, send } = useLiveData<StaffPayload>('/api/staff/state', initial);
+  const { data, staleReason, send } = useLiveData<StaffPayload>('/api/staff/state', initial, 6000, {
+    // A KOT's "waiting N min" moves with the clock, not the data: read in full once a minute.
+    fullEveryMs: 60_000,
+  });
 
   const [tab, setTab] = React.useState<StaffTab>(initial.isWaiter ? 'ready' : 'floor');
   const [selectedBillId, setSelectedBillId] = React.useState<string | null>(null);

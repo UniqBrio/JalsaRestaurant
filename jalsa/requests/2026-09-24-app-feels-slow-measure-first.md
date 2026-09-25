@@ -149,6 +149,28 @@ ids and clock times normalised: **identical** for guest (welcome + live), staff 
 | Owner page / poll | 26–29 / 5 / 568–629 | 26–29 / 5 / 571–602 | **26–29 / 4 / 460–494** |
 | Owner tap (save a setting) | **2 requests**: 5 / 5 / 539 + re-read 29 / 5 / 568 | same | **1 request**: 34 / 8 / 885 |
 
+### Fix 4 — polling asks "changed?" (local rig, same method)
+| Poll | Before fix 4 (calls / rounds / ms) | Quiet tick after fix 4 | Full read after fix 4 |
+|---|---|---|---|
+| Guest, open bill | 10 / 2 / 236 | **2 / 1 / 110** | 12 / 3 / 338 (stamp read first) |
+| Staff | 12 / 2 / 235 | **3 / 1 / 110** | 13 / 2 / 236 |
+| Owner | 29 / 4 / 457 | **3 / 1 / 110** | 30 / 4 / 452 |
+
+A full read costs one extra call (the stamp is read BEFORE the screen, so a write landing between
+the two is re-read, never missed) and happens only when something that screen shows changed, or
+on the clock: every 60 s for staff and owner (KOT ages, printer health), every 5 min for guests
+(the receipt giving way to the welcome screen). A guest phone re-reads for ITS bill, the menu,
+the settings or a reply to its table — not for another table's round.
+
+**Database calls per second at 40 open tables** — measured, 60 s after a 10 s warm-up, 40 guest
+phones (2 per table over the 19 active seed tables), 5 captain phones, 1 owner console, each
+emulating the app's own polling; real PostgREST:
+| | Original code | After fix 4 |
+|---|---|---|
+| Busy (a KOT status change every 10 s, a cart change every 15 s) | **84.5 /s** (407 full reads) | **28.5 /s** (53 full reads, 396 quiet ticks) |
+| Quiet (no activity) | **84.3 /s** (414 full reads) | **17.3 /s** (6 full reads, 447 quiet ticks) |
+Screens identical before/after (ids and clock times normalised).
+
 After fix 3 the screen that comes back WITH an action is byte-identical (ids and clock times
 normalised) to what the old second request returned, for staff and owner. Each tap also saves
 one phone↔server round trip that this rig cannot see (≈150 ms or more from India).

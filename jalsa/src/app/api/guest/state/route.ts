@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handler, ok, fail } from '@/lib/route';
 import { buildGuestPayload } from '@/lib/db/guest-view';
+import { guestStamp, STAMP_HEADER, UNCHANGED } from '@/lib/db/change-stamp';
 
 /**
  * The guest's whole world, re-read.
@@ -16,8 +17,16 @@ import { buildGuestPayload } from '@/lib/db/guest-view';
 export const dynamic = 'force-dynamic';
 
 export const GET = handler(async (req: Request): Promise<NextResponse> => {
-  const table = new URL(req.url).searchParams.get('table');
+  const params = new URL(req.url).searchParams;
+  const table = params.get('table');
   if (!table) return fail(400, { code: 'validation', message: 'Which table?' });
+
+  // "Has anything this table shows changed since the stamp I hold?" — one round, and when the
+  // answer is no, the only one (change-stamp.ts). Read BEFORE the screen, never beside it.
+  const stamp = await guestStamp(table);
+  const init: ResponseInit = stamp ? { headers: { [STAMP_HEADER]: stamp } } : {};
+  const since = params.get('since');
+  if (stamp && since === stamp) return ok(UNCHANGED, init);
 
   const payload = await buildGuestPayload(table);
   if (!payload) {
@@ -26,5 +35,5 @@ export const GET = handler(async (req: Request): Promise<NextResponse> => {
       message: `There is no table called ${table}. Check the code on the table, or ask any of the team.`,
     });
   }
-  return ok(payload);
+  return ok(payload, init);
 });

@@ -2,6 +2,20 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Latency fix 4 of 5: polling asks "changed?"
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Every open screen re-read its whole world on a
+timer. Database-kept counters (migration 20260924120000) now let a tick ask "changed?" in one
+round; the screen is re-read only on a change, or on the clock for time-derived labels.
+
+FAIL-FIRST: jalsa/tests/unit/change-stamp.unit.spec.ts - against the pre-fix routes: no stamp on full screens (Received: null); a quiet tick not answered unchanged; a guest phone re-reading for another table's change. 3 of 8 failed.
+FAIL-FIRST: jalsa/tests/unit/change-check.unit.spec.ts - "Cannot find module .../src/hooks/change-check" against the pre-fix tree.
+
+Gate run (jalsa): unit 979 passed, typecheck and lint clean. Load at 40 open tables (local
+PostgREST): 84.5 -> 28.5 calls/s busy, 84.3 -> 17.3 quiet. G8 functional NOT run here.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Fix 3 review follow-ups
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** Review of fix 3 found a late poll could undo an

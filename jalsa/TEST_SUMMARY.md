@@ -4,6 +4,18 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 4 of the latency run - 2026-09-24 - polling asks "changed?" instead of re-reading everything
+
+FAIL-FIRST: tests/unit/change-stamp.unit.spec.ts - against the pre-fix routes: "every full screen carries the stamp" Received: null; "when nothing moved, a tick is one round..." Expected true Received false; "another table's business does not make a guest phone re-read" Expected true Received false. 3 of 8 failed.
+FAIL-FIRST: tests/unit/change-check.unit.spec.ts - against the pre-fix tree: "Cannot find module .../src/hooks/change-check" (the hook had no notion of a stamp).
+NOT OBSERVED FAILING: change-stamp rungs "a change is never answered unchanged", "a removed person is refused", "a database the migration has not reached yet still gets full screens" - they guard the fallbacks, which the old routes (always full) satisfied trivially.
+NOT OBSERVED FAILING: change-stamp "every table a polled screen reads moves a counter" and "the heartbeat columns move nothing" - audits of the new migration, run only with it present.
+Migration 20260924120000_jalsa_change_versions applied to a local Postgres 16 twice (idempotent); triggers exercised by SQL: a guest last_seen_at stamp moved nothing; bill.version rose with bill_table, kot, kot_item, kot status; a menu edit moved catalog; closing a bill still released its tables.
+Load (local PostgREST, 40 guest phones / 5 captains / 1 owner, 60 s): busy 84.5 -> 28.5 calls/s; quiet 84.3 -> 17.3 calls/s. Screens identical before/after.
+Unit: 979 passed. Typecheck and lint clean.
+
+---
+
 ## Fix 3 review follow-ups - 2026-09-24 - a late poll cannot undo an echoed write; the echo has a deadline
 
 A fresh-context review of fix 3 found: (D1) a scheduled poll that left before a write could land after the write's echoed answer and put the screen back to its pre-tap state - the double-send refresh-gate.ts exists to prevent; (D2) a HUNG screen build had no deadline, so a committed write could reach the phone as a 504 and be repeated. Fixed: the gate counts writes that answered with their screen and the hook discards a read that began before one; `withState` answers without the screen after 2.5 s.

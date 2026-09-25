@@ -58,7 +58,11 @@ export interface GuestScreenProps {
 export function GuestApp({ table, initial }: { table: string; initial: GuestPayload }) {
   const { data, staleReason, send } = useLiveData<GuestPayload>(
     `/api/guest/state?table=${encodeURIComponent(table)}`,
-    initial
+    initial,
+    6000,
+    // Ask "changed?" every 6 s; read in full at least every 5 minutes, for what moves with the
+    // clock alone — the receipt giving way to the welcome screen (change-check.ts).
+    { fullEveryMs: 5 * 60_000 }
   );
   const toast = useToast();
 
