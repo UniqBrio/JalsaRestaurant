@@ -20,6 +20,8 @@ import {
 } from '@/lib/db/mutations';
 import {
   addCategory,
+  setItemRouting,
+  uploadImage,
   deleteExpense,
   issuePin,
   removeStaff,
@@ -77,8 +79,12 @@ type Action =
       categoryId: string;
       foodType: 'veg' | 'non_veg' | 'egg';
       description?: string;
+      imageUrl?: string;
+      printerId?: string | null;
     }
-  | { action: 'add-category'; name: string }
+  | { action: 'add-category'; name: string; printerId?: string | null }
+  | { action: 'set-item-routing'; itemIds: string[]; station?: string | null; printerId?: string | null }
+  | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
@@ -262,6 +268,8 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           categoryId: input.categoryId,
           foodType: input.foodType,
           ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
+          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
           actor,
         })
       );
@@ -269,9 +277,26 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     case 'add-category': {
       // The id comes back so the Add-item combobox can select the category it just created,
       // in the same form, before the item is saved.
-      const categoryId = await addCategory({ name: input.name, actor });
+      const categoryId = await addCategory({
+        name: input.name,
+        ...(input.printerId ? { printerId: input.printerId } : {}),
+        actor,
+      });
       return ok({ done: true, id: categoryId });
     }
+
+    case 'set-item-routing':
+      return ok(
+        await setItemRouting({
+          itemIds: Array.isArray(input.itemIds) ? input.itemIds : [],
+          ...(input.station !== undefined ? { station: input.station } : {}),
+          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
+          actor,
+        })
+      );
+
+    case 'upload-image':
+      return ok(await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor }));
 
     case 'upsert-table':
       await upsertTable({

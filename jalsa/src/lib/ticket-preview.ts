@@ -1,4 +1,10 @@
-import { invoiceLines, invoiceTicketData, effectiveTemplate, type InvoiceBill, type InvoiceIdentity } from './invoice';
+import {
+  invoiceLines,
+  invoiceTicketData,
+  effectiveTemplate,
+  type InvoiceBill,
+  type InvoiceIdentity,
+} from './invoice';
 import {
   buildTicket,
   columnsFor,
@@ -61,7 +67,11 @@ export function previewRound(menu: readonly PreviewMenuItem[]): ComposeItem[] {
 }
 
 /** The kitchen sample, as `TicketData`. */
-export function previewKotData(menu: readonly PreviewMenuItem[], who: InvoiceIdentity, now: Date = new Date()): TicketData {
+export function previewKotData(
+  menu: readonly PreviewMenuItem[],
+  who: InvoiceIdentity,
+  now: Date = new Date()
+): TicketData {
   return {
     restaurant: (who.name || 'Jalsa').toUpperCase(),
     branch: who.address,
@@ -83,7 +93,11 @@ export function previewKotData(menu: readonly PreviewMenuItem[], who: InvoiceIde
 }
 
 /** A bill made of the sample round, for a restaurant with no bill yet. */
-export function sampleInvoiceBill(menu: readonly PreviewMenuItem[], taxRate: number, now: Date = new Date()): InvoiceBill {
+export function sampleInvoiceBill(
+  menu: readonly PreviewMenuItem[],
+  taxRate: number,
+  now: Date = new Date()
+): InvoiceBill {
   return {
     code: 'B-0000',
     hostTable: 'PREVIEW',
@@ -152,8 +166,12 @@ export function ticketPreview(input: {
 }
 
 /** The sample bill as `TicketData`, for the Templates tab's validation. */
-export const previewBillData = (menu: readonly PreviewMenuItem[], who: InvoiceIdentity, taxRate: number, now?: Date): TicketData =>
-  invoiceTicketData(sampleInvoiceBill(menu, taxRate, now), who, now);
+export const previewBillData = (
+  menu: readonly PreviewMenuItem[],
+  who: InvoiceIdentity,
+  taxRate: number,
+  now?: Date
+): TicketData => invoiceTicketData(sampleInvoiceBill(menu, taxRate, now), who, now);
 
 /** Who the restaurant is, as every preview needs it, from the console payload. */
 export function previewIdentity(

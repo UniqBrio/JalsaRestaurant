@@ -202,6 +202,143 @@ export function resolvePrinter(input: {
  * the same on all four machines here, so a truncated full name distinguishes nothing at all.
  * Anything without a dash is already short enough and is returned untouched.
  */
+/* ── Per-item routing (items 25, 26, 29, 30 - 25-Sep-2026) ──────────────────────────────── */
+
+/**
+ * What one line of a round carries about its own routing, over and above its category.
+ *
+ * `printerId` - the machine chosen for this dish (Add Item, or the Routing table).
+ * `station`   - the station chosen for this dish (the Routing table's Station column).
+ * Both null: the dish routes by its category exactly as before.
+ *
+ * On a `kot_item` these are the SNAPSHOT taken when the round was placed (`route_printer_id`,
+ * `route_station`), so a reprint routes the line the way it was routed then.
+ */
+export interface ItemRoute {
+  printerId: string | null;
+  station: string | null;
+}
+
+const sameStation = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * The machine and station for ONE line of a round.
+ *
+ *   1. A printer chosen for the dish - if it is switched off, the default machine prints it,
+ *      still stamped with the station it was meant for (the `fallback` rule, unchanged).
+ *   2. A station chosen for the dish - the first switched-on machine at that station; with none
+ *      there, the category's machine prints it, stamped with the chosen station.
+ *   3. Otherwise the category, exactly as `resolvePrinter` has always decided it.
+ *   4. `defaultStation` (Settings, item 30) - only for a dish nothing routes: it goes to the
+ *      machine at the default station instead of the main kitchen, and says that station. Passed
+ *      only when a round is PLACED; the snapshot then carries the result, so a later change to the
+ *      setting never re-routes a round already in the kitchen.
+ */
+export function routeItem(input: {
+  category: string;
+  route?: ItemRoute | null;
+  printers: readonly RoutablePrinter[];
+  defaultStation?: string;
+}): RoutingDecision {
+  const kind = inOrder('KOT', input.printers);
+  const route = input.route ?? null;
+  const byCategory = (): RoutingDecision =>
+    resolvePrinter({ purpose: 'KOT', category: input.category, printers: input.printers });
+
+  if (route?.printerId) {
+    const chosen = kind.find((p) => p.id === route.printerId) ?? null;
+    const station = (route.station ?? '').trim() || chosen?.station || '';
+    if (chosen && assignable(chosen)) {
+      return {
+        printer: chosen,
+        rule: 'routed',
+        station,
+        reason: `${input.category} (dish) → ${station} → ${chosen.name}`,
+      };
+    }
+    const fallback = defaultPrinter(input.printers, input.defaultStation);
+    if (fallback) {
+      return {
+        printer: fallback,
+        rule: 'fallback',
+        station,
+        reason: `${chosen?.name ?? 'The chosen printer'} is ${chosen ? 'switched off' : 'gone'} — printing at ${fallback.name} marked ${station || fallback.station}`,
+      };
+    }
+    return {
+      printer: null,
+      rule: 'none',
+      station,
+      reason: 'Every KOT machine is switched off — nothing can be assigned.',
+    };
+  }
+
+  if (route?.station && route.station.trim()) {
+    const station = route.station.trim();
+    const there = kind.find((p) => assignable(p) && sameStation(p.station, station)) ?? null;
+    if (there)
+      return {
+        printer: there,
+        rule: 'routed',
+        station,
+        reason: `${input.category} (dish) → ${station} → ${there.name}`,
+      };
+    const d = byCategory();
+    return d.printer
+      ? {
+          printer: d.printer,
+          rule: 'fallback',
+          station,
+          reason: `No switched-on printer at ${station} — printing at ${d.printer.name} marked ${station}`,
+        }
+      : { ...d, station };
+  }
+
+  const d = byCategory();
+  if (d.rule === 'unrouted' && input.defaultStation && input.defaultStation.trim()) {
+    const station = input.defaultStation.trim();
+    const there = kind.find((p) => assignable(p) && sameStation(p.station, station)) ?? d.printer;
+    if (there) {
+      return {
+        printer: there,
+        rule: 'unrouted',
+        station,
+        reason: `${input.category} is not routed — the default station, ${station}, at ${there.name}`,
+      };
+    }
+  }
+  return d;
+}
+
+/**
+ * The printer a category with no choice of its own uses (item 29): the switched-on machine at
+ * the default station when there is one, otherwise the main kitchen machine as before.
+ */
+export function defaultPrinter(
+  printers: readonly RoutablePrinter[],
+  defaultStation?: string
+): RoutablePrinter | null {
+  const kind = inOrder('KOT', printers);
+  if (defaultStation && defaultStation.trim()) {
+    const there = kind.find((p) => assignable(p) && sameStation(p.station, defaultStation));
+    if (there) return there;
+  }
+  return mainPrinter('KOT', printers);
+}
+
+/**
+ * The station names this restaurant uses (item 26): the defaults, the default station, and every
+ * printer's own - one list for every Station picker, so a new name is offered everywhere at once.
+ */
+export function stationOptions(printers: ReadonlyArray<{ station: string }>, defaultStation?: string): string[] {
+  const out: string[] = [];
+  for (const s of ['Main Kitchen', 'Tandoor', 'Billing', defaultStation ?? '', ...printers.map((p) => p.station)]) {
+    const t = (s ?? '').trim();
+    if (t && !out.some((o) => sameStation(o, t))) out.push(t);
+  }
+  return out;
+}
+
 export function printerShortName(name: string): string {
   const parts = name.split(/\s[—–-]\s/);
   const last = parts[parts.length - 1]?.trim() ?? '';
@@ -257,7 +394,8 @@ export interface RoundTicket {
  * to resolve to, and the other station was told nothing. One bucket here is one `print_job`.
  */
 export function splitRound(input: {
-  items: ReadonlyArray<{ category: string; foodType: FoodType }>;
+  /** `route` - the line's own routing snapshot (item 25/26); absent routes by category as before. */
+  items: ReadonlyArray<{ category: string; foodType: FoodType; route?: ItemRoute | null }>;
   printers: readonly RoutablePrinter[];
   /** Print veg and non-veg as separate tickets. Egg travels with veg — one fryer, one side. */
   splitByFoodType: boolean;
@@ -265,7 +403,7 @@ export function splitRound(input: {
   const buckets = new Map<string, RoundTicket>();
 
   input.items.forEach((item) => {
-    const decision = resolvePrinter({ purpose: 'KOT', category: item.category, printers: input.printers });
+    const decision = routeItem({ category: item.category, route: item.route ?? null, printers: input.printers });
     // ONE expression, used for both the key and the ticket. They were the same value before
     // 22-Sep-2026 too — but only one of them escaped this function, and the other was the one
     // the database needed. Naming it once is what stops them ever disagreeing.

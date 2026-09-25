@@ -18,7 +18,9 @@ import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import {
   resolvePrinter,
+  routeItem,
   splitRound,
+  type ItemRoute,
   type RoundTicket,
   type RoutablePrinter,
   type RoutingDecision,
@@ -280,7 +282,7 @@ export async function placeRound(input: {
     // The category comes back in the SAME query the availability check already runs. Routing a
     // round to its station therefore costs nothing on the order path — which is the only reason
     // it is done here rather than by a worker reading the job back.
-    .select('id,name,price,food_type,available,closed_until,menu_category!inner(name)')
+    .select('id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name)')
     .eq('restaurant_id', restaurantId)
     .in('id', ids);
   if (itemErr) throw itemErr;
@@ -309,6 +311,28 @@ export async function placeRound(input: {
     return { kotCode: '', kotId: '', refused };
   }
 
+  /* THE ROUTING DECISION FOR EACH LINE, taken now and snapshot on the line (items 25, 26, 30).
+     A dish's own printer and station, and the default station for a dish nothing routes, are
+     read at this moment only - the job below, the composed ticket and any reprint read the
+     snapshot, so they route the line identically however the settings change afterwards. */
+  const [kotPrinters, routing] = await Promise.all([
+    routablePrinters(restaurantId, 'KOT'),
+    readSettings('routing', { defaultStation: '' } as { defaultStation: string }),
+  ]);
+  const snapshotOf = (item: (typeof accepted)[number]['item']): ItemRoute => {
+    const category = (item.menu_category as unknown as { name: string } | null)?.name ?? '';
+    const chosenPrinter = (item.printer_id as string | null) ?? null;
+    const chosenStation = ((item.station as string | null) ?? '').trim() || null;
+    if (chosenPrinter || chosenStation) return { printerId: chosenPrinter, station: chosenStation };
+    const d = routeItem({ category, route: null, printers: kotPrinters, defaultStation: routing.defaultStation });
+    // Only the default station is snapshot for a dish that chose nothing: a category route is
+    // already reproduced from the category name, exactly as before.
+    return d.rule === 'unrouted' && routing.defaultStation.trim() && d.printer
+      ? { printerId: d.printer.id, station: routing.defaultStation.trim() }
+      : { printerId: null, station: null };
+  };
+  const routes = accepted.map(({ item }) => snapshotOf(item));
+
   const code = await nextNumber('kot');
   const { data: kot, error: kotErr } = await db()
     .from('kot')
@@ -331,8 +355,10 @@ export async function placeRound(input: {
   const { error: lineErr } = await db()
     .from('kot_item')
     .insert(
-      accepted.map(({ line, item }) => ({
+      accepted.map(({ line, item }, i) => ({
         kot_id: kot.id as string,
+        route_printer_id: routes[i]?.printerId ?? null,
+        route_station: routes[i]?.station ?? null,
         menu_item_id: item.id as string,
         name: item.name as string,
         unit_price: item.price as number,
@@ -362,9 +388,10 @@ export async function placeRound(input: {
       kotId: kot.id as string,
       billId: input.billId,
       actor: input.actor,
-      items: accepted.map(({ item }) => ({
+      items: accepted.map(({ item }, i) => ({
         category: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
         foodType: item.food_type as FoodType,
+        route: routes[i] ?? null,
       })),
     }),
     audit({
@@ -614,6 +641,8 @@ export async function reprintKot(input: { kotId: string; actor: Actor }): Promis
 export interface PrintableItem {
   category: string;
   foodType: FoodType;
+  /** The line's routing snapshot (`kot_item.route_*`, item 25/26). Null routes by category. */
+  route?: ItemRoute | null;
 }
 
 /**
@@ -653,7 +682,7 @@ async function routablePrinters(restaurantId: string, purpose: string): Promise<
 export async function kotPrintableItems(kotId: string): Promise<PrintableItem[]> {
   const { data: lines } = await db()
     .from('kot_item')
-    .select('menu_category_name,food_type,cancelled_at')
+    .select('menu_category_name,food_type,cancelled_at,route_printer_id,route_station')
     .eq('kot_id', kotId);
 
   return (lines ?? [])
@@ -661,6 +690,7 @@ export async function kotPrintableItems(kotId: string): Promise<PrintableItem[]>
     .map((l) => ({
       category: (l.menu_category_name as string) ?? '',
       foodType: l.food_type as FoodType,
+      route: { printerId: (l.route_printer_id as string | null) ?? null, station: (l.route_station as string | null) ?? null },
     }));
 }
 

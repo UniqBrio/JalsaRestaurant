@@ -1,5 +1,13 @@
 import { totalBill } from './money';
-import { buildTicket, defaultTemplate, type PaperWidth, type TemplateConfig, type TicketData, type TicketKind, type TicketLine } from './print-template';
+import {
+  buildTicket,
+  defaultTemplate,
+  type PaperWidth,
+  type TemplateConfig,
+  type TicketData,
+  type TicketKind,
+  type TicketLine,
+} from './print-template';
 import { dateLabelIn, timeLabelIn } from './restaurant-time';
 import type { ComposeItem } from './ticket-compose';
 
@@ -121,7 +129,11 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
  * width of the machine it prints on. The one merge, shared by printing (`composeTicket`) and every
  * preview, so a preview can never be drawn at a width the paper does not have.
  */
-export function effectiveTemplate(kind: TicketKind, width: PaperWidth, saved: Partial<TemplateConfig> | undefined): TemplateConfig {
+export function effectiveTemplate(
+  kind: TicketKind,
+  width: PaperWidth,
+  saved: Partial<TemplateConfig> | undefined
+): TemplateConfig {
   return { ...defaultTemplate(kind, width), ...(saved ?? {}), width };
 }
 

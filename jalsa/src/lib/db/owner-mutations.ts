@@ -5,7 +5,8 @@ import { rupees } from '@/lib/money';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { IMAGE_CONTENT_TYPE, imageProblem, isMediaUrl, sniffImage, type MediaFolder } from '@/lib/media';
 import { hashToken } from '@/lib/bridge-token';
 import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
 
@@ -35,10 +36,25 @@ export async function upsertMenuItem(input: {
   categoryId: string;
   foodType: 'veg' | 'non_veg' | 'egg';
   description?: string;
+  /** `/api/media/menu/...` from `uploadImage`, or '' to remove the photo (item 23). Absent: unchanged. */
+  imageUrl?: string;
+  /** The dish's own printer (item 25). null: follow its category / the default. Absent: unchanged. */
+  printerId?: string | null;
   actor: Actor;
 }): Promise<{ id: string }> {
   demand(input.actor, input.id ? 'menu.item_edit' : 'menu.item_edit');
   const restaurantId = await currentRestaurantId();
+
+  // Only an image this app stored, and only a printer of this restaurant - a crafted request
+  // cannot point a dish at somebody else's file or machine.
+  if (input.imageUrl !== undefined && input.imageUrl !== '' && !isMediaUrl(input.imageUrl)) {
+    throw new Error('That image was not uploaded here. Choose the photo again.');
+  }
+  if (input.printerId) await ownPrinter(input.printerId, restaurantId);
+  const extras = {
+    ...(input.imageUrl !== undefined ? { image_url: input.imageUrl } : {}),
+    ...(input.printerId !== undefined ? { printer_id: input.printerId } : {}),
+  };
 
   if (input.id) {
     const { data: before } = await db().from('menu_item').select('name,price').eq('id', input.id).maybeSingle();
@@ -55,8 +71,10 @@ export async function upsertMenuItem(input: {
         category_id: input.categoryId,
         food_type: input.foodType,
         description: input.description ?? '',
+        ...extras,
       })
-      .eq('id', input.id);
+      .eq('id', input.id)
+      .eq('restaurant_id', restaurantId);
     if (error) throw error;
 
     await audit({
@@ -79,6 +97,7 @@ export async function upsertMenuItem(input: {
       category_id: input.categoryId,
       food_type: input.foodType,
       description: input.description ?? '',
+      ...extras,
     })
     .select('id')
     .single();
@@ -107,7 +126,12 @@ export async function upsertMenuItem(input: {
  *   The combobox's own exact-match guard hides the Add row when the name is already on screen.
  *   This is the guard for the case the screen could not see.
  */
-export async function addCategory(input: { name: string; actor: Actor }): Promise<string> {
+export async function addCategory(input: {
+  name: string;
+  /** Item 29: the printer this category prints on. Absent or null: the default printer. */
+  printerId?: string | null;
+  actor: Actor;
+}): Promise<string> {
   demand(input.actor, 'menu.category');
   const restaurantId = await currentRestaurantId();
   const name = input.name.trim();
@@ -135,11 +159,14 @@ export async function addCategory(input: { name: string; actor: Actor }): Promis
     const id = (existing.data?.id as string | undefined) ?? null;
     if (!id) throw error;
     // Not audited: nothing was added. An audit row saying "added" for a category that already
-    // existed is a register telling the owner something untrue.
+    // existed is a register telling the owner something untrue. A printer chosen with it still
+    // applies - the owner asked for this category on that machine.
+    if (input.printerId) await routeCategoryTo(name, input.printerId, restaurantId, input.actor);
     return id;
   }
 
   await audit({ action: 'Menu category', detail: `${name} added`, actor: input.actor });
+  if (input.printerId) await routeCategoryTo(name, input.printerId, restaurantId, input.actor);
   return data.id as string;
 }
 
@@ -414,6 +441,8 @@ const SETTING_PERMISSION: Record<string, string> = {
   // Which menu items are the welcome drinks, and whether they are offered (24-Sep list, D1):
   // a guest-facing switch like the ones under customerFeatures.
   welcomeDrinks: 'set.features',
+  // The default station (item 30, 25-Sep-2026): part of routing, so the printer grant.
+  routing: 'set.printer',
 };
 
 export async function writeSetting(input: {
@@ -1466,4 +1495,124 @@ export async function removePrinterMapping(input: { printerId: string; actor: Ac
 
   await audit({ action: 'Printer', detail: 'A printer was disconnected from its computer', actor: input.actor });
   return { done: true };
+}
+
+/* ── Routing: a dish's printer and station; a category's printer (items 25-30, 25-Sep-2026) ── */
+
+/** The printer, if it belongs to this restaurant - or a sentence saying it does not. */
+async function ownPrinter(printerId: string, restaurantId: string): Promise<{ id: string; name: string; routes: string[] }> {
+  const { data, error } = await db()
+    .from('printer')
+    .select('id,name,routes')
+    .eq('id', printerId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('That printer is no longer configured. Reload the page.');
+  return { id: data.id as string, name: data.name as string, routes: (data.routes as string[]) ?? [] };
+}
+
+/**
+ * Point a category at one printer (item 29) - through the ONE place category routing lives,
+ * `printer.routes`, and exactly as the Routing screen already moves a category: taken off
+ * whichever machine held it first, then added to the new one. Removal first, so a failure
+ * between the two leaves it unrouted (the default printer takes it), never on two machines.
+ */
+async function routeCategoryTo(category: string, printerId: string, restaurantId: string, actor: Actor): Promise<void> {
+  // Routing is the printer grant's to change, whoever may add a category.
+  demand(actor, 'set.printer');
+  const target = await ownPrinter(printerId, restaurantId);
+  const key = category.trim().toLowerCase();
+  const { data: holders, error } = await db().from('printer').select('id,routes').eq('restaurant_id', restaurantId);
+  if (error) throw error;
+  for (const h of holders ?? []) {
+    const routes = ((h.routes as string[]) ?? []);
+    if (h.id !== target.id && routes.some((r) => r.trim().toLowerCase() === key)) {
+      const { error: e } = await db()
+        .from('printer')
+        .update({ routes: routes.filter((r) => r.trim().toLowerCase() !== key) })
+        .eq('id', h.id as string)
+        .eq('restaurant_id', restaurantId);
+      if (e) throw e;
+    }
+  }
+  if (!target.routes.some((r) => r.trim().toLowerCase() === key)) {
+    const { error: e } = await db()
+      .from('printer')
+      .update({ routes: [...target.routes, category.trim()] })
+      .eq('id', target.id)
+      .eq('restaurant_id', restaurantId);
+    if (e) throw e;
+  }
+  await audit({ action: 'Printer', detail: `${category.trim()} now prints at ${target.name}`, actor });
+}
+
+/**
+ * Set the station and/or printer of several dishes at once (items 26, 27): one row's dropdown
+ * sends one id, the column header sends every row's. `undefined` leaves that column alone, so
+ * changing the Station column never touches anybody's printer (item 27: "do not modify
+ * unrelated columns"). `null` clears it back to the category / default.
+ */
+export async function setItemRouting(input: {
+  itemIds: string[];
+  station?: string | null;
+  printerId?: string | null;
+  actor: Actor;
+}): Promise<{ updated: number }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+  const ids = [...new Set(input.itemIds)].filter(Boolean);
+  if (ids.length === 0) return { updated: 0 };
+  const patch: Record<string, unknown> = {};
+  if (input.station !== undefined) {
+    const station = input.station === null ? null : input.station.trim();
+    if (station !== null && (station.length < 1 || station.length > 40)) throw new Error('A station name is between 1 and 40 characters.');
+    patch.station = station;
+  }
+  if (input.printerId !== undefined) {
+    if (input.printerId) await ownPrinter(input.printerId, restaurantId);
+    patch.printer_id = input.printerId;
+  }
+  if (Object.keys(patch).length === 0) return { updated: 0 };
+  const { data, error } = await db()
+    .from('menu_item')
+    .update(patch)
+    .in('id', ids)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  const updated = (data ?? []).length;
+  await audit({
+    action: 'Printer',
+    detail: `Routing of ${updated} ${updated === 1 ? 'dish' : 'dishes'}: ${[
+      input.station !== undefined ? `station ${input.station ?? 'default'}` : '',
+      input.printerId !== undefined ? `printer ${input.printerId ? 'chosen' : 'default'}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ')}`,
+    actor: input.actor,
+  });
+  return { updated };
+}
+
+/* ── Images (items 23, 32) ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Store one PNG or JPEG of at most 1 MB and hand back the URL this app serves it at.
+ *
+ * The bytes are checked HERE, whatever the phone checked: the signature decides the type, the
+ * length the size. Stored under a fresh uuid, so a replaced photo is a new file and the old URL
+ * never starts showing a different picture. A dish photo needs `menu.item_edit`; the logo is
+ * restaurant identity (`set.identity`).
+ */
+export async function uploadImage(input: { folder: MediaFolder; base64: string; actor: Actor }): Promise<{ url: string }> {
+  demand(input.actor, input.folder === 'brand' ? 'set.identity' : 'menu.item_edit');
+  const bytes = new Uint8Array(Buffer.from(input.base64 ?? '', 'base64'));
+  const problem = imageProblem(bytes);
+  if (problem) throw new Error(problem);
+  const kind = sniffImage(bytes)!;
+  const key = `${input.folder}/${randomUUID()}.${kind === 'png' ? 'png' : 'jpg'}`;
+  const { error } = await db().storage.from('media').upload(key, bytes, { contentType: IMAGE_CONTENT_TYPE[kind], upsert: false });
+  if (error) throw new Error(`The image could not be stored: ${error.message}`);
+  return { url: `/api/media/${key}` };
 }

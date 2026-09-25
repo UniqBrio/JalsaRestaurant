@@ -2,6 +2,15 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, menu & routing (items 23-30) and KOT cases 15-22
+
+FAIL-FIRST: jalsa/tests/unit/menu-routing-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/media` does not exist; `routeItem`, `defaultPrinter`, `stationOptions` absent from print-routing): 16 of 16 not passing; after: 16 passed.
+FAIL-FIRST: jalsa/tests/unit/kot-scenarios-25sep.unit.spec.ts - a verification suite over the production split/compose path; with egg injected onto the non-veg side in `splitRound` (reverted): **5 failed**, 4 passed; after: 9 passed.
+Superseded in place (contract changes, dated notes): combobox-migration - static selects 11 -> 10 (Food type is a Combobox, item 24); addCategory signature gained `printerId` (item 29).
+Unit tier: 1072 passed. Typecheck and lint: pass. Physical printing: not verified from here (no printer or bridge reachable).
+
+---
+
 ## Application run - jalsa - 2026-09-25 - 25-Sep correction list, printing (items 1-9, 12-14)
 
 FAIL-FIRST: jalsa/tests/unit/printers-activity.unit.spec.ts - against the pre-fix tree the file fails to load (`addedOnLabel`, `bridgeActivityLabel` do not exist in print-computer.ts): 8 of 8 not passing; after: 8 passed.

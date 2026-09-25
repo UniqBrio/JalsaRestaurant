@@ -23,6 +23,7 @@ import type { OwnerSectionProps } from '../OwnerConsole';
 import { PrintSetupSection } from './PrintSetupSection';
 import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
 import type { TicketKind } from '@/lib/print-template';
+import { stationOptions } from '@/lib/print-routing';
 
 /**
  * Printers — the owner's own entry point to printing (23-Sep-2026).
@@ -632,6 +633,7 @@ function SetupSheet({ data, send, open, onClose }: OwnerSectionProps & { open: b
 /* ── Select a printer ──────────────────────────────────────────────────── */
 
 function ChoosePrinterSheet({
+  data,
   send,
   runBusy,
   busy,
@@ -646,7 +648,9 @@ function ChoosePrinterSheet({
   placeOf: (printerId: string) => string | null;
 }) {
   const toast = useToast();
-  const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' });
+  // A new printer starts at the default station (item 30), else Main Kitchen as before.
+  const firstStation = ((data.settings.routing ?? {}) as { defaultStation?: string }).defaultStation?.trim() || 'Main Kitchen';
+  const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: firstStation, paperMm: 80, purpose: 'KOT' });
 
   // Reset the form for each printer chosen. The suggested name comes from Windows' own name.
   const key = choosing ? `${choosing.computer.id}/${choosing.printer.queueName}` : '';
@@ -656,11 +660,11 @@ function ChoosePrinterSheet({
     setTarget(
       choosing?.currentPrinterId
         ? { kind: 'existing', printerId: choosing.currentPrinterId }
-        : { kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' }
+        : { kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: firstStation, paperMm: 80, purpose: 'KOT' }
     );
   }
 
-  const stations = [...new Set(['Main Kitchen', 'Tandoor', 'Billing', ...existing.map((p) => p.station)])];
+  const stations = stationOptions(existing, firstStation);
 
   const save = (): void => {
     if (!choosing) return;
@@ -712,7 +716,7 @@ function ChoosePrinterSheet({
               onValueChange={(v) =>
                 setTarget(
                   v === 'new'
-                    ? { kind: 'new', name: suggestedName(choosing.printer.queueName), station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' }
+                    ? { kind: 'new', name: suggestedName(choosing.printer.queueName), station: firstStation, paperMm: 80, purpose: 'KOT' }
                     : { kind: 'existing', printerId: v }
                 )
               }

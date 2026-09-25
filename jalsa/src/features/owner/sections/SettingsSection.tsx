@@ -12,6 +12,8 @@ import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
 import { PrintSetupSection } from './PrintSetupSection';
+import { Combobox } from '@/components/ui/combobox';
+import { stationOptions } from '@/lib/print-routing';
 import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { readWelcomeDrinks } from '@/lib/welcome-drinks';
@@ -105,7 +107,12 @@ export function SettingsSection(props: OwnerSectionProps) {
       {panel === 'copy' ? <CopyPanel {...props} /> : null}
       {panel === 'replies' ? <RepliesPanel {...props} /> : null}
       {panel === 'engage' ? <EngagementPanel {...props} /> : null}
-      {panel === 'printers' ? <PrintSetupSection {...props} /> : null}
+      {panel === 'printers' ? (
+        <>
+          <DefaultStationPanel {...props} />
+          <PrintSetupSection {...props} />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1425,6 +1432,60 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       >
         Save engagement
       </Button>
+    </Card>
+  );
+}
+
+/* ── Default station (item 30, 25-Sep-2026) ───────────────────────────────────────────── */
+
+/**
+ * The station a dish goes to when nothing else says where: no printer or station of its own and
+ * a category no printer claims. Stored as `setting.routing.defaultStation`; read when a round is
+ * PLACED and snapshot on its lines, so changing it never re-routes a round already in the kitchen.
+ * Also what a category left on "Default printer" prints at: the machine at this station.
+ */
+function DefaultStationPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const stored = ((data.settings.routing ?? {}) as { defaultStation?: string }).defaultStation ?? '';
+  const [station, setStation] = React.useState(stored);
+  const stations = stationOptions(data.printers, stored);
+  const at = data.printers.find((p) => p.purpose === 'KOT' && p.enabled && p.station.trim().toLowerCase() === station.trim().toLowerCase());
+
+  return (
+    <Card className="flex flex-col gap-3" data-testid="owner-default-station">
+      <SectionLabel>Default station</SectionLabel>
+      <p className="m-0 max-w-prose type-caption leading-relaxed text-[var(--text-muted)]">
+        Where a dish goes when neither the dish nor its category says. Without one, it goes to the main kitchen printer.
+      </p>
+      <Field label="Default station" htmlFor="owner-default-station-pick" hint={station ? (at ? `Prints at ${at.name}.` : 'No switched-on printer is at this station yet; the main kitchen printer takes it, marked with this station.') : 'None: the main kitchen printer.'}>
+        <Combobox
+          id="owner-default-station-pick"
+          testId="owner-default-station-pick"
+          value={station}
+          onValueChange={setStation}
+          options={[{ value: '', label: 'None (main kitchen printer)' }, ...stations.map((st) => ({ value: st, label: st }))]}
+          placeholder="Search stations"
+          emptyLabel="No matching station"
+          allowCreate
+          // A station is a word on a ticket, not a row anywhere: creating one is choosing it.
+          onCreate={async (name) => name.trim()}
+        />
+      </Field>
+      <div>
+        <Button
+          data-testid="owner-default-station-save"
+          size="sm"
+          disabled={busy || station === stored}
+          onClick={() =>
+            runBusy(async () => {
+              await send('/api/owner/action', { action: 'write-setting', key: 'routing', value: { defaultStation: station.trim() } });
+              toast.show(station.trim() ? `Default station: ${station.trim()}` : 'No default station - the main kitchen printer', { tone: 'success' });
+            })
+          }
+        >
+          Save default station
+        </Button>
+      </div>
     </Card>
   );
 }

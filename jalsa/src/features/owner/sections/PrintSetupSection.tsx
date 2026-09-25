@@ -36,7 +36,7 @@ import {
   type TicketData,
   type TicketKind,
 } from '@/lib/print-template';
-import { mainPrinter, printerShortName, resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
+import { mainPrinter, printerShortName, resolvePrinter, routeItem, stationOptions, type RoutablePrinter } from '@/lib/print-routing';
 import type { PrintJobRow, PrinterRow } from '@/lib/db/types';
 import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
@@ -1224,7 +1224,9 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         />
       ) : (
         <Card className="flex flex-col gap-2">
-          <div className="grid grid-cols-[1fr_auto] gap-2 type-caption text-[var(--text-muted)] sm:grid-cols-[1fr_1fr_auto]">
+          {/* ONE column template for the header and every row (item 28): with an `auto` column the
+              width followed each row's own dropdown, so no heading sat over its column. */}
+          <div className={`${CATEGORY_GRID} type-caption text-[var(--text-muted)]`}>
             <span>Menu category</span>
             <span className="hidden sm:block">Station</span>
             <span>Printer</span>
@@ -1238,7 +1240,7 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               return (
                 <li
                   key={c.id}
-                  className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 sm:grid-cols-[1fr_1fr_auto]"
+                  className={`${CATEGORY_GRID} items-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2`}
                 >
                   <span className="min-w-0">
                     <span className="block type-caption font-semibold">{c.name}</span>
@@ -1252,7 +1254,7 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       <span className="block type-caption text-[var(--error)]">printing at the main kitchen</span>
                     ) : null}
                   </span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     {/* SEARCH ONLY — no `allowCreate`. A printer is a machine on a network
                         with an address and a paper width; it is added in the Machines section,
                         not conjured from a routing row. The option list is `kotPrinters`, so it
@@ -1277,6 +1279,8 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </ul>
         </Card>
       )}
+
+      <ItemRoutingTable data={data} send={send} runBusy={runBusy} busy={busy} canEdit={canEdit} />
 
       <Card className="flex flex-col gap-3">
         <SectionLabel>Food type splits the kitchen ticket</SectionLabel>
@@ -1519,5 +1523,149 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         </div>
       </Sheet>
     </div>
+  );
+}
+
+/* ── Per-dish routing (items 26, 27, 28 - 25-Sep-2026) ──────────────────────────────────── */
+
+const CATEGORY_GRID = 'grid gap-2 grid-cols-[minmax(0,1fr)_minmax(10rem,1fr)] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1fr)]';
+const ITEM_GRID =
+  'grid gap-2 grid-cols-1 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(10rem,1fr)_minmax(10rem,1.2fr)]';
+
+/**
+ * Every dish, its station and its printer - each changeable on its own row, and the Station
+ * column settable for every dish at once from its header.
+ *
+ * The header's control changes STATION ONLY and says so before it does anything: a confirmation
+ * names how many dishes and which station, and that printers are left as they are. Routing then
+ * follows `routeItem`: a dish's printer, else a printer at its station, else its category.
+ */
+function ItemRoutingTable({
+  data,
+  send,
+  runBusy,
+  busy,
+  canEdit,
+}: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'> & { canEdit: boolean }) {
+  const toast = useToast();
+  const [allTo, setAllTo] = React.useState<string | null>(null);
+  const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
+  const printers = data.printers.map(toRoutable);
+  const kotPrinters = data.printers.filter((p) => p.purpose === 'KOT');
+  const stations = stationOptions(data.printers, routing.defaultStation);
+  const defaultStationLabel = routing.defaultStation ? `Default (${routing.defaultStation})` : 'Default';
+
+  const setRouting = (itemIds: string[], patch: { station?: string | null; printerId?: string | null }, said: string): void => {
+    void runBusy(async () => {
+      const res = await send<{ updated: number }>('/api/owner/action', { action: 'set-item-routing', itemIds, ...patch });
+      toast.show(`${said} · ${res.updated} ${res.updated === 1 ? 'dish' : 'dishes'} updated`, { tone: 'success' });
+    });
+  };
+
+  if (data.menu.length === 0) return null;
+
+  return (
+    <Card className="flex flex-col gap-2" data-testid="owner-print-item-routing">
+      <SectionLabel>Each dish · {data.menu.length}</SectionLabel>
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        Leave a dish on Default to follow its category. A station sends it to the printer at that station; a printer
+        sends it to that machine.
+      </p>
+      <div className={`${ITEM_GRID} items-end type-caption text-[var(--text-muted)]`}>
+        <span>Dish</span>
+        <span className="hidden sm:block">Category</span>
+        <span className="flex flex-col gap-1">
+          <span>Station</span>
+          {canEdit ? (
+            <Combobox
+              ariaLabel="Set the station of every dish"
+              testId="owner-print-station-all"
+              // Nothing is "selected" here: the header acts, it does not hold a value. Choosing
+              // opens the confirmation below; `__default__` clears every dish to the default.
+              value=""
+              disabled={busy}
+              onValueChange={(v) => setAllTo(v === '__default__' ? '' : v)}
+              options={[{ value: '__default__', label: defaultStationLabel }, ...stations.map((st) => ({ value: st, label: st }))]}
+              placeholder="Set all dishes to…"
+              emptyLabel="No matching station"
+            />
+          ) : null}
+        </span>
+        <span className="hidden sm:block">Printer</span>
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="owner-print-item-routes">
+        {data.menu.map((m) => {
+          const decision = routeItem({
+            category: m.category,
+            route: { printerId: m.printerId, station: m.station },
+            printers,
+            ...(routing.defaultStation ? { defaultStation: routing.defaultStation } : {}),
+          });
+          return (
+            <li key={m.id} className={`${ITEM_GRID} items-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2`}>
+              <span className="min-w-0">
+                <span className="block truncate type-caption font-semibold">{m.name}</span>
+                <span className="block type-caption text-[var(--text-muted)] sm:hidden">{m.category}</span>
+                <span className="block type-caption text-[var(--text-muted)]" data-testid={`owner-print-item-decision-${m.id}`}>
+                  → {decision.station || '—'} · {decision.printer?.name ?? 'no printer'}
+                </span>
+              </span>
+              <span className="hidden min-w-0 truncate type-caption sm:block">{m.category}</span>
+              <span className="min-w-0">
+                <Combobox
+                  ariaLabel={`Station for ${m.name}`}
+                  testId={`owner-print-item-station-${m.id}`}
+                  value={m.station ?? ''}
+                  disabled={!canEdit || busy}
+                  onValueChange={(v) => setRouting([m.id], { station: v || null }, `${m.name} → ${v || defaultStationLabel}`)}
+                  options={[{ value: '', label: defaultStationLabel }, ...stations.map((st) => ({ value: st, label: st }))]}
+                  placeholder="Search stations"
+                  emptyLabel="No matching station"
+                />
+              </span>
+              <span className="min-w-0">
+                <Combobox
+                  ariaLabel={`Printer for ${m.name}`}
+                  testId={`owner-print-item-printer-${m.id}`}
+                  value={m.printerId ?? ''}
+                  disabled={!canEdit || busy || kotPrinters.length === 0}
+                  onValueChange={(v) =>
+                    setRouting([m.id], { printerId: v || null }, `${m.name} → ${kotPrinters.find((p) => p.id === v)?.name ?? 'default printer'}`)
+                  }
+                  options={[{ value: '', label: 'Default' }, ...kotPrinters.map((p) => ({ value: p.id, label: p.name, hint: p.station }))]}
+                  placeholder="Search machines"
+                  emptyLabel="No matching machines"
+                />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <ConfirmDialog
+        open={allTo !== null}
+        onOpenChange={(o) => !o && setAllTo(null)}
+        title={allTo ? `Set every dish to ${allTo}?` : 'Set every dish'}
+        tone="primary"
+        consequence={
+          <>
+            The Station of all <strong>{data.menu.length}</strong> dishes becomes <strong>{allTo || defaultStationLabel}</strong>. Their
+            printers stay as they are. You can change any single dish afterwards.
+          </>
+        }
+        confirmLabel={`Set all ${data.menu.length} dishes`}
+        onConfirm={() => {
+          const station = allTo;
+          setAllTo(null);
+          setRouting(
+            data.menu.map((m) => m.id),
+            { station: station || null },
+            `Every dish → ${station || defaultStationLabel}`
+          );
+        }}
+        testId="owner-print-station-all-confirm"
+        busy={busy}
+      />
+    </Card>
   );
 }

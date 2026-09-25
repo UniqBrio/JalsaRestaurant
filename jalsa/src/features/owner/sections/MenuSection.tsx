@@ -9,6 +9,8 @@ import { Sheet } from '@/components/ui/sheet';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { FOOD_TYPE, type FoodType } from '@/lib/status';
+import { ImagePicker } from '@/components/ui/image-picker';
+import { defaultPrinter } from '@/lib/print-routing';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -35,7 +37,20 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
     categoryId: string;
     foodType: FoodType;
     description: string;
+    imageUrl: string;
+    /** '' = the category's printer, or the default printer (item 25). */
+    printerId: string;
   } | null>(null);
+  const [newCategory, setNewCategory] = React.useState<{ name: string; printerId: string } | null>(null);
+  const kotPrinters = data.printers.filter((p) => p.purpose === 'KOT');
+  const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
+  const fallbackPrinter = defaultPrinter(
+    kotPrinters.map((p) => ({ ...p, routes: p.routes })),
+    routing.defaultStation
+  );
+  const defaultPrinterLabel = fallbackPrinter ? `Default printer (${fallbackPrinter.name})` : 'Default printer';
+  const upload = async (base64: string): Promise<string> =>
+    (await send<{ url: string }>('/api/owner/action', { action: 'upload-image', folder: 'menu', base64 })).url;
 
   const canEdit = data.grants.includes('menu.item_edit');
   const canToggle = data.grants.includes('menu.availability');
@@ -49,6 +64,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
       categoryId: data.categories[0]?.id ?? '',
       foodType: 'veg',
       description: '',
+      imageUrl: '',
+      printerId: '',
     });
 
   return (
@@ -209,6 +226,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                         categoryId: m.categoryId,
                         foodType: m.foodType,
                         description: m.description,
+                        imageUrl: m.imageUrl,
+                        printerId: m.printerId ?? '',
                       })
                     }
                   >
@@ -224,6 +243,110 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
           within seconds — nothing else on any screen changes.
         </p>
       </section>
+
+      {/* ADD A CATEGORY WITH ITS PRINTER (item 29, 25-Sep-2026). The printer is written where
+          category routing already lives (`printer.routes`); left on the default, the category
+          prints on the default printer - the machine at the default station, else the main one. */}
+      {data.grants.includes('menu.category') ? (
+        <section>
+          <SectionLabel>Categories · {data.categories.length}</SectionLabel>
+          <Card className="flex flex-wrap items-center gap-2">
+            {data.categories.map((c) => {
+              const at = kotPrinters.find((p) =>
+                p.routes.some((r) => r.trim().toLowerCase() === c.name.trim().toLowerCase())
+              );
+              return (
+                <Pill key={c.id} tone="neutral">
+                  {c.name} · {at ? at.name : 'default printer'}
+                </Pill>
+              );
+            })}
+            <Button
+              data-testid="owner-category-add"
+              size="sm"
+              variant="secondary"
+              onClick={() => setNewCategory({ name: '', printerId: '' })}
+            >
+              Add a category
+            </Button>
+          </Card>
+        </section>
+      ) : null}
+
+      <Sheet
+        open={newCategory !== null}
+        onOpenChange={(o) => !o && setNewCategory(null)}
+        posture="modal"
+        title="Add a category"
+        description="Choose where its kitchen tickets print, or leave it on the default printer."
+        testId="owner-category-sheet"
+        footer={
+          <>
+            <Button data-testid="owner-category-cancel" variant="ghost" onClick={() => setNewCategory(null)}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="owner-category-save"
+              disabled={busy || !newCategory?.name.trim()}
+              onClick={() =>
+                newCategory &&
+                runBusy(async () => {
+                  await send('/api/owner/action', {
+                    action: 'add-category',
+                    name: newCategory.name.trim(),
+                    ...(newCategory.printerId ? { printerId: newCategory.printerId } : {}),
+                  });
+                  const printer = kotPrinters.find((p) => p.id === newCategory.printerId);
+                  toast.show(
+                    `${newCategory.name.trim()} added · prints at ${printer ? printer.name : defaultPrinterLabel}`,
+                    { tone: 'success' }
+                  );
+                  setNewCategory(null);
+                })
+              }
+            >
+              Save category
+            </Button>
+          </>
+        }
+      >
+        {newCategory ? (
+          <div className="flex flex-col gap-3">
+            <Field label="Category name" required htmlFor="owner-category-name">
+              <Input
+                id="owner-category-name"
+                data-testid="owner-category-name"
+                value={newCategory.name}
+                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                placeholder="Tandoor starters"
+              />
+            </Field>
+            <Field
+              label="Printer"
+              htmlFor="owner-category-printer"
+              hint={
+                data.grants.includes('set.printer')
+                  ? 'Leave on the default to use the default printer.'
+                  : 'Choosing a printer needs printer access; it uses the default printer.'
+              }
+            >
+              <Combobox
+                id="owner-category-printer"
+                testId="owner-category-printer"
+                value={newCategory.printerId}
+                disabled={!data.grants.includes('set.printer') || kotPrinters.length === 0}
+                onValueChange={(printerId) => setNewCategory({ ...newCategory, printerId })}
+                options={[
+                  { value: '', label: defaultPrinterLabel },
+                  ...kotPrinters.map((p) => ({ value: p.id, label: p.name, hint: p.station })),
+                ]}
+                placeholder="Search printers"
+                emptyLabel="No matching printers"
+              />
+            </Field>
+          </div>
+        ) : null}
+      </Sheet>
 
       <Sheet
         open={editing !== null}
@@ -251,6 +374,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                     categoryId: editing.categoryId,
                     foodType: editing.foodType,
                     description: editing.description,
+                    imageUrl: editing.imageUrl,
+                    printerId: editing.printerId || null,
                   });
                   toast.show(
                     editing.id
@@ -319,21 +444,66 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                   }}
                 />
               </Field>
-              <Field label="Food type" required htmlFor="owner-item-type" className="min-w-[9rem] flex-1">
-                <Select
+              <Field
+                label="Food type"
+                required
+                htmlFor="owner-item-type"
+                className="min-w-[9rem] flex-1"
+                hint="Search like Category. The three types are fixed: they decide which kitchen ticket a dish goes on."
+              >
+                {/* The same search-and-pick as Category (item 24). No Add: veg, non-veg and egg are
+                    the database's own types and they drive the veg / non-veg ticket split, so a
+                    fourth could not be routed. */}
+                <Combobox
                   id="owner-item-type"
+                  testId="owner-item-type"
                   value={editing.foodType}
-                  onChange={(e) => setEditing({ ...editing, foodType: e.target.value as FoodType })}
-                  data-testid="owner-item-type"
-                >
-                  {FOOD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {FOOD_TYPE[t].label}
-                    </option>
-                  ))}
-                </Select>
+                  onValueChange={(v) => v && setEditing({ ...editing, foodType: v as FoodType })}
+                  options={FOOD_TYPES.map((t) => ({ value: t, label: FOOD_TYPE[t].label }))}
+                  placeholder="Search food type"
+                  emptyLabel="Veg, Non-veg or Egg"
+                />
               </Field>
             </div>
+
+            <Field
+              label="Printer"
+              htmlFor="owner-item-printer"
+              hint={
+                kotPrinters.length
+                  ? 'Where this dish’s kitchen ticket prints. Leave it on the default to follow its category.'
+                  : 'No kitchen printer is set up yet. This dish prints on the default printer once one is added under Printers.'
+              }
+            >
+              <Combobox
+                id="owner-item-printer"
+                testId="owner-item-printer"
+                value={editing.printerId}
+                disabled={kotPrinters.length === 0}
+                onValueChange={(printerId) => setEditing({ ...editing, printerId })}
+                options={[
+                  { value: '', label: defaultPrinterLabel, hint: 'follows the category' },
+                  ...kotPrinters.map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                    hint: p.enabled ? p.station : `${p.station} · switched off`,
+                  })),
+                ]}
+                placeholder="Search printers"
+                emptyLabel="No matching printers"
+              />
+            </Field>
+
+            <Field label="Image" htmlFor="owner-item-image-file">
+              <ImagePicker
+                testId="owner-item-image"
+                label={`Photo of ${editing.name || 'this dish'}`}
+                value={editing.imageUrl}
+                onChange={(imageUrl) => setEditing({ ...editing, imageUrl })}
+                upload={upload}
+                disabled={!canEdit}
+              />
+            </Field>
 
             <Field
               label="Description"

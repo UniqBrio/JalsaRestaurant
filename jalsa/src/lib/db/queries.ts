@@ -66,7 +66,7 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
     db()
       .from('menu_item')
       .select(
-        'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+        'id,name,description,price,food_type,image_url,printer_id,station,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
       )
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
@@ -91,6 +91,8 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
       category: cat.name,
       categoryId: cat.id,
       imageUrl: (row.image_url as string) ?? '',
+      printerId: (row.printer_id as string | null) ?? null,
+      station: (row.station as string | null) ?? null,
       available: (row.available as boolean) && !stillClosed,
       closedReason: (row.closed_reason as string) ?? '',
       closedUntil: stillClosed ? closedUntil : null,

@@ -191,6 +191,10 @@ export interface OwnerPayload {
     available: boolean;
     closedReason: string;
     description: string;
+    /** `/api/media/...` or empty (item 23). */
+    imageUrl: string;
+    printerId: string | null;
+    station: string | null;
   }>;
   categories: Array<{ id: string; name: string; count: number }>;
   staff: StaffMember[];
@@ -488,6 +492,9 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       available: i.available,
       closedReason: i.closedReason,
       description: i.description,
+      imageUrl: i.imageUrl,
+      printerId: i.printerId,
+      station: i.station,
     })),
     categories: categories.map((c) => ({ id: c.id, name: c.name, count: c.count })),
 

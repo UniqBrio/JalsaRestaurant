@@ -345,7 +345,7 @@ async function lineRows(input: {
 async function itemsOf(kotIds: readonly string[]): Promise<ComposeItem[]> {
   const { data } = await db()
     .from('kot_item')
-    .select('name,qty,unit_price,food_type,menu_category_name,cancelled_at,created_at,line_seq')
+    .select('name,qty,unit_price,food_type,menu_category_name,cancelled_at,created_at,line_seq,route_printer_id,route_station')
     .in('kot_id', kotIds as string[])
     // Deterministic, so the same round always composes the same lines and therefore the same
     // bytes. Without it the paper's item order is whatever PostgREST returned this time.
@@ -363,6 +363,9 @@ async function itemsOf(kotIds: readonly string[]): Promise<ComposeItem[]> {
       rate: Number(l.unit_price ?? 0),
       category: (l.menu_category_name as string) ?? '',
       instruction: '',
+      // The line's own routing, snapshot when the round was placed (item 25/26) - the same input
+      // the job was split on, so the composer finds this line's ticket.
+      route: { printerId: (l.route_printer_id as string | null) ?? null, station: (l.route_station as string | null) ?? null },
     }));
 }
 

@@ -61,7 +61,12 @@ export function PrinterPreviewSheet({
             Close
           </Button>
           {onTest ? (
-            <Button data-testid="owner-printer-preview-test" variant="secondary" disabled={testing} onClick={() => onTest(printer, kind)}>
+            <Button
+              data-testid="owner-printer-preview-test"
+              variant="secondary"
+              disabled={testing}
+              onClick={() => onTest(printer, kind)}
+            >
               {testing ? 'Sending…' : 'Test Print'}
             </Button>
           ) : null}
@@ -69,7 +74,10 @@ export function PrinterPreviewSheet({
       }
     >
       {data.menu.length === 0 && kind === 'kot' ? (
-        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="owner-printer-preview-empty">
+        <p
+          className="m-0 type-caption leading-relaxed text-[var(--text-muted)]"
+          data-testid="owner-printer-preview-empty"
+        >
           Add items to the menu to see a kitchen ticket built from them.
         </p>
       ) : (

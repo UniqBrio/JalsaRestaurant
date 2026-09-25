@@ -1,5 +1,5 @@
 import { effectiveTemplate } from './invoice';
-import { resolvePrinter, splitRound, type RoutablePrinter, type TicketSide } from './print-routing';
+import { routeItem, splitRound, type ItemRoute, type RoutablePrinter, type TicketSide } from './print-routing';
 import {
   buildTicket,
   type FontSize,
@@ -48,6 +48,8 @@ export interface ComposeItem {
   /** `kot_item.menu_category_name` — the routing input, snapshotted. */
   category: string;
   instruction: string;
+  /** `kot_item.route_printer_id` / `route_station` - the dish's own routing, snapshotted (item 25/26). */
+  route?: ItemRoute | null;
 }
 
 /**
@@ -140,11 +142,11 @@ const BLOCKED_AMBIGUOUS =
  * changes, the rung goes red rather than the kitchen getting the wrong paper.
  */
 function bucketKeyOf(
-  item: { category: string; foodType: FoodType },
+  item: { category: string; foodType: FoodType; route?: ItemRoute | null },
   printers: readonly RoutablePrinter[],
   splitByFoodType: boolean
 ): string {
-  const decision = resolvePrinter({ purpose: 'KOT', category: item.category, printers });
+  const decision = routeItem({ category: item.category, route: item.route ?? null, printers });
   const side = splitByFoodType && item.foodType === 'non_veg' ? 'non_veg' : 'veg_side';
   return `${decision.printer?.id ?? 'none'}|${decision.station}|${splitByFoodType ? side : 'all'}`;
 }

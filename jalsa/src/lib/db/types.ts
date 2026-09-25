@@ -19,6 +19,10 @@ export interface MenuItem {
   category: string;
   categoryId: string;
   imageUrl: string;
+  /** The dish's own printer (item 25). Null: the category's printer, or the default. */
+  printerId: string | null;
+  /** The dish's own station (item 26). Null: the station its printer is at, or the default. */
+  station: string | null;
   /** False when a captain has switched it off, or a dated closure is still running. */
   available: boolean;
   closedReason: string;
