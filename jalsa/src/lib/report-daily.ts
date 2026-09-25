@@ -17,7 +17,7 @@ export interface DailyPoint {
   bills: number;
 }
 
-/** Ranges longer than this are not drawn a bar per day: the screen says so instead. */
+/** Ranges longer than this are drawn for their first days only, and the screen says so. */
 export const MAX_DAILY_POINTS = 92;
 
 export function dailySeries(
@@ -36,4 +36,15 @@ export function dailySeries(
     out.push({ day, label: shortDayLabel(day), sales: s.sales, bills: s.bills });
   }
   return out;
+}
+
+/** Whether a range is longer than the chart draws - so the screen can say it shows only part. */
+export function dailyTruncated(from: string, to: string): boolean {
+  if (!from || !to || from > to) return false;
+  let day = from;
+  for (let i = 0; i < MAX_DAILY_POINTS; i += 1) {
+    if (day === to) return false;
+    day = shiftDay(day, 1);
+  }
+  return true;
 }

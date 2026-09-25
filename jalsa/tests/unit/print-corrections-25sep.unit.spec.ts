@@ -246,7 +246,10 @@ test('item 6: the bridge drains waiting tickets, idles at 4 s at most, and print
 });
 
 test('item 6: the print class is compiled once into the spool and loaded after that', () => {
-  expect(RAW_PRINT_SCRIPT).toContain('-OutputAssembly $dll');
+  // Updated 25-Sep-2026 (code review): compiled to a part file and moved into place, so an
+  // interrupted compile never leaves a half-written DLL at the name that is loaded.
+  expect(RAW_PRINT_SCRIPT).toContain('-OutputAssembly $part');
+  expect(RAW_PRINT_SCRIPT).toContain('Move-Item -LiteralPath $part -Destination $dll -Force');
   expect(RAW_PRINT_SCRIPT).toContain('Add-Type -LiteralPath $dll');
   expect(RAW_PRINT_SCRIPT).toContain('if (-not $loaded) { Add-Type -TypeDefinition $src }');
   expect(rawPrintFits()).toBe(true);

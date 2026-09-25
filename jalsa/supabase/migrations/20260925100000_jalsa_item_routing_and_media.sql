@@ -29,6 +29,10 @@ alter table public.kot_item
   add column if not exists route_printer_id uuid references public.printer(id) on delete set null,
   add column if not exists route_station text;
 
+-- Deleting a printer sets these to null; without an index that is a scan of every line ever sold.
+create index if not exists kot_item_route_printer_idx on public.kot_item (route_printer_id) where route_printer_id is not null;
+create index if not exists menu_item_printer_idx on public.menu_item (printer_id) where printer_id is not null;
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('media', 'media', false, 1048576, array['image/png', 'image/jpeg'])
 on conflict (id) do nothing;

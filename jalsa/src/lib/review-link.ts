@@ -7,7 +7,8 @@
  * allowed but said out loud, because a review link on somebody else's site is the likeliest typo.
  */
 
-const GOOGLE_HOSTS = [/(^|\.)google\.[a-z.]+$/, /(^|\.)g\.page$/, /(^|\.)goo\.gl$/, /(^|\.)g\.co$/];
+// Anchored to the end: google.com, google.co.in, maps.google.com - but not google.evil.com.
+const GOOGLE_HOSTS = [/(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$/, /(^|\.)g\.page$/, /(^|\.)goo\.gl$/, /(^|\.)g\.co$/];
 
 export type ReviewLinkCheck =
   | { state: 'empty' }

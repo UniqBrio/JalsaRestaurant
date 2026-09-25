@@ -4,6 +4,15 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Run - 2026-09-25 - 25-Sep correction list, code-review fixes
+
+Review (REQUEST CHANGES, 2 blockers, 7 major, 12 minor). Fixed: new columns read before their migrations (applied to both projects before this branch can deploy; kotPrintableItems no longer turns a read error into an empty round); the floor's unbounded session `.in()` (now carts via an inner join + sessions on open bills only); "Set all" as a URL-sized id list (one update by restaurant; lists chunked by 100); a dish's printer changeable without `set.printer`; routing to an Invoice printer; the daily chart silently cut at 92 days; tipped bills printing a TOTAL without the tip; a big TOTAL and item figures clipped (never cut now; a space between every column); `large` never reaching the printer (font B at GS ! 0x11); two-tap duplicate notices (partial unique index, 23505 ignored; freeTable resolves them; the floor badge leaves the counter's out); the category routing table ignoring the default station; addCategory half-succeeding; unchecked upload/station input; 0% tax on the test bill; a test KOT to a bill printer always blocked; a half-written DLL; no index behind `on delete set null`; two misplaced doc comments; a look-alike Google host.
+FAIL-FIRST: tests/unit/review-fixes-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`dailyTruncated` absent; `totalLine` absent): 7 of 7 not passing; after: 7 passed. Three specs added earlier in this branch updated in place to the fixed shapes (mark-free-a5, menu-routing-25sep, print-corrections-25sep).
+Unit tier: 1105 passed. Typecheck, lint, audit:all 10/10, next build, bridge build: pass.
+NOT CHANGED (review #20): some rungs read source text rather than behaviour - the pattern this repo's unit tier already uses for DB-bound code; the behaviour cases run beside them.
+
+---
+
 ## Run - 2026-09-25 - 25-Sep correction list, guest payment notices, WhatsApp share, report charts, review link (items 37-40)
 
 FAIL-FIRST: tests/unit/guest-reports-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/payment-notice` absent; `whatsAppNumber`, `dailySeries`, `checkReviewLink` absent): 10 of 10 not passing; after: 10 passed.

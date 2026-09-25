@@ -2,6 +2,7 @@ import 'server-only';
 import { dayWindow, todayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { phonesHoldingTables, tableStateFrom, type KotStatus } from '@/lib/status';
+import { isCounterNotice } from '@/lib/payment-notice';
 import { totalBill } from '@/lib/money';
 import type {
   AuditRow,
@@ -492,7 +493,12 @@ export async function listFloor(): Promise<FloorTable[]> {
        scanned, filled a cart and walked out leaves one of these and no bill — but it IS stale
        data sitting on a table the restaurant considers free, and the only thing that can see it
        is this query. It is what `tables.free` clears. */
-    db().from('guest_session').select('id,table_id,bill_id').eq('restaurant_id', restaurantId),
+    /* Only what can HOLD a table (items 35/36): phones with an unsent cart, read through the
+       cart itself - a small set - rather than every session the restaurant ever had. */
+    db()
+      .from('guest_cart_line')
+      .select('session_id, session:session_id!inner(id,table_id,bill_id,restaurant_id)')
+      .eq('session.restaurant_id', restaurantId),
     /* Tables a closure has released and nobody has reset yet. `released_at` is stamped by
        release_tables_on_close the instant a bill closes — that stamp is "the guests have gone"
        — and `cleared_at` is the other end. Until this read existed, tableStateFrom's
@@ -509,20 +515,22 @@ export async function listFloor(): Promise<FloorTable[]> {
      the table's bill still open. Every session a table has ever had used to count - they are
      not removed when a bill is paid - so any table a guest had once scanned offered Mark free
      for ever, free or not. */
-  const sessions = (phonesRes.data ?? []) as Array<{ id: string; table_id: string; bill_id: string | null }>;
-  const withCart = new Set<string>();
-  // Only a session with no bill can hold a table by its cart, so only those are looked up - the
-  // rest pile up on paid bills and would only lengthen the query.
-  const unbilled = sessions.filter((x) => !x.bill_id).map((x) => x.id);
-  if (unbilled.length) {
-    const { data: carts, error: cartErr } = await db()
-      .from('guest_cart_line')
-      .select('session_id')
-      .in('session_id', unbilled);
-    if (cartErr) throw cartErr;
-    for (const c of carts ?? []) withCart.add(c.session_id as string);
+  if (phonesRes.error) throw phonesRes.error;
+  const carts = (phonesRes.data ?? []) as unknown as Array<{ session_id: string; session: { id: string; table_id: string; bill_id: string | null } }>;
+  const withCart = new Set(carts.map((c) => c.session_id));
+  const byId = new Map(carts.map((c) => [c.session.id, c.session]));
+  // Phones on a bill still open: bounded by the open bills, which are few.
+  const openIds = bills.map((b) => b.id);
+  if (openIds.length) {
+    const { data: onOpen, error: openErr } = await db()
+      .from('guest_session')
+      .select('id,table_id,bill_id')
+      .eq('restaurant_id', restaurantId)
+      .in('bill_id', openIds);
+    if (openErr) throw openErr;
+    for (const r of onOpen ?? []) byId.set(r.id as string, r as { id: string; table_id: string; bill_id: string | null });
   }
-  const phones = phonesHoldingTables(sessions, withCart, new Set(bills.map((b) => b.id)));
+  const phones = phonesHoldingTables([...byId.values()], withCart, new Set(openIds));
 
   const billByTable = new Map<string, Bill>();
   for (const b of bills) for (const t of b.tables) billByTable.set(t, b);
@@ -547,7 +555,12 @@ export async function listFloor(): Promise<FloorTable[]> {
   }
 
   const requestsByTable = new Map<string, number>();
-  for (const r of requests) requestsByTable.set(r.tableName, (requestsByTable.get(r.tableName) ?? 0) + 1);
+  // The bill counter's own notice is not a request at the table (item 37): the floor badge, which
+  // captains read, counts what the table is waiting on a captain for.
+  for (const r of requests) {
+    if (isCounterNotice(r.kind)) continue;
+    requestsByTable.set(r.tableName, (requestsByTable.get(r.tableName) ?? 0) + 1);
+  }
 
   return (tablesRes.data ?? []).map((t) => {
     const name = t.name as string;

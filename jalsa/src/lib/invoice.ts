@@ -40,6 +40,8 @@ export interface InvoiceBill {
   discountAmount: number;
   taxRate: number;
   paymentMode: string | null;
+  /** The tip on this bill. Printed as its own line and included in TOTAL, as the screen does. */
+  tip?: number;
   kots: ReadonlyArray<{
     status: string;
     items: ReadonlyArray<{
@@ -93,6 +95,7 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
     discountPct: bill.discountPct,
     discountAmount: bill.discountAmount,
     taxRate: bill.taxRate,
+    tip: bill.tip ?? 0,
   });
   const at = bill.closedAt ?? now.toISOString();
   return {
@@ -119,6 +122,7 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
       payable: t.payable,
       paymentMode: bill.paymentMode ?? '',
       taxRate: bill.taxRate,
+      tip: t.tip,
     },
     ...(who.upiId ? { upiId: who.upiId } : {}),
   };

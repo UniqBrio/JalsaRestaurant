@@ -7,7 +7,7 @@ import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { checkReviewLink } from '@/lib/review-link';
-import { IMAGE_CONTENT_TYPE, imageProblem, isMediaUrl, sniffImage, type MediaFolder } from '@/lib/media';
+import { IMAGE_CONTENT_TYPE, IMAGE_MESSAGES, MAX_IMAGE_BYTES, imageProblem, isMediaUrl, sniffImage, type MediaFolder } from '@/lib/media';
 import { hashToken } from '@/lib/bridge-token';
 import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
 
@@ -51,7 +51,16 @@ export async function upsertMenuItem(input: {
   if (input.imageUrl !== undefined && input.imageUrl !== '' && !isMediaUrl(input.imageUrl)) {
     throw new Error('That image was not uploaded here. Choose the photo again.');
   }
-  if (input.printerId) await ownPrinter(input.printerId, restaurantId);
+  if (input.printerId !== undefined) {
+    // A dish's printer IS routing, so it takes the printer grant - the one `setItemRouting` and a
+    // category's printer take - whenever it would change (review, 25-Sep-2026).
+    const before = input.id
+      ? ((await db().from('menu_item').select('printer_id').eq('id', input.id).eq('restaurant_id', restaurantId).maybeSingle()).data
+          ?.printer_id as string | null | undefined) ?? null
+      : null;
+    if ((input.printerId ?? null) !== before) demand(input.actor, 'set.printer');
+    if (input.printerId) await ownPrinter(input.printerId, restaurantId);
+  }
   const extras = {
     ...(input.imageUrl !== undefined ? { image_url: input.imageUrl } : {}),
     ...(input.printerId !== undefined ? { printer_id: input.printerId } : {}),
@@ -134,6 +143,9 @@ export async function addCategory(input: {
   actor: Actor;
 }): Promise<string> {
   demand(input.actor, 'menu.category');
+  // Checked BEFORE anything is written: a category saved and then refused its printer would be a
+  // failure on screen for a row that exists (review, 25-Sep-2026).
+  if (input.printerId) demand(input.actor, 'set.printer');
   const restaurantId = await currentRestaurantId();
   const name = input.name.trim();
   // The same bounds the column's own check constraint states. Refused here so the person gets a
@@ -1517,12 +1529,15 @@ export async function removePrinterMapping(input: { printerId: string; actor: Ac
 async function ownPrinter(printerId: string, restaurantId: string): Promise<{ id: string; name: string; routes: string[] }> {
   const { data, error } = await db()
     .from('printer')
-    .select('id,name,routes')
+    .select('id,name,routes,purpose')
     .eq('id', printerId)
     .eq('restaurant_id', restaurantId)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('That printer is no longer configured. Reload the page.');
+  // Dishes print kitchen tickets: a bill printer is never a routing target (routeItem would not
+  // find it and the dish would fall back silently).
+  if ((data.purpose as string) !== 'KOT') throw new Error(`${data.name as string} prints bills, not kitchen tickets. Choose a kitchen printer.`);
   return { id: data.id as string, name: data.name as string, routes: (data.routes as string[]) ?? [] };
 }
 
@@ -1569,16 +1584,19 @@ async function routeCategoryTo(category: string, printerId: string, restaurantId
  */
 export async function setItemRouting(input: {
   itemIds: string[];
+  /** Every dish of the restaurant (the column header): filtered by restaurant, not by an id list. */
+  all?: boolean;
   station?: string | null;
   printerId?: string | null;
   actor: Actor;
 }): Promise<{ updated: number }> {
   demand(input.actor, 'set.printer');
   const restaurantId = await currentRestaurantId();
-  const ids = [...new Set(input.itemIds)].filter(Boolean);
-  if (ids.length === 0) return { updated: 0 };
+  const ids = [...new Set(input.itemIds)].filter((x) => typeof x === 'string' && x);
+  if (!input.all && ids.length === 0) return { updated: 0 };
   const patch: Record<string, unknown> = {};
   if (input.station !== undefined) {
+    if (input.station !== null && typeof input.station !== 'string') throw new Error('A station is a name.');
     const station = input.station === null ? null : input.station.trim();
     if (station !== null && (station.length < 1 || station.length > 40)) throw new Error('A station name is between 1 and 40 characters.');
     patch.station = station;
@@ -1588,14 +1606,17 @@ export async function setItemRouting(input: {
     patch.printer_id = input.printerId;
   }
   if (Object.keys(patch).length === 0) return { updated: 0 };
-  const { data, error } = await db()
-    .from('menu_item')
-    .update(patch)
-    .in('id', ids)
-    .eq('restaurant_id', restaurantId)
-    .select('id');
-  if (error) throw error;
-  const updated = (data ?? []).length;
+  // "All" is one update by restaurant; a list is sent in chunks, so neither ever becomes a URL
+  // too long for the gateway on a big menu (review, 25-Sep-2026).
+  let updated = 0;
+  const chunks = input.all ? [null] : Array.from({ length: Math.ceil(ids.length / 100) }, (_, i) => ids.slice(i * 100, i * 100 + 100));
+  for (const chunk of chunks) {
+    let q = db().from('menu_item').update(patch).eq('restaurant_id', restaurantId);
+    if (chunk) q = q.in('id', chunk);
+    const { data, error } = await q.select('id');
+    if (error) throw error;
+    updated += (data ?? []).length;
+  }
   await audit({
     action: 'Printer',
     detail: `Routing of ${updated} ${updated === 1 ? 'dish' : 'dishes'}: ${[
@@ -1621,7 +1642,11 @@ export async function setItemRouting(input: {
  */
 export async function uploadImage(input: { folder: MediaFolder; base64: string; actor: Actor }): Promise<{ url: string }> {
   demand(input.actor, input.folder === 'brand' ? 'set.identity' : 'menu.item_edit');
-  const bytes = new Uint8Array(Buffer.from(input.base64 ?? '', 'base64'));
+  // Refused before decoding: not text, or longer than 1 MB of base64 could ever be.
+  if (typeof input.base64 !== 'string' || input.base64.length > Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 4) {
+    throw new Error(IMAGE_MESSAGES.tooBig(Math.floor(((typeof input.base64 === 'string' ? input.base64.length : 0) * 3) / 4)));
+  }
+  const bytes = new Uint8Array(Buffer.from(input.base64, 'base64'));
   const problem = imageProblem(bytes);
   if (problem) throw new Error(problem);
   const kind = sniffImage(bytes)!;

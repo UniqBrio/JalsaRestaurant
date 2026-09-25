@@ -87,6 +87,9 @@ interface RangeReport {
   products: Array<{ name: string; qty: number; revenue: number }>;
   /** Sales per day over the range (item 39). Absent from an older server: no chart. */
   daily?: Array<{ day: string; label: string; sales: number; bills: number }>;
+  /** The range is longer than the chart draws; it shows the first `dailyLimit` days. */
+  dailyTruncated?: boolean;
+  dailyLimit?: number;
   categories: Array<{ category: string; qty: number; revenue: number; dishes: number }>;
   orders: Array<{
     id: string;
@@ -440,9 +443,15 @@ function ChartsPanel({ report }: { report: RangeReport }) {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="flex flex-col gap-2">
           <SectionLabel className="mb-0">Sales by day</SectionLabel>
+          {report.dailyTruncated ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-daily-truncated">
+              This range is longer than {report.dailyLimit ?? daily.length} days, so the chart shows its first{' '}
+              {daily.length}. The figures above cover all of it.
+            </p>
+          ) : null}
           {daily.length === 0 || total === 0 ? (
             <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-daily-empty">
-              No sales on any day of this range.
+              {report.dailyTruncated ? 'No sales in the days shown.' : 'No sales on any day of this range.'}
             </p>
           ) : (
             <ColumnChart

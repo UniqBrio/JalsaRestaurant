@@ -1153,6 +1153,7 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const fallback = mainPrinter('KOT', printers);
   const printCfg = (data.settings.print ?? {}) as { splitByFoodType?: boolean };
   const split = printCfg.splitByFoodType === true;
+  const routingSettings = (data.settings.routing ?? {}) as { defaultStation?: string };
 
   /**
    * MOVING A CATEGORY IS TWO WRITES, AND THAT IS DELIBERATE.
@@ -1233,7 +1234,8 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </div>
           <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="owner-print-routes">
             {data.categories.map((c) => {
-              const decision = resolvePrinter({ purpose: 'KOT', category: c.name, printers });
+              // The same decision a round gets, default station included (review, 25-Sep-2026).
+              const decision = routeItem({ category: c.name, route: null, printers, defaultStation: routingSettings.defaultStation ?? '' });
               const claimed = data.printers.find((p) =>
                 p.routes.some((r) => r.trim().toLowerCase() === c.name.trim().toLowerCase())
               );
@@ -1555,7 +1557,11 @@ function ItemRoutingTable({
   const stations = stationOptions(data.printers, routing.defaultStation);
   const defaultStationLabel = routing.defaultStation ? `Default (${routing.defaultStation})` : 'Default';
 
-  const setRouting = (itemIds: string[], patch: { station?: string | null; printerId?: string | null }, said: string): void => {
+  const setRouting = (
+    itemIds: string[],
+    patch: { station?: string | null; printerId?: string | null; all?: boolean },
+    said: string
+  ): void => {
     void runBusy(async () => {
       const res = await send<{ updated: number }>('/api/owner/action', { action: 'set-item-routing', itemIds, ...patch });
       toast.show(`${said} · ${res.updated} ${res.updated === 1 ? 'dish' : 'dishes'} updated`, { tone: 'success' });
@@ -1658,8 +1664,8 @@ function ItemRoutingTable({
           const station = allTo;
           setAllTo(null);
           setRouting(
-            data.menu.map((m) => m.id),
-            { station: station || null },
+            [],
+            { station: station || null, all: true },
             `Every dish → ${station || defaultStationLabel}`
           );
         }}

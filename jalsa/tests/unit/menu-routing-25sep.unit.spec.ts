@@ -144,9 +144,13 @@ test('item 27: the header sets STATION ONLY for every dish, after a confirmation
   expect(s).toContain('testId="owner-print-station-all"');
   expect(s).toContain('testId="owner-print-station-all-confirm"');
   expect(s).toContain('Their\n            printers stay as they are.');
-  expect(s).toMatch(/data\.menu\.map\(\(m\) => m\.id\),\s*\{ station: station \|\| null \}/);
+  // Updated 25-Sep-2026 (code review): "all" is one update by restaurant, not an id list the
+  // size of the menu in a URL.
+  expect(s).toMatch(/\[\],\s*\{ station: station \|\| null, all: true \}/);
   const m = code('src/lib/db/owner-mutations.ts');
   const fn = m.slice(m.indexOf('export async function setItemRouting'), m.indexOf('/* ── Images'));
+  expect(fn).toContain('const chunks = input.all ? [null]');
+  expect(fn).toContain('ids.slice(i * 100, i * 100 + 100)');
   // A station-only call builds a station-only patch.
   expect(fn).toContain('if (input.station !== undefined) {');
   expect(fn).toContain('if (input.printerId !== undefined) {');

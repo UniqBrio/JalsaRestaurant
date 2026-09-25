@@ -288,6 +288,7 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       discountAmount: b.discountAmount,
       taxRate: b.taxRate,
       paymentMode: b.paymentMode,
+      tip: b.tip,
       kots: b.kots.map((k) => ({
         status: k.status,
         items: k.items.map((i) => ({

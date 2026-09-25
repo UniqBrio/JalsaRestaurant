@@ -69,5 +69,10 @@ test('re-occupied after being freed: the new party decides the state, whatever a
 test('both floors decide by the same predicate, from the server-computed state - a refresh reads it again', () => {
   expect(code('src/lib/db/owner-view.ts')).toContain('freeable: tableIsFreeable(t),');
   expect(code('src/features/staff/StaffTables.tsx')).toContain('canFree && tableIsFreeable(t)');
-  expect(code('src/lib/db/queries.ts')).toContain('phonesHoldingTables(sessions, withCart, new Set(bills.map((b) => b.id)))');
+  // Updated 25-Sep-2026 (code review): the floor reads only sessions that CAN hold a table -
+  // those with a cart (through the cart) and those on an open bill - never every session ever.
+  const q = code('src/lib/db/queries.ts');
+  expect(q).toContain('const phones = phonesHoldingTables([...byId.values()], withCart, new Set(openIds));');
+  expect(q).toContain(".select('session_id, session:session_id!inner(id,table_id,bill_id,restaurant_id)')");
+  expect(q).not.toContain(".from('guest_session').select('id,table_id,bill_id').eq('restaurant_id', restaurantId),");
 });

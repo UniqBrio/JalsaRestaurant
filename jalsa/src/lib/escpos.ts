@@ -38,6 +38,8 @@ const CODEPAGE = (n: number) => [ESC, 0x74, n];
 const BOLD = (on: boolean) => [ESC, 0x45, on ? 0x01 : 0x00];
 /** GS ! n — character size; the high nibble is width, the low nibble height, each 0-based. */
 const SIZE = (doubled: boolean) => [GS, 0x21, doubled ? 0x11 : 0x00];
+/** GS ! 0x11 — double width and height, the whole ticket's size at `large`. */
+const SIZE_LARGE = [GS, 0x21, 0x11];
 /** ESC d n — feed n lines. */
 const FEED = (lines: number) => [ESC, 0x64, lines];
 /** GS L nL nH — left margin, in dots. */
@@ -217,10 +219,14 @@ export function encodeTicket(lines: readonly TicketLine[], config: EncoderConfig
 
   out.push(...INIT);
   out.push(...CODEPAGE(config.charset.codepage));
+  // `large` is font B at double size: 64 / 2 = 32 columns on 80 mm and 42 / 2 = 21 on 58 mm, the
+  // grid `PAPER` gives large. Every line is that size, so a `big` line changes nothing but weight.
+  const large = config.area === true && config.font === 'large';
   if (config.area) {
     out.push(...LEFT_MARGIN(0));
     out.push(...AREA_WIDTH(PAPER[config.width].dots));
-    out.push(...FONT(config.font === 'small'));
+    out.push(...FONT(config.font === 'small' || large));
+    if (large) out.push(...SIZE_LARGE);
   }
 
   let bold = false;
@@ -228,8 +234,8 @@ export function encodeTicket(lines: readonly TicketLine[], config: EncoderConfig
 
   lines.forEach((line, index) => {
     const weight: LineWeight = line.weight;
-    const wantBold = weight === 'bold';
-    const wantBig = weight === 'big';
+    const wantBold = weight === 'bold' || (large && weight === 'big');
+    const wantBig = !large && weight === 'big';
 
     if (wantBold !== bold) {
       out.push(...BOLD(wantBold));

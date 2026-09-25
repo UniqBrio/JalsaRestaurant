@@ -423,7 +423,9 @@ async function testPayload(job: JobRow, restaurantId: string, width: PaperWidth)
         id: printer.id as string,
         machineId: printer.machine_id as string,
         name: printer.name as string,
-        purpose: printer.purpose as string,
+        // The test ticket is a KITCHEN ticket laid out for this machine, whatever it normally prints -
+        // routing only knows KOT machines, so a bill printer's own purpose would block it.
+        purpose: 'KOT',
         station: (printer.station as string) ?? '',
         routes: [],
         online: false,
@@ -468,7 +470,9 @@ async function testBillPayload(job: JobRow, restaurantId: string, width: PaperWi
     settingsFor(restaurantId, 'tax', { gstin: '', rate: 5 } as { gstin: string; rate: number }),
     settingsFor(restaurantId, 'engagement', { upiId: '' } as { upiId: string }),
   ]);
-  const { items, totals, upiId, station: _station, ...header } = invoiceTicketData(testBill(Number(tax.rate) || 5), {
+  // A 0% rate is a rate: only a missing or unreadable one falls back to 5 (review, 25-Sep-2026).
+  const rate = Number.isFinite(Number(tax.rate)) ? Number(tax.rate) : 5;
+  const { items, totals, upiId, station: _station, ...header } = invoiceTicketData(testBill(rate), {
     name: (restaurant.data?.display_name as string) || (restaurant.data?.legal_name as string) || '',
     address: (restaurant.data?.address as string) ?? '',
     phone: (restaurant.data?.phone as string) ?? '',

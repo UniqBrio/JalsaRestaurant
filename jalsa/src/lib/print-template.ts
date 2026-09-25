@@ -81,7 +81,10 @@ export interface TicketLine {
  * spaces plus 10 doubled letters, 36 positions on a 32-position line, and wrapped (item 5,
  * 25-Sep-2026). Every big line is now laid out against half the columns.
  */
-export const bigColsFor = (cols: number): number => Math.floor(cols / 2);
+export const bigColsFor = (cols: number, font: FontSize = 'normal'): number =>
+  // At `large` the whole ticket is already printed double (font B at GS ! 0x11 - see escpos), and
+  // a big line is the same size, bold: it has the full column count.
+  font === 'large' ? cols : Math.floor(cols / 2);
 
 /* ── Row modes (item 14, 25-Sep-2026) ───────────────────────────────────── */
 
@@ -283,6 +286,8 @@ export interface TicketData {
     paymentMode: string;
     /** The bill's GST rate, so the two halves print their rate. Optional: older callers omit it. */
     taxRate?: number;
+    /** The tip, printed on its own line; `payable` includes it. Optional: older callers omit it. */
+    tip?: number;
   };
   upiId?: string;
 }
@@ -422,9 +427,8 @@ function valueRow(
 }
 
 /** Big text, wrapped and centred on the half-width grid a doubled character actually has. */
-function bigCentred(text: string, cols: number, push: (text: string, weight?: LineWeight) => void): void {
-  const half = bigColsFor(cols);
-  wrap(text, half).forEach((l) => push(centre(l, half), 'big'));
+function bigCentred(text: string, width: number, push: (text: string, weight?: LineWeight) => void): void {
+  wrap(text, width).forEach((l) => push(centre(l, width), 'big'));
 }
 
 /**
@@ -443,6 +447,7 @@ export function printOrder(config: TemplateConfig, kind: TicketKind): string[] {
 
 export function buildKot(data: TicketData, config: TemplateConfig, opts?: { reprint?: boolean }): TicketLine[] {
   const cols = columnsFor(config);
+  const big = bigColsFor(cols, config.font);
   const lines: TicketLine[] = [];
   const push = (text: string, weight: LineWeight = 'plain'): void => {
     lines.push({ text: text === '' ? ' ' : text, weight });
@@ -456,7 +461,7 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
    * else, at the largest size, and it is not configurable.
    */
   if (opts?.reprint) {
-    bigCentred('*** REPRINT ***', cols, push);
+    bigCentred('*** REPRINT ***', big, push);
     push(separatorLine(config, cols));
   }
 
@@ -465,10 +470,10 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
     const always = rowMode(config, key) === 'always';
     switch (key) {
       case 'logo':
-        bigCentred(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, cols, push);
+        bigCentred(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, big, push);
         break;
       case 'name':
-        bigCentred(data.restaurant, cols, push);
+        bigCentred(data.restaurant, big, push);
         break;
       case 'branch':
         if (!data.branch && !always) break;
@@ -480,7 +485,7 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
         break;
       case 'kot':
         push('');
-        bigCentred(data.kotCode, cols, push);
+        bigCentred(data.kotCode, big, push);
         push(separatorLine(config, cols));
         break;
       case 'station':
@@ -585,20 +590,34 @@ export function billColumns(cols: number, withRate: boolean): BillColumns {
   return { name: cols - qty - rate - amount, qty, rate, amount };
 }
 
-const rightIn = (text: string, width: number): string => (width <= 0 ? '' : String(text).slice(-width).padStart(width));
+/**
+ * One figure column: a space, then the figure right-aligned in the rest. The space is always there
+ * - two columns never touch - and a figure wider than its column is NEVER cut: it widens, and the
+ * item name beside it gives the room back (review, 25-Sep-2026: a clipped figure is a wrong bill).
+ */
+const cell = (text: string, width: number): string => (width <= 0 ? '' : ` ${String(text).padStart(Math.max(0, width - 1))}`);
 
 export function billItemLines(item: TicketItem, c: BillColumns): string[] {
-  const names = wrap(item.name, Math.max(6, c.name - 1));
-  const figures =
-    rightIn(String(item.qty), c.qty) +
-    (c.rate ? rightIn(amountText(item.rate), c.rate) : '') +
-    rightIn(amountText(item.qty * item.rate), c.amount);
-  return names.map((n, i) => (i === 0 ? n.padEnd(c.name) + figures : n));
+  const figures = cell(String(item.qty), c.qty) + (c.rate ? cell(amountText(item.rate), c.rate) : '') + cell(amountText(item.qty * item.rate), c.amount);
+  const nameWidth = Math.max(6, c.name + c.qty + c.rate + c.amount - figures.length);
+  const names = wrap(item.name, nameWidth);
+  return names.map((n, i) => (i === 0 ? n.padEnd(nameWidth) + figures : n));
+}
+
+/**
+ * The TOTAL line: big when "TOTAL Rs.<amount>" fits the big grid; without "Rs." when only that
+ * fits; otherwise bold at normal size across the whole line. Never cut (review, 25-Sep-2026: a
+ * group bill of Rs.1,00,000 printed "TOTAL Rs.1,23,45").
+ */
+export function totalLine(amount: string, big: number, cols: number): TicketLine {
+  if (`TOTAL Rs.${amount}`.length <= big) return { text: leftRight('TOTAL', `Rs.${amount}`, big), weight: 'big' };
+  if (`TOTAL ${amount}`.length <= big) return { text: leftRight('TOTAL', amount, big), weight: 'big' };
+  return { text: leftRight('TOTAL', `Rs.${amount}`, cols), weight: 'bold' };
 }
 
 export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[] {
   const cols = columnsFor(config);
-  const half = bigColsFor(cols);
+  const big = bigColsFor(cols, config.font);
   const t = data.totals ?? { subtotal: 0, discount: 0, tax: 0, payable: 0, paymentMode: '' };
   const lines: TicketLine[] = [];
   const push = (text: string, weight: LineWeight = 'plain'): void => {
@@ -611,10 +630,10 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
     const always = rowMode(config, key) === 'always';
     switch (key) {
       case 'logo':
-        bigCentred(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, cols, push);
+        bigCentred(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, big, push);
         break;
       case 'name':
-        bigCentred(data.restaurant, cols, push);
+        bigCentred(data.restaurant, big, push);
         break;
       case 'branch':
         if (!data.branch && !always) break;
@@ -655,10 +674,7 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
       case 'itemName': {
         const c = billColumns(cols, isOn(config, 'rate'));
         push(separatorLine(config, cols));
-        push(
-          'ITEM'.padEnd(c.name) + rightIn('QTY', c.qty) + (c.rate ? rightIn('RATE', c.rate) : '') + rightIn('AMOUNT', c.amount),
-          'bold'
-        );
+        push('ITEM'.padEnd(c.name) + cell('QTY', c.qty) + (c.rate ? cell('RATE', c.rate) : '') + cell('AMOUNT', c.amount), 'bold');
         push(separatorLine(config, cols));
         data.items.forEach((it) => billItemLines(it, c).forEach((l) => push(l)));
         push(separatorLine(config, cols));
@@ -683,9 +699,11 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
         break;
       }
       case 'total':
+        // A tip is part of what the guest pays, so it is its own line above the total and the
+        // total is the screen's To pay, tip included (review, 25-Sep-2026).
+        if ((t.tip ?? 0) > 0) push(leftRight('TIP', money(t.tip ?? 0), cols));
         push(separatorLine(config, cols));
-        // Big, so on the half-width grid a doubled character really has.
-        push(leftRight('TOTAL', `Rs.${money(t.payable)}`, half), 'big');
+        push(totalLine(money(t.payable), big, cols).text, totalLine(money(t.payable), big, cols).weight);
         push(separatorLine(config, cols));
         break;
       case 'payment':
@@ -699,7 +717,7 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
         break;
       case 'thanks':
         push('');
-        bigCentred('THANK YOU', cols, push);
+        bigCentred('THANK YOU', big, push);
         break;
       default:
         break;
@@ -751,7 +769,7 @@ export function validateTemplate(kind: TicketKind, data: TicketData, config: Tem
   const withAmount = kind === 'bill';
 
   // A big line is measured against the half-width grid it actually prints on (item 5).
-  const half = bigColsFor(cols);
+  const half = bigColsFor(cols, config.font);
   const over = lines.filter((l) => l.text.length > (l.weight === 'big' ? half : cols));
   const bigOnNarrow = config.width === '58' && config.font === 'large';
   const crowded = data.items.some((it) => {

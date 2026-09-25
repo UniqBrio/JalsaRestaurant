@@ -97,7 +97,11 @@ $loaded = $false
 $dll = $env:JALSA_DLL
 if ($dll) {
   try {
-    if (-not (Test-Path -LiteralPath $dll)) { Add-Type -TypeDefinition $src -OutputAssembly $dll -OutputType Library -ErrorAction Stop }
+    if (-not (Test-Path -LiteralPath $dll)) {
+      $part = "$dll.$PID.part"
+      Add-Type -TypeDefinition $src -OutputAssembly $part -OutputType Library -ErrorAction Stop
+      Move-Item -LiteralPath $part -Destination $dll -Force -ErrorAction Stop
+    }
     Add-Type -LiteralPath $dll -ErrorAction Stop
     $loaded = $true
   } catch {

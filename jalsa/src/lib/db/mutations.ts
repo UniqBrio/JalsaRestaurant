@@ -681,10 +681,13 @@ async function routablePrinters(restaurantId: string, purpose: string): Promise<
  * kitchen back to a station for a dish nobody is cooking any more.
  */
 export async function kotPrintableItems(kotId: string): Promise<PrintableItem[]> {
-  const { data: lines } = await db()
+  const { data: lines, error } = await db()
     .from('kot_item')
     .select('menu_category_name,food_type,cancelled_at,route_printer_id,route_station')
     .eq('kot_id', kotId);
+  // A failed read is an error, never an empty round: `[]` sends a reprint down the bill path and
+  // prints nothing, silently (review, 25-Sep-2026).
+  if (error) throw error;
 
   return (lines ?? [])
     .filter((l) => l.cancelled_at === null)
@@ -1275,6 +1278,8 @@ export async function freeTable(input: { tableId: string; actor: Actor }): Promi
   }
 
   if (bill) {
+    // Nothing left to see to or to bill: any payment notice this bill raised is done.
+    await resolvePaymentNotices(bill.id, PAYMENT_NOTICE_KINDS);
     // An empty bill is a bill that never happened. Voided rather than deleted: the code was
     // issued, it may be on a docket, and a number that vanishes is a number someone hunts for.
     await db().from('bill_table').update({ released_at: new Date().toISOString() }).eq('bill_id', bill.id);
@@ -1885,18 +1890,18 @@ async function raisePaymentNotices(bill: Bill): Promise<void> {
   const toRaise = noticesToRaise((open ?? []).map((r) => r.kind as string));
   if (toRaise.length === 0) return;
   const payable = rupees(billTotals(bill).payable);
-  const { error: insErr } = await db()
-    .from('table_request')
-    .insert(
-      toRaise.map((a) => ({
-        restaurant_id: restaurantId,
-        table_id: tableId,
-        bill_id: bill.id,
-        kind: PAYMENT_NOTICE[a].kind,
-        note: paymentNoticeNote(a, bill.code, payable),
-      }))
-    );
-  if (insErr) throw insErr;
+  // One row at a time, and a duplicate is not an error: two taps racing past the read above meet
+  // the partial unique index (migration 20260925110000) and the second simply does nothing.
+  for (const a of toRaise) {
+    const { error: insErr } = await db().from('table_request').insert({
+      restaurant_id: restaurantId,
+      table_id: tableId,
+      bill_id: bill.id,
+      kind: PAYMENT_NOTICE[a].kind,
+      note: paymentNoticeNote(a, bill.code, payable),
+    });
+    if (insErr && insErr.code !== '23505') throw insErr;
+  }
 }
 
 async function resolvePaymentNotices(billId: string, kinds: readonly string[]): Promise<void> {

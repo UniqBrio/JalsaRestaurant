@@ -194,14 +194,6 @@ export function resolvePrinter(input: {
   };
 }
 
-/**
- * The part of a machine's name a person actually says.
- *
- * "TVS RP 3160 Gold — Kitchen 1" is what the machine IS; "Kitchen 1" is what somebody shouts
- * across a kitchen, and it is what has to fit on a button next to a round. The model number is
- * the same on all four machines here, so a truncated full name distinguishes nothing at all.
- * Anything without a dash is already short enough and is returned untouched.
- */
 /* ── Per-item routing (items 25, 26, 29, 30 - 25-Sep-2026) ──────────────────────────────── */
 
 /**
@@ -339,6 +331,14 @@ export function stationOptions(printers: ReadonlyArray<{ station: string }>, def
   return out;
 }
 
+/**
+ * The part of a machine's name a person actually says.
+ *
+ * "TVS RP 3160 Gold — Kitchen 1" is what the machine IS; "Kitchen 1" is what somebody shouts
+ * across a kitchen, and it is what has to fit on a button next to a round. The model number is
+ * the same on all four machines here, so a truncated full name distinguishes nothing at all.
+ * Anything without a dash is already short enough and is returned untouched.
+ */
 export function printerShortName(name: string): string {
   const parts = name.split(/\s[—–-]\s/);
   const last = parts[parts.length - 1]?.trim() ?? '';

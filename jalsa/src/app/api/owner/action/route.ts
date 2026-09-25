@@ -83,7 +83,7 @@ type Action =
       printerId?: string | null;
     }
   | { action: 'add-category'; name: string; printerId?: string | null }
-  | { action: 'set-item-routing'; itemIds: string[]; station?: string | null; printerId?: string | null }
+  | { action: 'set-item-routing'; itemIds: string[]; all?: boolean; station?: string | null; printerId?: string | null }
   | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
@@ -289,6 +289,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       return ok(
         await setItemRouting({
           itemIds: Array.isArray(input.itemIds) ? input.itemIds : [],
+          ...(input.all === true ? { all: true } : {}),
           ...(input.station !== undefined ? { station: input.station } : {}),
           ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
           actor,

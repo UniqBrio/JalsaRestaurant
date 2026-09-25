@@ -205,18 +205,6 @@ export function tableStateFrom(input: {
 }
 
 /**
- * Whether a table is holding something a hand-made release could let go of.
- *
- * ONE rule, read by three places: the owner's floor grid, the captain's floor, and `freeTable`
- * on the server, which is the one that actually refuses. A screen offering an action the server
- * is about to refuse is worse than a screen that never offered it (Standard 5.6) — and two
- * copies of "is this safe to free" would eventually disagree about a table with food on it.
- *
- * `roundCount === 0` is the whole of the safety rule. The moment a round exists the table is
- * held by something real and the answer is a payment or a void, never a floor operation: a tile
- * on a grid must not be able to write off a bill.
- */
-/**
  * How many phones are HOLDING each table (items 35/36, 25-Sep-2026): a session counts while it
  * has an unsent cart, or while its bill is still open. A session whose bill was paid, or that
  * scanned and left nothing, holds nothing - they are never deleted on payment, so counting every
@@ -235,6 +223,18 @@ export function phonesHoldingTables(
   return out;
 }
 
+/**
+ * Whether a table is holding something a hand-made release could let go of.
+ *
+ * ONE rule, read by three places: the owner's floor grid, the captain's floor, and `freeTable`
+ * on the server, which is the one that actually refuses. A screen offering an action the server
+ * is about to refuse is worse than a screen that never offered it (Standard 5.6) — and two
+ * copies of "is this safe to free" would eventually disagree about a table with food on it.
+ *
+ * `roundCount === 0` is the whole of the safety rule. The moment a round exists the table is
+ * held by something real and the answer is a payment or a void, never a floor operation: a tile
+ * on a grid must not be able to write off a bill.
+ */
 export function tableIsFreeable(input: {
   roundCount: number;
   billId: string | null;
