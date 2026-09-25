@@ -68,6 +68,12 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000, optio
   const lastText = useRef<string | null>(null);
   /** The change-check state, when this screen uses one (fix 4). */
   const check = useRef<CheckState | null>(options.fullEveryMs ? newCheck(options.fullEveryMs) : null);
+  /* A stamp belongs to the URL it came from. Two idle tables can carry identical stamps, so one
+     carried across a change of URL could keep the old screen for a new table (review of fix 4). */
+  useEffect(() => {
+    if (check.current) forgetStamp(check.current);
+    lastText.current = null;
+  }, [url]);
 
   const refreshOnce = useCallback(
     async (force: boolean): Promise<boolean> => {

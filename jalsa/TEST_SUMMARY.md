@@ -4,6 +4,28 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 4 review follow-ups - 2026-09-25 - every counter moves when its screen does, and only then
+
+Found by a fresh-context review of fix 4; each reproduced before the fix:
+- a round or item moved between bills moved only the bill it joined (the table left behind kept a stale bill);
+- a staff rename moved no counter a guest watches (guest bills name the captain);
+- a guest's cart moved 'floor', so every cart tap re-read every captain's phone in full;
+- a print PC's first contact ("Waiting" -> "Connected") and its discovered printers moved nothing;
+- two scopes bumped by one statement were locked in no fixed order (deadlock risk);
+- the staff stamp ignored who was asking (a shared tablet switching from owner to cashier was told "unchanged");
+- the guest stamp ignored the phone's own session and cart (staff freeing the table, a second tab);
+- a stamp survived a change of URL in useLiveData.
+Fixed: migration 20260925090000 (ordered bumps; old+new bill; staff name -> catalog; cart trigger dropped; first contact and printers -> floor); `staffStamp` binds the floor to staffId + provisional + grants; `guestStamp` embeds the phone's session and cart in the table read (still 2 calls, 1 round); `forgetStamp` on URL change.
+FAIL-FIRST: tests/unit/change-versions.db.unit.spec.ts - PGlite, every migration before 20260925090000: 6 of 9 failed ("detaching a table moves the bill the rounds LEFT", "an item moved between rounds of different bills", "a staff member's new name", "a guest's cart does not make every captain's phone re-read", "a first contact does", "the printers a PC reports").
+FAIL-FIRST: tests/unit/change-stamp.unit.spec.ts (appended rungs) - against the pre-review stamps: "a guest phone re-reads when its own session or cart changes elsewhere" and "a staff stamp belongs to the person..." Expected true Received false. 2 of 10 failed.
+NOT OBSERVED FAILING: "every table a screen reads is watched by a counter" - added after the fix as a standing coverage check (it asks pg_trigger, not the SQL text); the scan asserts it found > 15 tables.
+NOT OBSERVED FAILING: the useLiveData URL-change reset - no hook-level rig exists; covered by code reading and the change-check unit spec only.
+Applied to yxgxmbyilpivbmeemqkp and uxmyomxtosjlkvjxnvpy on 25-Sep; verified on both: the 4 new triggers present, guest_cart_line_bump_floor gone.
+Local rig (real PostgREST, 100 ms per call): guest quiet tick 2 / 1 / 115 ms; staff 3 / 1 / 116; owner 3 / 1 / 111. Screens byte-identical to the pre-review build. Load, 40 phones + 5 captains + 1 owner: busy 27.6 /s, quiet 16.8 /s.
+Unit: 994 passed. Typecheck and lint clean. New dev dependency: @electric-sql/pglite 0.5.8.
+
+---
+
 ## Fix 5 of the latency run - 2026-09-25 - an outage reaches the designed screen in ~2 s, not 7
 
 FAIL-FIRST: tests/unit/outage.unit.spec.ts - against the pre-fix client: refused database "Expected: < 1000 Received: 7092"; hanging database "spawnSync node ETIMEDOUT" (the read never failed; the rig's 30 s cap ended it); write rung also ETIMEDOUT (the scenario never reached it). 3 of 3 failed.

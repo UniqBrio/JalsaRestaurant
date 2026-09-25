@@ -171,6 +171,18 @@ emulating the app's own polling; real PostgREST:
 | Quiet (no activity) | **84.3 /s** (414 full reads) | **17.3 /s** (6 full reads, 447 quiet ticks) |
 Screens identical before/after (ids and clock times normalised).
 
+**After the fix-4 review (25-Sep-2026)** — counters that failed to move (a detached table's old
+bill, a moved item, a staff rename, a print PC's first contact, its printer list) now move; a
+guest's cart no longer moves the staff counter; the guest stamp also covers the phone's own
+session and cart; the staff stamp is bound to the person and their grants. Same rig, same method:
+| | Quiet tick (calls / rounds / ms) | Calls/s busy | Calls/s quiet |
+|---|---|---|---|
+| Guest | **2 / 1 / 115** (session and cart ride in the table read) | | |
+| Staff | **3 / 1 / 116** | | |
+| Owner | **3 / 1 / 111** | | |
+| 40 phones, 5 captains, 1 owner | | **27.6 /s** (48 full, 397 quiet) | **16.8 /s** (5 full, 444 quiet) |
+Screens byte-identical to the pre-review build (ids and clock times normalised).
+
 ### Fix 5 — outage: fail fast to the designed screen (local production build)
 | Database state | Before (guest page `/t/A5` → "cannot reach the till") | After fix 5 |
 |---|---|---|

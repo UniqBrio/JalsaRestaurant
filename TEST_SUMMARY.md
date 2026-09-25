@@ -2,6 +2,24 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - Fix 4 review follow-ups: every counter moves when its screen does
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** A fresh-context review of fix 4 found change
+counters that did not move (a detached table's old bill, a moved item, a staff rename, a print PC's
+first contact and its printers), one that moved for nothing (a guest cart moved the staff counter),
+stamps that ignored who was asking (staff) and the phone's own session and cart (guest), a stamp
+surviving a URL change, and scopes locked in no fixed order. Migration 20260925090000 applied to
+development and test; nothing in the triggers had been executed by a test before - now PGlite runs
+every migration in-process.
+
+FAIL-FIRST: jalsa/tests/unit/change-versions.db.unit.spec.ts - against the migrations before 20260925090000: 6 of 9 failed (detach, moved item, staff rename, cart moving floor, first contact, printers).
+FAIL-FIRST: jalsa/tests/unit/change-stamp.unit.spec.ts (appended rungs) - against the pre-review stamps: "a guest phone re-reads when its own session or cart changes elsewhere" and "a staff stamp belongs to the person" both Expected true Received false. 2 of 10 failed.
+
+Gate run (jalsa): unit 994 passed, typecheck and lint clean. Load at 40 phones: busy 27.6 /s,
+quiet 16.8 /s (original 84.5 / 84.3). G8 functional NOT run here.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - Latency fix 5 of 5: outages fail fast
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** The Supabase client retried failed reads

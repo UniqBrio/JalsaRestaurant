@@ -46,6 +46,8 @@ test('when nothing moved, a tick is one round, a handful of calls, and no screen
   for (const [name, maxCalls] of [
     ['staff tick, nothing moved', 3],
     ['owner tick, nothing moved', 3],
+    // 25-Sep-2026 (review of fix 4): still 2. The guest stamp also covers this phone's own session
+    // and cart, but they ride inside the table read, not in a third call.
     ['guest tick, nothing moved', 2],
   ] as const) {
     const t = get(name);
@@ -121,4 +123,16 @@ test('a heartbeat that rewrites an unchanged value moves nothing', () => {
   expect(CORRECTION).not.toMatch(/last_seen_at|last_sync_at/);
   expect(CORRECTION).toContain('drop trigger if exists bridge_token_bump_floor on public.bridge_token');
   expect(CORRECTION).toContain('drop trigger if exists guest_session_bump_floor on public.guest_session');
+});
+
+/* ── added 25-Sep-2026, review of fix 4 ───────────────────────────────────── */
+
+test('a guest phone re-reads when its own session or cart changes elsewhere', () => {
+  expect(get('guest tick, cart changed elsewhere').fullScreen).toBe(true);
+  expect(get('guest tick, session deleted by staff').fullScreen).toBe(true);
+});
+
+test('a staff stamp belongs to the person: someone else, or fewer grants, is never "unchanged"', () => {
+  expect(get('staff tick, someone else signed in').fullScreen).toBe(true);
+  expect(get('staff tick, a grant was revoked').fullScreen).toBe(true);
 });
