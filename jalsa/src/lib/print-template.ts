@@ -43,13 +43,19 @@ export interface PaperSpec {
   mm: number;
   /** What the head can actually mark — always a few mm narrower than the roll. */
   printable: number;
+  /**
+   * The printable width in head dots (8 dots/mm on a 203 dpi head: 72 mm = 576, 48 mm = 384).
+   * The encoder sets the print area to exactly this, so the paper is used edge to edge of what
+   * the head can mark and no wider (item 7, 25-Sep-2026).
+   */
+  dots: number;
   /** Character positions across the printable area, per font size. */
   cols: Record<FontSize, number>;
 }
 
 export const PAPER: Record<PaperWidth, PaperSpec> = {
-  '58': { mm: 58, printable: 48, cols: { small: 42, normal: 32, large: 21 } },
-  '80': { mm: 80, printable: 72, cols: { small: 64, normal: 48, large: 32 } },
+  '58': { mm: 58, printable: 48, dots: 384, cols: { small: 42, normal: 32, large: 21 } },
+  '80': { mm: 80, printable: 72, dots: 576, cols: { small: 64, normal: 48, large: 32 } },
 };
 
 export const PAPER_WIDTHS: PaperWidth[] = ['58', '80'];
@@ -65,6 +71,30 @@ export interface TicketLine {
   text: string;
   weight: LineWeight;
 }
+
+/**
+ * How many characters a `big` line holds.
+ *
+ * `big` is sent as GS ! 0x11 - double WIDTH and double height - so every character, spaces
+ * included, takes two positions. Big lines used to be centred and padded against the full column
+ * count, which on paper is twice as wide as the roll: "JALSA" centred on 58 mm became 13 doubled
+ * spaces plus 10 doubled letters, 36 positions on a 32-position line, and wrapped (item 5,
+ * 25-Sep-2026). Every big line is now laid out against half the columns.
+ */
+export const bigColsFor = (cols: number): number => Math.floor(cols / 2);
+
+/* ── Row modes (item 14, 25-Sep-2026) ───────────────────────────────────── */
+
+/**
+ * Off - never printed. On - printed when it has a value (an empty line costs paper and tells
+ * nobody anything). Always on - printed on every ticket, with "-" when the value is empty, so
+ * the line is always in the same place for whoever reads the paper.
+ *
+ * The locked fields are always on and cannot be changed; see LOCKED_FIELDS.
+ */
+export type RowMode = 'off' | 'on' | 'always';
+export const ROW_MODES: RowMode[] = ['off', 'on', 'always'];
+export const ROW_MODE_LABEL: Record<RowMode, string> = { off: 'Off', on: 'On', always: 'Always on' };
 
 /* ── Which lines exist, and where they sit ─────────────────────────────── */
 
@@ -153,6 +183,11 @@ export interface TemplateConfig {
   groupOrder: FoodType[];
   /** Field key → printed. A key absent from the map is treated as on. */
   on: Record<string, boolean>;
+  /**
+   * Field key → row mode (item 14). Wins over `on` for any key it names; a template saved before
+   * row modes existed has none, and reads exactly as it did: on → 'on', off → 'off'.
+   */
+  modes?: Record<string, RowMode>;
   /** Field keys, in print order. Keys absent from this list print in their declared order. */
   order: string[];
   /** What the head can mark, in mm. Defaults to the paper's own printable width. */
@@ -171,10 +206,15 @@ export const DEFAULT_OFF: Record<TicketKind, string[]> = {
   //   it up."* It was never rendered, so a fallback ticket and a main-kitchen ticket were
   //   byte-identical. Shipping it switched off would leave the mechanism costing everything and
   //   delivering nothing. It is a visible change to every kitchen ticket and is recorded as one.
-  kot: ['logo', 'order', 'customer', 'cat'],
-  // A guest's bill omits the logo (it is the restaurant's own paper), the captain (named on the
-  // tip line instead) and the per-unit rate (the amount is what is owed).
-  bill: ['logo', 'captain', 'rate'],
+  //
+  // `branch` and `phone` joined this list on 25-Sep-2026 (item 13): the restaurant's own address
+  // and phone number on a ticket that never leaves the kitchen is two lines of paper the cook
+  // does not read. Switchable back on per row.
+  kot: ['logo', 'order', 'customer', 'cat', 'branch', 'phone'],
+  // A guest's bill omits the logo (it is the restaurant's own paper) and the captain (named on the
+  // tip line instead). The per-unit RATE prints by default since 25-Sep-2026 (item 4): it is a
+  // column of the item table now, not a line of its own under every item.
+  bill: ['logo', 'captain'],
 };
 
 export function defaultTemplate(kind: TicketKind, width: PaperWidth = '80'): TemplateConfig {
@@ -192,7 +232,9 @@ export function defaultTemplate(kind: TicketKind, width: PaperWidth = '80'): Tem
     on: defs.reduce<Record<string, boolean>>((a, f) => ({ ...a, [f.key]: !off.includes(f.key) }), {}),
     order: defs.map((f) => f.key),
     printableMm: PAPER[width].printable,
-    marginLeftMm: 4,
+    // No left margin of our own (item 7): the print area is set to the head's printable width,
+    // which already has the hardware's own safe edge. A margin on top of that was padding.
+    marginLeftMm: 0,
     feedLines: 3,
   };
 }
@@ -233,7 +275,15 @@ export interface TicketData {
   note: string;
   items: TicketItem[];
   /** Bill only. Already computed by `money.ts` — this module never totals anything. */
-  totals?: { subtotal: number; discount: number; tax: number; payable: number; paymentMode: string };
+  totals?: {
+    subtotal: number;
+    discount: number;
+    tax: number;
+    payable: number;
+    paymentMode: string;
+    /** The bill's GST rate, so the two halves print their rate. Optional: older callers omit it. */
+    taxRate?: number;
+  };
   upiId?: string;
 }
 
@@ -342,8 +392,40 @@ export function itemLines(item: TicketItem, config: TemplateConfig, cols: number
 // A locked field prints whatever a stored template says: the lock used to live only in the
 // editor, so a template saved with one switched off (the live KOT had `source: false`) kept it
 // off on paper while the screen called it "always on" (C3).
-const isOn = (config: TemplateConfig, key: string): boolean =>
-  (LOCKED_FIELDS as readonly string[]).includes(key) || config.on[key] !== false;
+export function rowMode(config: TemplateConfig, key: string): RowMode {
+  if ((LOCKED_FIELDS as readonly string[]).includes(key)) return 'always';
+  const mode = config.modes?.[key];
+  if (mode === 'off' || mode === 'on' || mode === 'always') return mode;
+  return config.on[key] === false ? 'off' : 'on';
+}
+
+const isOn = (config: TemplateConfig, key: string): boolean => rowMode(config, key) !== 'off';
+
+/**
+ * A labelled value row, honouring its row mode: skipped when off; skipped when empty and merely
+ * on; printed with "-" when empty and always on.
+ */
+function valueRow(
+  config: TemplateConfig,
+  key: string,
+  label: string,
+  value: string,
+  cols: number,
+  push: (text: string, weight?: LineWeight) => void,
+  weight: LineWeight = 'plain'
+): void {
+  const mode = rowMode(config, key);
+  if (mode === 'off') return;
+  const v = String(value ?? '').trim();
+  if (!v && mode === 'on') return;
+  push(leftRight(label, v || '-', cols), weight);
+}
+
+/** Big text, wrapped and centred on the half-width grid a doubled character actually has. */
+function bigCentred(text: string, cols: number, push: (text: string, weight?: LineWeight) => void): void {
+  const half = bigColsFor(cols);
+  wrap(text, half).forEach((l) => push(centre(l, half), 'big'));
+}
 
 /**
  * Field keys in print order: the configured order first, then any key the configuration has
@@ -374,61 +456,62 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
    * else, at the largest size, and it is not configurable.
    */
   if (opts?.reprint) {
-    push(centre('*** REPRINT ***', cols), 'big');
+    bigCentred('*** REPRINT ***', cols, push);
     push(separatorLine(config, cols));
   }
 
   printOrder(config, 'kot').forEach((key) => {
     if (!isOn(config, key)) return;
+    const always = rowMode(config, key) === 'always';
     switch (key) {
       case 'logo':
-        push(centre(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, cols), 'big');
+        bigCentred(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, cols, push);
         break;
       case 'name':
-        push(centre(data.restaurant, cols), 'big');
+        bigCentred(data.restaurant, cols, push);
         break;
       case 'branch':
-        wrap(data.branch, cols).forEach((l) => push(centre(l, cols)));
+        if (!data.branch && !always) break;
+        wrap(data.branch || '-', cols).forEach((l) => push(centre(l, cols)));
         break;
       case 'phone':
-        push(centre(data.phone, cols));
+        if (!data.phone && !always) break;
+        push(centre(data.phone || '-', cols));
         break;
       case 'kot':
         push('');
-        push(centre(data.kotCode, cols), 'big');
+        bigCentred(data.kotCode, cols, push);
         push(separatorLine(config, cols));
         break;
       case 'station':
-        // Skipped when empty, in the idiom `note` already uses: a blank STATION line costs a line
-        // of paper and tells the kitchen nothing. Bold because the whole point of the field is
-        // that it is noticed on a ticket that otherwise looks like every other ticket - bold is
-        // an existing weight in this vocabulary, not a new one.
-        if (!data.station) break;
-        push(leftRight('STATION', data.station, cols), 'bold');
+        // Skipped when empty (unless always on): a blank STATION line costs a line of paper and
+        // tells the kitchen nothing. Bold because the whole point of the field is that it is
+        // noticed on a ticket that otherwise looks like every other ticket.
+        valueRow(config, key, 'STATION', data.station, cols, push, 'bold');
         break;
       case 'order':
-        push(leftRight('ROUND', data.roundCode, cols));
+        valueRow(config, key, 'ROUND', data.roundCode, cols, push);
         break;
       case 'table':
-        push(leftRight('TABLE', data.table, cols));
+        valueRow(config, key, 'TABLE', data.table, cols, push);
         break;
       case 'bill':
-        push(leftRight('BILL NO', data.billCode, cols));
+        valueRow(config, key, 'BILL NO', data.billCode, cols, push);
         break;
       case 'customer':
-        push(leftRight('GUEST', data.customer, cols));
+        valueRow(config, key, 'GUEST', data.customer, cols, push);
         break;
       case 'captain':
-        push(leftRight('CAPTAIN', data.captain, cols));
+        valueRow(config, key, 'CAPTAIN', data.captain, cols, push);
         break;
       case 'source':
-        push(leftRight('SOURCE', data.source, cols));
+        valueRow(config, key, 'SOURCE', data.source, cols, push);
         break;
       case 'date':
-        push(leftRight('DATE', data.date, cols));
+        valueRow(config, key, 'DATE', data.date, cols, push);
         break;
       case 'time':
-        push(leftRight('TIME', data.time, cols));
+        valueRow(config, key, 'TIME', data.time, cols, push);
         break;
       case 'itemName': {
         const groups: Array<FoodType | 'all'> = config.group ? config.groupOrder : ['all'];
@@ -447,9 +530,9 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
         break;
       }
       case 'note':
-        if (!data.note) break;
+        if (!data.note && !always) break;
         push('NOTES:');
-        wrap(data.note, cols).forEach((l) => push(l));
+        wrap(data.note || '-', cols).forEach((l) => push(l));
         push(separatorLine(config, cols));
         break;
       case 'thanks':
@@ -464,67 +547,129 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
   return lines;
 }
 
+/**
+ * A whole-rupee amount with Indian digit grouping, in ASCII: 124750 -> "1,24,750".
+ *
+ * Spelled by hand rather than by `toLocaleString`, because this string is laid out on a fixed
+ * grid and printed: a runtime whose ICU groups differently would move every amount on the bill.
+ */
+export function amountText(n: number): string {
+  const neg = n < 0;
+  const digits = String(Math.round(Math.abs(n)));
+  const last3 = digits.slice(-3);
+  const rest = digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  return `${neg ? '-' : ''}${rest ? `${rest},` : ''}${last3}`;
+}
+
+/**
+ * The bill's item table: ITEM | QTY | RATE | AMOUNT, fixed right-aligned columns.
+ *
+ * WHY FIXED COLUMNS (item 5, 25-Sep-2026). The old line was `name ... qty   amount`, padded as
+ * one string, so a "12" quantity or a four-digit amount pushed everything left of it and no two
+ * amounts lined up; the rate was a separate "@ 240" line under every item. Each figure now has a
+ * column of its own width, right-aligned, so every amount ends in the same position as the
+ * subtotal and total below it.
+ */
+export interface BillColumns {
+  name: number;
+  qty: number;
+  rate: number;
+  amount: number;
+}
+
+export function billColumns(cols: number, withRate: boolean): BillColumns {
+  const narrow = cols < 40;
+  const qty = 4;
+  const rate = withRate ? (narrow ? 7 : 8) : 0;
+  const amount = narrow ? 8 : 9;
+  return { name: cols - qty - rate - amount, qty, rate, amount };
+}
+
+const rightIn = (text: string, width: number): string => (width <= 0 ? '' : String(text).slice(-width).padStart(width));
+
+export function billItemLines(item: TicketItem, c: BillColumns): string[] {
+  const names = wrap(item.name, Math.max(6, c.name - 1));
+  const figures =
+    rightIn(String(item.qty), c.qty) +
+    (c.rate ? rightIn(amountText(item.rate), c.rate) : '') +
+    rightIn(amountText(item.qty * item.rate), c.amount);
+  return names.map((n, i) => (i === 0 ? n.padEnd(c.name) + figures : n));
+}
+
 export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[] {
   const cols = columnsFor(config);
+  const half = bigColsFor(cols);
   const t = data.totals ?? { subtotal: 0, discount: 0, tax: 0, payable: 0, paymentMode: '' };
   const lines: TicketLine[] = [];
   const push = (text: string, weight: LineWeight = 'plain'): void => {
     lines.push({ text: text === '' ? ' ' : text, weight });
   };
+  const money = (n: number): string => amountText(n);
 
   printOrder(config, 'bill').forEach((key) => {
     if (!isOn(config, key)) return;
+    const always = rowMode(config, key) === 'always';
     switch (key) {
       case 'logo':
-        push(centre(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, cols), 'big');
+        bigCentred(`[ ${data.restaurant.split(/\s+/)[0] ?? ''} ]`, cols, push);
         break;
       case 'name':
-        push(centre(data.restaurant, cols), 'big');
+        bigCentred(data.restaurant, cols, push);
         break;
       case 'branch':
-        wrap(data.branch, cols).forEach((l) => push(centre(l, cols)));
+        if (!data.branch && !always) break;
+        wrap(data.branch || '-', cols).forEach((l) => push(centre(l, cols)));
         break;
       case 'phone':
-        push(centre(data.phone, cols));
+        if (!data.phone && !always) break;
+        push(centre(data.phone || '-', cols));
         break;
-      case 'gstin':
-        push(centre(`GSTIN ${data.gstin}`, cols));
-        push(separatorLine(config, cols));
+      case 'gstin': {
+        const g = data.gstin && data.gstin !== '—' ? data.gstin : '';
+        if (!g && !always) break;
+        push(centre(`GSTIN ${g || '-'}`, cols));
         break;
+      }
       case 'bill':
-        push(leftRight('BILL NO', data.billCode, cols));
+        // The invoice band opens with its own rule and title, so the restaurant's header and the
+        // invoice's facts read as two blocks rather than one run of centred text.
+        push(separatorLine(config, cols));
+        push(centre(data.gstin && data.gstin !== '—' ? 'TAX INVOICE' : 'INVOICE', cols), 'bold');
+        valueRow(config, key, 'BILL NO', data.billCode, cols, push);
         break;
       case 'table':
-        push(leftRight('TABLE', data.table, cols));
+        valueRow(config, key, 'TABLE', data.table, cols, push);
         break;
       case 'customer':
-        push(leftRight('GUEST', data.customer, cols));
+        valueRow(config, key, 'GUEST', data.customer, cols, push);
         break;
       case 'captain':
-        push(leftRight('CAPTAIN', data.captain, cols));
+        valueRow(config, key, 'CAPTAIN', data.captain, cols, push);
         break;
       case 'date':
-        push(leftRight('DATE', data.date, cols));
+        valueRow(config, key, 'DATE', data.date, cols, push);
         break;
       case 'time':
-        push(leftRight('TIME', data.time, cols));
+        valueRow(config, key, 'TIME', data.time, cols, push);
         break;
-      case 'itemName':
+      case 'itemName': {
+        const c = billColumns(cols, isOn(config, 'rate'));
         push(separatorLine(config, cols));
-        push(leftRight('ITEM', 'QTY   AMT', cols), 'bold');
+        push(
+          'ITEM'.padEnd(c.name) + rightIn('QTY', c.qty) + (c.rate ? rightIn('RATE', c.rate) : '') + rightIn('AMOUNT', c.amount),
+          'bold'
+        );
         push(separatorLine(config, cols));
-        data.items.forEach((it) => {
-          itemLines(it, config, cols, true).forEach((l) => push(l));
-          if (isOn(config, 'rate')) push(`  @ ${it.rate}`);
-        });
+        data.items.forEach((it) => billItemLines(it, c).forEach((l) => push(l)));
         push(separatorLine(config, cols));
         break;
+      }
       case 'subtotal':
-        push(leftRight('SUBTOTAL', String(t.subtotal), cols));
+        push(leftRight('SUBTOTAL', money(t.subtotal), cols));
         break;
       case 'discount':
-        // A discount of nothing is not a line. Printing "DISCOUNT 0" invites the question.
-        if (t.discount > 0) push(leftRight('DISCOUNT', `-${t.discount}`, cols));
+        // A discount of nothing is not a line, unless the owner asked for it always.
+        if (t.discount > 0 || always) push(leftRight('DISCOUNT', t.discount > 0 ? `-${money(t.discount)}` : '0', cols));
         break;
       case 'tax': {
         // GST is levied as one rate and PRINTED as two halves, because that is what the
@@ -532,17 +677,19 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
         // printed halves always add back to the tax `money.ts` computed.
         const cgst = Math.round((t.tax / 2) * 100) / 100;
         const sgst = Math.round((t.tax - cgst) * 100) / 100;
-        push(leftRight('CGST', cgst.toFixed(2), cols));
-        push(leftRight('SGST', sgst.toFixed(2), cols));
+        const rate = typeof t.taxRate === 'number' && t.taxRate > 0 ? ` @${t.taxRate / 2}%` : '';
+        push(leftRight(`CGST${rate}`, cgst.toFixed(2), cols));
+        push(leftRight(`SGST${rate}`, sgst.toFixed(2), cols));
         break;
       }
       case 'total':
         push(separatorLine(config, cols));
-        push(leftRight('TOTAL', String(t.payable), cols), 'big');
+        // Big, so on the half-width grid a doubled character really has.
+        push(leftRight('TOTAL', `Rs.${money(t.payable)}`, half), 'big');
         push(separatorLine(config, cols));
         break;
       case 'payment':
-        if (t.paymentMode) push(leftRight('PAID BY', t.paymentMode, cols));
+        if (t.paymentMode || always) push(leftRight('PAID BY', t.paymentMode || '-', cols));
         break;
       case 'qr':
         if (!data.upiId) break;
@@ -552,7 +699,7 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
         break;
       case 'thanks':
         push('');
-        push(centre('THANK YOU', cols), 'big');
+        bigCentred('THANK YOU', cols, push);
         break;
       default:
         break;
@@ -603,14 +750,20 @@ export function validateTemplate(kind: TicketKind, data: TicketData, config: Tem
   const lines = buildTicket(kind, data, config);
   const withAmount = kind === 'bill';
 
-  const over = lines.filter((l) => l.text.length > cols);
+  // A big line is measured against the half-width grid it actually prints on (item 5).
+  const half = bigColsFor(cols);
+  const over = lines.filter((l) => l.text.length > (l.weight === 'big' ? half : cols));
   const bigOnNarrow = config.width === '58' && config.font === 'large';
   const crowded = data.items.some((it) => {
+    if (withAmount) {
+      // The bill's item table: the name column is what is left beside QTY | RATE | AMOUNT.
+      const c = billColumns(cols, isOn(config, 'rate'));
+      return wrap(it.name, Math.max(6, c.name - 1)).length > 2;
+    }
     if (config.layout !== 'A') return false;
-    const right = withAmount ? `${it.qty}   ${it.qty * it.rate}` : String(it.qty);
-    return wrap(it.name, Math.max(6, cols - right.length - 2)).length > 2;
+    return wrap(it.name, Math.max(6, cols - String(it.qty).length - 2)).length > 2;
   });
-  const emphasisFits = lines.filter((l) => l.weight === 'big').every((l) => l.text.length <= cols);
+  const emphasisFits = lines.filter((l) => l.weight === 'big').every((l) => l.text.length <= half);
   const printableFits = config.printableMm > 0 && config.printableMm <= PAPER[config.width].mm;
 
   const checks: TemplateCheck[] = [

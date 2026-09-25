@@ -234,26 +234,76 @@ const GOLDEN_B_80 =
 
 /* ── R4-1: the un-split path did not move ──────────────────────────────── */
 
+/*
+ * SUPERSEDED ASSERTIONS - 25-Sep-2026 (25-Sep correction list, items 5 and 13).
+ *
+ * What the four cases below asserted until today: `withoutSource(width, station)` - the composed
+ * KOT with its SOURCE line taken out - equals GOLDEN_A / GOLDEN_B byte for byte.
+ *
+ * Why they cannot any more, and what replaces them. Two deliberate contract changes:
+ *   - item 5: every BIG line (restaurant name, KOT number) is laid out on the half-width grid a
+ *     doubled character really has. The goldens pin the defect: "JALSA" centred with 13 doubled
+ *     spaces on 58 mm is 36 positions on a 32-position roll, and it wrapped on paper.
+ *   - item 13: the restaurant's address and phone are off by default on a KOT.
+ * The goldens are KEPT, byte for byte, and compared with today's ticket composed with address
+ * and phone switched back on, and with every big-mode segment taken out of BOTH streams. If
+ * anything other than the big lines moved, these fail exactly as they did before.
+ */
+const bigRemoved = (hexStream: string): string =>
+  hexStream.replace(/1D 21 11 (?:(?!1D 21 00).)*1D 21 00 /g, '');
+
+const legacyHeader = (width: PaperWidth, station: boolean): string => {
+  const base = defaultTemplate('kot', width);
+  const template = { ...base, on: { ...base.on, branch: true, phone: true, station } };
+  const result = composeTicket({
+    job: { id: 'g', kind: 'kot', printerId: 'p3', station: 'Tandoor', foodSide: 'all', isReprint: false },
+    width,
+    template,
+    printers: PRINTERS,
+    splitByFoodType: false,
+    header: HEADER,
+    items: ITEMS,
+  });
+  if (!result.ok) throw new Error(result.blocked);
+  return hex(encodeTicket(result.lines.filter((l) => !l.text.startsWith('SOURCE ')), { ...DEFAULT_ENCODER, width }));
+};
+
 test('58 mm: a round that was never split encodes exactly as it did before R4-1', () => {
-  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('58', false)`. Same golden, minus the SOURCE line.
-  expect(withoutSource('58', false)).toBe(GOLDEN_A_58);
+  // SUPERSEDED 25-Sep-2026 (items 5, 13): see the note above. Previously `withoutSource('58', false)`.
+  expect(bigRemoved(legacyHeader('58', false))).toBe(bigRemoved(GOLDEN_A_58));
 });
 
 test('80 mm: a round that was never split encodes exactly as it did before R4-1', () => {
-  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('80', false)`. Same golden, minus the SOURCE line.
-  expect(withoutSource('80', false)).toBe(GOLDEN_A_80);
+  // SUPERSEDED 25-Sep-2026 (items 5, 13): previously `withoutSource('80', false)`.
+  expect(bigRemoved(legacyHeader('80', false))).toBe(bigRemoved(GOLDEN_A_80));
 });
 
 /* ── R4-2: the station line, recorded as the deliberate change ─────────── */
 
 test('58 mm: the ticket as it prints today, station line included', () => {
-  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('58', true)`. Same golden, minus the SOURCE line.
-  expect(withoutSource('58', true)).toBe(GOLDEN_B_58);
+  // SUPERSEDED 25-Sep-2026 (items 5, 13): previously `withoutSource('58', true)`.
+  expect(bigRemoved(legacyHeader('58', true))).toBe(bigRemoved(GOLDEN_B_58));
 });
 
 test('80 mm: the ticket as it prints today, station line included', () => {
-  // SUPERSEDED 24-Sep-2026 (C3): previously `ticket('80', true)`. Same golden, minus the SOURCE line.
-  expect(withoutSource('80', true)).toBe(GOLDEN_B_80);
+  // SUPERSEDED 25-Sep-2026 (items 5, 13): previously `withoutSource('80', true)`.
+  expect(bigRemoved(legacyHeader('80', true))).toBe(bigRemoved(GOLDEN_B_80));
+});
+
+test('item 5: every big line fits the half-width grid a doubled character prints on', () => {
+  for (const width of ['58', '80'] as PaperWidth[]) {
+    const big = compose(width, true).filter((l) => l.weight === 'big');
+    expect(big.length, `${width} mm: the name and the KOT number are big`).toBeGreaterThanOrEqual(2);
+    for (const l of big) expect(l.text.length * 2, `${width} mm: "${l.text}"`).toBeLessThanOrEqual(PAPER[width].cols.normal);
+  }
+});
+
+test('item 13: a default KOT carries neither the restaurant address nor its phone', () => {
+  for (const width of ['58', '80'] as PaperWidth[]) {
+    const texts = compose(width, true).map((l) => l.text.trim());
+    expect(texts, `${width} mm`).not.toContain(HEADER.branch);
+    expect(texts, `${width} mm`).not.toContain(HEADER.phone);
+  }
 });
 
 test('the ONLY difference between A and B is the station line', () => {

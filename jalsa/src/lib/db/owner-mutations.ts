@@ -1007,7 +1007,12 @@ export async function writeEmployment(input: {
  * `routing_rule: 'chosen'` because a person picked the machine. That is not a routing outcome and
  * must not be mistakable for one — the same reasoning `printElsewhere` already records.
  */
-export async function testPrint(input: { printerId: string; actor: Actor }): Promise<{
+export async function testPrint(input: {
+  printerId: string;
+  actor: Actor;
+  /** Which ticket to put on paper (item 9, 25-Sep-2026). Omitted: the kitchen ticket, as before. */
+  ticket?: 'kot' | 'bill';
+}): Promise<{
   queued: boolean;
   /** Null when nothing was queued. */
   jobId: string | null;
@@ -1066,7 +1071,8 @@ export async function testPrint(input: { printerId: string; actor: Actor }): Pro
       station,
       routing_rule: 'chosen',
       food_side: 'all',
-      kind: 'Test',
+      // 'TestBill' composes the sample invoice; 'Test' the kitchen test ticket (item 9).
+      kind: input.ticket === 'bill' ? 'TestBill' : 'Test',
       kot_id: null,
       bill_id: null,
       status: 'queued',
@@ -1086,7 +1092,7 @@ export async function testPrint(input: { printerId: string; actor: Actor }): Pro
     // `Printer`, not `Reprint` — kept from `main` at the merge, and it is the better call: a
     // diagnostic filed among the night's reprints would read as trade that never happened.
     action: 'Printer',
-    detail: `Test ticket queued for ${name} (${printer.machine_id as string})`,
+    detail: `Test ${input.ticket === 'bill' ? 'bill' : 'ticket'} queued for ${name} (${printer.machine_id as string})`,
     actor: input.actor,
   });
 

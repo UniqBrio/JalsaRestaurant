@@ -86,7 +86,7 @@ type Action =
   | { action: 'remove-staff'; staffId: string; reason: string }
   | { action: 'set-on-duty'; staffId: string; onDuty: boolean }
   | { action: 'write-setting'; key: string; value: Record<string, unknown> }
-  | { action: 'test-print'; printerId: string }
+  | { action: 'test-print'; printerId: string; ticket?: 'kot' | 'bill' }
   | { action: 'write-identity'; patch: Record<string, unknown> }
   | {
       action: 'upsert-expense';
@@ -318,7 +318,11 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
          a diagnostic that could land on a different machine would be worse than none.
          And it is an ORDINARY print job: the bridge lists it, claims it, composes it through
          `buildTicket`, encodes it through `escpos.ts` and reports it like any kitchen ticket. */
-      const result = await testPrint({ printerId: input.printerId, actor });
+      const result = await testPrint({
+        printerId: input.printerId,
+        actor,
+        ...(input.ticket === 'bill' ? { ticket: 'bill' as const } : {}),
+      });
       return ok(result);
     }
 

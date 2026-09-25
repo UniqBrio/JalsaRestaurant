@@ -5,6 +5,8 @@ import { Sheet } from '@/components/ui/sheet';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { TotalsBlock } from '@/components/ui/bill';
+import { TicketPaper } from '@/components/ui/print';
+import type { TicketLine } from '@/lib/print-template';
 import { cn } from '@/lib/cn';
 import { billShareText, whatsAppShareUrl, type WhatsAppTemplate } from '@/lib/bill-share';
 import type { RestaurantIdentity } from '@/lib/restaurant-identity';
@@ -40,12 +42,18 @@ export function BillDetailSheet({
   onOpenChange,
   identity,
   whatsAppTemplate,
+  invoice,
 }: {
   bill: OwnerBillView | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   identity: RestaurantIdentity;
   whatsAppTemplate: WhatsAppTemplate;
+  /**
+   * The bill as the ONE invoice lays it out (item 8, 25-Sep-2026) - what "Print" puts on paper.
+   * The browser copy used to be this detail sheet itself, a second invoice format.
+   */
+  invoice?: { lines: TicketLine[]; cols: number };
 }) {
   if (!bill) return null;
 
@@ -102,8 +110,15 @@ export function BillDetailSheet({
         </>
       }
     >
-      {/* `j-print-root` is what the print stylesheet keeps; everything else on the page goes. */}
-      <div className="j-print-root flex flex-col gap-4">
+      {/* ONE INVOICE (item 8). Print puts the invoice on paper - the same lines the counter
+          printer is handed - and not this detail view, which was a second invoice format. The
+          block is invisible on screen; `j-print-root` is what the print stylesheet keeps. */}
+      {invoice ? (
+        <div className="j-print-root hidden print:block" data-testid="owner-bill-invoice">
+          <TicketPaper testId="owner-bill-invoice-paper" lines={invoice.lines} cols={invoice.cols} />
+        </div>
+      ) : null}
+      <div className={cn('flex flex-col gap-4', invoice ? 'print:hidden' : 'j-print-root')}>
         <div className="flex flex-wrap items-center gap-2">
           <Pill tone={bill.tone}>{bill.statusLabel}</Pill>
           <span className="type-caption text-[var(--text-muted)]">

@@ -1,5 +1,6 @@
 import 'server-only';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
+import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
@@ -93,6 +94,11 @@ export interface OwnerBillView {
    * onto the new bill.
    */
   perTable: Array<{ table: string; amountLabel: string; isHost: boolean }>;
+  /**
+   * The bill as the ONE invoice reads it (item 8, 25-Sep-2026): `invoiceLines` turns this into the
+   * exact lines the counter printer is handed, for the preview and the browser copy.
+   */
+  invoice: InvoiceBill;
   kots: Array<{
     id: string;
     code: string;
@@ -265,6 +271,29 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     tip: totals.tip,
     totals: totalsRows(totals, { taxRate, tipTo: b.captain }),
     perTable: b.tables.length > 1 ? perTable : [],
+    invoice: {
+      code: b.code,
+      hostTable: b.hostTable,
+      tables: b.tables,
+      captain: b.captain,
+      openedAt: b.openedAt,
+      closedAt: b.closedAt,
+      discountPct: b.discountPct,
+      discountAmount: b.discountAmount,
+      taxRate: b.taxRate,
+      paymentMode: b.paymentMode,
+      kots: b.kots.map((k) => ({
+        status: k.status,
+        items: k.items.map((i) => ({
+          name: i.name,
+          qty: i.qty,
+          unitPrice: i.unitPrice,
+          foodType: i.foodType,
+          category: i.category,
+          cancelledAt: i.cancelledAt,
+        })),
+      })),
+    },
     kots: b.kots.map((k) => ({
       id: k.id,
       code: k.code,

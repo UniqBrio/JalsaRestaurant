@@ -8,9 +8,10 @@ import { Combobox } from '@/components/ui/combobox';
 import { Field, Input, Select, Toggle } from '@/components/ui/field';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
-import { PRINT_STATUS } from '@/components/ui/print';
+import { PRINT_STATUS, TicketPaper } from '@/components/ui/print';
 import { useToast } from '@/components/ui/toast';
 import { TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '@/lib/test-print';
+import { previewBillData, previewIdentity, previewKotData, previewRound, previewTaxRate } from '@/lib/ticket-preview';
 import { addedOnLabel, bridgeActivityLabel } from '@/lib/print-computer';
 import { timeLabelIn } from '@/lib/restaurant-time';
 import {
@@ -22,6 +23,10 @@ import {
   fieldsFor,
   LOCKED_FIELDS,
   printOrder,
+  ROW_MODE_LABEL,
+  ROW_MODES,
+  rowMode,
+  type RowMode,
   validateTemplate,
   type FontSize,
   type ItemLayout,
@@ -32,7 +37,8 @@ import {
   type TicketKind,
 } from '@/lib/print-template';
 import { mainPrinter, printerShortName, resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
-import type { PrintJobRow } from '@/lib/db/types';
+import type { PrintJobRow, PrinterRow } from '@/lib/db/types';
+import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { MetricTile } from '../OwnerConsole';
 
@@ -68,45 +74,8 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'history', label: 'History' },
 ];
 
-/**
- * The round the preview is drawn with — taken from THIS restaurant's own menu.
- *
- * WHY NOT A HAND-WRITTEN SPECIMEN
- *   A preview built from an invented round proves only that the invented round fits. The
- *   question the owner is actually asking is "does MY menu fit on 58 mm paper", and the item
- *   that answers it is whichever dish here has the longest name. A fixed sample would pass
- *   validation on a menu whose longest name is eleven characters longer — and the first person
- *   to find out would be a cook holding half a dish name.
- *
- *   So the round is composed from the real menu, deliberately awkwardly: the longest name
- *   first, then one item of each food type so the grouping bands are all exercised, then
- *   whatever fills five lines. A double quantity and a special instruction are attached to the
- *   first item, because both widen the line and neither is stored on a menu row.
- */
-function previewRound(
-  menu: OwnerSectionProps['data']['menu']
-): Array<{ name: string; qty: number; foodType: 'veg' | 'non_veg' | 'egg'; rate: number; category: string; instruction: string }> {
-  if (menu.length === 0) return [];
-  const longest = [...menu].sort((a, b) => b.name.length - a.name.length)[0]!;
-  const picked = [longest];
-  (['veg', 'non_veg', 'egg'] as const).forEach((t) => {
-    const found = menu.find((m) => m.foodType === t && !picked.some((p) => p.id === m.id));
-    if (found) picked.push(found);
-  });
-  menu.forEach((m) => {
-    if (picked.length < 5 && !picked.some((p) => p.id === m.id)) picked.push(m);
-  });
-  return picked.map((m, i) => ({
-    name: m.name,
-    // A quantity of two on one line, because "2" and "12" are different widths and a template
-    // validated only against single digits is a template validated against half the evening.
-    qty: i === 1 ? 12 : 1,
-    foodType: m.foodType,
-    rate: m.price,
-    category: m.category,
-    instruction: i === 0 ? 'less spicy, no onion' : '',
-  }));
-}
+/* The round the preview is drawn with lives in `@/lib/ticket-preview` (`previewRound`) since
+   25-Sep-2026, so the Printers screen's Preview draws the same round from the same menu. */
 
 const toRoutable = (p: OwnerSectionProps['data']['printers'][number]): RoutablePrinter => ({
   id: p.id,
@@ -331,6 +300,7 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   /* WHICH printer is being tested, not WHETHER one is. Testing the tandoor must not disable the
      counter's button — four machines are usually tested one after another. */
   const [testing, setTesting] = React.useState<string | null>(null);
+  const [previewing, setPreviewing] = React.useState<PrinterRow | null>(null);
 
   /**
    * Queue a test ticket for exactly this machine.
@@ -343,14 +313,14 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
    * printer that is switched off or has no address, and the sentence says which so the owner
    * goes to Configure rather than to the kitchen.
    */
-  const runTest = (p: { id: string }): void => {
+  const runTest = (p: { id: string; purpose: string }, ticket: TicketKind = p.purpose === 'Invoice' ? 'bill' : 'kot'): void => {
     if (testing) return;
     setTesting(p.id);
     void (async () => {
       try {
         const result = await send<{ queued: boolean; printerName: string; reason: string }>(
           '/api/owner/action',
-          { action: 'test-print', printerId: p.id }
+          { action: 'test-print', printerId: p.id, ticket }
         );
         toast.show(result.queued ? TEST_PRINT_QUEUED(result.printerName) : result.reason, {
           tone: result.queued ? 'success' : 'error',
@@ -461,6 +431,14 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       {testing === p.id ? 'Queueing…' : 'Test print'}
                     </Button>
                   ) : null}
+                  <Button
+                    data-testid={`owner-print-preview-${p.id}`}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPreviewing(p)}
+                  >
+                    Preview
+                  </Button>
                   {canEdit ? (
                     <Button
                       data-testid={`owner-print-configure-${p.id}`}
@@ -491,6 +469,15 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           ))}
         </ul>
       )}
+
+      <PrinterPreviewSheet
+        data={data}
+        printer={previewing}
+        kind={previewing?.purpose === 'Invoice' ? 'bill' : 'kot'}
+        onClose={() => setPreviewing(null)}
+        {...(canEdit ? { onTest: (p: PrinterRow, k: TicketKind) => runTest(p, k) } : {})}
+        testing={previewing !== null && testing === previewing.id}
+      />
 
       <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         <strong>Connectivity is still an unvalidated dependency.</strong> These rows record what each machine
@@ -815,51 +802,16 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     setConfig(initial(k));
   };
 
-  // `restaurant` is the raw row, so every value is narrowed at the point it is read rather
-  // than by a cast that would be a promise this payload does not make.
-  const restaurant = data.restaurant as { name?: string; address?: string; phone?: string };
-  const tax = (data.settings.tax ?? {}) as { gstin?: string };
-  const engagement = (data.settings.engagement ?? {}) as { upiId?: string };
-
+  // THE SAME SAMPLE AND THE SAME INVOICE AS PRINTING (item 8/9, 25-Sep-2026). This panel used to
+  // build its own sample: `restaurant.name` (a column that does not exist, so the preview always
+  // said JALSA RESTAURANT), its own tax rounding and the browser's clock. It now takes the
+  // restaurant's identity, the round and the bill from `@/lib/ticket-preview`, which the
+  // Printers screen and the printed invoice share.
+  const who = previewIdentity(data.restaurant as Record<string, unknown>, data.settings);
   const items = previewRound(data.menu);
-  const subtotal = items.reduce((a, i) => a + i.rate * i.qty, 0);
-  const taxRate = typeof (data.settings.tax as { rate?: number } | undefined)?.rate === 'number'
-    ? (data.settings.tax as { rate: number }).rate
-    : 5;
-  const billTax = Math.round(subtotal * (taxRate / 100));
+  const taxRate = previewTaxRate(data.settings);
 
-  /**
-   * The identifiers are the only invented values on this ticket, and they are invented on
-   * purpose: a preview must not carry a real bill number, or somebody will pick the paper up and
-   * go looking for table T12's outstanding round. Everything that affects whether the template
-   * FITS — the names, the prices, the categories, the restaurant's own header — is real.
-   */
-  const sample: TicketData = {
-    restaurant: (restaurant.name || 'Jalsa Restaurant').toUpperCase(),
-    branch: restaurant.address || '',
-    phone: restaurant.phone || '',
-    gstin: tax.gstin || '—',
-    kotCode: 'KOT-0000',
-    station: 'Main Kitchen',
-    roundCode: 'R-0',
-    billCode: 'B-0000',
-    table: 'PREVIEW',
-    customer: 'Preview',
-    captain: 'Preview',
-    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-    time: new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }),
-    source: 'Guest phone',
-    note: 'Preview of the longest note this template can carry without clipping',
-    items,
-    totals: {
-      subtotal,
-      discount: 0,
-      tax: billTax,
-      payable: subtotal + billTax,
-      paymentMode: 'UPI',
-    },
-    ...(engagement.upiId ? { upiId: engagement.upiId } : {}),
-  };
+  const sample: TicketData = kind === 'kot' ? previewKotData(data.menu, who) : previewBillData(data.menu, who, taxRate);
 
   const verdict = validateTemplate(kind, sample, config);
   const lines = buildTicket(kind, sample, config);
@@ -879,15 +831,16 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     setConfig({ ...config, order: arr });
   };
 
-  const toggleField = (key: string, label: string): void => {
-    if ((LOCKED_FIELDS as readonly string[]).includes(key)) {
+  const setMode = (key: string, label: string, mode: RowMode): void => {
+    if ((LOCKED_FIELDS as readonly string[]).includes(key) && mode !== 'always') {
       toast.show(`${label} cannot be switched off — the ticket is useless without it`, { tone: 'error' });
       return;
     }
-    setConfig({ ...config, on: { ...config.on, [key]: config.on[key] === false } });
+    // `on` is kept in step, so a template read by code that predates row modes means the same.
+    setConfig({ ...config, modes: { ...(config.modes ?? {}), [key]: mode }, on: { ...config.on, [key]: mode !== 'off' } });
   };
 
-  const onCount = order.filter((k) => config.on[k] !== false).length;
+  const onCount = order.filter((k) => rowMode(config, k) !== 'off').length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -982,7 +935,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           {order.map((key) => {
             const def = defs.find((d) => d.key === key);
             if (!def) return null;
-            const on = config.on[key] !== false;
+            const on = rowMode(config, key) !== 'off';
             const locked = (LOCKED_FIELDS as readonly string[]).includes(key);
             return (
               <li
@@ -998,15 +951,21 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     {def.hint ? ` · ${def.hint}` : ''}
                   </span>
                 </span>
-                <Button
-                  data-testid={`owner-print-field-${key}`}
-                  size="sm"
-                  variant="ghost"
-                  disabled={!canEdit}
-                  onClick={() => toggleField(key, def.label)}
-                >
-                  {locked ? 'Always on' : on ? 'On' : 'Off'}
-                </Button>
+                {/* Off | On | Always on, per row (item 14, 25-Sep-2026). Saved in this kind's
+                    template only, so a kitchen-ticket row never changes the bill. */}
+                <span className="flex gap-1" role="radiogroup" aria-label={`${def.label}: when it prints`} data-testid={`owner-print-field-${key}`}>
+                  {ROW_MODES.map((m) => (
+                    <Chip
+                      key={m}
+                      on={rowMode(config, key) === m}
+                      disabled={!canEdit || (locked && m !== 'always')}
+                      onClick={() => setMode(key, def.label, m)}
+                      data-testid={`owner-print-field-${key}-${m}`}
+                    >
+                      {ROW_MODE_LABEL[m]}
+                    </Chip>
+                  ))}
+                </span>
                 <Button
                   data-testid={`owner-print-up-${key}`}
                   size="sm"
@@ -1107,12 +1066,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         <SectionLabel>
           Preview · {PAPER[config.width].mm} mm · {verdict.cols} characters
         </SectionLabel>
-        <pre
-          data-testid="owner-print-preview"
-          className="m-0 overflow-x-auto rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-4 font-mono type-caption leading-normal"
-        >
-          {lines.map((l) => l.text).join('\n')}
-        </pre>
+        <TicketPaper testId="owner-print-preview" lines={lines} cols={verdict.cols} />
         <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Every line above was built by the same module a printer would be handed, wrapped on the character grid rather
           than by the browser. What fits here fits on the paper.

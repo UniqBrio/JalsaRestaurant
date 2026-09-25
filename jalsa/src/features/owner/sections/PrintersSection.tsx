@@ -21,6 +21,8 @@ import {
 import type { DiscoveredPrinterRow, PrintComputerRow, PrinterRow } from '@/lib/db/types';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { PrintSetupSection } from './PrintSetupSection';
+import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
+import type { TicketKind } from '@/lib/print-template';
 
 /**
  * Printers — the owner's own entry point to printing (23-Sep-2026).
@@ -78,6 +80,11 @@ export function PrintersSection(props: OwnerSectionProps) {
      that one job through History rather than guessing from the latest row. */
   const [testing, setTesting] = React.useState<string | null>(null);
   const [testJobs, setTestJobs] = React.useState<Record<string, string>>({});
+  /* Which ticket each printer's Preview | Test Print acts on (item 9). Starts at what the
+     machine is for: a bill printer previews a bill. */
+  const [ticketFor, setTicketFor] = React.useState<Record<string, TicketKind>>({});
+  const kindOf = (p: PrinterRow): TicketKind => ticketFor[p.id] ?? (p.purpose === 'Invoice' ? 'bill' : 'kot');
+  const [previewing, setPreviewing] = React.useState<PrinterRow | null>(null);
 
   const now = useNow(15_000);
   const computers = data.printComputers;
@@ -93,14 +100,14 @@ export function PrintersSection(props: OwnerSectionProps) {
   ];
   const nothingYet = computers.length === 0 && !data.pairing;
 
-  const runTest = (p: PrinterRow): void => {
+  const runTest = (p: PrinterRow, ticket: TicketKind = kindOf(p)): void => {
     if (testing) return;
     setTesting(p.id);
     void (async () => {
       try {
         const result = await send<{ queued: boolean; jobId: string | null; printerName: string; reason: string }>(
           '/api/owner/action',
-          { action: 'test-print', printerId: p.id }
+          { action: 'test-print', printerId: p.id, ticket }
         );
         if (result.queued && result.jobId) {
           const jobId = result.jobId;
@@ -205,6 +212,31 @@ export function PrintersSection(props: OwnerSectionProps) {
                         </span>
                       </span>
                       <Pill tone={readiness.tone}>{readiness.word}</Pill>
+                      {/* Preview | Test Print, for a kitchen ticket or a bill (item 9). */}
+                      <span className="flex gap-1" role="group" aria-label={`Which ticket for ${p.name}`}>
+                        <Chip
+                          on={kindOf(p) === 'kot'}
+                          onClick={() => setTicketFor((prev) => ({ ...prev, [p.id]: 'kot' }))}
+                          data-testid={`owner-printers-kind-kot-${p.id}`}
+                        >
+                          KOT
+                        </Chip>
+                        <Chip
+                          on={kindOf(p) === 'bill'}
+                          onClick={() => setTicketFor((prev) => ({ ...prev, [p.id]: 'bill' }))}
+                          data-testid={`owner-printers-kind-bill-${p.id}`}
+                        >
+                          Bill
+                        </Chip>
+                      </span>
+                      <Button
+                        data-testid={`owner-printers-preview-${p.id}`}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setPreviewing(p)}
+                      >
+                        Preview
+                      </Button>
                       {canEdit ? (
                         <Button
                           data-testid={`owner-printers-test-${p.id}`}
@@ -397,6 +429,15 @@ export function PrintersSection(props: OwnerSectionProps) {
       ) : null}
 
       <SetupSheet {...props} open={setupOpen} onClose={() => setSetupOpen(false)} />
+
+      <PrinterPreviewSheet
+        data={data}
+        printer={previewing}
+        kind={previewing ? kindOf(previewing) : 'kot'}
+        onClose={() => setPreviewing(null)}
+        {...(canEdit ? { onTest: (p: PrinterRow, k: TicketKind) => runTest(p, k) } : {})}
+        testing={previewing !== null && testing === previewing.id}
+      />
 
       <ChoosePrinterSheet
         {...props}

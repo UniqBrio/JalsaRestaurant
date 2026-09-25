@@ -3,11 +3,12 @@ import { dateLabelIn, timeLabelIn } from '@/lib/restaurant-time';
 import { KOT_SOURCE_LABEL } from '@/lib/status';
 import { db } from '@/lib/supabase/server';
 import type { Bridge } from '@/lib/bridge-auth';
-import { totalBill } from '@/lib/money';
+import { invoiceTicketData } from '@/lib/invoice';
+import { getBill } from './queries';
 import type { RoutablePrinter, TicketSide } from '@/lib/print-routing';
-import type { PaperWidth, TemplateConfig, TicketKind, TicketLine } from '@/lib/print-template';
+import type { FontSize, PaperWidth, TemplateConfig, TicketKind, TicketLine } from '@/lib/print-template';
 import { originOf, type LineageJob } from '@/lib/redirect-lineage';
-import { TEST_TICKET_ITEMS, testTicketHeader } from '@/lib/test-ticket';
+import { TEST_TICKET_ITEMS, testBill, testTicketHeader } from '@/lib/test-ticket';
 import { composeTicket, type ComposeItem, type ComposeResult } from '@/lib/ticket-compose';
 
 /**
@@ -36,6 +37,8 @@ export interface TicketPayload {
   lines: TicketLine[];
   width: PaperWidth;
   itemCount: number;
+  /** The font the lines were laid out in, so the bridge can select it (item 7, 25-Sep-2026). */
+  font: FontSize;
 }
 
 export type PayloadResult = { ok: true; payload: TicketPayload } | { ok: false; blocked: string };
@@ -49,6 +52,8 @@ export type PayloadResult = { ok: true; payload: TicketPayload } | { ok: false; 
 const kindOf = (kind: string): TicketKind => (kind === 'Invoice' ? 'bill' : 'kot');
 
 const TEST_KIND = 'Test';
+/** A test print of the BILL (item 9, 25-Sep-2026): the sample invoice, laid out as a real one. */
+const TEST_BILL_KIND = 'TestBill';
 
 /**
  * Every machine of one purpose, ordered by `machine_id`.
@@ -136,18 +141,56 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
   const width: PaperWidth = (printer?.paper_mm as number) === 58 ? '58' : '80';
 
   if ((job.kind as string) === TEST_KIND) return testPayload(job as unknown as JobRow, restaurantId, width);
+  if ((job.kind as string) === TEST_BILL_KIND) return testBillPayload(job as unknown as JobRow, restaurantId, width);
 
   const [restaurant, print, tax, engagement, printers] = await Promise.all([
-    db().from('restaurant').select('display_name,address,phone').eq('id', restaurantId).maybeSingle(),
+    db().from('restaurant').select('display_name,legal_name,address,phone').eq('id', restaurantId).maybeSingle(),
     settingsFor(restaurantId, 'print', { splitByFoodType: false } as Record<string, unknown>),
     settingsFor(restaurantId, 'tax', { gstin: '', rate: 5 } as { gstin: string; rate: number }),
     settingsFor(restaurantId, 'engagement', { upiId: '' } as { upiId: string }),
     routableFor(restaurantId, job.kind as string),
   ]);
 
+  // THE INVOICE IS THE SHARED ONE (item 8, 25-Sep-2026). Composed from the same `Bill` the owner's
+  // screen reads and by the same `invoiceTicketData` the preview and the browser copy use - which
+  // also stops the paper counting the lines of a CANCELLED round that the screen's total leaves
+  // out, and dates it at settlement rather than when the table sat down.
+  if (kind === 'bill') {
+    const bill = await getBill(job.bill_id as string);
+    if (!bill) return { ok: false, blocked: 'The bill this ticket belongs to no longer exists.' };
+    const { items, totals, upiId, station: _station, ...header } = invoiceTicketData(bill, {
+      name: (restaurant.data?.display_name as string) || (restaurant.data?.legal_name as string) || '',
+      address: (restaurant.data?.address as string) ?? '',
+      phone: (restaurant.data?.phone as string) ?? '',
+      gstin: tax.gstin,
+      upiId: engagement.upiId,
+    });
+    void _station;
+    const invoice = composeTicket({
+      job: {
+        id: job.id as string,
+        kind,
+        printerId: origin.origin.printerId,
+        station: origin.origin.station,
+        foodSide: origin.origin.foodSide,
+        isReprint: (job.is_reprint as boolean) ?? false,
+      },
+      width,
+      template: ((print.bill as Partial<TemplateConfig> | undefined) ?? {}) as Partial<TemplateConfig>,
+      printers,
+      splitByFoodType: false,
+      header,
+      items,
+      ...(totals ? { totals } : {}),
+      ...(upiId ? { upiId } : {}),
+    });
+    if (!invoice.ok) return { ok: false, blocked: invoice.blocked };
+    return { ok: true, payload: { lines: invoice.lines, width: invoice.width, itemCount: invoice.itemCount, font: invoice.font } };
+  }
+
   const { data: bill } = await db()
     .from('bill')
-    .select('code,discount_pct,discount_amount,tax_rate,payment_mode,closed_at,created_at,host_table_id')
+    .select('code,created_at,host_table_id')
     .eq('id', job.bill_id as string)
     .maybeSingle();
 
@@ -157,25 +200,6 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
   const table = await tableName(rows.tableId ?? (bill?.host_table_id as string | null));
   const kotRow = rows.kot;
   const at = (kotRow?.created_at as string | undefined) ?? (bill?.created_at as string) ?? new Date(0).toISOString();
-
-  const totals =
-    kind === 'bill'
-      ? (() => {
-          const t = totalBill({
-            lines: rows.items.map((i) => ({ name: i.name, unitPrice: i.rate, qty: i.qty })),
-            discountPct: Number(bill?.discount_pct ?? 0),
-            discountAmount: Number(bill?.discount_amount ?? 0),
-            taxRate: Number(bill?.tax_rate ?? tax.rate),
-          });
-          return {
-            subtotal: t.subtotal,
-            discount: t.discount,
-            tax: t.tax,
-            payable: t.payable,
-            paymentMode: (bill?.payment_mode as string | null) ?? '',
-          };
-        })()
-      : undefined;
 
   const result: ComposeResult = composeTicket({
     job: {
@@ -211,12 +235,10 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
       note: (kotRow?.note as string | undefined) ?? '',
     },
     items: rows.items,
-    ...(totals ? { totals } : {}),
-    ...(engagement.upiId ? { upiId: engagement.upiId } : {}),
   });
 
   if (!result.ok) return { ok: false, blocked: result.blocked };
-  return { ok: true, payload: { lines: result.lines, width: result.width, itemCount: result.itemCount } };
+  return { ok: true, payload: { lines: result.lines, width: result.width, itemCount: result.itemCount, font: result.font } };
 }
 
 /** Every field composition needs off a job row, named once so the walk and the read agree. */
@@ -323,11 +345,14 @@ async function lineRows(input: {
 async function itemsOf(kotIds: readonly string[]): Promise<ComposeItem[]> {
   const { data } = await db()
     .from('kot_item')
-    .select('name,qty,unit_price,food_type,menu_category_name,cancelled_at,created_at')
+    .select('name,qty,unit_price,food_type,menu_category_name,cancelled_at,created_at,line_seq')
     .in('kot_id', kotIds as string[])
     // Deterministic, so the same round always composes the same lines and therefore the same
     // bytes. Without it the paper's item order is whatever PostgREST returned this time.
-    .order('created_at', { ascending: true });
+    // `created_at` alone TIES for every line of a round (one insert, one now()), so the cart
+    // order is `line_seq` (item 3, 25-Sep-2026, migration 20260925090000).
+    .order('created_at', { ascending: true })
+    .order('line_seq', { ascending: true });
 
   return (data ?? [])
     .filter((l) => l.cancelled_at === null)
@@ -417,5 +442,48 @@ async function testPayload(job: JobRow, restaurantId: string, width: PaperWidth)
   });
 
   if (!result.ok) return { ok: false, blocked: result.blocked };
-  return { ok: true, payload: { lines: result.lines, width: result.width, itemCount: result.itemCount } };
+  return { ok: true, payload: { lines: result.lines, width: result.width, itemCount: result.itemCount, font: result.font } };
+}
+
+/**
+ * A test print of the bill: `testBill()` through the shared invoice, on the bill template, at the
+ * width of the machine it was sent to. The same `composeTicket` → `buildBill` → `escpos.ts` path
+ * as a guest's invoice; only the content is a sample.
+ */
+async function testBillPayload(job: JobRow, restaurantId: string, width: PaperWidth): Promise<PayloadResult> {
+  const { data: printer } = await db()
+    .from('printer')
+    .select('id')
+    .eq('id', job.printer_id as string)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (!printer) return { ok: false, blocked: 'The machine this test print was sent to no longer exists.' };
+
+  const [restaurant, print, tax, engagement] = await Promise.all([
+    db().from('restaurant').select('display_name,legal_name,address,phone').eq('id', restaurantId).maybeSingle(),
+    settingsFor(restaurantId, 'print', {} as Record<string, unknown>),
+    settingsFor(restaurantId, 'tax', { gstin: '', rate: 5 } as { gstin: string; rate: number }),
+    settingsFor(restaurantId, 'engagement', { upiId: '' } as { upiId: string }),
+  ]);
+  const { items, totals, upiId, station: _station, ...header } = invoiceTicketData(testBill(Number(tax.rate) || 5), {
+    name: (restaurant.data?.display_name as string) || (restaurant.data?.legal_name as string) || '',
+    address: (restaurant.data?.address as string) ?? '',
+    phone: (restaurant.data?.phone as string) ?? '',
+    gstin: tax.gstin,
+    upiId: engagement.upiId,
+  });
+  void _station;
+  const result = composeTicket({
+    job: { id: job.id, kind: 'bill', printerId: job.printer_id, station: job.station ?? '', foodSide: 'all', isReprint: false },
+    width,
+    template: ((print.bill as Partial<TemplateConfig> | undefined) ?? {}) as Partial<TemplateConfig>,
+    printers: [],
+    splitByFoodType: false,
+    header,
+    items,
+    ...(totals ? { totals } : {}),
+    ...(upiId ? { upiId } : {}),
+  });
+  if (!result.ok) return { ok: false, blocked: result.blocked };
+  return { ok: true, payload: { lines: result.lines, width: result.width, itemCount: result.itemCount, font: result.font } };
 }

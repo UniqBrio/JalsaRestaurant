@@ -131,13 +131,19 @@ const BILL_SELECT = `
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name ),
+    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name, line_seq ),
     print_job (
       id, status, attempts, is_reprint, last_error,
       printer_id, printer_name, station, routing_rule, redirected_from_job_id
     )
   )
 `;
+
+/** A round's lines in cart order - `kot_item.line_seq`, assigned by the one insert that wrote them. */
+export function sortByLineSeq<T extends Record<string, unknown>>(rows: readonly T[]): T[] {
+  const seq = (r: T): number => (r.line_seq == null ? Number.MAX_SAFE_INTEGER : Number(r.line_seq));
+  return [...rows].sort((a, b) => seq(a) - seq(b));
+}
 
 interface RawRef {
   name?: string;
@@ -212,7 +218,10 @@ function shapeBill(row: Record<string, unknown>): Bill {
         readyAt: (k.ready_at as string) ?? null,
         pickedUpAt: (k.picked_up_at as string) ?? null,
         servedAt: (k.served_at as string) ?? null,
-        items: ((k.kot_item ?? []) as Array<Record<string, unknown>>).map((i) => ({
+        // In the order they were put in the cart (item 3, 25-Sep-2026). An embedded select has no
+        // order of its own, so without this the bill, its share text and the browser invoice
+        // listed a round's lines in whatever order the database returned them.
+        items: sortByLineSeq((k.kot_item ?? []) as Array<Record<string, unknown>>).map((i) => ({
           id: i.id as string,
           name: i.name as string,
           unitPrice: Number(i.unit_price),
@@ -226,8 +235,9 @@ function shapeBill(row: Record<string, unknown>): Bill {
       };
     })
     // Oldest first. Rounds are read as a history, and a history that starts at the end is
-    // read wrongly by everyone at least once.
-    .sort((a, b) => a.code.localeCompare(b.code));
+    // read wrongly by everyone at least once. By time, then code: codes compared as text put
+    // K-1000 before K-999 (item 3, 25-Sep-2026).
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.code.localeCompare(b.code));
 
   return {
     id: row.id as string,

@@ -1,7 +1,8 @@
+import { effectiveTemplate } from './invoice';
 import { resolvePrinter, splitRound, type RoutablePrinter, type TicketSide } from './print-routing';
 import {
   buildTicket,
-  defaultTemplate,
+  type FontSize,
   type PaperWidth,
   type TemplateConfig,
   type TicketData,
@@ -98,6 +99,8 @@ export interface ComposeOk {
   width: PaperWidth;
   /** How many of the round's lines ended up on this ticket. For the log, never for a decision. */
   itemCount: number;
+  /** The font the lines were laid out in - the printer has to be told (item 7). */
+  font: FontSize;
 }
 
 export interface ComposeBlocked {
@@ -224,11 +227,9 @@ export function composeTicket(input: ComposeInput): ComposeResult {
   const chosen = itemsForJob(input);
   if ('blocked' in chosen) return { ok: false, blocked: chosen.blocked };
 
-  const config: TemplateConfig = {
-    ...defaultTemplate(input.job.kind, input.width),
-    ...input.template,
-    width: input.width,
-  };
+  // The one merge, shared with every preview (`invoice.ts`), so a preview cannot be laid out at a
+  // width the paper does not have.
+  const config: TemplateConfig = effectiveTemplate(input.job.kind, input.width, input.template);
 
   const data: TicketData = {
     ...input.header,
@@ -246,6 +247,7 @@ export function composeTicket(input: ComposeInput): ComposeResult {
     lines: buildTicket(input.job.kind, data, config, { reprint: input.job.isReprint }),
     width: input.width,
     itemCount: chosen.items.length,
+    font: config.font,
   };
 }
 
