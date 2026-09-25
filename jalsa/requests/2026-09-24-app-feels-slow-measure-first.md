@@ -171,6 +171,13 @@ emulating the app's own polling; real PostgREST:
 | Quiet (no activity) | **84.3 /s** (414 full reads) | **17.3 /s** (6 full reads, 447 quiet ticks) |
 Screens identical before/after (ids and clock times normalised).
 
+### Fix 5 — outage: fail fast to the designed screen (local production build)
+| Database state | Before (guest page `/t/A5` → "cannot reach the till") | After fix 5 |
+|---|---|---|
+| Refusing connections | **7.17 s** (library retries 1 s + 2 s + 4 s) | **0.27 s** (`/q`: 0.02 s) |
+| Accepting and never answering | **no deadline at all** — the scenario hit the rig's 30 s cap | **2.2 s** (`/q`: 2.0 s) |
+Reads only get the 2 s deadline; a write waits for its answer (cutting one off could invite a duplicate).
+
 After fix 3 the screen that comes back WITH an action is byte-identical (ids and clock times
 normalised) to what the old second request returned, for staff and owner. Each tap also saves
 one phone↔server round trip that this rig cannot see (≈150 ms or more from India).

@@ -4,6 +4,15 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 5 of the latency run - 2026-09-25 - an outage reaches the designed screen in ~2 s, not 7
+
+FAIL-FIRST: tests/unit/outage.unit.spec.ts - against the pre-fix client: refused database "Expected: < 1000 Received: 7092"; hanging database "spawnSync node ETIMEDOUT" (the read never failed; the rig's 30 s cap ended it); write rung also ETIMEDOUT (the scenario never reached it). 3 of 3 failed.
+After: 3 passed. Whole app, local production build: refused 7.17 s -> 0.27 s; hanging (no deadline) -> 2.2 s, both landing on "cannot reach the till just now".
+Rig: runScenario can keep the real database client (`realDb`) and set its URL (`env`); execFileSync now has a 30 s timeout so a hung scenario fails instead of holding the suite.
+Unit: 982 passed. Typecheck and lint clean.
+
+---
+
 ## Fix 4 correction - 2026-09-25 - a heartbeat that rewrites an unchanged value moves nothing
 
 Found applying 20260924120000 to development: within minutes 'floor' had moved 10 times with nothing on the floor changed. Cause: `after update of hostname, bridge_version` fires whenever those columns are in the SET list, and the bridge sync rewrites both unchanged. 20260924130000 replaces both column-list triggers (bridge_token, guest_session) with row triggers that fire only when a watched value is DISTINCT.

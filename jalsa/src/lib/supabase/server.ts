@@ -25,12 +25,38 @@ import { logError } from '@/lib/logger';
  */
 let cached: SupabaseClient | null = null;
 
+/**
+ * How long a READ may wait for the database before the screen says it cannot reach the till.
+ *
+ * WHY (requests/2026-09-24-app-feels-slow-measure-first.md, fix 5)
+ *   The client library retried a failed read three times, waiting 1 s, 2 s and 4 s — so when the
+ *   database was down, a guest stared at a blank page for seven seconds (measured 7.03–7.17 s)
+ *   before the designed "unavailable" screen appeared. Next to the database a read takes a few
+ *   milliseconds; one that has not answered in two seconds is not going to, and the honest screen
+ *   is worth more than the wait. The next poll — six seconds later — tries again anyway.
+ *
+ * READS ONLY. A write that is cut off here may still commit on the server; telling the person it
+ * failed would invite them to do it twice — a second round in the kitchen. Writes wait for their
+ * answer, as before, and are no longer retried behind their back either.
+ */
+export const DB_READ_TIMEOUT_MS = 2000;
+
+function failFastFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') return fetch(input, init);
+  const deadline = AbortSignal.timeout(DB_READ_TIMEOUT_MS);
+  const signal = init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
+  return fetch(input, { ...init, signal });
+}
+
 export function db(): SupabaseClient {
   if (cached) return cached;
   const cfg = serverConfig();
   cached = createClient(cfg.supabaseUrl, cfg.supabaseSecretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { 'x-application-name': 'jalsa' } },
+    // No silent retries: a failure reaches `attempt()` at once and becomes the designed screen.
+    db: { retry: false },
+    global: { headers: { 'x-application-name': 'jalsa' }, fetch: failFastFetch },
   });
   return cached;
 }

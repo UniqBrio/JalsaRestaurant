@@ -2,6 +2,18 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - Latency fix 5 of 5: outages fail fast
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** The Supabase client retried failed reads
+1 s + 2 s + 4 s, and reads had no deadline. Retries are off; reads give up after 2 s; writes wait.
+
+FAIL-FIRST: jalsa/tests/unit/outage.unit.spec.ts - against the pre-fix client: refused "Received: 7092" (< 1000 expected); a hanging database never failed (ETIMEDOUT at the rig's 30 s cap). 3 of 3 failed.
+
+Gate run (jalsa): unit 982 passed, typecheck and lint clean. Whole app: refused 7.17 s -> 0.27 s,
+hanging no deadline -> 2.2 s. G8 functional NOT run here.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - Fix 4 correction: heartbeats move nothing
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** Applying the change-version migration to

@@ -22,7 +22,14 @@ const SWAPS: Record<string, string> = {
   '@/lib/sessions': join(HERE, 'fake-sessions.ts'),
 };
 
-export async function runScenario<T>(scenarioFile: string): Promise<T> {
+export interface RigOptions {
+  /** Keep the REAL `@/lib/supabase/server` (for scenarios about the client itself, e.g. outages). */
+  realDb?: boolean;
+  /** Extra environment for the child process — e.g. where the database is. */
+  env?: Record<string, string>;
+}
+
+export async function runScenario<T>(scenarioFile: string, options: RigOptions = {}): Promise<T> {
   // Inside the app, not the OS temp dir: the bundle keeps npm packages external, and Node resolves
   // them from the bundle's own location.
   const cache = join(APP, 'node_modules', '.cache', 'round-rig');
@@ -47,9 +54,11 @@ export async function runScenario<T>(scenarioFile: string): Promise<T> {
           // file name. Still external — the real package, not a stand-in.
           b.onResolve({ filter: /^next\/(server|headers)$/ }, (a) => ({ path: `${a.path}.js`, external: true }));
           b.onLoad({ filter: /.*/, namespace: 'empty' }, () => ({ contents: '', loader: 'js' }));
-          b.onResolve({ filter: /^@\/lib\/(supabase\/server|sessions)$/ }, (a) => ({
-            path: SWAPS[a.path] ?? a.path,
-          }));
+          b.onResolve({ filter: /^@\/lib\/(supabase\/server|sessions)$/ }, (a) =>
+            options.realDb && a.path === '@/lib/supabase/server'
+              ? undefined // resolved normally: the application's own client
+              : { path: SWAPS[a.path] ?? a.path }
+          );
         },
       },
     ],
@@ -57,6 +66,9 @@ export async function runScenario<T>(scenarioFile: string): Promise<T> {
   const out = execFileSync(process.execPath, [outfile], {
     cwd: APP,
     encoding: 'utf8',
+    // The call is synchronous, so the test runner's own timeout cannot interrupt it: a scenario
+    // that hangs must fail here, loudly, rather than hold the whole suite.
+    timeout: 30_000,
     env: {
       ...process.env,
       APP_ENV: 'test',
@@ -67,6 +79,7 @@ export async function runScenario<T>(scenarioFile: string): Promise<T> {
       SUPABASE_SECRET_KEY: 'x',
       SESSION_SECRET: 'round-rig-only-0000000000000000000000000000',
       NEXT_PUBLIC_QR_ORIGIN: 'http://localhost:3000',
+      ...options.env,
     },
   });
   return JSON.parse(out.trim().split('\n').at(-1) ?? 'null') as T;
