@@ -22,7 +22,24 @@ import { logError } from '@/lib/logger';
  *
  *   Attach anything to a refusal. A 4xx or 5xx goes back untouched.
  */
-export async function withState(res: NextResponse, build: () => Promise<unknown>): Promise<NextResponse> {
+/**
+ * How long the answer may wait for the screen. The write is already committed; past this, the
+ * action answers without the screen and the phone reads it, as it did before echoes existed.
+ *
+ * WHY A DEADLINE AND NOT ONLY A catch (review of latency fix 3): a build that HANGS — a lock wait,
+ * a stalled connection — is not an exception. Without a deadline it would hold the answer until
+ * the platform's function timeout, the phone would see a 504 for a write that succeeded, and the
+ * person would do it again: a second round in the kitchen, or a one-time PIN issued twice.
+ */
+export const ECHO_BUDGET_MS = 2500;
+
+const TIMED_OUT = Symbol('echo-timed-out');
+
+export async function withState(
+  res: NextResponse,
+  build: () => Promise<unknown>,
+  budgetMs: number = ECHO_BUDGET_MS
+): Promise<NextResponse> {
   if (!res.ok) return res;
   let body: unknown;
   try {
@@ -31,12 +48,32 @@ export async function withState(res: NextResponse, build: () => Promise<unknown>
     return res;
   }
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return res;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let lateOnly = false;
   try {
-    const state = await build();
+    const building = build();
+    // A build that loses the race may still fail later: logged then, never thrown. One that fails
+    // in time is logged once, below.
+    building.catch((err: unknown) => {
+      if (lateOnly) logError('action.echo.late', err);
+    });
+    const state = await Promise.race([
+      building,
+      new Promise<typeof TIMED_OUT>((resolve) => {
+        timer = setTimeout(() => resolve(TIMED_OUT), budgetMs);
+      }),
+    ]);
+    if (state === TIMED_OUT) {
+      lateOnly = true;
+      logError('action.echo', new Error(`screen not built within ${budgetMs} ms; answered without it`));
+      return res;
+    }
     if (state === null || state === undefined) return res;
     return ok({ ...(body as Record<string, unknown>), state });
   } catch (err) {
     logError('action.echo', err);
     return res;
+  } finally {
+    clearTimeout(timer);
   }
 }

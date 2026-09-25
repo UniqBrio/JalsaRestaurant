@@ -2,6 +2,19 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Fix 3 review follow-ups
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Review of fix 3 found a late poll could undo an
+echoed write on screen (the double-send the refresh gate exists to stop) and a hung screen build
+could turn a committed write into a 504. Both fixed.
+
+FAIL-FIRST: jalsa/tests/unit/refresh-gate.unit.spec.ts - against the pre-fix tree: "does not provide an export named 'superseded'" (the old gate never knew about writes).
+FAIL-FIRST: jalsa/tests/unit/action-echo.unit.spec.ts (deadline rung) - against the pre-fix withState the hung build's state arrived after 6 s ("Received + 1").
+
+Gate run (jalsa): unit 963 passed, typecheck and lint clean. G8 functional NOT run here.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Fix 2 review follow-ups
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** Review of fix 2 found: every live poll downloaded

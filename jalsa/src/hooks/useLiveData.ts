@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { handleError } from '@/lib/errors';
-import { newGate, begin, end } from './refresh-gate';
+import { newGate, begin, end, wrote, superseded } from './refresh-gate';
 import { echoedState } from '@/lib/write-echo';
 import { staleNotice } from '@/lib/stale-notice';
 
@@ -62,11 +62,16 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
     async (force: boolean): Promise<boolean> => {
       if (!begin(gate.current, force)) return false;
       setRefreshing(true);
+      // A write that answers with its own screen may land while this read is out; if it does,
+      // this read is older than what is showing and must not replace it (refresh-gate `wrote`).
+      const seen = gate.current.writes;
       try {
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`${url} ${res.status}`);
         const text = await res.text();
-        if (text !== lastText.current) {
+        if (superseded(gate.current, seen)) {
+          // Older than the screen. Drop it; the next tick reads afresh.
+        } else if (text !== lastText.current) {
           lastText.current = text;
           setData(JSON.parse(text) as T);
         }
@@ -148,6 +153,7 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
          long" was (12-Sep-2026). See src/lib/db/guest-echo.ts for the server half. */
       const echoed = echoedState<T>(parsed);
       if (echoed !== null) {
+        wrote(gate.current);
         const text = JSON.stringify(echoed);
         if (text !== lastText.current) {
           lastText.current = text;

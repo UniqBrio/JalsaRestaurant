@@ -23,7 +23,12 @@ const OWNER = {
 const GRANTS: Record<string, string[]> = {
   st1: ['orders.view', 'orders.status', 'tables.view'],
   ow1: ['orders.view', 'orders.status', 'set.copy', 'staff.view'],
+  // May edit the guest-facing copy, may not open the console.
+  cp1: ['set.copy'],
 };
+
+const COPY_ONLY = { staffId: 'cp1', name: 'Ravi', role: 'Cashier', initials: 'RA', provisional: false, issuedAt: 0 };
+const REMOVED = { staffId: 'gone', name: 'Old', role: 'Captain', initials: 'OL', provisional: false, issuedAt: 0 };
 
 function responder(opts: { failBuild?: boolean }) {
   return (q: FakeQuery): unknown[] | Record<string, unknown> | null => {
@@ -31,6 +36,7 @@ function responder(opts: { failBuild?: boolean }) {
     const staffFilter = q.filters.find(([k, c]) => k === 'eq' && c === 'staff_id')?.[2];
     switch (q.table) {
       case 'staff':
+        if (idFilter === 'gone') return [{ id: idFilter, active: true, removed_at: iso, pin_provisional: false }];
         if (idFilter) return [{ id: idFilter, active: true, removed_at: null, pin_provisional: false }];
         return [];
       case 'staff_permission':
@@ -63,13 +69,23 @@ function responder(opts: { failBuild?: boolean }) {
   };
 }
 
-async function run(name: string, who: unknown, opts: { failBuild?: boolean }, call: () => Promise<Response>) {
+async function run(
+  name: string,
+  who: unknown,
+  opts: { failBuild?: boolean; stallBuildMs?: number },
+  call: () => Promise<Response>
+) {
   const db = fakeDb();
   db.calls = [];
   db.latencyMs = 20;
   db.respond = responder(opts);
+  // The screen builders are the only readers of `dining_table` here; stalling it stalls the build.
+  db.delayFor = (q) => (opts.stallBuildMs && q.table === 'dining_table' ? opts.stallBuildMs : 0);
   g.__fakeSession = { staff: who };
+  const t0 = performance.now();
   const res = await call();
+  const answeredMs = Math.round(performance.now() - t0);
+  if (opts.stallBuildMs) await new Promise((r) => setTimeout(r, opts.stallBuildMs));
   await new Promise((r) => setTimeout(r, db.latencyMs * 4)); // stragglers land in this record
   const body = (await res.json()) as Record<string, unknown>;
   const state = body.state as Record<string, unknown> | undefined;
@@ -80,6 +96,7 @@ async function run(name: string, who: unknown, opts: { failBuild?: boolean }, ca
     stateKeys: state && typeof state === 'object' ? Object.keys(state).sort() : null,
     calls: db.calls.length,
     rounds: sequentialRounds(db.calls),
+    answeredMs,
   };
 }
 
@@ -102,12 +119,22 @@ const results = [
   await run('owner write-setting', OWNER, {}, () =>
     ownerAction(post({ action: 'write-setting', key: 'copy', value: { name: 'Jalsa' } }), ctx)
   ),
+  await run('owner route, actor without the console grant', COPY_ONLY, {}, () =>
+    ownerAction(post({ action: 'write-setting', key: 'copy', value: { name: 'Jalsa' } }), ctx)
+  ),
+  await run('removed captain', REMOVED, {}, () =>
+    staffAction(post({ action: 'advance-kot', kotId: 'k1', to: 'preparing' }), ctx)
+  ),
+  await run('staff advance-kot, screen build hangs', CAPTAIN, { stallBuildMs: 6000 }, () =>
+    staffAction(post({ action: 'advance-kot', kotId: 'k1', to: 'preparing' }), ctx)
+  ),
 ];
 
 // currentStaff on its own: the row and the grants need nothing from each other.
 const db = fakeDb();
 db.calls = [];
 db.respond = responder({});
+db.delayFor = () => 0;
 g.__fakeSession = { staff: CAPTAIN };
 const who = await currentStaff();
 results.push({
@@ -117,6 +144,7 @@ results.push({
   stateKeys: null,
   calls: db.calls.length,
   rounds: sequentialRounds(db.calls),
+  answeredMs: 0,
 });
 
 process.stdout.write(`${JSON.stringify(results)}\n`);

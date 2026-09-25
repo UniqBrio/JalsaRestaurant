@@ -40,6 +40,8 @@ export interface FakeCall {
 
 interface FakeState {
   latencyMs: number;
+  /** Extra time for particular queries — a stalled read, for deadline scenarios. */
+  delayFor?: (q: FakeQuery) => number;
   calls: FakeCall[];
   respond: (q: FakeQuery) => unknown[] | Record<string, unknown> | null;
 }
@@ -160,7 +162,7 @@ class Builder {
 async function run(q: FakeQuery): Promise<Answer> {
   const state = fakeDb();
   const t0 = performance.now();
-  await new Promise((r) => setTimeout(r, state.latencyMs));
+  await new Promise((r) => setTimeout(r, state.latencyMs + (state.delayFor?.(q) ?? 0)));
   const record = (failed: boolean) =>
     state.calls.push({
       table: q.table,

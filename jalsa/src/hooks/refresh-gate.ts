@@ -26,9 +26,30 @@ export interface GateState {
   inFlight: boolean;
   /** A person-caused refresh arrived while one was in flight, and is owed a run. */
   pending: boolean;
+  /** How many writes have answered WITH the screen they changed (see `wrote`). */
+  writes: number;
 }
 
-export const newGate = (): GateState => ({ inFlight: false, pending: false });
+export const newGate = (): GateState => ({ inFlight: false, pending: false, writes: 0 });
+
+/**
+ * A write has answered with the screen it changed, and that screen is now showing.
+ *
+ * THE SAME DEFECT, BY A SECOND DOOR (review of latency fix 3, 24-Sep-2026)
+ *   When a write answers with its own screen, no read follows it — so the gate above never sees
+ *   it. A scheduled poll that left BEFORE the write can still land AFTER its answer, carrying the
+ *   state from before the tap, and put the round back to "unsent" for six seconds. That is the
+ *   exact double-send this module was written to stop. A read that started before a write's answer
+ *   is therefore older than what is on screen, and is discarded (`superseded`).
+ */
+export function wrote(state: GateState): void {
+  state.writes += 1;
+}
+
+/** Did a write answer while this read was out? `seen` is `state.writes` when the read began. */
+export function superseded(state: GateState, seen: number): boolean {
+  return state.writes !== seen;
+}
 
 /**
  * May this refresh start now?

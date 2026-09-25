@@ -4,6 +4,17 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 3 review follow-ups - 2026-09-24 - a late poll cannot undo an echoed write; the echo has a deadline
+
+A fresh-context review of fix 3 found: (D1) a scheduled poll that left before a write could land after the write's echoed answer and put the screen back to its pre-tap state - the double-send refresh-gate.ts exists to prevent; (D2) a HUNG screen build had no deadline, so a committed write could reach the phone as a 504 and be repeated. Fixed: the gate counts writes that answered with their screen and the hook discards a read that began before one; `withState` answers without the screen after 2.5 s.
+FAIL-FIRST: tests/unit/refresh-gate.unit.spec.ts (appended rung) - against the pre-fix tree: "SyntaxError: The requested module '../../src/hooks/refresh-gate' does not provide an export named 'superseded'" - the old gate had no notion of a write, so a late poll was always applied.
+FAIL-FIRST: tests/unit/action-echo.unit.spec.ts "a screen that will not build in time..." - against the pre-fix withState: keys "Received + 1" (state arrived, after the 6 s stall).
+NOT OBSERVED FAILING: action-echo rungs "the owner console is echoed only to someone who may open it" and "a removed person is signed out" - they guard behaviour fix 3 already had (the reviewer found them untested, not broken).
+Superseded in place (contract change, dated notes): refresh-gate "no residue" now includes `writes: 0`; action-echo owner keys now `toEqual(['done','state'])`.
+Unit: 963 passed. Typecheck and lint clean.
+
+---
+
 ## Fix 2 review follow-ups - 2026-09-24 - the closed bill, a moved phone, the cold restaurant lookup
 
 A fresh-context review of fix 2 found three real regressions or gaps. Fixed:

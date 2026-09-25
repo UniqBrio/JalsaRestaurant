@@ -19,7 +19,7 @@
  *   refresh queue, which would rebuild the request pile-up the drop existed to prevent.
  */
 import { test, expect } from '@playwright/test';
-import { newGate, begin, end } from '../../src/hooks/refresh-gate';
+import { newGate, begin, end, wrote, superseded } from '../../src/hooks/refresh-gate';
 
 test('the first refresh always starts', () => {
   const g = newGate();
@@ -61,7 +61,9 @@ test('the gate is reusable — a completed cycle leaves no residue', () => {
   const g = newGate();
   begin(g);
   end(g);
-  expect(g).toEqual({ inFlight: false, pending: false });
+  // SUPERSEDED 24-Sep-2026 (review of latency fix 3): the gate now also counts writes that
+  // answered with their own screen; this asserted `{ inFlight: false, pending: false }`.
+  expect(g).toEqual({ inFlight: false, pending: false, writes: 0 });
   expect(begin(g), 'the next refresh must start normally').toBe(true);
 });
 
@@ -71,4 +73,19 @@ test('a person-caused refresh with nothing in flight starts immediately', () => 
   const g = newGate();
   expect(begin(g, true)).toBe(true);
   expect(g.pending).toBe(false);
+});
+
+/* ── added 24-Sep-2026, review of latency fix 3 ───────────────────────────── */
+
+test('a poll that left before a write answered is older than the screen, and is discarded', () => {
+  // A scheduled poll is on the wire; the captain taps Send; the write answers WITH the new screen;
+  // then the poll lands, carrying the state from before the tap. Applying it would show the round
+  // as unsent again — the double-send this module exists to stop.
+  const g = newGate();
+  begin(g);
+  const seen = g.writes; // the poll leaves
+  wrote(g); // the write's own answer is applied
+  expect(superseded(g, seen), 'the late poll must not overwrite the echoed screen').toBe(true);
+  end(g);
+  expect(superseded(g, g.writes), 'a read that starts after the write is current').toBe(false);
 });
