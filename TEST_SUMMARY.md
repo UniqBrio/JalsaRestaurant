@@ -2,6 +2,14 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, printing (items 1-9, 12-14)
+
+FAIL-FIRST: jalsa/tests/unit/printers-activity.unit.spec.ts - against the pre-fix tree the file fails to load (`addedOnLabel`, `bridgeActivityLabel` do not exist in print-computer.ts): 8 of 8 not passing; after: 8 passed.
+FAIL-FIRST: jalsa/tests/unit/print-corrections-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/invoice` does not exist): 22 of 22 not passing; after: 22 passed. Case-level evidence for the layout change: tests/unit/ticket-golden.unit.spec.ts run against the new composer failed 4 of its goldens with exactly two differences - the big lines ("JALSA", "KOT-113") re-centred on the half-width grid, and the KOT address/phone lines gone - and nothing else; superseded in place (goldens kept, compared with big lines removed).
+Unit tier: 1049 passed. Typecheck and lint (whole app, --max-warnings 0): pass.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, code-review fixes
 
 Review (REQUEST CHANGES) found, and this run fixed: seating race could join a second party onto the first party's bill (ensureOpenBill `mustBeNew`, 23505 refused); add-round accepted a VOID bill or a table moved off the bill (only open/payment_requested, table must be on the bill; same status rule for the waiter picker); issuePin could pass a PIN held by both the person and another; Net went stale beside a live Expenses tile (now income - live expenses); entries outside the range could not be edited (Show every entry); the Disconnect dialog promised tickets would wait; sign-in audit could fail a successful sign-in; an unchecked write in savePrinterMapping; "No guest has answered" overclaimed; ticket month spelling depended on ICU.

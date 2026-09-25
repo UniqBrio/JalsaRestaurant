@@ -4,6 +4,14 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Run - 2026-09-25 - 25-Sep correction list, printing (items 1-9, 12-14)
+
+FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - against the pre-fix tree the file fails to load (`addedOnLabel`, `bridgeActivityLabel` do not exist in print-computer.ts): 8 of 8 not passing; after: 8 passed.
+FAIL-FIRST: tests/unit/print-corrections-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/invoice` does not exist): 22 of 22 not passing; after: 22 passed. Case-level evidence for the layout change: tests/unit/ticket-golden.unit.spec.ts run against the new composer failed 4 of its goldens with exactly two differences - the big lines ("JALSA", "KOT-113") re-centred on the half-width grid, and the KOT address/phone lines gone - and nothing else; superseded in place (goldens kept, compared with big lines removed).
+Unit tier: 1049 passed. Typecheck and lint (whole app, --max-warnings 0): pass.
+
+---
+
 ## Gate run - 2026-09-24 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.
