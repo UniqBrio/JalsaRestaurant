@@ -1276,6 +1276,16 @@ export async function freeTable(input: { tableId: string; actor: Actor }): Promi
   // the next scan of this table a fresh welcome rather than someone else's order.
   await db().from('guest_session').delete().eq('table_id', input.tableId);
 
+  // Marked free by a person, so it IS free - not "needs clearing" (items 35/36, 25-Sep-2026). The
+  // release above used to leave the table waiting to be cleared, still showing Mark free.
+  const { error: clearErr } = await db()
+    .from('bill_table')
+    .update({ cleared_at: new Date().toISOString(), cleared_by: input.actor.label })
+    .eq('table_id', input.tableId)
+    .not('released_at', 'is', null)
+    .is('cleared_at', null);
+  if (clearErr) throw clearErr;
+
   await audit({
     action: 'Table freed by hand',
     detail: bill

@@ -134,7 +134,12 @@ test('payment requested outranks every kitchen state', () => {
 });
 
 test('a table waiting to be cleared outranks everything, including a live bill', () => {
-  expect(state(['ready'], { awaitingClearing: true })).toBe('clearing');
+  // SUPERSEDED 25-Sep-2026 (items 35/36): previously
+  //   expect(state(['ready'], { awaitingClearing: true })).toBe('clearing');
+  // i.e. an old, uncleared release outranked a party sitting at the table. On the live floor that
+  // showed an occupied table as "Needs clearing" (every table's pre-16-Sep releases were never
+  // cleared). A table with a live bill is that party's; "needs clearing" is for an empty table.
+  expect(state(['ready'], { awaitingClearing: true })).toBe('ready');
   expect(tableStateFrom({ hasBill: false, kotStatuses: [], awaitingClearing: true })).toBe('clearing');
 });
 

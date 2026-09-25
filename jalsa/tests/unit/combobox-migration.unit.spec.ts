@@ -134,10 +134,10 @@ test('the 11 static selects were left alone', () => {
   const remaining = tsx
     .filter((f) => !f.endsWith('components/ui/field.tsx'))
     .flatMap((f) => (read(f).match(/<Select\b/g) ?? []).map(() => f));
-  // SUPERSEDED 25-Sep-2026 (item 24): previously `.toBe(11)`. The item editor's Food type was one
-  // of the eleven and became a search-only Combobox, because the owner asked for it to behave
-  // like Category. The other ten are unchanged.
-  expect(remaining.length, 'the ten the audit said to keep, after Food type moved to a Combobox').toBe(10);
+  // SUPERSEDED 25-Sep-2026 (items 24, 34): still eleven, but not the same eleven. The item
+  // editor's Food type became a search-only Combobox (item 24: behave like Category), and the
+  // table editor's Zone - a free-text box - became a Select of AC / Non-AC / Terrace (item 34).
+  expect(remaining.length, 'eleven: Food type left, Zone joined').toBe(11);
 });
 
 test('creating a category reuses an existing one rather than making a second', () => {

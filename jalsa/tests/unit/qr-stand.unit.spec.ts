@@ -67,7 +67,9 @@ test('the table route still encodes a place and nothing else, and now serves the
   expect(code).toContain("searchParams.get('table')");
   expect(code).toContain('table ? `${origin}/t/${encodeURIComponent(table)}` : `${origin}/q`');
   expect(code).toContain("staff.grants.can('tables.qr')");
-  expect(code, 'one generator').toContain('brandedQrSvg(target)');
+  // SUPERSEDED 25-Sep-2026 (item 31): previously `brandedQrSvg(target)`. One generator still,
+  // now handed the restaurant's uploaded logo for its centre.
+  expect(code, 'one generator').toContain('brandedQrSvg(target, logo)');
   expect(code, 'one set of headers').toContain("svgHeaders(table ? `jalsa-table-${table}` : 'jalsa-entrance-queue')");
   expect(code, 'the PNG path is gone, not kept beside the new one').not.toContain('toBuffer');
   expect(svgHeaders('x')['content-type']).toBe('image/svg+xml; charset=utf-8');
@@ -81,7 +83,9 @@ test('the review code encodes the setting the phone already shows, and refuses a
   expect(code, 'never from the request').not.toContain('searchParams');
   expect(code, 'and never from a body').not.toContain('body<');
   expect(code, 'behind the same grant as the table codes').toContain("staff.grants.can('tables.qr')");
-  expect(code, 'the same generator').toContain('brandedQrSvg(reviewUrl)');
+  // SUPERSEDED 25-Sep-2026 (item 31): previously `brandedQrSvg(reviewUrl)` verbatim. The same
+  // generator, now also given the restaurant's logo for its centre.
+  expect(code, 'the same generator').toContain('brandedQrSvg(reviewUrl, await restaurantLogo())');
 });
 
 test('with no link set, the review route says which setting to fill rather than printing a blank', () => {

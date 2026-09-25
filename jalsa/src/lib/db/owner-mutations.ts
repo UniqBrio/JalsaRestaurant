@@ -491,6 +491,14 @@ export async function writeSetting(input: {
 export async function writeIdentity(input: { patch: Record<string, unknown>; actor: Actor }): Promise<void> {
   demand(input.actor, 'set.identity');
   const restaurantId = await currentRestaurantId();
+  // The logo (item 32) is a URL this app stored, or nothing - never an address somebody typed.
+  if ('logo_url' in input.patch) {
+    const logo = input.patch.logo_url;
+    // '' and the column's own default (the Jalsa badge) mean "no uploaded logo".
+    if (logo !== '' && logo !== '/brand/jalsa-badge.png' && !(typeof logo === 'string' && isMediaUrl(logo))) {
+      throw new Error('That logo was not uploaded here. Choose the image again.');
+    }
+  }
   const { error } = await db().from('restaurant').update(input.patch).eq('id', restaurantId);
   if (error) throw error;
   await audit({

@@ -17,6 +17,10 @@ import { stationOptions } from '@/lib/print-routing';
 import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { readWelcomeDrinks } from '@/lib/welcome-drinks';
+import { ImagePicker } from '@/components/ui/image-picker';
+
+/** The zones a table can be in (item 34, 25-Sep-2026). */
+const TABLE_ZONES = ['AC', 'Non-AC', 'Terrace'] as const;
 
 /**
  * Screen 33 — Settings, split into named sub-tabs rather than one long scroll.
@@ -269,6 +273,8 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     fssai: r.fssai ?? '',
     pan: r.pan ?? '',
     hr_email: r.hr_email ?? '',
+    // Uploaded under the brand block (item 32): `/api/media/brand/...`, or '' for the Jalsa badge.
+    logo_url: r.logo_url ?? '',
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -283,13 +289,23 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     <div className="flex flex-col gap-3" data-testid="owner-identity">
       {/* THE BRAND BLOCK */}
       <div className="flex items-center gap-4 rounded-[var(--radius-xl)] bg-[var(--primary)] px-5 py-6 text-[var(--on-primary)]">
-        <Image
-          src="/brand/jalsa-badge.png"
-          alt="The Jalsa badge as it prints"
-          width={56}
-          height={56}
-          className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
-        />
+        {form.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the owner's upload, served by our own route
+          <img
+            src={form.logo_url}
+            alt="Your restaurant logo"
+            data-testid="owner-identity-logo"
+            className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
+          />
+        ) : (
+          <Image
+            src="/brand/jalsa-badge.png"
+            alt="The Jalsa badge as it prints"
+            width={56}
+            height={56}
+            className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
+          />
+        )}
         <div className="min-w-0">
           <p className="m-0 type-h3 leading-tight">{form.display_name || 'Your restaurant'}</p>
           <p className="m-0 mt-1 type-caption leading-relaxed opacity-85">
@@ -297,6 +313,20 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </p>
         </div>
       </div>
+
+      {/* THE LOGO (item 32): uploaded here, replaced here, used on the door code, the table
+          codes and the review code (item 31). Saved with the rest of the details below. */}
+      <Field label="Logo" htmlFor="owner-identity-logo-picker-file" hint="Shown in the middle of every QR code and at the door. Save to keep it.">
+        <ImagePicker
+          testId="owner-identity-logo-picker"
+          label="Restaurant logo"
+          value={form.logo_url}
+          onChange={(logo_url) => setForm({ ...form, logo_url })}
+          upload={async (base64) =>
+            (await send<{ url: string }>('/api/owner/action', { action: 'upload-image', folder: 'brand', base64 })).url
+          }
+        />
+      </Field>
 
       <Card className="flex flex-col gap-3">
         <SectionLabel>Restaurant identity</SectionLabel>
@@ -586,6 +616,7 @@ function IndoorQueueCard({
 }: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'>) {
   const toast = useToast();
   const [showQr, setShowQr] = React.useState(false);
+  const [showPoster, setShowPoster] = React.useState(false);
 
   const queue = (data.settings.queue ?? {}) as { open?: boolean };
   // Open unless somebody closed it — the same default `/q` and `guestJoinQueue` both apply.
@@ -622,6 +653,11 @@ function IndoorQueueCard({
         {canSeeCode ? (
           <Button data-testid="owner-entrance-qr-open" variant="secondary" onClick={() => setShowQr(true)}>
             Show the code
+          </Button>
+        ) : null}
+        {canSeeCode ? (
+          <Button data-testid="owner-block-table-open" variant="secondary" onClick={() => setShowPoster(true)}>
+            Scan to Block Your Table poster
           </Button>
         ) : null}
         {canClose ? (
@@ -689,6 +725,37 @@ function IndoorQueueCard({
             height={260}
             unoptimized
             className="rounded-[var(--radius-md)]"
+          />
+          <code className="type-caption text-[var(--text-muted)]">{data.qrOrigin}/q</code>
+        </div>
+      </Sheet>
+
+      {/* "SCAN TO BLOCK YOUR TABLE" (item 33): the same door code, on a poster for the entrance
+          that says what it is for and carries the restaurant's logo - so it cannot be taken for a
+          table's ordering code. */}
+      <Sheet
+        open={showPoster}
+        onOpenChange={setShowPoster}
+        posture="modal"
+        title="Scan to Block Your Table"
+        description="A poster for the entrance. Guests scan it to join the queue; the next table is held for them."
+        testId="owner-block-table-sheet"
+        footer={
+          <Button data-testid="owner-block-table-print" asChild>
+            <a data-testid="owner-block-table-print-link" href="/api/owner/qr?poster=block" target="_blank" rel="noopener noreferrer">
+              Open the poster to print
+            </a>
+          </Button>
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          <Image
+            src="/api/owner/qr?poster=block"
+            alt="Scan to Block Your Table poster"
+            width={290}
+            height={400}
+            unoptimized
+            className="rounded-[var(--radius-md)] border border-[var(--border)]"
           />
           <code className="type-caption text-[var(--text-muted)]">{data.qrOrigin}/q</code>
         </div>
@@ -782,7 +849,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       <Button
         data-testid="owner-add-table"
         className="self-start"
-        onClick={() => setEditing({ name: '', zone: zones[0] ?? 'AC', seats: '4', active: true })}
+        onClick={() => setEditing({ name: '', zone: 'AC', seats: '4', active: true })}
       >
         Add a table
       </Button>
@@ -834,12 +901,20 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               />
             </Field>
             <Field label="Zone" required htmlFor="owner-table-zone" className="min-w-[8rem] flex-1">
-              <Input
+              {/* AC, Non-AC or Terrace (item 34). A zone a table already has that is not one of
+                  the three stays offered, so editing that table never silently moves it. */}
+              <Select
                 id="owner-table-zone"
                 value={editing.zone}
                 onChange={(e) => setEditing({ ...editing, zone: e.target.value })}
                 data-testid="owner-table-zone"
-              />
+              >
+                {[...TABLE_ZONES, ...(TABLE_ZONES.includes(editing.zone as (typeof TABLE_ZONES)[number]) || !editing.zone ? [] : [editing.zone])].map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Seats" required htmlFor="owner-table-seats" className="min-w-[6rem] flex-1">
               <Input

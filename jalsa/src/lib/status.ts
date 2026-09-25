@@ -193,8 +193,9 @@ export function tableStateFrom(input: {
   kotStatuses: readonly KotStatus[];
   awaitingClearing?: boolean;
 }): TableState {
-  if (input.awaitingClearing) return 'clearing';
-  if (!input.hasBill) return 'free';
+  // A table with a party at it is that party's, whatever an older bill left behind: the open bill
+  // decides first, and "needs clearing" is only for a table with nobody on it (items 35/36).
+  if (!input.hasBill) return input.awaitingClearing ? 'clearing' : 'free';
   if (input.billStatus === 'payment_requested') return 'payment_requested';
   // Most urgent first: a table with one ready round and three served ones needs a runner.
   if (input.kotStatuses.includes('ready')) return 'ready';
@@ -215,6 +216,25 @@ export function tableStateFrom(input: {
  * held by something real and the answer is a payment or a void, never a floor operation: a tile
  * on a grid must not be able to write off a bill.
  */
+/**
+ * How many phones are HOLDING each table (items 35/36, 25-Sep-2026): a session counts while it
+ * has an unsent cart, or while its bill is still open. A session whose bill was paid, or that
+ * scanned and left nothing, holds nothing - they are never deleted on payment, so counting every
+ * one kept Mark free on any table a guest had ever scanned.
+ */
+export function phonesHoldingTables(
+  sessions: ReadonlyArray<{ id: string; table_id: string; bill_id: string | null }>,
+  sessionsWithCart: ReadonlySet<string>,
+  openBillIds: ReadonlySet<string>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const s of sessions) {
+    const holding = s.bill_id ? openBillIds.has(s.bill_id) : sessionsWithCart.has(s.id);
+    if (holding) out.set(s.table_id, (out.get(s.table_id) ?? 0) + 1);
+  }
+  return out;
+}
+
 export function tableIsFreeable(input: {
   roundCount: number;
   billId: string | null;

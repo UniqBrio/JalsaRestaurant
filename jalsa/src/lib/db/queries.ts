@@ -1,7 +1,7 @@
 import 'server-only';
 import { dayWindow, todayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
-import { tableStateFrom, type KotStatus } from '@/lib/status';
+import { phonesHoldingTables, tableStateFrom, type KotStatus } from '@/lib/status';
 import { totalBill } from '@/lib/money';
 import type {
   AuditRow,
@@ -191,8 +191,13 @@ function shapeBill(row: Record<string, unknown>): Bill {
   const discountBy = (row.discount_by ?? null) as RawRef | null;
   const hostTable = (row.host_table ?? null) as RawRef | null;
 
-  const memberships = (row.bill_table ?? []) as Array<{ dining_table: RawRef }>;
+  const memberships = (row.bill_table ?? []) as Array<{ dining_table: RawRef; released_at?: string | null }>;
+  // A bill still in service holds only the tables it has NOT released (items 35/36, 25-Sep-2026) -
+  // the same rule `openBillForTable` uses. A closed or void bill keeps every table it had, for
+  // the record.
+  const live = row.status === 'open' || row.status === 'payment_requested';
   const tables = memberships
+    .filter((m) => !live || !m.released_at)
     .map((m) => m.dining_table?.name ?? '')
     .filter(Boolean)
     .sort();
@@ -341,7 +346,10 @@ export async function listOpenBills(): Promise<Bill[]> {
     .from('bill')
     .select(BILL_SELECT)
     .eq('restaurant_id', restaurantId)
-    .neq('status', 'closed')
+    // Open or asked to pay - nothing else is in service. `.neq('closed')` let a VOID bill (the
+    // empty bill Mark free writes off) hold its table on the floor for ever, so a freed table
+    // kept its Mark free button (A5, items 35/36, 25-Sep-2026).
+    .in('status', ['open', 'payment_requested'])
     .order('opened_at', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
@@ -484,7 +492,7 @@ export async function listFloor(): Promise<FloorTable[]> {
        scanned, filled a cart and walked out leaves one of these and no bill — but it IS stale
        data sitting on a table the restaurant considers free, and the only thing that can see it
        is this query. It is what `tables.free` clears. */
-    db().from('guest_session').select('table_id').eq('restaurant_id', restaurantId),
+    db().from('guest_session').select('id,table_id,bill_id').eq('restaurant_id', restaurantId),
     /* Tables a closure has released and nobody has reset yet. `released_at` is stamped by
        release_tables_on_close the instant a bill closes — that stamp is "the guests have gone"
        — and `cleared_at` is the other end. Until this read existed, tableStateFrom's
@@ -497,11 +505,21 @@ export async function listFloor(): Promise<FloorTable[]> {
   ]);
   if (tablesRes.error) throw tablesRes.error;
 
-  const phones = new Map<string, number>();
-  for (const row of phonesRes.data ?? []) {
-    const id = row.table_id as string;
-    phones.set(id, (phones.get(id) ?? 0) + 1);
+  /* A phone HOLDS a table only while it has something there (items 35/36): an unsent cart, or
+     the table's bill still open. Every session a table has ever had used to count - they are
+     not removed when a bill is paid - so any table a guest had once scanned offered Mark free
+     for ever, free or not. */
+  const sessions = (phonesRes.data ?? []) as Array<{ id: string; table_id: string; bill_id: string | null }>;
+  const withCart = new Set<string>();
+  if (sessions.length) {
+    const { data: carts, error: cartErr } = await db()
+      .from('guest_cart_line')
+      .select('session_id')
+      .in('session_id', sessions.map((x) => x.id));
+    if (cartErr) throw cartErr;
+    for (const c of carts ?? []) withCart.add(c.session_id as string);
   }
+  const phones = phonesHoldingTables(sessions, withCart, new Set(bills.map((b) => b.id)));
 
   const billByTable = new Map<string, Bill>();
   for (const b of bills) for (const t of b.tables) billByTable.set(t, b);

@@ -2,6 +2,16 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, tables & QR (items 31-36)
+
+Root cause, A5 (read from the live rows): A5 had 14 guest_session rows and six closed, released bills; the floor counted every session as a phone attached, so a free A5 was "freeable" and showed Mark free. Mark free on an empty bill voided it, and `listOpenBills` (`status <> 'closed'`) kept the VOID bill holding the table - so the button stayed and pressing it again did nothing. Also: freeTable never stamped cleared_at (a freed table went to "Needs clearing"), and an old uncleared release outranked a live bill in tableStateFrom.
+FAIL-FIRST: jalsa/tests/unit/mark-free-a5.unit.spec.ts - against the pre-fix tree the file fails to load (`phonesHoldingTables` absent); the superseded case in status.unit.spec.ts ('ready' over an old release) failed against the old tableStateFrom (received 'clearing'). After: 7 passed.
+FAIL-FIRST: jalsa/tests/unit/tables-qr-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`BLOCK_TABLE_HEADING` absent); the scan test with the obscured square widened to 50% of the width: **3 failed** (it can fail); at the real 27%: 3 of 3 codes decode, white and noise.
+Superseded in place: status (clearing vs live bill), combobox-migration (still 11 selects: Food type out, Zone in), qr-stand (generator takes the logo, x2), restaurant-details (logo_url is the 11th read; upload-image allowed beside write-identity).
+Unit tier: 1088 passed. Typecheck, lint: pass. QR scanning with a phone camera and on paper: not done from here.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - 25-Sep correction list, menu & routing (items 23-30) and KOT cases 15-22
 
 FAIL-FIRST: jalsa/tests/unit/menu-routing-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/media` does not exist; `routeItem`, `defaultPrinter`, `stationOptions` absent from print-routing): 16 of 16 not passing; after: 16 passed.
