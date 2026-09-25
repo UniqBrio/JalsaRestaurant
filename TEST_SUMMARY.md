@@ -2,6 +2,20 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Latency fix 3 of 5: actions answer with the screen
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** A captain's or owner's tap used to answer
+`{done:true}` and make the phone send a second request for the whole screen. The answer now
+carries the screen (`action-echo.ts`), and the sign-in check reads the staff row and grants together.
+
+FAIL-FIRST: jalsa/tests/unit/action-echo.unit.spec.ts - against the pre-fix tree: staff action returned [done] with no state; owner action had no state; currentStaff took 2 rounds; 3 of 6 failed.
+
+Gate run (jalsa): unit 952 passed, typecheck and lint clean; local PostgREST: staff tap 2 requests
+-> 1, staff poll 3 -> 2 rounds, owner poll 5 -> 4; echoed screens identical to the old re-read.
+G8 functional was NOT run here (no database reachable from the container).
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Latency fix 2 of 5: guest screen in 2 rounds, not 8
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`** and the request file. The guest page and its

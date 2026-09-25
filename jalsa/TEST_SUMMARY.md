@@ -4,6 +4,14 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 3 of the latency run - 2026-09-24 - staff/owner actions answer with the screen
+
+FAIL-FIRST: tests/unit/action-echo.unit.spec.ts - against the pre-fix tree: staff action keys "Expected [done, state] Received [done]"; owner action "Expected value: state Received array: [done]"; currentStaff "Expected: 1 Received: 2" rounds. 3 of 6 failed; the two guard scenarios (build failure keeps the write's success, refusal carries no state) passed before and after, as they should.
+Local PostgREST (100 ms per call): staff tap 2 requests (545 + 340 ms) -> 1 (552 ms); staff poll 3 -> 2 rounds; owner poll 5 -> 4 rounds. The screen returned with the action is identical to the old follow-up re-read.
+Unit: 952 passed. Typecheck and lint clean.
+
+---
+
 ## Fix 2 of the latency run - 2026-09-24 - guest screen: 8 sequential rounds to 2
 
 FAIL-FIRST: tests/unit/guest-rounds.unit.spec.ts - against the pre-fix tree: "first scan (no session yet) Expected: <= 3 Received: 7"; "live poll Expected: <= 2 Received: 8"; "cart tap echo Expected: <= 2 Received: 4"; bill pointer test "Received + 1" (bill_id rewritten on every poll). 4 of 6 failed; after the fix 6 passed.

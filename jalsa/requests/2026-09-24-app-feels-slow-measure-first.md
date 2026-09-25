@@ -137,13 +137,18 @@ Real PostgREST 12.2 on Postgres 16, schema from `supabase/migrations/` (seed: 57
 longest chain of calls that had to wait for each other. Payloads were compared before/after with
 ids and clock times normalised: **identical** for guest (welcome + live), staff and owner polls.
 
-| Load | Before (calls / rounds / ms) | After fix 2 |
-|---|---|---|
-| Guest page `/t/A5`, open bill | 12 / 8 / 896 | **10 / 2 / 247** |
-| Guest poll, open bill | 12 / 8 / 867 | **10 / 2 / 233** |
-| Guest page / poll, welcome | 12 / 7 / 760–783 | **11 / 3 / 338–350** |
-| Guest cart add | 12 / 6 / 682 | **11 / 4 / 451** |
-| Guest place round (new bill) | 32 / 21 / 2404 | 31 / 18 / 1964 |
-| Staff poll | 12 / 3 / 354 | 12 / 3 / 350 (fix 3–4) |
-| Staff advance KOT + re-read | 5 / 5 / 545 + 12 / 3 / 340 | unchanged (fix 3) |
-| Owner poll | 29 / 5 / 568 | 29 / 5 / 571 (fix 3–4) |
+| Load | Before (calls / rounds / ms) | After fix 2 | After fix 3 |
+|---|---|---|---|
+| Guest page `/t/A5`, open bill | 12 / 8 / 896 | **10 / 2 / 247** | 10 / 2 / 249 |
+| Guest poll, open bill | 12 / 8 / 867 | **10 / 2 / 233** | 10 / 2 / 236 |
+| Guest page / poll, welcome | 12 / 7 / 760–783 | **11 / 3 / 338–350** | 11 / 3 / 339–349 |
+| Guest cart add | 12 / 6 / 682 | **11 / 4 / 451** | 11 / 4 / 467 |
+| Guest place round (new bill) | 32 / 21 / 2404 | 31 / 18 / 1964 | 31 / 18 / 1967 |
+| Staff page / poll | 10–12 / 3 / 354–435 | 10–12 / 3 / 350–359 | **10–12 / 2 / 235–258** |
+| Staff tap (advance KOT) | **2 requests**: 5 / 5 / 545 + re-read 12 / 3 / 340 | same | **1 request**: 15 / 5 / 552 |
+| Owner page / poll | 26–29 / 5 / 568–629 | 26–29 / 5 / 571–602 | **26–29 / 4 / 460–494** |
+| Owner tap (save a setting) | **2 requests**: 5 / 5 / 539 + re-read 29 / 5 / 568 | same | **1 request**: 34 / 8 / 885 |
+
+After fix 3 the screen that comes back WITH an action is byte-identical (ids and clock times
+normalised) to what the old second request returned, for staff and owner. Each tap also saves
+one phone↔server round trip that this rig cannot see (≈150 ms or more from India).

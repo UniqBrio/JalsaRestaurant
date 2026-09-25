@@ -54,11 +54,15 @@ export async function currentStaff(): Promise<SignedInStaff | null> {
 
   // A person removed or deactivated mid-shift must lose access on their next request, not on
   // their next sign-in. The cookie proves who they were, never that they still work here.
-  const { data } = await db()
-    .from('staff')
-    .select('id,active,removed_at,pin_provisional')
-    .eq('id', session.staffId)
-    .maybeSingle();
+  //
+  // The row and the grants are read TOGETHER: both are keyed on the id the signed cookie already
+  // carries, and this runs at the start of every staff and owner request, so reading them one
+  // after the other put a whole round trip in front of everything (requests/2026-09-24-…, fix 3).
+  // For a person who has been removed, the grants read is simply discarded.
+  const [{ data }, keys] = await Promise.all([
+    db().from('staff').select('id,active,removed_at,pin_provisional').eq('id', session.staffId).maybeSingle(),
+    grantsFor(session.staffId),
+  ]);
   if (!data || data.removed_at !== null || data.active !== true) return null;
 
   // Re-read from the ROW, not from the cookie. A PIN chosen in another tab must take effect here
@@ -66,7 +70,6 @@ export async function currentStaff(): Promise<SignedInStaff | null> {
   // front of the prompt rather than leaving them working behind a code they no longer own.
   const provisional = data.pin_provisional === true;
 
-  const keys = await grantsFor(session.staffId);
   return { ...session, provisional, grants: new Grants(keys) };
 }
 

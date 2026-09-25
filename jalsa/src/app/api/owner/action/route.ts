@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
-import { actorFor, currentStaff } from '@/lib/db/auth';
+import { actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
+import { withState } from '@/lib/db/action-echo';
+import { buildOwnerPayload } from '@/lib/db/owner-view';
+import { publicConfig } from '@/lib/config';
 import {
   cancelItem,
   changeQty,
@@ -152,8 +155,21 @@ type Action =
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff();
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
+  const result = await perform(staff, await body<Action>(req));
+  // The answer carries the console as it now stands (`action-echo.ts`). Unlike a captain, an
+  // owner can change THEIR OWN standing — a permission, a PIN, removal — so the console is built
+  // for whoever the database says is signed in now, with exactly the gate `/api/owner/state`
+  // applies. Anyone who no longer passes it gets no console here; the phone's own re-read then
+  // receives the same refusal it always would have.
+  return withState(result, async () => {
+    const now = await currentStaff();
+    if (!now || !now.grants.can('orders.view')) return null;
+    return buildOwnerPayload(now, publicConfig.qrOrigin);
+  });
+});
+
+async function perform(staff: SignedInStaff, input: Action): Promise<NextResponse> {
   const actor = actorFor(staff);
-  const input = await body<Action>(req);
 
   switch (input.action) {
     case 'close-bill':
@@ -436,4 +452,4 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     default:
       return fail(400, { code: 'validation', message: 'That is not something this console can do.' });
   }
-});
+}

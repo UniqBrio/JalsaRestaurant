@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
-import { actorFor, currentStaff } from '@/lib/db/auth';
+import { actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
+import { withState } from '@/lib/db/action-echo';
+import { buildStaffPayload } from '@/lib/db/staff-view';
 import {
   advanceKot,
   cancelItem,
@@ -68,8 +70,14 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
   }
+  // The answer carries the captain's screen as it now stands, so the phone does not have to ask
+  // for it in a second request (`action-echo.ts`). A staff action cannot change the actor's own
+  // grants, so the identity read at the top of this request is still the right one to build with.
+  return withState(await perform(staff, await body<Action>(req)), () => buildStaffPayload(staff));
+});
+
+async function perform(staff: SignedInStaff, input: Action): Promise<NextResponse> {
   const actor = actorFor(staff);
-  const input = await body<Action>(req);
 
   switch (input.action) {
     case 'add-round': {
@@ -165,4 +173,4 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     default:
       return fail(400, { code: 'validation', message: 'That is not something this screen can do.' });
   }
-});
+}

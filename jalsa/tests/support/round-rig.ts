@@ -43,6 +43,9 @@ export async function runScenario<T>(scenarioFile: string): Promise<T> {
         name: 'round-rig-swaps',
         setup(b) {
           b.onResolve({ filter: /^server-only$/ }, () => ({ path: 'server-only', namespace: 'empty' }));
+          // `next` ships CommonJS entry files without an exports map; Node's ESM loader wants the
+          // file name. Still external — the real package, not a stand-in.
+          b.onResolve({ filter: /^next\/(server|headers)$/ }, (a) => ({ path: `${a.path}.js`, external: true }));
           b.onLoad({ filter: /.*/, namespace: 'empty' }, () => ({ contents: '', loader: 'js' }));
           b.onResolve({ filter: /^@\/lib\/(supabase\/server|sessions)$/ }, (a) => ({
             path: SWAPS[a.path] ?? a.path,
