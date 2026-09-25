@@ -16,6 +16,7 @@ import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
+import { PAYMENT_NOTICE, PAYMENT_NOTICE_KINDS, noticesToRaise, paymentNoticeNote } from '@/lib/payment-notice';
 import {
   resolvePrinter,
   routeItem,
@@ -1032,12 +1033,16 @@ export async function requestPayment(billId: string): Promise<void> {
   const bill = await getBill(billId);
   if (!bill) throw new Error('No such bill.');
   if (bill.status === 'closed') return; // already settled; asking again changes nothing
+  // Already waiting: a second tap raises no second pair of notifications (item 37).
+  if (bill.status === 'payment_requested') return;
 
   await db()
     .from('bill')
     .update({ status: 'payment_requested', payment_requested_at: new Date().toISOString() })
     .eq('id', billId)
     .neq('status', 'closed');
+
+  await raisePaymentNotices(bill);
 
   await audit({
     action: 'Payment requested',
@@ -1067,6 +1072,8 @@ export async function withdrawPaymentRequest(billId: string): Promise<void> {
   if (bill.status !== 'payment_requested') return; // nothing to withdraw; asking again changes nothing
 
   await db().from('bill').update({ status: 'open' }).eq('id', billId).eq('status', 'payment_requested');
+  // The request is off, so both notifications it raised are resolved (item 37).
+  await resolvePaymentNotices(billId, PAYMENT_NOTICE_KINDS);
 
   await audit({
     action: 'Payment request paused',
@@ -1196,6 +1203,8 @@ export async function closeBill(input: {
   });
 
   await queuePrint({ kind: 'Invoice', billId: input.billId, actor: input.actor });
+  // Paid: the counter's "Bill requested" is done. The captain's stays until the table is seen to.
+  await resolvePaymentNotices(input.billId, [PAYMENT_NOTICE.counter.kind]);
   return { payable: totals.payable };
 }
 
@@ -1855,4 +1864,47 @@ export async function detachTableFromBill(input: {
   });
 
   return { newBillCode: code, movedRounds: movedCount };
+}
+
+/**
+ * Raise the captain's and the bill counter's notification for a payment request (item 37) -
+ * each only if one of its kind is not already open for this bill.
+ */
+async function raisePaymentNotices(bill: Bill): Promise<void> {
+  const restaurantId = await currentRestaurantId();
+  const { data: row } = await db().from('bill').select('host_table_id').eq('id', bill.id).maybeSingle();
+  const tableId = (row?.host_table_id as string | null) ?? null;
+  if (!tableId) return;
+  const { data: open, error } = await db()
+    .from('table_request')
+    .select('kind')
+    .eq('bill_id', bill.id)
+    .is('done_at', null)
+    .in('kind', PAYMENT_NOTICE_KINDS as string[]);
+  if (error) throw error;
+  const toRaise = noticesToRaise((open ?? []).map((r) => r.kind as string));
+  if (toRaise.length === 0) return;
+  const payable = rupees(billTotals(bill).payable);
+  const { error: insErr } = await db()
+    .from('table_request')
+    .insert(
+      toRaise.map((a) => ({
+        restaurant_id: restaurantId,
+        table_id: tableId,
+        bill_id: bill.id,
+        kind: PAYMENT_NOTICE[a].kind,
+        note: paymentNoticeNote(a, bill.code, payable),
+      }))
+    );
+  if (insErr) throw insErr;
+}
+
+async function resolvePaymentNotices(billId: string, kinds: readonly string[]): Promise<void> {
+  const { error } = await db()
+    .from('table_request')
+    .update({ done_at: new Date().toISOString() })
+    .eq('bill_id', billId)
+    .is('done_at', null)
+    .in('kind', kinds as string[]);
+  if (error) throw error;
 }

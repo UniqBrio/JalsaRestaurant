@@ -1,3 +1,4 @@
+import { dailySeries } from '@/lib/report-daily';
 import { NextResponse } from 'next/server';
 import { fail, handler, ok } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
@@ -163,6 +164,8 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         share: summary.sales > 0 ? Math.round((m.amount / summary.sales) * 100) : 0,
       })),
     },
+    // The "Sales by day" chart (item 39): the same bills, the same summarise, per day.
+    daily: dailySeries(from, to, rangeBills, rangeExpenses),
     products: [...products.values()].sort((a, b) => b.revenue - a.revenue),
     categories: [...categories.values()]
       .map((c) => ({ category: c.category, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))

@@ -6,6 +6,7 @@ import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { checkReviewLink } from '@/lib/review-link';
 import { IMAGE_CONTENT_TYPE, imageProblem, isMediaUrl, sniffImage, type MediaFolder } from '@/lib/media';
 import { hashToken } from '@/lib/bridge-token';
 import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
@@ -452,6 +453,11 @@ export async function writeSetting(input: {
 }): Promise<void> {
   const permission = SETTING_PERMISSION[input.key] ?? 'set.identity';
   demand(input.actor, permission);
+  // The review link (item 40) is checked here too - the screen's word is not a check.
+  if (input.key === 'engagement' && 'reviewUrl' in input.value) {
+    const review = checkReviewLink(String(input.value.reviewUrl ?? ''));
+    if (review.state === 'invalid') throw new Error(review.reason);
+  }
   const restaurantId = await currentRestaurantId();
 
   const { data: before } = await db()

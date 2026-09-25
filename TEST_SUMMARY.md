@@ -2,6 +2,14 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, guest payment notices, WhatsApp share, report charts, review link (items 37-40)
+
+FAIL-FIRST: jalsa/tests/unit/guest-reports-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/payment-notice` absent; `whatsAppNumber`, `dailySeries`, `checkReviewLink` absent): 10 of 10 not passing; after: 10 passed.
+Superseded in place: bill-detail-wiring - viewing is held by id, read from each poll (it held the bill object, freezing the shared text).
+Unit tier: 1097 passed. Typecheck, lint: pass. Not verified from here: a real WhatsApp open on a phone; the charts on a device (no database reachable to load a real report).
+
+---
+
 ## Application run - jalsa - 2026-09-25 - 25-Sep correction list, tables & QR (items 31-36)
 
 Root cause, A5 (read from the live rows): A5 had 14 guest_session rows and six closed, released bills; the floor counted every session as a phone attached, so a free A5 was "freeable" and showed Mark free. Mark free on an empty bill voided it, and `listOpenBills` (`status <> 'closed'`) kept the VOID bill holding the table - so the button stayed and pressing it again did nothing. Also: freeTable never stamped cleared_at (a freed table went to "Needs clearing"), and an old uncleared release outranked a live bill in tableStateFrom.

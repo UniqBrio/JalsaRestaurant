@@ -1,4 +1,5 @@
 import 'server-only';
+import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
@@ -178,6 +179,7 @@ export interface OwnerPayload {
     captain: string;
     ageMinutes: number;
     urgent: boolean;
+    forCounter: boolean;
   }>;
   suggestions: Suggestion[];
   menu: Array<{
@@ -477,6 +479,8 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       captain: r.captain,
       ageMinutes: r.ageMinutes,
       urgent: r.ageMinutes >= 5,
+      /** Who the row is for (item 37): the bill counter's own, or the floor's. */
+      forCounter: isCounterNotice(r.kind),
     })),
 
     suggestions,

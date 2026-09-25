@@ -18,6 +18,8 @@ import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { readWelcomeDrinks } from '@/lib/welcome-drinks';
 import { ImagePicker } from '@/components/ui/image-picker';
+import { checkReviewLink } from '@/lib/review-link';
+import { whatsAppShareUrl } from '@/lib/bill-share';
 
 /** The zones a table can be in (item 34, 25-Sep-2026). */
 const TABLE_ZONES = ['AC', 'Non-AC', 'Terrace'] as const;
@@ -1416,6 +1418,7 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     whatsappProvider?: string;
     invoiceSentWhen?: string;
   };
+  const savedReview = (stored.reviewUrl ?? '').trim();
   const [values, setValues] = React.useState({
     callNumber: stored.callNumber ?? '',
     reviewUrl: stored.reviewUrl ?? '',
@@ -1423,6 +1426,8 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     whatsappProvider: stored.whatsappProvider ?? '',
     invoiceSentWhen: stored.invoiceSentWhen ?? 'closed',
   });
+
+  const review = checkReviewLink(values.reviewUrl);
 
   return (
     <Card className="flex flex-col gap-4">
@@ -1457,6 +1462,43 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           data-testid="owner-engage-review"
         />
       </Field>
+      {/* CHECKED, AND USABLE FROM HERE (item 40): a link that is not a working https address is
+          refused before it is saved; a saved one can be opened, shared and printed as a code. */}
+      {review.state === 'invalid' ? (
+        <p role="alert" data-testid="owner-engage-review-problem" className="m-0 -mt-2 type-caption font-semibold text-[var(--error)]">
+          {review.reason}
+        </p>
+      ) : review.state === 'ok' && review.warning ? (
+        <p data-testid="owner-engage-review-warning" className="m-0 -mt-2 type-caption text-[var(--text-muted)]">
+          {review.warning}
+        </p>
+      ) : null}
+      {review.state === 'ok' ? (
+        <div className="-mt-2 flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="secondary" data-testid="owner-engage-review-open">
+            <a data-testid="owner-engage-review-open-link" href={review.url} target="_blank" rel="noopener noreferrer">
+              Open the link
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-share">
+            <a
+              data-testid="owner-engage-review-share-link"
+              href={whatsAppShareUrl(`Enjoyed your meal? We would love a Google review: ${review.url}`)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Share on WhatsApp
+            </a>
+          </Button>
+          {savedReview === review.url ? (
+            <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-qr">
+              <a data-testid="owner-engage-review-qr-link" href="/api/owner/review-qr" target="_blank" rel="noopener noreferrer">
+                Review QR code
+              </a>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Toggle
         checked={values.askPhotos}
@@ -1494,11 +1536,15 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
       <Button
         data-testid="owner-engage-save"
-        disabled={busy}
+        disabled={busy || review.state === 'invalid'}
         className="self-start"
         onClick={() =>
           runBusy(async () => {
-            await send('/api/owner/action', { action: 'write-setting', key: 'engagement', value: values });
+            await send('/api/owner/action', {
+              action: 'write-setting',
+              key: 'engagement',
+              value: { ...values, reviewUrl: review.state === 'ok' ? review.url : '' },
+            });
             toast.show('Engagement settings saved — every guest phone picks them up on its next tap', {
               tone: 'success',
             });

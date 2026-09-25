@@ -49,7 +49,14 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
   /* Two sheets, two pieces of state, deliberately not one. Reading a closed bill and recording
      a payment are different acts on different bills, and a single `selected` would open the
      wrong one the first time both were reachable from the same table. */
-  const [viewing, setViewing] = React.useState<OwnerBillView | null>(null);
+  /* The bill being viewed, BY ID, read from this poll's data (item 38). Holding the object
+     froze it at the moment it was opened: a later discount, payment or round never reached the
+     share text, which could then send an earlier state of the bill. */
+  const [viewingId, setViewingId] = React.useState<string | null>(null);
+  const viewing: OwnerBillView | null = viewingId
+    ? ([...data.closedToday, ...data.openBills].find((b) => b.id === viewingId) ?? null)
+    : null;
+  const setViewing = (b: OwnerBillView | null): void => setViewingId(b ? b.id : null);
 
   /* The owner's saved WhatsApp template, with any gap filled from the default — which IS the
      message that shipped before it was configurable, so an owner who has never opened Templates
