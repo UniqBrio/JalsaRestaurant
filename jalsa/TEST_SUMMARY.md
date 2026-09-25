@@ -4,6 +4,20 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 2 review follow-ups - 2026-09-24 - the closed bill, a moved phone, the cold restaurant lookup
+
+A fresh-context review of fix 2 found three real regressions or gaps. Fixed:
+- every live poll downloaded the table's last CLOSED bill in full (KOTs, print jobs) and a failure there broke the live screen - now a light id+closed_at read, the full bill only for `recently_paid`, and its failure is ignored when a bill is open;
+- a phone that moved tables could be left with no session if a bill read failed after the old row was deleted - the new session is now written before any bill error propagates;
+- `currentRestaurantId` cached only the answer, so a cold instance sent one duplicate lookup per parallel read - it now caches the lookup.
+FAIL-FIRST: tests/unit/guest-rounds.unit.spec.ts (appended rungs) - against the fix-2 tree: "a closed bill is downloaded whole only for the screen that shows it" Expected false Received true; "a failed closed-bill read cannot take down a live guest screen" threw "closed-bill read failed"; "a failed bill read never leaves a moved phone without a session" Expected true Received false. 3 of 13 failed.
+NOT OBSERVED FAILING: guest-rounds rungs for the recently_paid / table_inactive / not-found / no-cookie phases and the delete-before-insert order - new coverage of behaviour that was already correct; they guard it, they did not detect a defect.
+NOT OBSERVED FAILING: the currentRestaurantId change - the fake database answers that lookup instantly, so the rig cannot see a cold instance; justified by code reading and the 952 ms first call in the 24-Sep log.
+Rig hardening: each scenario now waits for in-flight calls before collecting, so a Promise.all that bails early cannot leak its siblings into the next scenario's record. The fake still records filters without applying them; the embed syntax was checked against real PostgREST 12.2 locally, not in CI.
+Unit: 959 passed. Typecheck and lint clean. Local PostgREST: rounds unchanged, payloads identical.
+
+---
+
 ## Fix 3 of the latency run - 2026-09-24 - staff/owner actions answer with the screen
 
 FAIL-FIRST: tests/unit/action-echo.unit.spec.ts - against the pre-fix tree: staff action keys "Expected [done, state] Received [done]"; owner action "Expected value: state Received array: [done]"; currentStaff "Expected: 1 Received: 2" rounds. 3 of 6 failed; the two guard scenarios (build failure keeps the write's success, refusal carries no state) passed before and after, as they should.

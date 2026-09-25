@@ -2,6 +2,19 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Fix 2 review follow-ups
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Review of fix 2 found: every live poll downloaded
+the last closed bill in full and could fail on it; a moved phone could be left without a session
+on a failed bill read; a cold instance sent duplicate restaurant lookups. All three fixed.
+
+FAIL-FIRST: jalsa/tests/unit/guest-rounds.unit.spec.ts (appended rungs) - against the fix-2 tree: heavy closed-bill read "Expected false Received true"; live screen threw "closed-bill read failed"; moved phone insert "Expected true Received false". 3 of 13 failed.
+
+Gate run (jalsa): unit 959 passed, typecheck and lint clean; local PostgREST payloads identical.
+G8 functional was NOT run here (no database reachable from the container).
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Latency fix 3 of 5: actions answer with the screen
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** A captain's or owner's tap used to answer

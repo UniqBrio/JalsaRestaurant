@@ -68,18 +68,31 @@ export function configurationProblem(): string | null {
  * rather than assuming "the only row" means the day a second outlet appears, this function is
  * where the change lands instead of forty queries.
  */
-let restaurantId: string | null = null;
+let restaurantId: Promise<string> | null = null;
 
-export async function currentRestaurantId(): Promise<string> {
-  if (restaurantId) return restaurantId;
+/*
+ * The LOOKUP is what is remembered, not only its answer. A screen starts several reads at once,
+ * and each asks for this id first; caching only the finished value let every one of them, on a
+ * freshly started instance, send its own copy of the same query — a burst of duplicates in front
+ * of the first real read (requests/2026-09-24-app-feels-slow-measure-first.md). A failed lookup is
+ * forgotten, so the next request tries again rather than inheriting the failure.
+ */
+export function currentRestaurantId(): Promise<string> {
+  restaurantId ??= lookUpRestaurantId().catch((err: unknown) => {
+    restaurantId = null;
+    throw err;
+  });
+  return restaurantId;
+}
+
+async function lookUpRestaurantId(): Promise<string> {
   const { data, error } = await db().from('restaurant').select('id').eq('slug', RESTAURANT_SLUG).single();
   if (error || !data) {
     throw new Error(
       `No restaurant with slug "${RESTAURANT_SLUG}". Run the migrations in supabase/migrations against ${publicConfig.supabaseUrl}.`
     );
   }
-  restaurantId = data.id as string;
-  return restaurantId;
+  return data.id as string;
 }
 
 export const RESTAURANT_SLUG = 'jalsa-hosur';

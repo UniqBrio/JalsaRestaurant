@@ -28,6 +28,12 @@ export interface FakeQuery {
 export interface FakeCall {
   table: string;
   op: FakeQuery['op'];
+  /** The select list, and the filters as `kind:column`, so a scenario can tell two reads apart. */
+  cols: string;
+  filters: string[];
+  /** Keys of a written body — tells a `last_seen_at` stamp from a `bill_id` write. */
+  wrote: string[];
+  failed: boolean;
   t0: number;
   t1: number;
 }
@@ -155,8 +161,27 @@ async function run(q: FakeQuery): Promise<Answer> {
   const state = fakeDb();
   const t0 = performance.now();
   await new Promise((r) => setTimeout(r, state.latencyMs));
-  const answer = state.respond(q);
-  state.calls.push({ table: q.table, op: q.op, t0, t1: performance.now() });
+  const record = (failed: boolean) =>
+    state.calls.push({
+      table: q.table,
+      op: q.op,
+      cols: q.cols,
+      filters: q.filters.map(([k, c]) => `${k}:${c}`),
+      wrote: q.body && typeof q.body === 'object' && !Array.isArray(q.body) ? Object.keys(q.body) : [],
+      failed,
+      t0,
+      t1: performance.now(),
+    });
+  let answer: ReturnType<FakeState['respond']>;
+  try {
+    answer = state.respond(q);
+  } catch (err) {
+    // The real client answers `{ error }` and the data layer throws it; a rejection is the same
+    // thing one step earlier.
+    record(true);
+    throw err;
+  }
+  record(false);
   const rows = Array.isArray(answer) ? answer : answer === null ? [] : [answer];
   if (q.head) return { data: null, error: null, count: rows.length };
   if (q.single || q.maybe) return { data: rows[0] ?? null, error: null };

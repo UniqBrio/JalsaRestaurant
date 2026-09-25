@@ -19,7 +19,10 @@ const g = globalThis as unknown as { __fakeSession?: { guestToken?: string | nul
 export async function readGuestToken(): Promise<string | null> {
   return g.__fakeSession?.guestToken ?? null;
 }
-export async function writeGuestToken(): Promise<void> {}
+/** Records the token a route handler persisted, so a scenario can see the minted-token path ran. */
+export async function writeGuestToken(token: string): Promise<void> {
+  (globalThis as unknown as { __fakeWrittenToken?: string }).__fakeWrittenToken = token;
+}
 export function newGuestToken(): string {
   return 'minted-token';
 }

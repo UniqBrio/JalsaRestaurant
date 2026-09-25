@@ -70,6 +70,7 @@ async function run(name: string, who: unknown, opts: { failBuild?: boolean }, ca
   db.respond = responder(opts);
   g.__fakeSession = { staff: who };
   const res = await call();
+  await new Promise((r) => setTimeout(r, db.latencyMs * 4)); // stragglers land in this record
   const body = (await res.json()) as Record<string, unknown>;
   const state = body.state as Record<string, unknown> | undefined;
   return {

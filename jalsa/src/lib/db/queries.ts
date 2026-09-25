@@ -312,21 +312,27 @@ export async function openBillForTable(tableId: string): Promise<Bill | null> {
   return bill ? shapeBill(bill) : null;
 }
 
-/** The most recently closed bill on a table, for the rescan window ("scan again, bill closed"). */
-export async function lastClosedBillForTable(tableId: string): Promise<Bill | null> {
-  // One round trip, as `openBillForTable`: the same membership row, ordered the same way, with its
-  // bill embedded rather than fetched afterwards.
+/**
+ * The most recently closed bill on a table, for the rescan window ("scan again, bill closed") —
+ * as its id and closing time only.
+ *
+ * Only THAT much, because it is asked on every guest poll and needed only when the answer turns
+ * out to be "paid a few minutes ago": the caller fetches the whole bill (`getBill`) in that case
+ * alone. Fetching it whole every time downloaded the previous party's KOTs and print jobs every
+ * six seconds for a screen that never showed them (review of fix 2, 24-Sep-2026).
+ */
+export async function lastClosedOnTable(tableId: string): Promise<{ billId: string; closedAt: string | null } | null> {
   const { data, error } = await db()
     .from('bill_table')
-    .select(`released_at, bill:bill_id (${BILL_SELECT})`)
+    .select('released_at, bill:bill_id (id, closed_at)')
     .eq('table_id', tableId)
     .not('released_at', 'is', null)
     .order('released_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  const bill = (data as { bill?: Record<string, unknown> | null } | null)?.bill;
-  return bill ? shapeBill(bill) : null;
+  const bill = (data as { bill?: { id: string; closed_at: string | null } | null } | null)?.bill;
+  return bill ? { billId: bill.id, closedAt: bill.closed_at ?? null } : null;
 }
 
 export async function listOpenBills(): Promise<Bill[]> {
