@@ -3,10 +3,15 @@ import { body, fail, handler, ok } from '@/lib/route';
 import { signInWithPin } from '@/lib/db/auth';
 import { audit } from '@/lib/db/mutations';
 import { logError } from '@/lib/logger';
-import { clearStaffSession } from '@/lib/sessions';
+import { clearStaffSession, surfaceFrom } from '@/lib/sessions';
 
 /**
- * Signing in and out.
+ * Signing in and out - of ONE surface.
+ *
+ * WHICH SURFACE (24-Sep list, G2)
+ *   The owner console and the staff app keep separate sessions. The keypad on each says which it
+ *   is signing in to (`surface` in the body; anything but 'owner' is the staff app), and a
+ *   sign-in or sign-out here touches that surface's cookie and no other.
  *
  * WHY THE FAILURE MESSAGE IS DELIBERATELY UNHELPFUL
  *   A four-digit PIN has ten thousand values. Any message that separates "no such PIN" from
@@ -34,31 +39,26 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
   attempts.push(now);
 
-  const input = await body<{ pin?: string }>(req);
-  const session = await signInWithPin((input.pin ?? '').trim());
+  const input = await body<{ pin?: string; surface?: string }>(req);
+  const surface = surfaceFrom(input.surface);
+  const session = await signInWithPin((input.pin ?? '').trim(), surface);
   if (!session) {
     return fail(401, {
       code: 'unauthenticated',
       message: 'That PIN did not work. Javeed reissues it from Staff if you have forgotten yours.',
     });
   }
-  /* WHO SIGNED IN, WHERE, AND WHEN (24-Sep list, G2). Both surfaces share one sign-in, so a
-     phone signed in as the owner on /owner is signed in as the owner on /staff too - and every
-     round from it is recorded against the owner. Without this entry there was no way to tell
-     afterwards whose session a round came from. */
+  /* WHO SIGNED IN, WHERE, AND WHEN (24-Sep list, G2). Without this entry there was no way to
+     tell afterwards whose session a round came from. */
+  /* SUPERSEDED 25-Sep-2026: the surface was read from the Referer, because both surfaces shared
+     one cookie and the page was only a hint. Each surface now has its own session, so the
+     surface named here is the one this cookie opens. */
   // Best-effort and never fatal: the person IS signed in (the cookie is written), so a failed
-  // record must not turn their sign-in into an error. The surface is the page they signed in
-  // from, as the browser reports it - a hint for whoever reads the log, not a security fact.
+  // record must not turn their sign-in into an error.
   try {
-    let from = '/';
-    try {
-      from = new URL(req.headers.get('referer') ?? '/', 'http://x').pathname;
-    } catch {
-      /* a malformed Referer names no surface */
-    }
     await audit({
       action: 'Signed in',
-      detail: `${session.name} signed in on the ${from.startsWith('/owner') ? 'owner console' : 'staff app'}`,
+      detail: `${session.name} signed in on the ${surface === 'owner' ? 'owner console' : 'staff app'}`,
       actor: { staffId: session.staffId, label: session.name },
     });
   } catch (err) {
@@ -67,7 +67,14 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   return ok({ name: session.name, role: session.role, initials: session.initials });
 });
 
-export const DELETE = handler(async (): Promise<NextResponse> => {
-  await clearStaffSession();
+export const DELETE = handler(async (req: Request): Promise<NextResponse> => {
+  // An empty body (a page loaded before surfaces existed) signs out of the staff app, as before.
+  let input: { surface?: string } = {};
+  try {
+    input = (await req.json()) as { surface?: string };
+  } catch {
+    /* no body */
+  }
+  await clearStaffSession(surfaceFrom(input.surface));
   return ok({ signedOut: true });
 });

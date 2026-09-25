@@ -7,7 +7,7 @@ import { buildOwnerPayload } from '@/lib/db/owner-view';
 export const dynamic = 'force-dynamic';
 
 export const GET = handler(async (): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to open the console.' });
   }

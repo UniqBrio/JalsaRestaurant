@@ -1,5 +1,5 @@
 /**
- * The two cookie names, in a module that imports NOTHING.
+ * The cookie names, in a module that imports NOTHING.
  *
  * WHY THEY LIVE HERE AND NOT IN sessions.ts
  *   `middleware.ts` runs on the Edge runtime and needs the guest cookie's name. It cannot import
@@ -11,4 +11,7 @@
  *   So the name lives in the one place both runtimes can reach, and this file stays
  *   dependency-free on purpose. Do not add an import to it.
  */
-export const COOKIE_NAMES = { staff: 'jalsa_staff', guest: 'jalsa_guest' } as const;
+/** The two apps a member of staff signs in to, each with its own session (see sessions.ts). */
+export type Surface = 'staff' | 'owner';
+
+export const COOKIE_NAMES = { staff: 'jalsa_staff', owner: 'jalsa_owner', guest: 'jalsa_guest' } as const;

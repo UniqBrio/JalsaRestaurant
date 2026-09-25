@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import type { Surface } from '@/lib/cookie-names';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/states';
 
@@ -21,7 +22,7 @@ import { ErrorState } from '@/components/ui/states';
  *   The real input element is still there, hidden, so password managers and hardware keyboards work
  *   and so the value is announced properly.
  */
-export function PinSignIn() {
+export function PinSignIn({ surface }: { surface: Surface }) {
   const router = useRouter();
   const [pin, setPin] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
@@ -35,7 +36,7 @@ export function PinSignIn() {
         const res = await fetch('/api/staff/session', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ pin: value }),
+          body: JSON.stringify({ pin: value, surface }),
         });
         const parsed = (await res.json()) as { message?: string };
         if (!res.ok) {
@@ -50,7 +51,7 @@ export function PinSignIn() {
         setBusy(false);
       }
     },
-    [router]
+    [router, surface]
   );
 
   const press = (key: string) => {

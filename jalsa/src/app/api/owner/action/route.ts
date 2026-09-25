@@ -152,7 +152,7 @@ type Action =
  * this file cannot accidentally become a second, more generous, copy of the matrix.
  */
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
   const actor = actorFor(staff);
   const input = await body<Action>(req);

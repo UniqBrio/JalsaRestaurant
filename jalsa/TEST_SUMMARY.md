@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-25 - G2 separate owner and staff sessions (RC-022)
+
+FAIL-FIRST: jalsa/tests/unit/session-surfaces.unit.spec.ts - against main's src/: **5 failed** (no owner cookie, argument-less readers, pages, routes and clients not surface-specific); after: 5 passed; pin-and-attribution still 7 passed (its sign-in audit case now reads the surface, not the Referer).
+Functional sign-in specs stub `**/api/staff/session` and match `{ pin }` with toMatchObject, so the added `surface` field leaves them valid (not run here: G8, no database).
+
+---
+
 ## Application run - jalsa - 2026-09-25 - CI red on Node 20 (RC-021)
 
 FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts under Node 20.20.2 (`npx node@20`, CI's pinned major) against main's `ansiView`: **1 failed** (THE REGRESSION rung - the `’` never appears), 16 passed; with the Windows-1252 table: 17 passed on Node 20 and 18 passed on Node 22 (the appended rung included). The appended rung pins the table and forbids the ICU-dependent decoder.

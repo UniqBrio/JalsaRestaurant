@@ -59,6 +59,40 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-022 — One sign-in opened both the owner console and the staff app (closes RC-017's open risk)
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
+
+**Symptom** — a round placed from a captain's phone was recorded against the owner (RC-017, KOT-129).
+
+**Root cause** — `/owner` and `/staff` read the same `jalsa_staff` cookie, so signing in on either
+signed the handset in on both, and the owner's name travelled to the floor with the phone.
+RC-017 recorded who signed in where; it left the shared session itself in place.
+
+**Fix** — the owner decided "separate the sessions". The owner console has its own cookie
+(`jalsa_owner`); the staff app keeps `jalsa_staff`, so captains already signed in stay signed in.
+`readStaffSession`, `writeStaffSession`, `clearStaffSession`, `signInWithPin` and `currentStaff`
+take a required `surface`; every `/api/owner/*` route reads the owner session and every
+`/api/staff/*` floor route the staff session. The keypad, choose-PIN and sign-out send the
+surface they belong to. The sign-in audit now names that surface instead of the Referer.
+Consequence on deploy: anyone signed in to the owner console signs in once more.
+
+**Files** — `jalsa/src/lib/{cookie-names,sessions}.ts`, `jalsa/src/lib/db/auth.ts`,
+`jalsa/src/app/{owner,staff}/page.tsx`, `jalsa/src/app/api/owner/**`, `jalsa/src/app/api/staff/**`,
+`jalsa/src/features/staff/{PinSignIn,ChoosePin,StaffApp}.tsx`, `jalsa/src/features/owner/OwnerConsole.tsx`.
+
+**How to verify** — `jalsa/tests/unit/session-surfaces.unit.spec.ts`. By hand: sign in on
+/owner, open /staff on the same browser - the keypad shows.
+
+**Recurrence risk** — a new route reading a session must name its surface; there is no default,
+so the compiler asks. The spec scans all of `src/` for an argument-less reader.
+
+**Prevention** — `session-surfaces.unit.spec.ts` ("no reader anywhere asks for whichever session
+is there").
+
+**Process check** — no.
+
+---
+
 ## RC-021 — CI on main went red on Node 20 while every local run on Node 22 passed
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** print bridge packaging, CI
 

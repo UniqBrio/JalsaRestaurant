@@ -113,7 +113,11 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
 
   const signOut = () =>
     runBusy(async () => {
-      await fetch('/api/staff/session', { method: 'DELETE' });
+      await fetch('/api/staff/session', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ surface: 'staff' }),
+      });
       router.refresh();
     });
 

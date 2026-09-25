@@ -67,7 +67,7 @@ type Action =
   | { action: 'assign-waiter'; billId: string; staffId: string | null };
 
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('staff');
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
   }
