@@ -59,6 +59,31 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-023 — RC-022's split left the owner's pre-deploy sessions valid on the staff app
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
+
+**Symptom** — found in review before push: RC-022 says "anyone signed in to the owner console signs
+in once more", but the danger ran the other way.
+
+**Root cause** — RC-022 kept the staff app's cookie name `jalsa_staff` so captains stayed signed in.
+Every owner sign-in BEFORE the split had been written into that same cookie, so a captain's phone
+the owner had used would still open /staff as the owner for up to 14 hours after the deploy, and
+the owner console's new sign-out clears only `jalsa_owner`.
+
+**Fix** — the staff app's cookie is renamed `jalsa_staff_app`; the old `jalsa_staff` is honoured by
+nobody and expires on its own. Everyone, on both surfaces, signs in once after the deploy.
+**Files** — `jalsa/src/lib/cookie-names.ts`, `jalsa/tests/unit/session-surfaces.unit.spec.ts`.
+
+**How to verify** — `session-surfaces.unit.spec.ts` ("each surface has its own cookie"): no surface
+uses `jalsa_staff`.
+
+**Recurrence risk** — any rename of a session's MEANING must rename its cookie; a cookie whose
+contents change meaning in place carries old grants forward.
+
+**Prevention** — the spec above. **Process check** — yes: the review rung caught it before push.
+
+---
+
 ## RC-022 — One sign-in opened both the owner console and the staff app (closes RC-017's open risk)
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
 

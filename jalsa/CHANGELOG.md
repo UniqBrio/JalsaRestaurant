@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Changed — 25-Sep-2026 — the rest of the correction list
+
+**For Javeed.**
+- **Owner console and staff app sign in separately.** Signing in on one no longer signs the phone
+  in on the other, so a captain's handset never carries your name onto the floor. Everyone
+  signed in, on either app, signs in once more after this update.
+- **Add a dish while ordering.** On Add items (captain) and New round (owner), search for a dish;
+  if it is not on the menu, tap **+ Add "…" to the menu**, give it a price, category and food
+  type, and it goes on the menu and into the round. Only people allowed to add menu items AND set
+  prices see it (captains only if you give them both). A name already on the menu adds that dish,
+  unless it is sold out, which the screen says.
+- **Sub-menus.** Menu → **Sub-menus**: put a category under another (e.g. Biryani under Main
+  course). Reports then show **What sold by menu**, with sub-menus included, and each category
+  shows which menu it sits under. Sales already recorded keep the menu they sold under.
+- **Reissue PIN** now works on the live system (the old database function was removed).
+
+**Technical.** Migration `20260925090000_jalsa_menu_sub_categories.sql` (applied to test, then
+live); `20260917120000` applied to live. CI: Node 20 Windows-1252 decoding fixed; the two CI
+workflows no longer cancel each other. RC-021, RC-022, RC-023.
+
 ### Changed — 24-Sep-2026 — the testing correction list
 
 **For Javeed.**

@@ -27,8 +27,10 @@ function filesUnder(dir: string): string[] {
 test('each surface has its own cookie, and neither is the guest one', () => {
   const names = [COOKIE_NAMES.staff, COOKIE_NAMES.owner, COOKIE_NAMES.guest];
   expect(new Set(names).size).toBe(3);
-  // The staff app keeps the name it always had, so captains already signed in stay signed in.
-  expect(COOKIE_NAMES.staff).toBe('jalsa_staff');
+  /* SUPERSEDED 25-Sep-2026 (review): previously asserted the staff app KEPT 'jalsa_staff'. Every
+     owner sign-in before the split was written into that cookie, so an owner session on a
+     captain's phone would have survived the deploy on /staff. The old name is honoured by nobody. */
+  expect(names).not.toContain('jalsa_staff');
   const sessions = code('src/lib/sessions.ts');
   expect(sessions).toContain("(surface === 'owner' ? COOKIE_NAMES.owner : COOKIE_NAMES.staff)");
   expect(sessions).toContain("return value === 'owner' ? 'owner' : 'staff';");

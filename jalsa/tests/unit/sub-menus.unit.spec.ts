@@ -94,8 +94,15 @@ test('only a holder of menu.category sets a parent; a refusal is a sentence, sco
   expect(route).toContain(
     "if (err instanceof SubMenuRefused) return fail(400, { code: 'validation', message: err.message });"
   );
+  // The trigger's own refusal is a sentence too, not a 500 (review, 25-Sep-2026).
+  expect(fn).toContain("if (error?.code === '23514') throw new SubMenuRefused(error.message);");
   const menu = code('src/features/owner/sections/MenuSection.tsx');
   expect(menu).toContain("const canManageCategories = data.grants.includes('menu.category');");
   expect(menu).toContain('const choices = parentChoices(data.categories, c.id);');
-  expect(menu).toContain("action: 'set-category-parent', categoryId: c.id, parentId");
+  // Choosing where it already sits writes nothing and audits nothing (review, 25-Sep-2026).
+  expect(menu).toContain('if ((byId.get(categoryId)?.parentId ?? null) === parentId) return;');
+  expect(menu).toContain("action: 'set-category-parent', categoryId, parentId");
+  // A category is an id: picked with the combobox, never a static select.
+  expect(menu).toContain('testId={`owner-sub-menu-parent-${c.id}`}');
+  expect(menu).toContain('options={choices.map((p) => ({ value: p.id, label: p.name }))}');
 });

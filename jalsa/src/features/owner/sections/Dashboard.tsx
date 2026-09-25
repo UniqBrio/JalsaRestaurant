@@ -13,7 +13,7 @@ import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
 import { NewDishOffer } from '@/components/ui/new-dish';
-import { canAddDish } from '@/lib/new-dish';
+import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { readWelcomeDrinks, welcomeDrinksToOffer, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
 
 /**
@@ -533,18 +533,12 @@ function NewRoundSheet({
             categories={categories}
             disabled={busy}
             testIdPrefix="owner-new-round"
-            onCreate={(dish) =>
-              send<{ id: string; existed: boolean }>('/api/owner/action', { action: 'add-dish', ...dish })
-            }
-            onAdded={(id, dish, existed) => {
-              setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+            onCreate={(dish) => send<NewDishSaved>('/api/owner/action', { action: 'add-dish', ...dish })}
+            onAdded={(saved, dish) => {
+              const next = afterDishSaved(cart, saved, dish.name);
+              setCart(next.cart);
               setQuery(dish.name);
-              toast.show(
-                existed
-                  ? `${dish.name} was already on the menu - added to this round at its menu price`
-                  : `${dish.name} added to the menu and to this round`,
-                { tone: 'success' }
-              );
+              toast.show(next.message, { tone: next.tone });
             }}
           />
         ) : null}

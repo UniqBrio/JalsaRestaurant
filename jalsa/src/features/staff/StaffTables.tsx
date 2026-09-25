@@ -24,7 +24,7 @@ import type { StaffScreenProps } from './StaffApp';
 import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
 import { NewDishOffer } from '@/components/ui/new-dish';
-import { canAddDish } from '@/lib/new-dish';
+import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { isFirstOrder, welcomeDrinksToOffer } from '@/lib/welcome-drinks';
 
 /**
@@ -811,19 +811,13 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
           categories={data.menuCategories}
           disabled={busy}
           testIdPrefix="staff-add"
-          onCreate={(dish) =>
-            send<{ id: string; existed: boolean }>('/api/staff/action', { action: 'add-dish', ...dish })
-          }
-          onAdded={(id, dish, existed) => {
-            setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+          onCreate={(dish) => send<NewDishSaved>('/api/staff/action', { action: 'add-dish', ...dish })}
+          onAdded={(saved, dish) => {
+            const next = afterDishSaved(cart, saved, dish.name);
+            setCart(next.cart);
             setCategory('All');
             setQuery(dish.name);
-            toast.show(
-              existed
-                ? `${dish.name} was already on the menu - added to this round at its menu price`
-                : `${dish.name} added to the menu and to this round`,
-              { tone: 'success' }
-            );
+            toast.show(next.message, { tone: next.tone });
           }}
         />
       ) : null}

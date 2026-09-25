@@ -5,8 +5,8 @@ import type { FoodType } from '@/lib/status';
  *
  * A guest asks for something the menu does not list yet. The captain's Add items screen and the
  * owner's New round sheet offer a "+" that creates the menu item and puts it in the round - through
- * the SAME write the Menu section uses (`upsertMenuItem`), under the SAME grant (`menu.item_edit`),
- * so there is one way a dish reaches the menu and one audit line for it.
+ * the SAME write the Menu section uses (`upsertMenuItem`), under its grant (`menu.item_edit`) plus
+ * `menu.price_edit`, so there is one way a dish reaches the menu and one audit line for it.
  *
  * NO DUPLICATES
  *   `menu_item_name_unique` is `(restaurant_id, lower(btrim(name)))`. The screen hides the offer
@@ -24,11 +24,44 @@ export interface NewDish {
   foodType: FoodType;
 }
 
-export const NEW_DISH_GRANT = 'menu.item_edit';
+/**
+ * Both grants: adding the item, and setting its price. A new dish IS a price, so a person who may
+ * add items but not set prices must not be able to create "Chicken Biryani (L)" at ₹1 from the
+ * floor and order it (review, 25-Sep-2026).
+ */
+/** What saving answers: the dish's id, whether it was already on the menu, and whether it can be ordered. */
+export interface NewDishSaved {
+  id: string;
+  existed: boolean;
+  available: boolean;
+}
 
-/** May this person add a dish from the ordering screen? The grant the Menu section asks for. */
+/**
+ * What the ordering screen does with a saved dish: put one in the round, or - a dish that was
+ * already on the menu and is sold out - leave the round alone and say why.
+ */
+export function afterDishSaved(
+  cart: Record<string, number>,
+  saved: NewDishSaved,
+  name: string
+): { cart: Record<string, number>; message: string; tone: 'success' | 'neutral' } {
+  if (!saved.available) {
+    return { cart, message: `${name} is already on the menu and sold out - nothing was added`, tone: 'neutral' };
+  }
+  return {
+    cart: { ...cart, [saved.id]: (cart[saved.id] ?? 0) + 1 },
+    message: saved.existed
+      ? `${name} was already on the menu - added to this round at its menu price`
+      : `${name} added to the menu and to this round`,
+    tone: 'success',
+  };
+}
+
+export const NEW_DISH_GRANTS = ['menu.item_edit', 'menu.price_edit'] as const;
+
+/** May this person add a dish from the ordering screen? */
 export function canAddDish(grants: readonly string[]): boolean {
-  return grants.includes(NEW_DISH_GRANT);
+  return NEW_DISH_GRANTS.every((g) => grants.includes(g));
 }
 
 /** The key the database's unique index compares on. */

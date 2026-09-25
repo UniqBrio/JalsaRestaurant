@@ -6,7 +6,7 @@ import { Card } from './atoms';
 import { Combobox } from './combobox';
 import { Field, Input, Select } from './field';
 import { FOOD_TYPE, type FoodType } from '@/lib/status';
-import { existingDish, newDishProblem, type NewDish } from '@/lib/new-dish';
+import { dishKey, newDishProblem, type NewDish, type NewDishSaved } from '@/lib/new-dish';
 
 const FOOD_TYPES: FoodType[] = ['veg', 'non_veg', 'egg'];
 
@@ -34,9 +34,9 @@ export function NewDishOffer({
   menu: ReadonlyArray<{ name: string }>;
   categories: ReadonlyArray<{ id: string; name: string }>;
   /** Saves it. Resolves to the dish's id - the existing one when the name was already taken. */
-  onCreate: (dish: NewDish) => Promise<{ id: string; existed: boolean }>;
-  /** Called once the dish exists: the parent puts it in the round and says so. */
-  onAdded: (id: string, dish: NewDish, existed: boolean) => void;
+  onCreate: (dish: NewDish) => Promise<NewDishSaved>;
+  /** Called once the dish exists: the parent puts it in the round (unless sold out) and says so. */
+  onAdded: (saved: NewDishSaved, dish: NewDish) => void;
   disabled?: boolean;
   testIdPrefix: string;
 }) {
@@ -49,7 +49,9 @@ export function NewDishOffer({
   const [saving, setSaving] = React.useState(false);
 
   const typed = query.trim();
-  const unlisted = typed.length > 0 && existingDish(menu, typed) === null;
+  /* The searched name is offered only when the search found no dish at all: "chick" beside
+     Chicken Biryani is a search, not a new dish (review, 25-Sep-2026). */
+  const unlisted = typed.length > 0 && !menu.some((m) => dishKey(m.name).includes(dishKey(typed)));
 
   const start = () => {
     setName(unlisted ? typed : '');
@@ -70,9 +72,9 @@ export function NewDishOffer({
     setSaving(true);
     setProblem(null);
     try {
-      const res = await onCreate(dish);
+      const saved = await onCreate(dish);
       setOpen(false);
-      onAdded(res.id, dish, res.existed);
+      onAdded(saved, dish);
     } catch (err) {
       setProblem(err instanceof Error ? err.message : 'That dish was not saved. Try again.');
     } finally {
@@ -134,7 +136,7 @@ export function NewDishOffer({
           </Select>
         </Field>
       </div>
-      <Field label="Category" required htmlFor={`${testIdPrefix}-new-dish-cat`} error={problem}>
+      <Field label="Category" required htmlFor={`${testIdPrefix}-new-dish-cat`}>
         <Combobox
           id={`${testIdPrefix}-new-dish-cat`}
           testId={`${testIdPrefix}-new-dish-category`}
@@ -145,6 +147,16 @@ export function NewDishOffer({
           emptyLabel="No matching categories"
         />
       </Field>
+      {/* One place for every refusal - the name, the price or the server's - not under one field. */}
+      {problem ? (
+        <p
+          className="m-0 type-caption font-semibold text-[var(--error)]"
+          role="alert"
+          data-testid={`${testIdPrefix}-new-dish-problem`}
+        >
+          {problem}
+        </p>
+      ) : null}
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           data-testid={`${testIdPrefix}-new-dish-cancel`}

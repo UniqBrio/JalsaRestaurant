@@ -2,11 +2,42 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - review fixes (G2, E1, I3)
+
+Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-023 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).
+FAIL-FIRST: against the pre-fix src/: session-surfaces + sub-menus + combobox-migration **3 failed**, 26 passed; new-dish (rule module kept) **3 failed**, 5 passed; after: all pass. Specs updated in place with dated SUPERSEDED notes (added in this same unpushed branch).
+NOT CHANGED, raised with the owner: "Skip for now" on choose-PIN has no effect - `currentStaff` re-reads `pin_provisional` from the row on every request (since 10-Sep, 08d2dc2), so the cookie the skip rewrites is not what the pages gate on; fixing it needs a decision against guardrail 5. The one-level sub-menu trigger takes no lock: two owners re-parenting in opposite directions at the same instant could make two levels (low; a follow-up migration with an advisory lock would close it). `listMenu` ignores the category read's error (pre-existing).
+
+---
+
 ## Application run - jalsa - 2026-09-25 - I3 sub-menus and sales by menu
 
 FAIL-FIRST: jalsa/tests/unit/sub-menus.unit.spec.ts - `parentChoices` injected to offer sub-menus as parents and reverted: **1 failed**; against main's mutations, queries, routes and screens (rule module and migration kept): **3 failed** (snapshot, report roll-up, the owner's panel and verb); after: 7 passed. report-gst-split and print-assignment unchanged and passing (the single walk and `catKey` line are kept).
 Migration `20260925090000_jalsa_menu_sub_categories.sql`: applied to TEST (uxmyomxtosjlkvjxnvpy), trigger exercised in a rolled-back DO block (accepted: sub-menu under a top-level; refused: under a sub-menu, under itself, a parent moved under another, deleting a parent; 0 rows left behind), then to LIVE (yxgxmbyilpivbmeemqkp): both columns and the trigger present, 0 sub-menus, 57 order lines untouched. The code reading the new columns is committed only after that - the 22-Sep lesson.
 Not run here: the screens in a browser (G8). Needs a tester: Menu → Sub-menus → put a category under another → close a bill with a dish from it → Reports shows "What sold by menu" with the sub-menu counted under its menu.
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: BLOCKED
+
+Steps: 8 pass, 0 fail, 4 blocked.
+Time: 3.7s total - slowest G10 Backward compatibility (fixtures) (3.3s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (109ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (52ms)
+- **G3 Theme assets present per theme** - PASS (52ms)
+- **G4 No hard-coded colours** - PASS (55ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" in starter - not fetched from the registry on purpose. Run `npm install` in starter (provides typescript), or state why this class is unverified. - **21 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass - **21 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass - **21 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (52ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (52ms)
+- **G12 Installable as an application** - PASS (55ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
 
 ---
 

@@ -95,6 +95,7 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | Menu — view, mark sold out | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Menu — edit items, prices, categories | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Menu — **add a dish from the ordering screen** (same `menu.item_edit`, added 25-Sep-2026, E1 — the "+" on Add items and New round shows only to a holder; a captain gets it only when the owner grants it) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Menu — **add a dish from the ordering screen, as corrected in review** (25-Sep-2026: `menu.item_edit` **and** `menu.price_edit` - a new dish sets a price; supersedes the row above) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Bills — see a bill and its total** | ✅ | **❌** | ❌ | ✅ | ✅ |
 | Bills — record payment, reprint | ✅ | ❌ | ❌ | ✅ | ✅ |
 | Bills — discounts | ❌ | ❌ | ❌ | percentage only | ✅ |

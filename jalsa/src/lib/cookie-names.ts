@@ -14,4 +14,8 @@
 /** The two apps a member of staff signs in to, each with its own session (see sessions.ts). */
 export type Surface = 'staff' | 'owner';
 
-export const COOKIE_NAMES = { staff: 'jalsa_staff', owner: 'jalsa_owner', guest: 'jalsa_guest' } as const;
+/* SUPERSEDED 25-Sep-2026 (review): the staff app first KEPT `jalsa_staff`. Every owner sign-in
+   before the split was written into that cookie, so a captain's phone the owner had used stayed
+   signed in as the owner on /staff for up to 14 hours after the deploy - the very defect the split
+   fixes. Both surfaces take new names; everyone signs in once more. */
+export const COOKIE_NAMES = { staff: 'jalsa_staff_app', owner: 'jalsa_owner', guest: 'jalsa_guest' } as const;

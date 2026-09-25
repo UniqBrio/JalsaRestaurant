@@ -134,7 +134,12 @@ test('the 11 static selects were left alone', () => {
   const remaining = tsx
     .filter((f) => !f.endsWith('components/ui/field.tsx'))
     .flatMap((f) => (read(f).match(/<Select\b/g) ?? []).map(() => f));
-  expect(remaining.length, 'exactly the eleven the audit said to keep').toBe(11);
+  /* SUPERSEDED 25-Sep-2026: previously exactly 11. The twelfth is the food-type choice on the
+     "new dish" form (E1, components/ui/new-dish.tsx): the same three-value enum as the Menu
+     item's own food-type select, which the audit kept static - not an id picker. The sub-menu
+     parent picker added the same day is an id picker and uses the combobox. */
+  expect(remaining.length, 'the eleven the audit kept, plus the new-dish food type').toBe(12);
+  expect(remaining.filter((f) => f.endsWith('components/ui/new-dish.tsx'))).toHaveLength(1);
 });
 
 test('creating a category reuses an existing one rather than making a second', () => {

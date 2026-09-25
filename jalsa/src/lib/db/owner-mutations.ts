@@ -2,7 +2,7 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
-import { existingDish, type NewDish } from '@/lib/new-dish';
+import { NEW_DISH_GRANTS, existingDish, type NewDish } from '@/lib/new-dish';
 import { subMenuProblem } from '@/lib/sub-menus';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
@@ -124,6 +124,9 @@ export async function setCategoryParent(input: {
     .eq('id', input.categoryId)
     .eq('restaurant_id', restaurantId)
     .select('id');
+  // The trigger's own refusal (a change made elsewhere since the read above) is the same kind of
+  // answer: its message is the sentence, raised as check_violation.
+  if (error?.code === '23514') throw new SubMenuRefused(error.message);
   if (error) throw error;
   if (!updated || updated.length !== 1) throw new SubMenuRefused('That category is not on this menu.');
 
@@ -153,8 +156,11 @@ export class SubMenuRefused extends Error {}
 export async function addDishWhileOrdering(input: NewDish & { actor: Actor }): Promise<{
   id: string;
   existed: boolean;
+  available: boolean;
 }> {
   const name = input.name.trim();
+  // The price is set here, so the price grant is asked for as well as the item grant.
+  for (const grant of NEW_DISH_GRANTS) demand(input.actor, grant);
   try {
     const { id } = await upsertMenuItem({
       name,
@@ -163,15 +169,19 @@ export async function addDishWhileOrdering(input: NewDish & { actor: Actor }): P
       foodType: input.foodType,
       actor: input.actor,
     });
-    return { id, existed: false };
+    return { id, existed: false, available: true };
   } catch (err) {
     if ((err as { code?: string } | null)?.code !== '23505') throw err;
     const restaurantId = await currentRestaurantId();
-    const { data, error } = await db().from('menu_item').select('id,name').eq('restaurant_id', restaurantId);
+    const { data, error } = await db()
+      .from('menu_item')
+      .select('id,name,available')
+      .eq('restaurant_id', restaurantId);
     if (error) throw error;
-    const found = existingDish((data ?? []) as Array<{ id: string; name: string }>, name);
+    const found = existingDish((data ?? []) as Array<{ id: string; name: string; available: boolean }>, name);
     if (!found) throw err;
-    return { id: found.id, existed: true };
+    // Sold out is said, not discovered as a refused round at Send.
+    return { id: found.id, existed: true, available: found.available === true };
   }
 }
 

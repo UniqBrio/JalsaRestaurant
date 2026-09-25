@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { canAddDish, dishKey, existingDish, newDishProblem } from '../../src/lib/new-dish';
+import { afterDishSaved, canAddDish, dishKey, existingDish, newDishProblem } from '../../src/lib/new-dish';
 
 /**
  * Add a dish from the ordering screen (24-Sep correction list, E1).
@@ -14,9 +14,27 @@ import { canAddDish, dishKey, existingDish, newDishProblem } from '../../src/lib
 const MENU = [{ name: 'Mutton Biryani' }, { name: 'Sweet Lassi' }];
 const GOOD = { name: 'Paneer Tikka', price: 280, categoryId: 'starters', foodType: 'veg' as const };
 
-test('only a holder of menu.item_edit is offered the "+"', () => {
-  expect(canAddDish(['menu.item_edit', 'orders.add_items'])).toBe(true);
+test('only a holder of menu.item_edit AND menu.price_edit is offered the "+"', () => {
+  /* SUPERSEDED 25-Sep-2026 (review): previously menu.item_edit alone was enough. A new dish IS a
+     price, so a person who may add items but not set prices could create a dish at ₹1 from the
+     floor and order it. Both grants are now required, on the screen and on the server. */
+  expect(canAddDish(['menu.item_edit', 'menu.price_edit', 'orders.add_items'])).toBe(true);
+  expect(canAddDish(['menu.item_edit', 'orders.add_items'])).toBe(false);
   expect(canAddDish(['orders.add_items', 'menu.view', 'menu.availability'])).toBe(false);
+});
+
+test('a saved dish goes in the round once; an existing sold-out one does not, and the screen says so', () => {
+  expect(afterDishSaved({}, { id: 'n', existed: false, available: true }, 'Paneer Tikka')).toEqual({
+    cart: { n: 1 },
+    message: 'Paneer Tikka added to the menu and to this round',
+    tone: 'success',
+  });
+  expect(afterDishSaved({ n: 2 }, { id: 'n', existed: true, available: true }, 'Paneer Tikka').cart).toEqual({
+    n: 3,
+  });
+  const soldOut = afterDishSaved({ x: 1 }, { id: 'n', existed: true, available: false }, 'Paneer Tikka');
+  expect(soldOut.cart).toEqual({ x: 1 });
+  expect(soldOut.message).toContain('sold out');
 });
 
 test('a name the menu already has is that dish - case and outer spaces do not make a new one', () => {
@@ -55,7 +73,10 @@ test('the server writes through upsertMenuItem, and a duplicate returns the exis
   expect(fn).not.toMatch(/from\('menu_item'\)\s*\.insert/);
   expect(fn).toContain("?.code !== '23505') throw err;");
   expect(fn).toContain('existingDish(');
-  expect(fn).toContain('return { id: found.id, existed: true };');
+  /* SUPERSEDED 25-Sep-2026 (review): previously `return { id: found.id, existed: true }` - an
+     existing sold-out dish was put in the round and refused at Send. Its availability comes back. */
+  expect(fn).toContain('return { id: found.id, existed: true, available: found.available === true };');
+  expect(fn).toContain('for (const grant of NEW_DISH_GRANTS) demand(input.actor, grant);');
   // The grant the Menu section demands for an insert.
   const upsert = bodyOf('src/lib/db/owner-mutations.ts', 'export async function upsertMenuItem');
   expect(upsert).toContain("'menu.item_edit'");
@@ -76,10 +97,10 @@ test('both routes validate first, then use the one write', () => {
 test('both ordering screens offer it only to a holder, and put the new dish in the round', () => {
   const staff = code('src/features/staff/StaffTables.tsx');
   expect(staff).toContain('{canAddDish(data.grants) ? (');
-  expect(staff).toContain(
-    "send<{ id: string; existed: boolean }>('/api/staff/action', { action: 'add-dish', ...dish })"
-  );
-  expect(staff).toContain('setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));');
+  /* SUPERSEDED 25-Sep-2026 (review): previously the screen added the dish to the cart inline;
+     both screens now share `afterDishSaved`, which leaves a sold-out existing dish out. */
+  expect(staff).toContain("send<NewDishSaved>('/api/staff/action', { action: 'add-dish', ...dish })");
+  expect(staff).toContain('const next = afterDishSaved(cart, saved, dish.name);');
   expect(staff).toContain('categories={data.menuCategories}');
   expect(code('src/lib/db/staff-view.ts')).toContain(
     'menuCategories: categories.map((c) => ({ id: c.id, name: c.name })),'
@@ -87,10 +108,8 @@ test('both ordering screens offer it only to a holder, and put the new dish in t
 
   const owner = code('src/features/owner/sections/Dashboard.tsx');
   expect(owner).toContain('{canAddDish(grants) ? (');
-  expect(owner).toContain(
-    "send<{ id: string; existed: boolean }>('/api/owner/action', { action: 'add-dish', ...dish })"
-  );
-  expect(owner).toContain('setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));');
+  expect(owner).toContain("send<NewDishSaved>('/api/owner/action', { action: 'add-dish', ...dish })");
+  expect(owner).toContain('const next = afterDishSaved(cart, saved, dish.name);');
   expect(owner).toContain('grants={data.grants}');
 
   // The list refreshes through the live-data hook's own send: a write that echoes no state is
@@ -100,9 +119,10 @@ test('both ordering screens offer it only to a holder, and put the new dish in t
 
 test('the form offers the searched name, and nothing is added before the server answers', () => {
   const ui = code('src/components/ui/new-dish.tsx');
-  expect(ui).toContain('const unlisted = typed.length > 0 && existingDish(menu, typed) === null;');
+  /* SUPERSEDED 25-Sep-2026 (review): previously offered any name not listed EXACTLY, so "chick"
+     beside Chicken Biryani offered a dish called "chick". Now only when the search found nothing. */
+  expect(ui).toContain('!menu.some((m) => dishKey(m.name).includes(dishKey(typed)))');
+  expect(ui).toContain('data-testid={`${testIdPrefix}-new-dish-problem`}');
   expect(ui).toContain("setName(unlisted ? typed : '');");
-  expect(ui).toMatch(
-    /const res = await onCreate\(dish\);\s*setOpen\(false\);\s*onAdded\(res\.id, dish, res\.existed\);/
-  );
+  expect(ui).toMatch(/const saved = await onCreate\(dish\);\s*setOpen\(false\);\s*onAdded\(saved, dish\);/);
 });

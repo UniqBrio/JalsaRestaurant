@@ -380,6 +380,19 @@ export { Toggle };
 function SubMenusPanel({ data, send, runBusy, busy }: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'>) {
   const toast = useToast();
   const byId = new Map(data.categories.map((c) => [c.id, c]));
+  const move = (categoryId: string, name: string, parentId: string | null) => {
+    // Choosing where it already sits changes nothing, and must not write an audit line saying so.
+    if ((byId.get(categoryId)?.parentId ?? null) === parentId) return;
+    runBusy(async () => {
+      await send('/api/owner/action', { action: 'set-category-parent', categoryId, parentId });
+      toast.show(
+        parentId
+          ? `${name} is now a sub-menu of ${byId.get(parentId)?.name ?? 'that menu'}`
+          : `${name} is a top-level menu again`,
+        { tone: 'success' }
+      );
+    });
+  };
   return (
     <section data-testid="owner-sub-menus">
       <SectionLabel>Sub-menus</SectionLabel>
@@ -400,36 +413,33 @@ function SubMenusPanel({ data, send, runBusy, busy }: Pick<OwnerSectionProps, 'd
                     Sub-menus: {children.map((k) => k.name).join(', ')}
                   </span>
                 ) : (
-                  <Select
-                    aria-label={`${c.name} sits under`}
-                    className="max-w-[14rem]"
-                    value={c.parentId ?? ''}
-                    disabled={busy}
-                    data-testid={`owner-sub-menu-parent-${c.id}`}
-                    onChange={(e) => {
-                      const parentId = e.target.value || null;
-                      runBusy(async () => {
-                        await send('/api/owner/action', {
-                          action: 'set-category-parent',
-                          categoryId: c.id,
-                          parentId,
-                        });
-                        toast.show(
-                          parentId
-                            ? `${c.name} is now a sub-menu of ${byId.get(parentId)?.name ?? 'that menu'}`
-                            : `${c.name} is a top-level menu again`,
-                          { tone: 'success' }
-                        );
-                      });
-                    }}
-                  >
-                    <option value="">Top level</option>
-                    {choices.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        Under {p.name}
-                      </option>
-                    ))}
-                  </Select>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {/* A category is an id, so it is picked with the one picker (the combobox
+                        standardisation), never a static select. */}
+                    <span className="w-[14rem]">
+                      <Combobox
+                        testId={`owner-sub-menu-parent-${c.id}`}
+                        ariaLabel={`${c.name} sits under`}
+                        value={c.parentId ?? ''}
+                        disabled={busy}
+                        options={choices.map((p) => ({ value: p.id, label: p.name }))}
+                        placeholder="Top level - choose a menu"
+                        emptyLabel="No top-level menu matches"
+                        onValueChange={(parentId) => move(c.id, c.name, parentId)}
+                      />
+                    </span>
+                    {c.parentId ? (
+                      <Button
+                        data-testid={`owner-sub-menu-top-${c.id}`}
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => move(c.id, c.name, null)}
+                      >
+                        Move to top level
+                      </Button>
+                    ) : null}
+                  </span>
                 )}
               </li>
             );
