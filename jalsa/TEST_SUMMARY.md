@@ -4,6 +4,94 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Run - 2026-09-25 - gate, read honestly (25-Sep correction list, final)
+
+The two gate reports below say G8 FAIL. What actually ran, with the image's Chromium (`PLAYWRIGHT_CHROMIUM_PATH`, KL-3) and `npm run dev` on :3000: **80 functional cases passed** - every journey mocked at the API boundary (sign-in, keyboard parity, degraded screen, owner and captain screens); **16 failed = 4 specs x 4 viewports**, all database-bound: `reachability` (needs the seeded test DB), `guest-journey`, `closure-upsell-tip`, `guest-total-visibility` (all fail on their first line, `/t/<table>` showing the designed `unreachable-guest` screen); **32 did not run** (serial files after that first failure). Cause, verified: the container's egress proxy denies `*.supabase.co` (connect_rejected, organization policy), so no server started here can reach either project - the same class every 24-Sep run recorded as BLOCKED. The first report below (144 failed) is the run before the Chromium override, where no browser launched at all. G1-G7, G9-G12: PASS.
+Owner decision, as the runner says: G8's database-bound class is not verified from this container. Run `npm run test:functional` from a machine that reaches `uxmyomxtosjlkvjxnvpy` before merge.
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 5m 06s total - slowest G8 Functional / integration (4m 16s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (59ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (59ms)
+- **G3 Theme assets present per theme** - PASS (54ms)
+- **G4 No hard-coded colours** - PASS (80ms)
+- **G5 Types** - PASS (12.2s)
+- **G6 Lint** - PASS (14.9s)
+- **G7 Unit + pure specs** - PASS (18.7s)
+- **G8 Functional / integration** - FAIL (4m 16s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (64ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (68ms)
+- **G12 Installable as an application** - PASS (81ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 2m 12s total - slowest G8 Functional / integration (1m 07s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (112ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (74ms)
+- **G3 Theme assets present per theme** - PASS (126ms)
+- **G4 No hard-coded colours** - PASS (343ms)
+- **G5 Types** - PASS (14.9s)
+- **G6 Lint** - PASS (17.4s)
+- **G7 Unit + pure specs** - PASS (28.0s)
+- **G8 Functional / integration** - FAIL (1m 07s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (75ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (67ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## Run - 2026-09-25 - 25-Sep correction list, code-review fixes
 
 Review (REQUEST CHANGES, 2 blockers, 7 major, 12 minor). Fixed: new columns read before their migrations (applied to both projects before this branch can deploy; kotPrintableItems no longer turns a read error into an empty round); the floor's unbounded session `.in()` (now carts via an inner join + sessions on open bills only); "Set all" as a URL-sized id list (one update by restaurant; lists chunked by 100); a dish's printer changeable without `set.printer`; routing to an Invoice printer; the daily chart silently cut at 92 days; tipped bills printing a TOTAL without the tip; a big TOTAL and item figures clipped (never cut now; a space between every column); `large` never reaching the printer (font B at GS ! 0x11); two-tap duplicate notices (partial unique index, 23505 ignored; freeTable resolves them; the floor badge leaves the counter's out); the category routing table ignoring the default station; addCategory half-succeeding; unchecked upload/station input; 0% tax on the test bill; a test KOT to a bill printer always blocked; a half-written DLL; no index behind `on delete set null`; two misplaced doc comments; a look-alike Google host.
