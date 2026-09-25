@@ -511,11 +511,14 @@ export async function listFloor(): Promise<FloorTable[]> {
      for ever, free or not. */
   const sessions = (phonesRes.data ?? []) as Array<{ id: string; table_id: string; bill_id: string | null }>;
   const withCart = new Set<string>();
-  if (sessions.length) {
+  // Only a session with no bill can hold a table by its cart, so only those are looked up - the
+  // rest pile up on paid bills and would only lengthen the query.
+  const unbilled = sessions.filter((x) => !x.bill_id).map((x) => x.id);
+  if (unbilled.length) {
     const { data: carts, error: cartErr } = await db()
       .from('guest_cart_line')
       .select('session_id')
-      .in('session_id', sessions.map((x) => x.id));
+      .in('session_id', unbilled);
     if (cartErr) throw cartErr;
     for (const c of carts ?? []) withCart.add(c.session_id as string);
   }

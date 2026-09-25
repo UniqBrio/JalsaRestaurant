@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Changed — 25-Sep-2026 — the 40-item correction list
+
+**For Javeed — printers.**
+- **Printers** lists every printer, each with **Added on**, **Last printed**, and a **Delete** that asks
+  first and names the printer. Old tickets stay in History.
+- The **10:15** you saw was not a print: it was the last time the kitchen PC checked in (10:15 pm on
+  24-Sep). Bridges now say **Last ticket** and **last in touch**, each with its date.
+- **Bills print in the order the items were ordered**, in clean columns — Item, Qty, Rate, Amount —
+  with the totals lined up underneath and a large TOTAL that fits the paper. The big lines (the
+  restaurant name, the KOT number) no longer run off the edge.
+- **One bill format everywhere**: the counter printer, the preview, and **Print** on a bill all show
+  the same invoice. It no longer counts a cancelled round.
+- **Preview | Test Print** next to every printer, for a **KOT** or a **Bill**.
+- **KOT template**: every line is **Off / On / Always on**. The restaurant's phone and address are
+  now off on kitchen tickets.
+- **Printing is faster** and uses the full paper width — this needs the new Jalsa Print Bridge
+  (2.1.0) installed on the kitchen PC.
+- As you asked: only **RP3160 GOLD(U) 1** is kept, and the four old disconnected bridges are
+  removed. Its computer, **Kitchen PC**, still prints.
+
+**Menu and routing.** Add Item takes a **photo** (PNG or JPEG, up to 1 MB), shown on the guest's
+menu; **Food type** is searched like Category; each dish can have its own **Printer**. Routing lists
+every dish with its own **Station** and **Printer**, and **Set all dishes to…** changes every
+dish's station at once after asking. A new **category** can be given its printer. **Settings →
+Printers & machines → Default station** decides where a dish goes when nothing else does.
+
+**Tables and QR.** **Restaurant details → Logo**: upload your logo; it appears in the middle of
+every QR code and at the door. **Scan to Block Your Table** is a poster for the entrance. **Zone**
+is AC, Non-AC or Terrace. **Mark free** now only shows on a table that is holding something, and
+after you press it the table reads Free (A5 fixed).
+
+**Guests and payments.** When a guest asks to pay, the **captain** is told to see to the table and
+the **bill counter** is told the bill is wanted — separately, once. **Share to WhatsApp** can send
+straight to the guest's number. **Reports** show **Sales by day** and **Sales by category**. The
+**Google review link** is checked before it is saved, and can be opened, shared and printed as a QR.
+
+Not yet: nothing here has been printed on the TVS or opened on a phone from here — see the run
+notes. The Google review link saved today is the placeholder from setup
+(`https://g.page/r/jalsa-hosur/review`); replace it with your real one under Customer engagement.
+
 ### Changed — 24-Sep-2026 — the testing correction list
 
 **For Javeed.**
