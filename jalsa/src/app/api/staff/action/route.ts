@@ -18,6 +18,8 @@ import {
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { getBill } from '@/lib/db/queries';
+import { addDishWhileOrdering } from '@/lib/db/owner-mutations';
+import { newDishProblem, type NewDish } from '@/lib/new-dish';
 import { db } from '@/lib/supabase/server';
 import type { KotStatus } from '@/lib/status';
 
@@ -64,7 +66,8 @@ type Action =
   | { action: 'free-table'; tableId: string }
   | { action: 'clear-table'; tableId: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
-  | { action: 'assign-waiter'; billId: string; staffId: string | null };
+  | { action: 'assign-waiter'; billId: string; staffId: string | null }
+  | ({ action: 'add-dish' } & NewDish);
 
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff('staff');
@@ -188,6 +191,22 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       // `reassignBillStaff`, not here, so the two doors cannot disagree.
       await reassignBillStaff({ billId: input.billId, role: 'waiter', staffId: input.staffId, actor });
       return ok({ done: true });
+
+    case 'add-dish': {
+      // A dish the menu does not list yet, added from the ordering screen (E1): the Menu
+      // section's own write and grant; a duplicate name comes back as the existing dish.
+      const problem = newDishProblem(input);
+      if (problem) return fail(400, { code: 'validation', message: problem });
+      return ok(
+        await addDishWhileOrdering({
+          name: input.name,
+          price: input.price,
+          categoryId: input.categoryId,
+          foodType: input.foodType,
+          actor,
+        })
+      );
+    }
 
     default:
       return fail(400, { code: 'validation', message: 'That is not something this screen can do.' });

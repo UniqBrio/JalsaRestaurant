@@ -23,6 +23,8 @@ import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
 import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { NewDishOffer } from '@/components/ui/new-dish';
+import { canAddDish } from '@/lib/new-dish';
 import { isFirstOrder, welcomeDrinksToOffer } from '@/lib/welcome-drinks';
 
 /**
@@ -800,6 +802,31 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
         resultCount={filtered.length}
         testId="staff-menu-search"
       />
+
+      {/* A dish the menu does not list yet (E1) - only for someone who may add one. */}
+      {canAddDish(data.grants) ? (
+        <NewDishOffer
+          query={query}
+          menu={data.menu}
+          categories={data.menuCategories}
+          disabled={busy}
+          testIdPrefix="staff-add"
+          onCreate={(dish) =>
+            send<{ id: string; existed: boolean }>('/api/staff/action', { action: 'add-dish', ...dish })
+          }
+          onAdded={(id, dish, existed) => {
+            setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+            setCategory('All');
+            setQuery(dish.name);
+            toast.show(
+              existed
+                ? `${dish.name} was already on the menu - added to this round at its menu price`
+                : `${dish.name} added to the menu and to this round`,
+              { tone: 'success' }
+            );
+          }}
+        />
+      ) : null}
 
       <ChipRow>
         {['All', ...data.categories].map((c) => (

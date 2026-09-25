@@ -2,6 +2,7 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
+import { existingDish, type NewDish } from '@/lib/new-dish';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
@@ -86,6 +87,40 @@ export async function upsertMenuItem(input: {
 
   await audit({ action: 'Menu item', detail: `${input.name} added at ${rupees(input.price)}`, actor: input.actor });
   return { id: data.id as string };
+}
+
+/**
+ * Add a dish from the ordering screen, or hand back the one that already means this (E1).
+ *
+ * The write is `upsertMenuItem`'s own insert, so the grant, the columns and the audit line are the
+ * Menu section's. What this adds is the duplicate answer: two captains typing the same new dish,
+ * or one dish the screen had not polled yet, meets `menu_item_name_unique` (23505) and gets the
+ * existing dish back with `existed: true` - never a second row, never a 500. Nothing is audited
+ * then, because nothing was added.
+ */
+export async function addDishWhileOrdering(input: NewDish & { actor: Actor }): Promise<{
+  id: string;
+  existed: boolean;
+}> {
+  const name = input.name.trim();
+  try {
+    const { id } = await upsertMenuItem({
+      name,
+      price: input.price,
+      categoryId: input.categoryId,
+      foodType: input.foodType,
+      actor: input.actor,
+    });
+    return { id, existed: false };
+  } catch (err) {
+    if ((err as { code?: string } | null)?.code !== '23505') throw err;
+    const restaurantId = await currentRestaurantId();
+    const { data, error } = await db().from('menu_item').select('id,name').eq('restaurant_id', restaurantId);
+    if (error) throw error;
+    const found = existingDish((data ?? []) as Array<{ id: string; name: string }>, name);
+    if (!found) throw err;
+    return { id: found.id, existed: true };
+  }
 }
 
 /**

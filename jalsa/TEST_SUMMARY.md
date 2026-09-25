@@ -4,6 +4,14 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-25 - E1 add a dish from the ordering screen
+
+FAIL-FIRST: jalsa/tests/unit/new-dish.unit.spec.ts - `dishKey` injected to keep case and reverted: **1 failed**; against main's routes, mutations, screens and staff view (the new rule module kept): **3 failed** (server write, both route verbs, both screens); after: 7 passed. The rule cases for the refusal sentences are new surface: NOT OBSERVED FAILING beyond the injection above.
+No migration: the dish is an ordinary `menu_item` row written by `upsertMenuItem`; `menu_item_name_unique` (23505) is answered with the existing dish. RBAC_MATRIX: one row (same `menu.item_edit`).
+Not run here: the screens in a browser (G8 - no database reachable). Needs a tester: Add items → search an unlisted dish → "+ Add ... to the menu" → it appears in the list with 1 in the round, without a reload.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - G2 separate owner and staff sessions (RC-022)
 
 FAIL-FIRST: jalsa/tests/unit/session-surfaces.unit.spec.ts - against main's src/: **5 failed** (no owner cookie, argument-less readers, pages, routes and clients not surface-specific); after: 5 passed; pin-and-attribution still 7 passed (its sign-in audit case now reads the surface, not the Referer).

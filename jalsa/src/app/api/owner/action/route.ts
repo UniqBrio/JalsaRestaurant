@@ -18,8 +18,10 @@ import {
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
+import { newDishProblem, type NewDish } from '@/lib/new-dish';
 import {
   addCategory,
+  addDishWhileOrdering,
   deleteExpense,
   issuePin,
   removeStaff,
@@ -79,6 +81,7 @@ type Action =
       description?: string;
     }
   | { action: 'add-category'; name: string }
+  | ({ action: 'add-dish' } & NewDish)
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
@@ -265,6 +268,22 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           actor,
         })
       );
+
+    case 'add-dish': {
+      // A dish the menu does not list yet, added from the ordering screen (E1): the Menu
+      // section's own write and grant; a duplicate name comes back as the existing dish.
+      const problem = newDishProblem(input);
+      if (problem) return fail(400, { code: 'validation', message: problem });
+      return ok(
+        await addDishWhileOrdering({
+          name: input.name,
+          price: input.price,
+          categoryId: input.categoryId,
+          foodType: input.foodType,
+          actor,
+        })
+      );
+    }
 
     case 'add-category': {
       // The id comes back so the Add-item combobox can select the category it just created,

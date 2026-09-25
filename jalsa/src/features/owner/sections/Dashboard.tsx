@@ -12,6 +12,8 @@ import { rupees } from '@/lib/money';
 import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { NewDishOffer } from '@/components/ui/new-dish';
+import { canAddDish } from '@/lib/new-dish';
 import { readWelcomeDrinks, welcomeDrinksToOffer, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
 
 /**
@@ -207,6 +209,8 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         table={seating}
         onClose={() => setSeating(null)}
         menu={data.menu}
+        categories={data.categories}
+        grants={data.grants}
         welcomeDrinks={readWelcomeDrinks(data.settings.welcomeDrinks)}
         send={send}
         runBusy={runBusy}
@@ -441,6 +445,8 @@ function NewRoundSheet({
   table,
   onClose,
   menu,
+  categories,
+  grants,
   welcomeDrinks,
   send,
   runBusy,
@@ -450,6 +456,8 @@ function NewRoundSheet({
   table: OwnerPayload['floor'][number] | null;
   onClose: () => void;
   menu: OwnerPayload['menu'];
+  categories: OwnerPayload['categories'];
+  grants: OwnerPayload['grants'];
   welcomeDrinks: WelcomeDrinksConfig;
   send: OwnerSectionProps['send'];
   runBusy: OwnerSectionProps['runBusy'];
@@ -517,6 +525,29 @@ function NewRoundSheet({
           placeholder="Search the menu"
           aria-label="Search the menu"
         />
+        {/* A dish the menu does not list yet (E1) - only for someone who may add one. */}
+        {canAddDish(grants) ? (
+          <NewDishOffer
+            query={query}
+            menu={menu}
+            categories={categories}
+            disabled={busy}
+            testIdPrefix="owner-new-round"
+            onCreate={(dish) =>
+              send<{ id: string; existed: boolean }>('/api/owner/action', { action: 'add-dish', ...dish })
+            }
+            onAdded={(id, dish, existed) => {
+              setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+              setQuery(dish.name);
+              toast.show(
+                existed
+                  ? `${dish.name} was already on the menu - added to this round at its menu price`
+                  : `${dish.name} added to the menu and to this round`,
+                { tone: 'success' }
+              );
+            }}
+          />
+        ) : null}
         <ul className="m-0 flex max-h-[50vh] list-none flex-col gap-2 overflow-y-auto p-0">
           {filtered.map((m) => {
             const qty = cart[m.id] ?? 0;
