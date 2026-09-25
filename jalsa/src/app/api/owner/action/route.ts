@@ -22,6 +22,8 @@ import { newDishProblem, type NewDish } from '@/lib/new-dish';
 import {
   addCategory,
   addDishWhileOrdering,
+  setCategoryParent,
+  SubMenuRefused,
   deleteExpense,
   issuePin,
   removeStaff,
@@ -82,6 +84,7 @@ type Action =
     }
   | { action: 'add-category'; name: string }
   | ({ action: 'add-dish' } & NewDish)
+  | { action: 'set-category-parent'; categoryId: string; parentId: string | null }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
@@ -284,6 +287,16 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         })
       );
     }
+
+    case 'set-category-parent':
+      // Sub-menus (I3). One level; the rule is the database's, stated first in words.
+      try {
+        await setCategoryParent({ categoryId: input.categoryId, parentId: input.parentId ?? null, actor });
+      } catch (err) {
+        if (err instanceof SubMenuRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
+      return ok({ done: true });
 
     case 'add-category': {
       // The id comes back so the Add-item combobox can select the category it just created,

@@ -95,6 +95,8 @@ than a link. `20260923090000` is applied to both projects (23-Sep-2026).
 | `20260916100000_jalsa_guest_queue.sql` | ✅ 16-Sep | ✅ 16-Sep | `waitlist_entry.seated_table_id` and its check |
 | `20260916110000_jalsa_print_setup.sql` | ✅ 16-Sep | ✅ 16-Sep | printer station / connection / address / port / enabled; routes re-seeded onto menu categories |
 | `20260916120000_jalsa_hr_documents.sql` | ✅ 16-Sep | ✅ 16-Sep | the last five employment columns and `staff.paperwork` |
+| `20260917120000_jalsa_drop_ambiguous_set_staff_pin.sql` | ✅ 25-Sep (applied eight days after it was committed; `pg_proc` before: both overloads, after: `set_staff_pin(uuid,text,boolean)` only - RC-018) | ✅ (already one function on 25-Sep, verified by `pg_proc`) | drops the two-argument `set_staff_pin` that made Reissue PIN ambiguous |
+| `20260925090000_jalsa_menu_sub_categories.sql` | ✅ 25-Sep, after TEST | ✅ 25-Sep, then exercised in a rolled-back block: a sub-menu under a top-level one accepted; under a sub-menu, under itself, a parent moved under another, and deleting a parent all refused | `menu_category.parent_id` (one level, trigger `menu_category_one_level`), `kot_item.menu_parent_category_name` snapshot (I3) |
 
 **Verified after the 16-Sep run**, on `yxgxmbyilpivbmeemqkp`, against the counts taken immediately
 before it: staff 27, menu items 57, tables 20, bills 2, KOTs 6, printers 4, settings 11 — every

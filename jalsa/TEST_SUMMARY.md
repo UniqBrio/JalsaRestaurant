@@ -4,6 +4,14 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-25 - I3 sub-menus and sales by menu
+
+FAIL-FIRST: jalsa/tests/unit/sub-menus.unit.spec.ts - `parentChoices` injected to offer sub-menus as parents and reverted: **1 failed**; against main's mutations, queries, routes and screens (rule module and migration kept): **3 failed** (snapshot, report roll-up, the owner's panel and verb); after: 7 passed. report-gst-split and print-assignment unchanged and passing (the single walk and `catKey` line are kept).
+Migration `20260925090000_jalsa_menu_sub_categories.sql`: applied to TEST (uxmyomxtosjlkvjxnvpy), trigger exercised in a rolled-back DO block (accepted: sub-menu under a top-level; refused: under a sub-menu, under itself, a parent moved under another, deleting a parent; 0 rows left behind), then to LIVE (yxgxmbyilpivbmeemqkp): both columns and the trigger present, 0 sub-menus, 57 order lines untouched. The code reading the new columns is committed only after that - the 22-Sep lesson.
+Not run here: the screens in a browser (G8). Needs a tester: Menu → Sub-menus → put a category under another → close a bill with a dish from it → Reports shows "What sold by menu" with the sub-menu counted under its menu.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - E1 add a dish from the ordering screen
 
 FAIL-FIRST: jalsa/tests/unit/new-dish.unit.spec.ts - `dishKey` injected to keep case and reverted: **1 failed**; against main's routes, mutations, screens and staff view (the new rule module kept): **3 failed** (server write, both route verbs, both screens); after: 7 passed. The rule cases for the refusal sentences are new surface: NOT OBSERVED FAILING beyond the injection above.

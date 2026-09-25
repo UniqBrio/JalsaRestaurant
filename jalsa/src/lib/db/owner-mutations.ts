@@ -3,6 +3,7 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
 import { existingDish, type NewDish } from '@/lib/new-dish';
+import { subMenuProblem } from '@/lib/sub-menus';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
@@ -88,6 +89,57 @@ export async function upsertMenuItem(input: {
   await audit({ action: 'Menu item', detail: `${input.name} added at ${rupees(input.price)}`, actor: input.actor });
   return { id: data.id as string };
 }
+
+/**
+ * Put a category under a top-level one, making it a sub-menu - or back to the top (I3).
+ *
+ * One level only. The database trigger `menu_category_one_level` is the rule (a parent is
+ * top-level, on this menu, not the category itself, and a category with sub-menus cannot go
+ * under another); the same rule is checked here first so the owner reads a sentence rather than
+ * a trigger's error. Rounds already placed keep the menu they sold under - that is a snapshot.
+ */
+export async function setCategoryParent(input: {
+  categoryId: string;
+  parentId: string | null;
+  actor: Actor;
+}): Promise<void> {
+  demand(input.actor, 'menu.category');
+  const restaurantId = await currentRestaurantId();
+  const { data: cats, error: readErr } = await db()
+    .from('menu_category')
+    .select('id,name,parent_id')
+    .eq('restaurant_id', restaurantId);
+  if (readErr) throw readErr;
+  const all = (cats ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    parentId: (c.parent_id as string | null) ?? null,
+  }));
+  const problem = subMenuProblem(all, input.categoryId, input.parentId);
+  if (problem) throw new SubMenuRefused(problem);
+
+  const { data: updated, error } = await db()
+    .from('menu_category')
+    .update({ parent_id: input.parentId })
+    .eq('id', input.categoryId)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  if (!updated || updated.length !== 1) throw new SubMenuRefused('That category is not on this menu.');
+
+  const cat = all.find((c) => c.id === input.categoryId);
+  const parent = all.find((c) => c.id === input.parentId);
+  await audit({
+    action: 'Menu category',
+    detail: parent
+      ? `${cat?.name ?? 'A category'} is now a sub-menu of ${parent.name}`
+      : `${cat?.name ?? 'A category'} is now a top-level menu`,
+    actor: input.actor,
+  });
+}
+
+/** A refusal the owner can act on, carried to the route as a 400 with this sentence. */
+export class SubMenuRefused extends Error {}
 
 /**
  * Add a dish from the ordering screen, or hand back the one that already means this (E1).
