@@ -800,10 +800,11 @@ export async function listPrinters(): Promise<PrinterRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('printer')
-    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at')
+    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at,created_at')
     .eq('restaurant_id', restaurantId)
     .order('machine_id', { ascending: true });
   if (error) throw error;
+  const lastPrinted = await latestPerKey('printer_id', 'printed_at', restaurantId);
   return (data ?? []).map((p) => ({
     id: p.id as string,
     machineId: p.machine_id as string,
@@ -821,7 +822,40 @@ export async function listPrinters(): Promise<PrinterRow[]> {
     // no opinion is "the owner has not switched it off".
     enabled: (p.enabled as boolean | null) ?? true,
     lastSeenAt: (p.last_seen_at as string | null) ?? null,
+    createdAt: p.created_at as string,
+    lastPrintedAt: lastPrinted.get(p.id as string) ?? null,
   }));
+}
+
+/**
+ * The newest `at` column per `key` over the print trail, for "Last printed" and "Last ticket".
+ *
+ * Read from `print_job`, the event itself, rather than from a heartbeat column: a time on the
+ * Printers screen has to be the time something PRINTED (item 12, 25-Sep-2026). Bounded to the
+ * most recent 500 jobs, which spans weeks of service; a machine idle for longer says "Nothing
+ * printed yet" - honest, because the History tab has nothing older on screen either.
+ */
+async function latestPerKey(
+  key: 'printer_id' | 'claimed_by',
+  at: 'printed_at' | 'claimed_at',
+  restaurantId: string
+): Promise<Map<string, string>> {
+  const { data, error } = await db()
+    .from('print_job')
+    .select(`${key},${at}`)
+    .eq('restaurant_id', restaurantId)
+    .not(key, 'is', null)
+    .not(at, 'is', null)
+    .order(at, { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  const out = new Map<string, string>();
+  for (const row of (data ?? []) as unknown as Array<Record<string, string>>) {
+    const k = row[key];
+    const v = row[at];
+    if (k && v && !out.has(k)) out.set(k, v);
+  }
+  return out;
 }
 
 /**
@@ -1075,6 +1109,7 @@ export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false });
   if (error) throw error;
+  const lastTicket = await latestPerKey('claimed_by', 'claimed_at', restaurantId);
 
   return (data ?? []).map((t) => ({
     id: t.id as string,
@@ -1082,6 +1117,7 @@ export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
     createdAt: t.created_at as string,
     lastSeenAt: (t.last_seen_at as string | null) ?? null,
     revokedAt: (t.revoked_at as string | null) ?? null,
+    lastTicketAt: lastTicket.get(t.label as string) ?? null,
   }));
 }
 

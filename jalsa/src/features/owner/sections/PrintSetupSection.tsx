@@ -11,6 +11,8 @@ import { FirstRunState } from '@/components/ui/states';
 import { PRINT_STATUS } from '@/components/ui/print';
 import { useToast } from '@/components/ui/toast';
 import { TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '@/lib/test-print';
+import { addedOnLabel, bridgeActivityLabel } from '@/lib/print-computer';
+import { timeLabelIn } from '@/lib/restaurant-time';
 import {
   PAPER,
   autoFit,
@@ -435,6 +437,9 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="min-w-[10rem] flex-1">
                     <span className="block type-body font-semibold">{p.name}</span>
+                    <span className="block type-caption text-[var(--text-muted)]" data-testid={`owner-print-added-${p.id}`}>
+                      {addedOnLabel(p.createdAt)}
+                    </span>
                     <span className="block type-caption text-[var(--text-muted)]">
                       {p.purpose} template · {p.station}
                     </span>
@@ -646,8 +651,6 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 }
 
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
 
 /* ── Bridges ───────────────────────────────────────────────────────────── */
 
@@ -718,11 +721,7 @@ function BridgesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <div className="min-w-0">
                   <p className="m-0 type-body font-semibold">{b.label}</p>
                   <p className="m-0 type-caption text-[var(--text-muted)]">
-                    {b.revokedAt
-                      ? 'Revoked — it can no longer collect tickets'
-                      : b.lastSeenAt
-                        ? `Last collected ${timeLabel(b.lastSeenAt)}`
-                        : 'Has never connected'}
+                    {b.revokedAt ? 'Revoked — it can no longer collect tickets' : bridgeActivityLabel(b)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1415,11 +1414,7 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
             <li key={j.id}>
               <Card className="flex flex-wrap items-center gap-3">
                 <span className="shrink-0 type-caption tabular-nums text-[var(--text-muted)]">
-                  {new Date(j.createdAt).toLocaleTimeString('en-IN', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true,
-                  })}
+                  {timeLabelIn(j.createdAt)}
                 </span>
 
                 <span className="min-w-[10rem] flex-1">

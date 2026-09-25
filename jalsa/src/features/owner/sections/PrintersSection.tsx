@@ -12,7 +12,9 @@ import { BRIDGE_DOWNLOAD_ROUTE, DOWNLOAD_UNAVAILABLE } from '@/lib/print-bridge-
 import {
   COMPUTER_WORDS,
   OWNER_PRINT_MESSAGES,
+  addedOnLabel,
   computerState,
+  lastPrintedLabel,
   printerReadiness,
   testPrintProgress,
 } from '@/lib/print-computer';
@@ -71,6 +73,7 @@ export function PrintersSection(props: OwnerSectionProps) {
     currentPrinterId?: string;
   } | null>(null);
   const [disconnecting, setDisconnecting] = React.useState<PrintComputerRow | null>(null);
+  const [deleting, setDeleting] = React.useState<PrinterRow | null>(null);
   /* WHICH printer is being tested, and the job it queued — so the line beside the button follows
      that one job through History rather than guessing from the latest row. */
   const [testing, setTesting] = React.useState<string | null>(null);
@@ -81,7 +84,13 @@ export function PrintersSection(props: OwnerSectionProps) {
   const mappingByPrinter = new Map(data.printerMappings.map((m) => [m.printerId, m]));
   const computerById = new Map(computers.map((c) => [c.id, c]));
   const printerById = new Map(data.printers.map((p) => [p.id, p]));
-  const connected = data.printers.filter((p) => mappingByPrinter.has(p.id));
+  // EVERY printer, those on a computer first (item 1, 25-Sep-2026). This list used to hold only
+  // printers on a computer, so a printer that was never mapped - or whose computer was
+  // disconnected - could not be seen or deleted from here at all.
+  const listed = [
+    ...data.printers.filter((p) => mappingByPrinter.has(p.id)),
+    ...data.printers.filter((p) => !mappingByPrinter.has(p.id)),
+  ];
   const nothingYet = computers.length === 0 && !data.pairing;
 
   const runTest = (p: PrinterRow): void => {
@@ -111,6 +120,17 @@ export function PrintersSection(props: OwnerSectionProps) {
     void runBusy(async () => {
       await send('/api/owner/action', { action: 'remove-printer-mapping', printerId: p.id });
       toast.show(`${p.name} is no longer on a computer`, { tone: 'success' });
+    });
+  };
+
+  /* Delete only after the confirmation, and only once the server has confirmed it: the dialog
+     stays open and the toast says why when it is refused (tickets still waiting on it). The
+     console reloads from the database after every action, so the row goes because it is gone. */
+  const removePrinter = (p: PrinterRow): void => {
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'delete-printer', printerId: p.id });
+      setDeleting(null);
+      toast.show(`${p.name} deleted`, { tone: 'success' });
     });
   };
 
@@ -151,11 +171,11 @@ export function PrintersSection(props: OwnerSectionProps) {
       ) : null}
 
       {/* ── Printers ─────────────────────────────────────────────────────── */}
-      {connected.length ? (
+      {listed.length ? (
         <Card className="flex flex-col gap-3">
           <SectionLabel>Printers</SectionLabel>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {connected.map((p) => {
+            {listed.map((p) => {
               const mapping = mappingByPrinter.get(p.id) ?? null;
               const computer = mapping ? (computerById.get(mapping.computerId) ?? null) : null;
               const discovered = computer && mapping ? (computer.discovered.find((d) => d.queueName === mapping.queueName) ?? null) : null;
@@ -177,8 +197,11 @@ export function PrintersSection(props: OwnerSectionProps) {
                       <span className="min-w-[10rem] flex-1">
                         <span className="block type-caption text-[var(--text-muted)]">{p.station}</span>
                         <span className="block type-body font-semibold">{p.name}</span>
+                        <span className="block type-caption text-[var(--text-muted)]" data-testid={`owner-printers-added-${p.id}`}>
+                          {addedOnLabel(p.createdAt)}
+                        </span>
                         <span className="block type-caption text-[var(--text-muted)]">
-                          {computer ? `On ${computer.label}` : 'Not on a computer'}
+                          {computer ? `On ${computer.label}` : 'Not on a computer'} · {lastPrintedLabel(p.lastPrintedAt)}
                         </span>
                       </span>
                       <Pill tone={readiness.tone}>{readiness.word}</Pill>
@@ -193,7 +216,7 @@ export function PrintersSection(props: OwnerSectionProps) {
                           {testing === p.id ? 'Sending…' : 'Test Print'}
                         </Button>
                       ) : null}
-                      {canEdit ? (
+                      {canEdit && mapping ? (
                         <Button
                           data-testid={`owner-printers-remove-${p.id}`}
                           size="sm"
@@ -202,6 +225,18 @@ export function PrintersSection(props: OwnerSectionProps) {
                           onClick={() => removeMapping(p)}
                         >
                           Remove
+                        </Button>
+                      ) : null}
+                      {canEdit ? (
+                        <Button
+                          data-testid={`owner-printers-delete-${p.id}`}
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => setDeleting(p)}
+                          className="text-[var(--error)]"
+                        >
+                          Delete
                         </Button>
                       ) : null}
                     </div>
@@ -375,6 +410,23 @@ export function PrintersSection(props: OwnerSectionProps) {
           if (!m) return null;
           return `${computerById.get(m.computerId)?.label ?? 'another computer'} · ${m.queueName}`;
         }}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={deleting ? `Delete ${deleting.name}?` : 'Delete printer'}
+        consequence={
+          <>
+            <strong>{deleting?.name}</strong>
+            {deleting ? ` (${deleting.station}, ${deleting.paperMm} mm)` : ''} is removed from Jalsa and from any computer
+            it is on. Categories it printed go to the main kitchen printer. Its past tickets stay in History.
+          </>
+        }
+        confirmLabel="Delete the printer"
+        onConfirm={() => deleting && removePrinter(deleting)}
+        testId="owner-printers-delete-confirm"
+        busy={busy}
       />
 
       <ConfirmDialog
