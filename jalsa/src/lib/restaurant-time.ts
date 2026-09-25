@@ -56,7 +56,14 @@ function offsetMs(zone: string, at: Date): number {
 
   // `hour` comes back as 24 at midnight under hour12: false in some engines; 24 % 24 is 0, and
   // the date parts already name the correct day, so the modulo cannot move it.
-  const asIfUtc = Date.UTC(read('year'), read('month') - 1, read('day'), read('hour') % 24, read('minute'), read('second'));
+  const asIfUtc = Date.UTC(
+    read('year'),
+    read('month') - 1,
+    read('day'),
+    read('hour') % 24,
+    read('minute'),
+    read('second')
+  );
   return asIfUtc - at.getTime();
 }
 
@@ -82,11 +89,7 @@ export function startOfDay(day: string, zone: string = RESTAURANT_TIME_ZONE): Da
  * stamped 23:59:59.999 that drops a bill settled in the last millisecond of the day. Nobody
  * would ever see that bug and everybody would have it.
  */
-export function dayWindow(
-  from: string,
-  to: string,
-  zone: string = RESTAURANT_TIME_ZONE
-): { start: Date; end: Date } {
+export function dayWindow(from: string, to: string, zone: string = RESTAURANT_TIME_ZONE): { start: Date; end: Date } {
   const [y, m, d] = to.split('-').map(Number);
   const dayAfterTo = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + 1));
   const nextDay = `${dayAfterTo.getUTCFullYear()}-${String(dayAfterTo.getUTCMonth() + 1).padStart(2, '0')}-${String(dayAfterTo.getUTCDate()).padStart(2, '0')}`;
@@ -116,11 +119,78 @@ export function dayIn(at: Date, zone: string = RESTAURANT_TIME_ZONE): string {
  * `new Date()` as the restaurant reads it, for the one argument `checkRange` takes.
  *
  * `checkRange` compares against a Date's LOCAL parts, so handing it the raw server clock asks
- * "is this range in UTC's future". This returns an instant whose local parts, on a UTC host,
- * spell the restaurant's date — the smallest change that makes the server and the browser agree
- * without `checkRange` itself learning about zones.
+ * "is this range in UTC's future". This returns an instant whose local parts spell the
+ * restaurant's date on ANY host - the server's UTC, or a browser in whatever zone the device
+ * is set to - so the Reports presets and both range checks agree (RC-016) without
+ * `resolvePreset` or `checkRange` learning about zones.
  */
 export function nowForRangeCheck(now: Date = new Date(), zone: string = RESTAURANT_TIME_ZONE): Date {
   const [y, m, d] = dayIn(now, zone).split('-').map(Number);
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1, 12, 0, 0, 0);
+}
+
+/* ── The restaurant's today, and how its clock reads ───────────────────── */
+
+/** Today's date in the restaurant, `YYYY-MM-DD`. The one answer to "what day is it" (RC-016). */
+export function todayIn(now: Date = new Date(), zone: string = RESTAURANT_TIME_ZONE): string {
+  return dayIn(now, zone);
+}
+
+/**
+ * `day` moved by `offset` calendar days, `YYYY-MM-DD` in and out.
+ *
+ * Pure calendar arithmetic on the date's own parts - no instant is involved, so no zone can
+ * move it. Yesterday of the 1st is the last of the previous month.
+ */
+export function shiftDay(day: string, offset: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const t = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + offset));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** The half-open window of the restaurant's current day: `closed_at >= start and < end`. */
+export function todayWindow(now: Date = new Date(), zone: string = RESTAURANT_TIME_ZONE): { start: Date; end: Date } {
+  const today = todayIn(now, zone);
+  return dayWindow(today, today, zone);
+}
+
+/** Day of the week at `at` in the restaurant, 0 = Sunday, like `Date#getDay`. */
+export function weekdayIn(at: Date = new Date(), zone: string = RESTAURANT_TIME_ZONE): number {
+  const [y, m, d] = dayIn(at, zone).split('-').map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).getUTCDay();
+}
+
+/**
+ * "7:05 pm" as the restaurant's wall clock reads it, wherever this code runs.
+ *
+ * `toLocaleTimeString` with no zone formats in the HOST's zone, and the server's host is UTC -
+ * so every time the server rendered or printed was five and a half hours behind the room.
+ */
+export function timeLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZONE): string {
+  return new Date(at).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: zone,
+  });
+}
+
+/** "24 Sep 2026" in the restaurant's calendar. */
+export function dateLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZONE): string {
+  // Spelled from the IST date's own parts, like `shortDayLabel`: Intl's short month is "Sep" or
+  // "Sept" depending on the runtime, and this is printed on every ticket.
+  const [y, m, d] = dayIn(new Date(at), zone).split('-');
+  return `${d} ${MONTHS[Number(m) - 1] ?? ''} ${y}`;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "23 Sep" for a `YYYY-MM-DD`. Spelled from the date's own parts, because `Intl`'s short month
+ * for September is "Sept" in some runtimes and "Sep" in others - a label that changes with the
+ * server's ICU version is a label nobody can write a test for.
+ */
+export function shortDayLabel(day: string): string {
+  const [, m, d] = day.split('-').map(Number);
+  return `${d ?? ''} ${MONTHS[(m ?? 1) - 1] ?? ''}`;
 }

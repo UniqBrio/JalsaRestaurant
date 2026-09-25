@@ -25,6 +25,7 @@ import {
 } from '@/lib/hr-documents';
 import type { StaffMember } from '@/lib/db/types';
 import type { OwnerSectionProps } from '../OwnerConsole';
+import { todayIn } from '@/lib/restaurant-time';
 
 /**
  * Staff paperwork — offer letter, experience certificate, payslip.
@@ -87,8 +88,10 @@ const asRecord = (p: StaffMember): EmploymentRecord => ({
   bankLast4: p.employment.bankLast4,
 });
 
-const today = (): string => new Date().toISOString().slice(0, 10);
-const thisMonth = (): string => new Date().toISOString().slice(0, 7);
+// The restaurant's date, not UTC's (RC-016): `toISOString` is UTC, so after midnight IST it
+// named yesterday - and on the 1st, last month.
+const today = (): string => todayIn();
+const thisMonth = (): string => todayIn().slice(0, 7);
 
 export function StaffPaperwork({
   person,

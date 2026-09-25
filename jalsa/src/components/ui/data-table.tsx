@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { todayIn } from '@/lib/restaurant-time';
 import { cn } from '@/lib/cn';
 import { SearchField } from './field';
 import { Button } from './button';
@@ -208,7 +209,7 @@ export function DataTable<Row>({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${exportName ?? testId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `${exportName ?? testId}-${todayIn()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

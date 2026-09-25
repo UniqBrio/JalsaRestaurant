@@ -13,10 +13,12 @@ import {
   joinTableToBill,
   placeRound,
   reprintKot,
+  reassignBillStaff,
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { getBill } from '@/lib/db/queries';
+import { db } from '@/lib/supabase/server';
 import type { KotStatus } from '@/lib/status';
 
 /**
@@ -61,7 +63,8 @@ type Action =
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'free-table'; tableId: string }
   | { action: 'clear-table'; tableId: string }
-  | { action: 'set-availability'; itemId: string; available: boolean; reason?: string };
+  | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
+  | { action: 'assign-waiter'; billId: string; staffId: string | null };
 
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff();
@@ -73,8 +76,26 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
   switch (input.action) {
     case 'add-round': {
-      const bill = input.billId ? await getBill(input.billId) : await ensureOpenBill(input.tableId);
-      if (!bill) return fail(404, { code: 'not-found', message: 'That bill is no longer open.' });
+      const bill = input.billId
+        ? await getBill(input.billId)
+        : await ensureOpenBill(input.tableId, {
+            actor,
+            ...(staff.role === 'Captain' ? { openerCaptainId: staff.staffId } : {}),
+          });
+      /* A round goes onto an OPEN bill (C1). A bill closed or moved while the menu was open must
+         not quietly take a round; the screen is told, and reloads. */
+      /* Only a LIVE bill takes a round: open, or asked to pay (a guest may still order), and
+         still on this table. A closed or voided bill - freed by hand while this screen was
+         open - or a table moved off it, is refused, never cooked with nowhere to charge it. */
+      const { data: tableRow } = await db().from('dining_table').select('name').eq('id', input.tableId).maybeSingle();
+      if (
+        !bill ||
+        (bill.status !== 'open' && bill.status !== 'payment_requested') ||
+        !tableRow ||
+        !bill.tables.includes(tableRow.name as string)
+      ) {
+        return fail(404, { code: 'not-found', message: 'That bill is no longer open on this table.' });
+      }
       const result = await placeRound({
         billId: bill.id,
         tableId: input.tableId,
@@ -160,6 +181,12 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
         ...(input.reason ? { reason: input.reason } : {}),
         actor,
       });
+      return ok({ done: true });
+
+    case 'assign-waiter':
+      // The captain's door into the owner's operation (G1): the rule of who may lives in
+      // `reassignBillStaff`, not here, so the two doors cannot disagree.
+      await reassignBillStaff({ billId: input.billId, role: 'waiter', staffId: input.staffId, actor });
       return ok({ done: true });
 
     default:

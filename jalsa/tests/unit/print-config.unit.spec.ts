@@ -266,7 +266,12 @@ test('revoking is a timestamp, never a delete', () => {
   // unreadable.
   const body = code(bodyOf(OWNER, 'revokeBridgeToken'));
   expect(body).toContain('revoked_at:');
-  expect(body).not.toContain('.delete(');
+  /* SUPERSEDED 24-Sep-2026 (B3): previously asserted the body contains no `.delete(` at all.
+     Revoking now also removes the computer's PRINTER MAPPINGS (`bridge_printer`), which left
+     printers stuck "on" a computer that no longer prints. The token row itself is still never
+     deleted - that is what the job history's labels depend on - and that is what this pins. */
+  expect(body).not.toMatch(/from\('bridge_token'\)[\s\S]{0,120}\.delete\(/);
+  expect(body).toMatch(/from\('bridge_printer'\)\s*\.delete\(\)/);
   // And revoking an already-revoked token is refused rather than silently repeated.
   expect(body).toContain(".is('revoked_at', null)");
 });

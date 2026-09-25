@@ -84,7 +84,9 @@ export interface FieldDef {
  * refuses rather than silently ignoring the tap — a control that does nothing when pressed is
  * read as a broken screen, not as a rule.
  */
-export const LOCKED_FIELDS = ['itemName', 'qty', 'amount'] as const;
+export const LOCKED_FIELDS = ['itemName', 'qty', 'amount', 'source'] as const;
+/* `source` joined the locked fields on 24-Sep-2026 (C3): "every KOT must clearly identify its
+   source - Captain, Owner or Guest phone". It exists only on the KOT, so the bill is unaffected. */
 
 export const KOT_FIELDS: FieldDef[] = [
   { key: 'logo', label: 'Restaurant logo', band: 'Header', hint: 'prints as a block' },
@@ -98,7 +100,7 @@ export const KOT_FIELDS: FieldDef[] = [
   { key: 'bill', label: 'Bill number', band: 'Order', hint: '' },
   { key: 'customer', label: 'Customer name', band: 'Order', hint: '' },
   { key: 'captain', label: 'Captain', band: 'Order', hint: '' },
-  { key: 'source', label: 'Order source', band: 'Order', hint: '' },
+  { key: 'source', label: 'Order source', band: 'Order', hint: 'always on' },
   { key: 'date', label: 'Date', band: 'Order', hint: '' },
   { key: 'time', label: 'Time', band: 'Order', hint: '' },
   { key: 'itemName', label: 'Item name', band: 'Items', hint: 'always on' },
@@ -169,7 +171,7 @@ export const DEFAULT_OFF: Record<TicketKind, string[]> = {
   //   it up."* It was never rendered, so a fallback ticket and a main-kitchen ticket were
   //   byte-identical. Shipping it switched off would leave the mechanism costing everything and
   //   delivering nothing. It is a visible change to every kitchen ticket and is recorded as one.
-  kot: ['logo', 'source', 'order', 'customer', 'cat'],
+  kot: ['logo', 'order', 'customer', 'cat'],
   // A guest's bill omits the logo (it is the restaurant's own paper), the captain (named on the
   // tip line instead) and the per-unit rate (the amount is what is owed).
   bill: ['logo', 'captain', 'rate'],
@@ -337,7 +339,11 @@ export function itemLines(item: TicketItem, config: TemplateConfig, cols: number
 
 /* ── The two tickets ───────────────────────────────────────────────────── */
 
-const isOn = (config: TemplateConfig, key: string): boolean => config.on[key] !== false;
+// A locked field prints whatever a stored template says: the lock used to live only in the
+// editor, so a template saved with one switched off (the live KOT had `source: false`) kept it
+// off on paper while the screen called it "always on" (C3).
+const isOn = (config: TemplateConfig, key: string): boolean =>
+  (LOCKED_FIELDS as readonly string[]).includes(key) || config.on[key] !== false;
 
 /**
  * Field keys in print order: the configured order first, then any key the configuration has

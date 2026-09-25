@@ -1,9 +1,19 @@
 import 'server-only';
+import { timeLabelIn } from '@/lib/restaurant-time';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
-import { KOT_STATUS, TABLE_STATE, type KotStatus, type Tone } from '@/lib/status';
+import {
+  KOT_STATUS,
+  TABLE_STATE,
+  canHoldBillRole,
+  captainMayAssignWaiter,
+  type KotStatus,
+  type Tone,
+} from '@/lib/status';
+import { db, currentRestaurantId } from '@/lib/supabase/server';
+import { actorFor, type SignedInStaff } from './auth';
+import { readWelcomeDrinks, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
 import type { SpineFields } from '@/components/ui/bill';
 import { billTotals, listFloor, listMenu, listOpenBills, listOpenRequests, readAllSettings } from './queries';
-import type { SignedInStaff } from './auth';
 import type { Bill, FloorTable, KotPrintJob, PrintJobStatus } from './types';
 
 /**
@@ -70,6 +80,10 @@ export interface StaffBillView {
   /** Enough for the Close sheet to call `totalBill` itself — same reason as the owner's view. */
   taxRate: number;
   tip: number;
+  /** The waiter on this bill, for the picker's current choice. */
+  waiterId: string | null;
+  /** This person may change the waiter here: it is their own open bill (G1). */
+  canAssignWaiter: boolean;
 }
 
 export interface StaffPayload {
@@ -85,6 +99,10 @@ export interface StaffPayload {
     }
   >;
   bills: StaffBillView[];
+  /** The welcome drinks offered on a table's first order (D1). */
+  welcomeDrinks: WelcomeDrinksConfig;
+  /** Who can be the waiter on a bill: active staff whose role may hold it (G1). */
+  waiters: Array<{ id: string; name: string; role: string }>;
   /** Rounds the kitchen has marked ready, oldest first — the run list. */
   ready: Array<{ billId: string; kot: StaffKotView; tableName: string; billCode: string; captain: string }>;
   requests: Array<{ id: string; kind: string; note: string; tableName: string; ageMinutes: number; urgent: boolean }>;
@@ -102,8 +120,8 @@ export interface StaffPayload {
   myTables: string[];
 }
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+// The restaurant's wall clock, not the host's (RC-016): the server runs in UTC.
+const timeLabel = (iso: string): string => timeLabelIn(iso);
 
 const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 
@@ -139,13 +157,23 @@ function shapeKot(bill: Bill, k: Bill['kots'][number]): StaffKotView {
 }
 
 export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayload> {
-  const [floor, bills, requests, { items, categories }, settings] = await Promise.all([
+  const restaurantId = await currentRestaurantId();
+  const [floor, bills, requests, { items, categories }, settings, peopleRes] = await Promise.all([
     listFloor(),
     listOpenBills(),
     listOpenRequests(),
     listMenu(),
     readAllSettings(),
+    // Names and roles only, for the waiter picker - the same predicate the server checks (G1).
+    db()
+      .from('staff')
+      .select('id,name,role,active')
+      .eq('restaurant_id', restaurantId)
+      .is('removed_at', null)
+      .order('name', { ascending: true }),
   ]);
+  if (peopleRes.error) throw peopleRes.error;
+  const actor = actorFor(staff);
 
   const isWaiter = staff.role === 'Waiter';
   const canSeeMoney = staff.grants.can('bill.view');
@@ -188,6 +216,8 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       subtotal: canSeeMoney ? totals.subtotal : null,
       taxRate,
       tip: totals.tip,
+      waiterId: b.waiterId,
+      canAssignWaiter: captainMayAssignWaiter({ role: 'waiter', actor, bill: b }),
     };
   });
 
@@ -219,6 +249,10 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       total: canSeeMoney ? t.total : 0,
     })),
     bills: shapedBills,
+    welcomeDrinks: readWelcomeDrinks(settings.welcomeDrinks),
+    waiters: (peopleRes.data ?? [])
+      .filter((p) => p.active === true && canHoldBillRole('waiter', p.role as string))
+      .map((p) => ({ id: p.id as string, name: p.name as string, role: p.role as string })),
     ready,
     requests: requests.map((r) => ({
       id: r.id,

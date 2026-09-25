@@ -21,6 +21,9 @@ import {
 } from '@/components/ui/discount-fields';
 import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
+import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
+import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { isFirstOrder, welcomeDrinksToOffer } from '@/lib/welcome-drinks';
 
 /**
  * The floor, one bill, and adding a round to it — screens 15 to 20 of the design set.
@@ -49,7 +52,9 @@ const PAYMENT_MODES = ['Cash', 'Digital / UPI', 'Card'] as const;
 export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
   const live = data.tables.filter((t) => t.billId !== null);
-  const free = data.tables.filter((t) => t.billId === null && t.active);
+  // Free = in service, no bill, and not waiting to be cleared (C1) - the same rule the queue's
+  // Seat sheet uses, so a table still covered in the last party's plates is not offered.
+  const free = data.tables.filter((t) => t.billId === null && t.active && t.clearing === null);
 
   /* The same grant the owner holds, doing the same thing on the captain's floor. `tables.free`
      is not a role — the owner hands it to whoever they trust with it, and this screen simply
@@ -228,6 +233,10 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
   const [mode, setMode] = React.useState<string>(PAYMENT_MODES[1]);
   const [reference, setReference] = React.useState('');
   const [discount, setDiscount] = React.useState<DiscountEntry>(NO_DISCOUNT);
+  /** Cash received, as typed (H3). */
+  const [tendered, setTendered] = React.useState('');
+  /** The waiter picker (G1). */
+  const [choosingWaiter, setChoosingWaiter] = React.useState(false);
 
   if (!bill) {
     return (
@@ -249,6 +258,62 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
   return (
     <div className="flex flex-col gap-4" data-testid="staff-table">
       <IdentitySpine fields={bill.spine} />
+
+      {/* The captain sets the waiter on their own bill (G1). Offered exactly where the server
+          will accept it: this person is the bill's captain and holds tables.assign. */}
+      {bill.canAssignWaiter ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="type-caption text-[var(--text-muted)]">
+            Waiter: <strong className="text-[var(--text-heading)]">{bill.spine.waiter || 'nobody yet'}</strong>
+          </span>
+          <Button
+            data-testid="staff-assign-waiter"
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => setChoosingWaiter(true)}
+          >
+            {bill.spine.waiter ? 'Change waiter' : 'Assign a waiter'}
+          </Button>
+        </div>
+      ) : null}
+
+      <Sheet
+        open={choosingWaiter}
+        onOpenChange={setChoosingWaiter}
+        title={`Waiter for ${bill.code}`}
+        description="They are named on the bill and see its table on their phone. The tip stays with the captain."
+        testId="staff-waiter-sheet"
+      >
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {[...data.waiters, { id: '', name: 'Nobody', role: '' }].map((w) => (
+            <li key={w.id || 'nobody'}>
+              <Button
+                data-testid={`staff-waiter-${w.id || 'nobody'}`}
+                variant={(bill.waiterId ?? '') === w.id ? 'primary' : 'secondary'}
+                className="w-full justify-between"
+                disabled={busy}
+                onClick={() =>
+                  runBusy(async () => {
+                    await send('/api/staff/action', {
+                      action: 'assign-waiter',
+                      billId: bill.id,
+                      staffId: w.id || null,
+                    });
+                    setChoosingWaiter(false);
+                    toast.show(w.id ? `${w.name} is the waiter on ${bill.code}` : `No waiter on ${bill.code}`, {
+                      tone: 'success',
+                    });
+                  })
+                }
+              >
+                <span>{w.name}</span>
+                {w.role ? <span className="type-caption">{w.role}</span> : null}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
 
       {bill.groupCode ? (
         <p className="m-0 rounded-[var(--radius-md)] bg-[var(--info-surface)] px-4 py-2.5 type-caption leading-relaxed text-[var(--on-info-surface)]">
@@ -575,7 +640,16 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             </Button>
             <Button
               data-testid="staff-close-confirm"
-              disabled={busy || (bill.subtotal !== null && discountProblem(discount, bill.subtotal) !== null)}
+              disabled={
+                busy ||
+                (bill.subtotal !== null && discountProblem(discount, bill.subtotal) !== null) ||
+                (mode === 'Cash' &&
+                  bill.subtotal !== null &&
+                  cashProblem(
+                    payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount }),
+                    tendered
+                  ) !== null)
+              }
               onClick={() =>
                 runBusy(async () => {
                   // Only the box that was typed in, and which one it was. The server derives the
@@ -636,6 +710,17 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
             </div>
           </div>
 
+          {/* Only where this person sees money: a waiter has no subtotal, so no change to work out. */}
+          {mode === 'Cash' && bill.subtotal !== null ? (
+            <CashChangeField
+              payable={payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount })}
+              value={tendered}
+              onChange={setTendered}
+              disabled={busy}
+              testIdPrefix="staff-close"
+            />
+          ) : null}
+
           <Field label="Reference" htmlFor="staff-reference" hint="Optional — a UPI reference or a receipt number.">
             <Input
               id="staff-reference"
@@ -695,8 +780,19 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
     return a + (item ? item.price * n : 0);
   }, 0);
 
+  // A table's first order - no bill yet, or none of its rounds sent - offers the welcome drinks (D1).
+  const welcome = welcomeDrinksToOffer(data.welcomeDrinks, isFirstOrder(bill), data.menu);
+
   return (
     <div className="flex flex-col gap-3" data-testid="staff-add-items">
+      <WelcomeDrinksOffer
+        drinks={welcome}
+        guests={bill?.guests ?? 1}
+        cart={cart}
+        onCart={setCart}
+        testIdPrefix="staff-add"
+      />
+
       <SearchField
         value={query}
         onChange={setQuery}

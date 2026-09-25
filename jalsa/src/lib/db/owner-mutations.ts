@@ -3,7 +3,8 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
 import { testPrintBlocker } from '@/lib/test-print';
-import { audit, nextNumber, type Actor } from './mutations';
+import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
+import { openBillForTable } from './queries';
 import { randomBytes } from 'node:crypto';
 import { hashToken } from '@/lib/bridge-token';
 import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
@@ -272,12 +273,33 @@ export async function issuePin(input: { staffId: string; actor: Actor }): Promis
     '1234',
     '4321',
   ]);
+  /* NOT A PIN SOMEONE ELSE ALREADY HOLDS (24-Sep list, G2). Sign-in looks a person up by PIN
+     alone (`verify_staff_pin` ... limit 1), so two people with the same four digits sign in as
+     whichever row Postgres returns first - and every round the second one places is recorded
+     against the first. The server draws this PIN, so checking it reveals nothing to anyone. */
+  const restaurantId = await currentRestaurantId();
+  const heldByAnother = async (candidate: string): Promise<boolean> => {
+    const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: candidate });
+    if (error) throw error;
+    // ANY holder - including this person - redraws: `verify_staff_pin` returns one row, so a
+    // PIN held by both this person and someone else could come back as this person's own row.
+    return ((data as Array<{ id: string }> | null) ?? []).length > 0;
+  };
   let pin = '';
-  do {
+  for (let tries = 0; ; tries += 1) {
     pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  } while (banned.has(pin));
+    if (banned.has(pin)) continue;
+    if (!(await heldByAnother(pin))) break;
+    if (tries > 50) throw new Error('A free PIN could not be drawn. Try again.');
+  }
 
-  const { error } = await db().rpc('set_staff_pin', { p_staff: input.staffId, p_pin: pin });
+  /* `p_provisional: true` (24-Sep list, F1). Without it the call named two arguments, which
+     matched BOTH `set_staff_pin(uuid,text)` and `set_staff_pin(uuid,text,boolean)` on any
+     database where 20260917120000 had not been applied - PostgREST refused it as ambiguous and
+     Reissue PIN failed every time. Naming the third argument resolves to the one function that
+     has it, and makes the issued PIN provisional: it opens "choose your own PIN" and nothing
+     else (guardrail 5), as that migration's own note intended. */
+  const { error } = await db().rpc('set_staff_pin', { p_staff: input.staffId, p_pin: pin, p_provisional: true });
   if (error) throw error;
 
   const { data: person } = await db().from('staff').select('name').eq('id', input.staffId).maybeSingle();
@@ -389,6 +411,9 @@ const SETTING_PERMISSION: Record<string, string> = {
   // Print Setup surface that is not a machine is one key, because it is one screen's worth of
   // decisions and splitting it would mean four writes for one Save.
   print: 'set.printer',
+  // Which menu items are the welcome drinks, and whether they are offered (24-Sep list, D1):
+  // a guest-facing switch like the ones under customerFeatures.
+  welcomeDrinks: 'set.features',
 };
 
 export async function writeSetting(input: {
@@ -616,36 +641,88 @@ export async function notifyWaitlist(input: { id: string; actor: Actor }): Promi
 }
 
 /**
- * Seated. This stamps the queue row and NOTHING ELSE — it opens no bill and touches no table.
+ * Seated: the party is at a table, and the table has their bill (24-Sep list, F2).
  *
- * Seating and opening a bill are two acts by two people at two moments: the host walks them to
- * a table, the captain takes the first order. There is exactly one way a bill is opened
- * (`ensureOpenBill`, which owns the one-open-bill-per-table rule), and a queue that could open
- * a second would eventually disagree with it about a table that already has a party on it.
+ * WHAT CHANGED AND WHY
+ *   This used to stamp the queue row and nothing else, on the reasoning that seating and opening
+ *   a bill are two acts. In service they were not: the floor reads occupancy from an open bill,
+ *   so a seated party's table still showed FREE on every screen, was offered again to the next
+ *   party in this very sheet, and "the table is not actually assigned" was the report. W-1 on
+ *   19-Sep was seated at A2 with no bill ever opened there. Seating now opens the bill, through
+ *   `ensureOpenBill` - still the ONE way a bill is opened, so the one-open-bill-per-table rule
+ *   has one owner - with the party's size as its guests.
+ *
+ * ORDER, SO A FAILURE LEAVES NOTHING HALF-DONE
+ *   1. The table is checked here, not only in the sheet: in service, no bill on it, not waiting
+ *      to be cleared. A table taken between render and tap is refused, not double-seated.
+ *   2. The queue row is CLAIMED with a guarded update that must match exactly one row. Seated or
+ *      removed already (two hosts, one party) is refused before any bill exists.
+ *   3. The bill is opened. If that fails, the claim is released, so the party is back in the
+ *      queue rather than seated at a table that has no bill.
  */
-export async function seatWaitlist(input: { id: string; tableId?: string; actor: Actor }): Promise<void> {
+export async function seatWaitlist(input: { id: string; tableId: string; actor: Actor }): Promise<void> {
   demand(input.actor, 'queue.seat');
-  const { data: row } = await db().from('waitlist_entry').select('token').eq('id', input.id).maybeSingle();
+  const restaurantId = await currentRestaurantId();
 
-  // WHICH table, recorded. The guest's own screen (Customer Patterns 6c) reads "W-18 · 4 guests
-  // · Table A4" — without the id the alert can only say "your table is ready" and leave a party
-  // of four scanning a dining room. It records where the host SENT them; it still opens no bill.
-  const { error } = await db()
+  const [{ data: table, error: tableErr }, openBill, { data: clearing, error: clearingErr }] = await Promise.all([
+    db()
+      .from('dining_table')
+      .select('id,name,active')
+      .eq('id', input.tableId)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle(),
+    openBillForTable(input.tableId),
+    db()
+      .from('bill_table')
+      .select('table_id')
+      .eq('table_id', input.tableId)
+      .not('released_at', 'is', null)
+      .is('cleared_at', null)
+      .limit(1),
+  ]);
+  if (tableErr) throw tableErr;
+  if (clearingErr) throw clearingErr;
+  if (!table) throw new Error('That table is not on the floor plan.');
+  const tableName = table.name as string;
+  if (table.active !== true) throw new Error(`${tableName} is not in service tonight.`);
+  if (openBill) throw new Error(`${tableName} already has a party on it. Choose another table.`);
+  if ((clearing ?? []).length > 0) throw new Error(`${tableName} is waiting to be cleared. Clear it first.`);
+
+  const { data: claimed, error } = await db()
     .from('waitlist_entry')
     .update({
       seated_at: new Date().toISOString(),
       actor_label: input.actor.label,
-      ...(input.tableId ? { seated_table_id: input.tableId } : {}),
+      seated_table_id: input.tableId,
     })
     .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
     .is('seated_at', null)
-    .is('removed_at', null);
+    .is('removed_at', null)
+    .select('token,party_size');
   if (error) throw error;
+  const row = (claimed ?? [])[0];
+  if (!row) throw new Error('That party is no longer waiting - someone may have seated or removed them already.');
+
+  try {
+    await ensureOpenBill(input.tableId, {
+      guests: (row.party_size as number) || 2,
+      actor: input.actor,
+      mustBeNew: true,
+    });
+  } catch (err) {
+    await db()
+      .from('waitlist_entry')
+      .update({ seated_at: null, seated_table_id: null, actor_label: '' })
+      .eq('id', input.id)
+      .eq('seated_table_id', input.tableId);
+    throw err;
+  }
 
   await audit({
     action: 'Waitlist',
-    detail: `${(row?.token as string) ?? 'A party'} seated by ${input.actor.label}`,
-    ...(input.tableId ? { tableId: input.tableId } : {}),
+    detail: `${(row.token as string) ?? 'A party'} seated at ${tableName} by ${input.actor.label}`,
+    tableId: input.tableId,
     actor: input.actor,
   });
 }
@@ -707,7 +784,20 @@ export async function upsertPrinter(input: {
   const restaurantId = await currentRestaurantId();
 
   if (!input.name.trim()) throw new Error('Give the machine a name first — somebody has to find it in a kitchen.');
-  if (input.connection !== 'USB' && !input.address.trim()) {
+  /* A printer reached THROUGH A PRINTING COMPUTER has no address of its own - the computer is
+     how it is reached (24-Sep list, B1). `savePrinterMapping` creates those with no address, so
+     this rule refused every save on them: switching one off and pressing Save did nothing. The
+     same exemption `testPrintBlocker` already makes for them. */
+  const { data: mapping, error: mappingErr } = input.id
+    ? await db()
+        .from('bridge_printer')
+        .select('printer_id')
+        .eq('printer_id', input.id)
+        .eq('restaurant_id', restaurantId)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (mappingErr) throw mappingErr;
+  if (input.connection !== 'USB' && !input.address.trim() && !mapping) {
     throw new Error('A network machine needs an address, or nothing can reach it.');
   }
 
@@ -731,8 +821,16 @@ export async function upsertPrinter(input: {
       .eq('id', input.id)
       .maybeSingle();
 
-    const { error } = await db().from('printer').update(patch).eq('id', input.id);
+    // Scoped to this restaurant, and it must actually change one row: a save that touched
+    // nothing is not reported as saved (B1).
+    const { data: saved, error } = await db()
+      .from('printer')
+      .update(patch)
+      .eq('id', input.id)
+      .eq('restaurant_id', restaurantId)
+      .select('id');
     if (error) throw error;
+    if ((saved ?? []).length !== 1) throw new Error('That printer is no longer configured. Reload the page.');
 
     const wasEnabled = (before?.enabled as boolean | null) ?? true;
     const routesChanged = JSON.stringify((before?.routes as string[]) ?? []) !== JSON.stringify(input.routes);
@@ -1044,6 +1142,63 @@ export async function issueBridgeToken(input: { label: string; actor: Actor }): 
 }
 
 /**
+ * Delete a printer (24-Sep list, B2).
+ *
+ * WHAT GOES WITH IT, AND WHAT STAYS
+ *   - Its mapping to a printing computer goes with it (`bridge_printer` cascades).
+ *   - Its category routes go with it - they are a column on the row - so those categories print
+ *     at the main kitchen's fallback, exactly as if it had been switched off. The confirmation
+ *     says so before anyone presses Delete.
+ *   - Its HISTORY stays: every print job snapshots the printer's name and station, and the job's
+ *     link becomes empty (`on delete set null`) rather than the job disappearing.
+ *
+ * REFUSED WHILE TICKETS ARE WAITING ON IT. A queued or printing job whose printer vanished is a
+ * ticket no computer will ever claim - a kitchen order lost silently. The owner is told how many
+ * and where, and can reprint them to another machine first.
+ */
+export async function deletePrinter(input: { printerId: string; actor: Actor }): Promise<{ name: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: printer, error: readErr } = await db()
+    .from('printer')
+    .select('id,name')
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
+  const name = printer.name as string;
+
+  const { count, error: jobsErr } = await db()
+    .from('print_job')
+    .select('id', { count: 'exact', head: true })
+    .eq('printer_id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['queued', 'processing']);
+  if (jobsErr) throw jobsErr;
+  if ((count ?? 0) > 0) {
+    throw new Error(
+      `${name} still has ${count} ${count === 1 ? 'ticket' : 'tickets'} waiting to print. Reprint ${
+        count === 1 ? 'it' : 'them'
+      } to another printer from History, then delete it.`
+    );
+  }
+
+  const { data: gone, error } = await db()
+    .from('printer')
+    .delete()
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  if ((gone ?? []).length !== 1) throw new Error('That printer is no longer configured. Reload the page.');
+
+  await audit({ action: 'Printer', detail: `${name} deleted`, actor: input.actor });
+  return { name };
+}
+
+/**
  * Stop a bridge token working.
  *
  * A timestamp, not a delete: the job history says which PC carried which ticket, and a revoked
@@ -1063,6 +1218,16 @@ export async function revokeBridgeToken(input: { tokenId: string; actor: Actor }
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('That bridge token is already revoked, or is not one of this restaurant’s.');
+
+  /* A disconnected computer prints nothing, so it is no longer where any printer is (B3). Left
+     in place, its mappings kept those printers "on a computer" that no longer exists: hidden
+     from the chooser, and stuck until someone knew to press Remove on each first. */
+  const { error: unmapErr } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('bridge_token_id', input.tokenId)
+    .eq('restaurant_id', restaurantId);
+  if (unmapErr) throw unmapErr;
 
   await audit({
     action: 'Set permissions',
@@ -1205,7 +1370,14 @@ export async function savePrinterMapping(input: {
     printerName = printer.name as string;
     // Its routes, station and paper stay exactly as the owner configured them. Only how it is
     // reached changes, and only when Windows says it is on USB.
-    if (viaUsb) await db().from('printer').update({ connection: 'USB', address: '', port: 0 }).eq('id', printerId);
+    if (viaUsb) {
+      const { error: usbErr } = await db()
+        .from('printer')
+        .update({ connection: 'USB', address: '', port: 0 })
+        .eq('id', printerId)
+        .eq('restaurant_id', restaurantId);
+      if (usbErr) throw usbErr;
+    }
   } else {
     const name = input.target.name.trim();
     if (!name) throw new Error('Give the printer a name first — somebody has to find it in a kitchen.');
@@ -1235,6 +1407,18 @@ export async function savePrinterMapping(input: {
     printerId = created.id as string;
     printerName = name;
   }
+
+  /* ONE JALSA PRINTER PER WINDOWS PRINTER (B3). Changing what this queue prints as replaces
+     whatever it printed as before; two Jalsa printers on one paper roll would print every
+     ticket twice. */
+  const { error: clearErr } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('bridge_token_id', input.computerId)
+    .eq('restaurant_id', restaurantId)
+    .eq('queue_name', input.queueName)
+    .neq('printer_id', printerId);
+  if (clearErr) throw clearErr;
 
   // ONE COMPUTER PER PRINTER. Moving it to this computer replaces the old mapping.
   const { error: mapErr } = await db()

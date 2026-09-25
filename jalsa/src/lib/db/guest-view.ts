@@ -1,4 +1,5 @@
 import 'server-only';
+import { timeLabelIn, weekdayIn } from '@/lib/restaurant-time';
 import { rupees, totalBill, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, type FoodType, type KotStatus } from '@/lib/status';
 import {
@@ -125,12 +126,18 @@ export interface GuestPayload {
   replies: GuestReply[];
   callNumber: string;
   rescanMinutes: number;
+  /**
+   * The queue is closed and this table has no bill: nobody has been seated here, so the phone
+   * shows the closed screen instead of a menu it cannot order from (24-Sep list, F3). A table
+   * already seated - by staff, the queue, or its own first round - is never affected.
+   */
+  newTablesClosed: boolean;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+// The restaurant's wall clock, not the host's (RC-016): the server runs in UTC.
+const timeLabel = (iso: string): string => timeLabelIn(iso);
 
 /**
  * The payload for a table, resolving the guest session from scratch.
@@ -260,7 +267,10 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
       })),
   }));
 
-  const todayName = DAYS[new Date().getDay()];
+  const todayName = DAYS[weekdayIn()];
+  // The owner's queue switch - the one existing open/closed state (`queue.open`, open unless set
+  // false), not a second one. It stops NEW tables; a seated table keeps ordering.
+  const queueOpen = ((settings.queue ?? {}) as { open?: boolean }).open !== false;
 
   return {
     phase: ctx.phase,
@@ -308,5 +318,6 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
     replies,
     callNumber: engagement.callNumber ?? '',
     rescanMinutes: ctx.rescanMinutes,
+    newTablesClosed: !queueOpen && !bill,
   };
 }

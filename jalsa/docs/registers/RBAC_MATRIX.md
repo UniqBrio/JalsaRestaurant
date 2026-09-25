@@ -99,6 +99,7 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | Bills — discounts | ❌ | ❌ | ❌ | percentage only | ✅ |
 | Bills — void a closed bill | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Bills — **change the captain or waiter on a bill** (`bill.reassign_staff`, added 12-Sep-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Bills — **set the waiter on their OWN open bill** (via `tables.assign`, added 24-Sep-2026, G1 — the waiter moves no money; the captain position stays `bill.reassign_staff`) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Tips — own | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Tips — everyone's, settlement | ❌ | ❌ | ❌ | settle only | ✅ |
 | Reports — products | ✅ | ❌ | ❌ | ❌ | ✅ |

@@ -29,7 +29,12 @@ function verb(): string {
 
 test('the owner route opens the bill and places the round, reusing the one operation', () => {
   const v = verb();
-  expect(v, 'the bill is opened by the same helper the captain uses').toContain('ensureOpenBill(input.tableId)');
+  /* SUPERSEDED 24-Sep-2026 (G2): previously asserted `ensureOpenBill(input.tableId)`. The helper
+     now takes who is opening the bill, so "Bill opened" names the owner instead of the guest's
+     phone. Same helper, one more argument. */
+  expect(v, 'the bill is opened by the same helper the captain uses').toContain(
+    'ensureOpenBill(input.tableId, { actor })'
+  );
   expect(v, 'and the round placed by the same one').toContain('placeRound({');
   expect(v, 'stamped as the owner, which the bill and every report read').toContain("source: 'owner'");
 });
@@ -62,7 +67,9 @@ test('a free table on the owner floor is a way in, and an off-duty one is not', 
   );
   // `active` is the day-setup switch. A table that is off tonight stays inert even for someone
   // holding the grant, which is what turning it off meant.
-  expect(DASH).toContain('disabled={!t.billId && !(canOrder && t.active)}');
+  /* SUPERSEDED 24-Sep-2026 (C1): previously asserted `!(canOrder && t.active)`. A table waiting
+     to be cleared is no longer offered as free - the rule the queue's Seat sheet already used. */
+  expect(DASH).toContain('disabled={!t.billId && !(canOrder && t.active && t.clearing === null)}');
 });
 
 test('the control is offered on the grant, and the rule still lives in the operation', () => {

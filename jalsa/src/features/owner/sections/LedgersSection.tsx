@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, SectionLabel } from '@/components/ui/atoms';
+import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet';
 import { Combobox } from '@/components/ui/combobox';
@@ -11,6 +11,31 @@ import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import type { ExpenseRow } from '@/lib/db/types';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
+import { nowForRangeCheck, todayIn } from '@/lib/restaurant-time';
+import {
+  PRESET_LABEL,
+  expensesInRange,
+  rangeLabel,
+  readReportAnswer,
+  resolvePreset,
+  type RangePreset,
+} from '@/lib/report-range';
+
+const FINANCE_PRESETS: RangePreset[] = ['today', 'yesterday', 'last7', 'last30', 'thisMonth'];
+
+/** The slice of the report this screen reads: income, the same range's expenses, and the net. */
+interface FinanceFigures {
+  summary: {
+    bills: number;
+    sales: number;
+    salesLabel: string;
+    purchases: number;
+    purchasesLabel: string;
+    net: number;
+    netLabel: string;
+    tipsLabel: string;
+  };
+}
 
 /**
  * Screens 30 and 31 — the tips ledger and expenses, as TWO sections.
@@ -178,20 +203,118 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
   const [deleteReason, setDeleteReason] = React.useState('Entered twice');
 
   const canExpense = data.grants.includes('expense.manage');
-  const expenseTotal = data.expenses.reduce((a, e) => a + e.amount, 0);
+  /* INCOME AND EXPENSES, ONE RANGE (24-Sep list, H1).
+     Income is the closed bills' revenue (tips excluded - they are the staff's), read from the
+     same report the Reports section reads. It is never typed in here, so a bill can never be
+     counted twice as "income". Expenses are the ledger below, filtered to the same days by the
+     same predicate the report uses. Net is the report's own figure. */
+  const canSeeIncome = data.grants.includes('rep.sales');
+  const [preset, setPreset] = React.useState<RangePreset>('thisMonth');
+  const range = resolvePreset(preset, nowForRangeCheck());
+  const key = `${range.from}|${range.to}`;
+  const [income, setIncome] = React.useState<{
+    key: string;
+    figures: FinanceFigures | null;
+    problem: string | null;
+  } | null>(null);
+  React.useEffect(() => {
+    if (!canSeeIncome) return;
+    let cancelled = false;
+    const [from, to] = key.split('|');
+    fetch(`/api/owner/report?from=${from}&to=${to}`)
+      .then(async (res) => {
+        const read = readReportAnswer<FinanceFigures>(res.ok, await res.json());
+        if (!cancelled) setIncome({ key, figures: read.report, problem: read.problem });
+      })
+      .catch(() => {
+        if (!cancelled)
+          setIncome({ key, figures: null, problem: 'Income could not be read — the connection may have dropped.' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, canSeeIncome]);
+  const figures = income?.key === key ? income.figures : null;
+  const incomeProblem = income?.key === key ? income.problem : null;
+
+  const inRange = expensesInRange(data.expenses, range);
+  /* Net from the SAME two figures on screen: the report's income and the live expense total.
+     The report's own net was fetched once per range and went stale the moment an expense was
+     added or deleted here, leaving Net ≠ Income − Expenses on one screen. */
+  const netLabel = figures ? rupees(figures.summary.sales - inRange.total) : '…';
+  /* Every entry, for correcting: the range governs the totals, but an expense outside it - older
+     than 30 days, or a typo dated next year - must still be findable to edit or delete. */
+  const [allEntries, setAllEntries] = React.useState(false);
+  const ledgerRows = allEntries ? data.expenses : inRange.rows;
+  const expenseTotal = inRange.total;
 
   return (
     <div className="flex flex-col gap-4" data-testid="owner-expenses">
+      <Card className="flex flex-col gap-3" data-testid="owner-finance-range">
+        <div className="flex flex-wrap gap-2">
+          {FINANCE_PRESETS.map((p) => (
+            <Chip key={p} on={preset === p} onClick={() => setPreset(p)} data-testid={`owner-finance-preset-${p}`}>
+              {PRESET_LABEL[p]}
+            </Chip>
+          ))}
+        </div>
+        <p className="m-0 type-caption text-[var(--text-muted)]">{rangeLabel(range)}</p>
+      </Card>
+
+      <section data-testid="owner-finance-summary">
+        <SectionLabel>Income and expenses</SectionLabel>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {canSeeIncome ? (
+            <MetricTile
+              label="Income"
+              value={figures ? figures.summary.salesLabel : '…'}
+              note={
+                figures
+                  ? `${figures.summary.bills} closed ${figures.summary.bills === 1 ? 'bill' : 'bills'} · excludes ${figures.summary.tipsLabel} of tips`
+                  : 'From closed bills'
+              }
+              testId="owner-finance-income"
+            />
+          ) : null}
+          <MetricTile
+            label="Expenses"
+            value={rupees(expenseTotal)}
+            note={`${inRange.rows.length} ${inRange.rows.length === 1 ? 'entry' : 'entries'}`}
+            testId="owner-expense-total"
+          />
+          {canSeeIncome ? (
+            <MetricTile label="Net" value={netLabel} note="Income minus expenses" testId="owner-finance-net" />
+          ) : null}
+        </div>
+        {incomeProblem ? (
+          <p className="m-0 mt-2 type-caption text-[var(--error)]" data-testid="owner-finance-problem">
+            {incomeProblem}
+          </p>
+        ) : null}
+        {!canSeeIncome ? (
+          <p className="m-0 mt-2 type-caption text-[var(--text-muted)]" data-testid="owner-finance-no-income">
+            Income comes from the sales reports, which are not part of your role - the expenses below are.
+          </p>
+        ) : (
+          <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
+            Income is read from the bills closed in this range and is never typed in, so nothing is counted twice.
+          </p>
+        )}
+      </section>
+
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <SectionLabel className="mb-0">Expenses — entered by hand, never inferred</SectionLabel>
+          <Chip on={allEntries} onClick={() => setAllEntries((v) => !v)} data-testid="owner-expenses-all">
+            {allEntries ? 'Showing every entry' : 'Show every entry'}
+          </Chip>
           {canExpense ? (
             <Button
               data-testid="owner-add-expense"
               size="sm"
               onClick={() =>
                 setEditing({
-                  spentOn: new Date().toISOString().slice(0, 10),
+                  spentOn: todayIn(),
                   category: EXPENSE_CATEGORIES[0] ?? 'Other',
                   note: '',
                   amount: '',
@@ -204,17 +327,8 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
           ) : null}
         </div>
 
-        <div className="mb-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <MetricTile
-            label="Expenses recorded"
-            value={rupees(expenseTotal)}
-            note={`${data.expenses.length} entries`}
-            testId="owner-expense-total"
-          />
-        </div>
-
         <DataTable
-          rows={data.expenses}
+          rows={ledgerRows}
           rowKey={(e) => e.id}
           defaultSort={{ key: 'date', direction: 'desc' }}
           exportName="jalsa-expenses"

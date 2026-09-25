@@ -1,5 +1,5 @@
 import 'server-only';
-import { dayWindow } from '@/lib/restaurant-time';
+import { dayWindow, todayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { tableStateFrom, type KotStatus } from '@/lib/status';
 import { totalBill } from '@/lib/money';
@@ -337,14 +337,18 @@ export async function listOpenBills(): Promise<Bill[]> {
 
 export async function listClosedBillsToday(): Promise<Bill[]> {
   const restaurantId = await currentRestaurantId();
-  const since = new Date();
-  since.setHours(0, 0, 0, 0);
+  /* The restaurant's day, not the host's (RC-016). `setHours(0,0,0,0)` on a UTC server began
+     "today" at 05:30 IST, so a bill settled at 00:20 counted on the previous day - and between
+     midnight and 05:30 "today" still showed yesterday's evening. The same window every one-day
+     Report uses, so the two agree by construction. */
+  const { start, end } = todayWindow();
   const { data, error } = await db()
     .from('bill')
     .select(BILL_SELECT)
     .eq('restaurant_id', restaurantId)
     .eq('status', 'closed')
-    .gte('closed_at', since.toISOString())
+    .gte('closed_at', start.toISOString())
+    .lt('closed_at', end.toISOString())
     .order('closed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
@@ -379,6 +383,47 @@ export async function listClosedBillsBetween(from: string, to: string): Promise<
     .order('closed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+}
+
+/**
+ * The most recent bill closed BEFORE a range began - read, never guessed.
+ *
+ * For the empty Today state (24-Sep list, A1): "no bills closed today" is true and unhelpful on
+ * its own the morning after a busy night, so the screen names the actual last bill and offers
+ * the day it belongs to. Only the code and the instant are read; nothing here is a figure.
+ */
+export async function lastClosedBillBefore(from: string): Promise<{ code: string; closedAt: string } | null> {
+  const restaurantId = await currentRestaurantId();
+  const { start } = dayWindow(from, from);
+  const { data, error } = await db()
+    .from('bill')
+    .select('code, closed_at')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'closed')
+    .lt('closed_at', start.toISOString())
+    .order('closed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { code: data.code as string, closedAt: data.closed_at as string } : null;
+}
+
+/**
+ * Every "how did you hear about us" answer given on a visit that began in the range (H2), read
+ * from the one place it is stored. The day is the restaurant's (`dayWindow`), like every range.
+ */
+export async function listHeardAboutBetween(from: string, to: string): Promise<string[]> {
+  const restaurantId = await currentRestaurantId();
+  const { start, end } = dayWindow(from, to);
+  const { data, error } = await db()
+    .from('guest_session')
+    .select('heard_about')
+    .eq('restaurant_id', restaurantId)
+    .neq('heard_about', '')
+    .gte('created_at', start.toISOString())
+    .lt('created_at', end.toISOString());
+  if (error) throw error;
+  return (data ?? []).map((r) => (r.heard_about as string) ?? '');
 }
 
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */

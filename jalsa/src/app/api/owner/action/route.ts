@@ -38,6 +38,7 @@ import {
   issuePairingCode,
   savePrinterMapping,
   removePrinterMapping,
+  deletePrinter,
   revokeBridgeToken,
   upsertStaff,
   upsertTable,
@@ -134,6 +135,7 @@ type Action =
       purpose?: string;
     }
   | { action: 'remove-printer-mapping'; printerId: string }
+  | { action: 'delete-printer'; printerId: string }
   | { action: 'retry-print'; jobId: string }
   /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
      path to a machine other than the assigned one, and it exists so no automatic path has
@@ -213,7 +215,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       /* Always `ensureOpenBill`: this door exists for a table with no bill. Adding to a bill
          that already exists is the captain's screen, and giving this verb a second mode nothing
          calls would be a branch no test ever walks. */
-      const bill = await ensureOpenBill(input.tableId);
+      const bill = await ensureOpenBill(input.tableId, { actor });
       const placed = await placeRound({
         billId: bill.id,
         tableId: input.tableId,
@@ -363,7 +365,10 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       return ok({ done: true });
 
     case 'seat-waitlist':
-      await seatWaitlist({ id: input.id, ...(input.tableId ? { tableId: input.tableId } : {}), actor });
+      // A seat is AT a table: seating now opens that table's bill, so there is no seat without one.
+      if (!input.tableId)
+        return fail(400, { code: 'validation', message: 'Choose the table this party is sitting at.' });
+      await seatWaitlist({ id: input.id, tableId: input.tableId, actor });
       return ok({ done: true });
 
     case 'remove-waitlist':
@@ -419,6 +424,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
 
     case 'remove-printer-mapping':
       return ok(await removePrinterMapping({ printerId: input.printerId, actor }));
+
+    case 'delete-printer':
+      return ok(await deletePrinter({ printerId: input.printerId, actor }));
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));

@@ -59,6 +59,198 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-020 — A printer set up through a printing computer could not be saved: the form demanded a network address it will never have
+**Date:** 24-Sep-2026  ·  **Severity:** S3  ·  **Modules:** printing (Print setup)
+
+**Symptom** — "Disable → Save Changes does not persist" (24-Sep correction list, B1).
+
+**Root cause** — `savePrinterMapping` creates a computer-reached printer with `connection:
+'Ethernet'` (any non-USB Windows port) and an empty address, because the computer is how it is
+reached. `upsertPrinter` and the Configure form both required an address of every non-USB
+machine, so Save was disabled and the server would have refused it. `testPrintBlocker` already
+exempted exactly these printers; the save path never learned the same rule.
+
+**Fix** — mapped printers are exempt on both sides; the update is restaurant-scoped and must
+change exactly one row. **Files** — `jalsa/src/lib/db/owner-mutations.ts`,
+`jalsa/src/features/owner/sections/PrintSetupSection.tsx`.
+
+**How to verify** — `jalsa/tests/unit/printer-management.unit.spec.ts` (B1 cases).
+
+**Recurrence risk** — one rule ("does this printer need an address") in two places; the third
+copy (`testPrintBlocker`) had it right. Swept: the three paths that judge an address.
+
+**Prevention** — the spec above. Not verified against a live save (G8 not run here); all five
+live printers are USB, so the tester's exact failing save may have been a different path.
+
+**Process check** — no; a rule written in three places is a known risk the review matrix already
+names.
+
+---
+
+## RC-019 — Seating a queued party stamped the queue row and nothing else, so the table stayed free
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** queue, floor
+
+**Symptom** — "Called queue guest → table selection appears → table is not actually assigned"
+(24-Sep correction list, F2).
+
+**Root cause** — `seatWaitlist` wrote `waitlist_entry.seated_table_id` only, by design ("opens no
+bill and touches no table"). Every floor derives occupancy from an OPEN BILL, and nothing on the
+staff side reads `seated_table_id`, so the table showed free and was offered to the next party.
+Live: W-1 seated at A2 on 19-Sep, no bill ever opened there.
+
+**Fix** — seating checks the table server-side, claims the queue row with a guarded update that
+must match one row, opens the bill through `ensureOpenBill` (guests = party size), and releases
+the claim if the bill fails (owner decision, 24-Sep). **Files** —
+`jalsa/src/lib/db/owner-mutations.ts`, `jalsa/src/app/api/owner/action/route.ts`.
+
+**How to verify** — `jalsa/tests/unit/queue-seat-and-closed.unit.spec.ts` (F2 cases).
+
+**Recurrence risk** — any state recorded somewhere the floor does not read. None other found.
+
+**Prevention** — the spec above. **Process check** — no.
+
+---
+
+## RC-018 — Reissue PIN failed on every press: a migration dropping an ambiguous overload was never applied to the live database
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** staff, auth
+
+**Symptom** — "Reissue PIN is failing" (24-Sep correction list, F1).
+
+**Root cause** — `set_staff_pin(uuid,text)` and `set_staff_pin(uuid,text,boolean)` both exist on
+`yxgxmbyilpivbmeemqkp` (verified in `pg_proc`): `20260917120000_jalsa_drop_ambiguous_set_staff_pin`
+is in the repository and absent from the live migration list. `issuePin` named two arguments,
+which match both, and PostgREST refused the call as ambiguous. It also never passed
+`p_provisional`, so once the drop is applied an issued PIN would not have been provisional.
+
+**Fix** — `issuePin` names `p_provisional: true` (resolves today, and is correct after the drop);
+the PIN drawn is never one another active member of staff holds. **Files** —
+`jalsa/src/lib/db/owner-mutations.ts`.
+
+**How to verify** — `jalsa/tests/unit/pin-and-attribution.unit.spec.ts` (F1 case); and on the
+live project, `select oid::regprocedure from pg_proc where proname = 'set_staff_pin'` returns one
+row once 20260917120000 is applied.
+
+**Recurrence risk** — any migration committed and not applied. `function-overloads.unit.spec.ts`
+checks the repository only; nothing compares the repository's migration list with the live one.
+
+**Prevention** — no rung: a repository-vs-live migration diff needs database access the gate
+does not have here. Recorded, prose only.
+
+**Process check** — yes: a migration was committed and never applied, and nothing noticed for
+seven days. Candidate for /framework-update (a parity check before merge); raised, not run here.
+
+---
+
+## RC-017 — Every "Bill opened" was credited to the guest's phone, and nothing recorded who signed in where
+**Date:** 24-Sep-2026  ·  **Severity:** S3  ·  **Modules:** audit, auth
+
+**Symptom** — "Order placed by Imran (captain) shows under Javeed" (24-Sep correction list, G2).
+
+**Root cause** — two gaps, one of which is the reported one. (1) KOT-129 (24-Sep 08:33 IST, on
+Imran's bill B-1052) is stored with `placed_by` = Javeed and `source = captain`: the round was
+placed from the captain surface under Javeed's session. `/staff` and `/owner` share one sign-in,
+and no sign-in was recorded, so whose session was on which device could not be established
+afterwards. (2) `ensureOpenBill` wrote every "Bill opened" as `GUEST_ACTOR`, so B-1052's opening
+by staff reads "Guest · QR".
+
+**Fix** — every sign-in is audited with person and surface; `ensureOpenBill` takes the actor;
+a captain opening a table with no standing captain becomes its captain. **Files** —
+`jalsa/src/app/api/staff/session/route.ts`, `jalsa/src/lib/db/mutations.ts`, staff and owner routes.
+
+**How to verify** — `jalsa/tests/unit/pin-and-attribution.unit.spec.ts` (G2 cases).
+
+**Recurrence risk** — the shared sign-in itself is unchanged: a phone signed in as the owner is
+the owner on both surfaces. Separating the two sessions is a design change, not made here.
+
+**Prevention** — the spec above; the audit entry makes the next case diagnosable.
+
+**Process check** — no.
+
+---
+
+## RC-016 — Every "today" on the server began at 05:30 IST: the host clock is UTC
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** payments, dashboard, ledgers, uplift, printing, guest
+
+**Symptom** — Payments "Closed today" misfiled bills closed 00:00–05:29 IST (24-Sep correction
+list, A2).
+
+**Root cause** — RC-014's class, at the sites RC-014 recorded and did not change:
+`listClosedBillsToday` and tips-today used `setHours(0,0,0,0)` on a UTC host; server time labels
+and printed KOT/bill date and time had no zone; the door-code and guest hours highlighted the
+host's weekday; screens named today with `toISOString().slice`; Reports presets used the device
+date.
+
+**Fix** — all read `jalsa/src/lib/restaurant-time.ts` (`todayIn`, `todayWindow`, `shiftDay`,
+`weekdayIn`, `timeLabelIn`, `dateLabelIn`, `nowForRangeCheck`).
+
+**How to verify** — `jalsa/tests/unit/restaurant-day.unit.spec.ts` under `TZ=UTC`: 23:59, 00:00,
+00:01, 05:29, 05:30 IST, plus source pins against host-clock "today".
+
+**Recurrence risk** — remaining: `dates.ts` `dayRange` (unused) and an `Intl` fallback in
+`analytics/format.ts`. Swept with `grep -rnE "setHours\(0|toISOString\(\)\.slice|getDay\(\)"`.
+
+**Prevention** — the source pins in the spec above. **Process check** — yes: RC-014 recorded
+these siblings and left them; a sweep that finds siblings should fix them or open an item.
+
+---
+
+## RC-015 — The Reports screen read an envelope the server never sends, so every report arrived and was shown as "Nothing in this range"
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, guest queue
+
+**Symptom** — "When I recorded a payment it's not reflecting under reports" (owner, 24-Sep-2026),
+the second report of R-025 ("In Reports, nothing is showing up", 17-Sep-2026) after RC-014 was
+shipped as its fix.
+
+**Root cause** — a contract mismatch between one screen and the route it calls. `ok()` in
+`src/lib/route.ts` sends the payload as the bare JSON body and `fail()` sends `{ code, message }`
+at the top level. `ReportsSection` was written (1c6aa5c, 16-Sep) against the `{ data, error }`
+envelope of the scaffold's `src/lib/api-client.ts`, which nothing in the app uses and no route
+produces. It read `body.data`, always `undefined`, so `report` was always null and the screen
+fell through to its empty state; a refusal's `body.error.message` was likewise always missing.
+The empty state and a discarded answer looked identical, so nothing on screen said a read had
+been thrown away.
+
+**Proof it was real, not theoretical** — Supabase edge logs for 23-Sep: after bill B-1044 was
+closed at 08:00:05Z, eight report reads for 23-Sep (08:00:15Z to 12:41:57Z) each returned
+`content-range: 0-0/*` (one row, B-1044), and a 30-day read returned seven rows. The data reached
+the route every time; the screen still showed nothing. RC-014 fixed a real window defect on the
+same path, but not this one, which is why R-025 recurred.
+
+**Fix** — the screen's parsing moved into `readReportAnswer` (`src/lib/report-range.ts`), which
+reads the shape `ok()`/`fail()` actually send: the body IS the report; a refusal's reason is the
+top-level `message`, with a fixed sentence when there is none. `GuestQueue` read a refusal the
+same wrong way and now reads `message`.
+
+**Files** — `jalsa/src/lib/report-range.ts`, `jalsa/src/features/owner/sections/ReportsSection.tsx`,
+`jalsa/src/features/guest/GuestQueue.tsx`, `jalsa/tests/unit/report-answer.unit.spec.ts` (new).
+
+**How to verify** — run `tests/unit/report-answer.unit.spec.ts`. It builds responses with
+`NextResponse.json` exactly as `ok()` and `fail()` do and asserts the report survives, an empty
+range stays an empty report, and a 403 shows the server's sentence. Against the pre-fix parsing
+three of its four cases fail, which was observed. In the running app: close a bill, open Reports
+on its day, and the Sales tile and All orders list include it.
+
+**Recurrence risk** — the class is "a client reading a response shape the server does not send".
+Swept every `res.json()` in `jalsa/src` (6 sites, `grep -rn "json()" src`): `ReportsSection`
+(success and error, fixed), `GuestQueue` (error, fixed), `useLiveData`, `ChoosePin`, `PinSignIn`
+(correct), and `api-client.ts` (the envelope reader itself - unused by any screen, left in place;
+its presence is what made the wrong shape look canonical). The route side is one helper, so
+the server has one shape.
+
+**Prevention** — `jalsa/tests/unit/report-answer.unit.spec.ts` pins the Reports contract. No
+rung yet stops a NEW screen from reading `.data`: the unused `api-client.ts` still advertises the
+envelope and `src/app/README.md` still calls it "CP-4: one client". Retiring it, or making the
+routes use it, is a decision for the owner of the pattern register, not a bug fix - recorded here
+rather than done.
+
+**Process check** — yes. R-025 was closed by RC-014 with its screen never opened ("G8 functional
+did not run ... evidence of the DATA, not of the screen"). A fix for "nothing is showing up" was
+accepted without anything observing the screen show something; a rung asserting the parse of the
+route's real response would have caught it on 16-Sep. The framework-update question is whether a
+display-bug fix may close with the display unobserved; raised with the user, not run here.
+
+---
+
 ## RC-014 — A calendar day was turned into an instant in the SERVER's timezone, so every report began five and a half hours into the day it claimed to cover
 **Date:** 22-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, db/queries
 

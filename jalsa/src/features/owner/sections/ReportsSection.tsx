@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
+import { Button } from '@/components/ui/button';
 import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Field, Input } from '@/components/ui/field';
@@ -10,11 +11,17 @@ import { rupees } from '@/lib/money';
 import {
   PRESET_LABEL,
   checkRange,
+  emptyRangeCopy,
   rangeLabel,
+  rangeIsEmpty,
+  readReportAnswer,
   resolvePreset,
   type DateRange,
+  type EmptyRangeCopy,
+  type LastBillBefore,
   type RangePreset,
 } from '@/lib/report-range';
+import { nowForRangeCheck } from '@/lib/restaurant-time';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -91,12 +98,14 @@ interface RangeReport {
     payableLabel: string;
   }>;
   expenses: Array<{ id: string; spentOn: string; category: string; note: string; amount: number; enteredBy: string }>;
+  /** The actual last bill closed before this range, for the empty Today state. */
+  lastBillBefore: LastBillBefore | null;
 }
 
 export function ReportsSection({ data }: OwnerSectionProps) {
   const [tab, setTab] = React.useState<ReportTab>('sales');
   const [preset, setPreset] = React.useState<RangePreset>('today');
-  const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', new Date()));
+  const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', nowForRangeCheck()));
   /**
    * ONE PIECE OF STATE, STAMPED WITH THE RANGE IT ANSWERS.
    *
@@ -112,7 +121,10 @@ export function ReportsSection({ data }: OwnerSectionProps) {
     problem: string | null;
   } | null>(null);
 
-  const verdict = checkRange(range, new Date());
+  /* The restaurant's today, not the device's (RC-016): a phone set to another zone, or with a
+     wrong clock, named the wrong day for Today and Yesterday, and disagreed with the server's
+     own check of the same range. */
+  const verdict = checkRange(range, nowForRangeCheck());
   const key = `${range.from}|${range.to}`;
 
   React.useEffect(() => {
@@ -121,15 +133,11 @@ export function ReportsSection({ data }: OwnerSectionProps) {
     const [from, to] = key.split('|');
     fetch(`/api/owner/report?from=${from}&to=${to}`)
       .then(async (res) => {
-        const body = (await res.json()) as { data?: RangeReport; error?: { message?: string } };
+        const body: unknown = await res.json();
         if (cancelled) return;
         // The reason the SERVER gave, not a generic one: a report that will not load is either a
         // question about permission or one about the dates, and those need different actions.
-        setResult({
-          key,
-          report: res.ok ? (body.data ?? null) : null,
-          problem: res.ok ? null : (body.error?.message ?? 'The report could not be read.'),
-        });
+        setResult({ key, ...readReportAnswer<RangeReport>(res.ok, body) });
       })
       .catch(() => {
         if (!cancelled) {
@@ -149,7 +157,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
 
   const pick = (p: RangePreset): void => {
     setPreset(p);
-    setRange(resolvePreset(p, new Date()));
+    setRange(resolvePreset(p, nowForRangeCheck()));
   };
 
   const canSeeMoney = data.grants.includes('rep.sales');
@@ -216,20 +224,19 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         ))}
       </nav>
 
-      {!report ? (
-        problem ? null : (
-          <FirstRunState
-            title={loading ? 'Reading the range' : 'Nothing in this range'}
-            note={
-              loading
-                ? 'The rows are being read for the dates above.'
-                : 'No bill was closed and no expense was recorded between these dates. Every panel below is a projection of the same rows, so all four are empty together rather than disagreeing.'
-            }
-            testId="owner-rep-empty"
-          />
+      {!report || rangeIsEmpty(report) ? (
+        problem ? null : loading || !report ? (
+          <FirstRunState title="Reading the range" note="The rows are being read for the dates above." testId="owner-rep-empty" />
+        ) : (
+          <EmptyRange copy={emptyRangeCopy(preset, report.lastBillBefore)} onYesterday={() => pick('yesterday')} />
         )
       ) : (
         <>
+          {/* Today with expenses but no bill yet: the panels still show the expenses, and the
+              notice says where the takings went (A1). */}
+          {preset === 'today' && report.summary.bills === 0 ? (
+            <EmptyRange copy={emptyRangeCopy('today', report.lastBillBefore)} onYesterday={() => pick('yesterday')} compact />
+          ) : null}
           {tab === 'sales' ? <SalesPanel report={report} canSeeMoney={canSeeMoney} /> : null}
           {tab === 'orders' ? <OrdersPanel report={report} /> : null}
           {tab === 'expenses' ? <ExpensesPanel report={report} /> : null}
@@ -237,6 +244,51 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * A range with no bill closed. On Today it names the real last bill and offers Yesterday (A1);
+ * `compact` is the one-line form shown above panels that still have expenses to show.
+ */
+function EmptyRange({
+  copy,
+  onYesterday,
+  compact = false,
+}: {
+  copy: EmptyRangeCopy;
+  onYesterday: () => void;
+  compact?: boolean;
+}) {
+  const action = copy.offerYesterday
+    ? { label: 'View Yesterday', onClick: onYesterday, testId: 'owner-rep-view-yesterday' }
+    : undefined;
+  if (!compact) {
+    return (
+      <FirstRunState
+        title={copy.title}
+        note={copy.lastBill ? `${copy.lastBill}. ${copy.note}` : copy.note}
+        {...(action ? { action } : {})}
+        testId="owner-rep-empty"
+      />
+    );
+  }
+  return (
+    <Card className="flex flex-wrap items-center gap-3" data-testid="owner-rep-no-bills-today">
+      <span className="min-w-0 flex-1">
+        <span className="block type-body font-semibold">{copy.title}</span>
+        {copy.lastBill ? (
+          <span className="block type-caption text-[var(--text-muted)]" data-testid="owner-rep-last-bill">
+            {copy.lastBill}
+          </span>
+        ) : null}
+      </span>
+      {action ? (
+        <Button variant="secondary" data-testid={action.testId} onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
+    </Card>
   );
 }
 

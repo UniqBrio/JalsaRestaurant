@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Changed — 24-Sep-2026 — the testing correction list
+
+**For Javeed.**
+- **Reports on Today** now says "No bills closed today", names the last bill and its day, and has
+  a **View Yesterday** button. **Every "today"** — Payments, Dashboard, tips, printed tickets —
+  now runs midnight to midnight in India, not from 5:30 am.
+- **Income & expenses** (was Expenses): one date range, income from closed bills (tips left out),
+  the expense ledger, and the net.
+- **Uplift** shows how guests found Jalsa over the last 30 days.
+- **Printers:** switching a printer off and saving now works for printers on the printing
+  computer; a printer can be **deleted** (it asks first); a Windows printer shows **Change** and
+  **Stop using**. A step-by-step install guide is in `docs/PRINT-BRIDGE-WINDOWS-INSTALL.md`.
+- **Reissue PIN** works again, and the new PIN makes the person choose their own.
+- **Seating from the queue** now opens the table's bill, so the table shows as taken everywhere.
+  A **table code scanned while the queue is closed** shows a closed screen unless the table is
+  already seated.
+- **Welcome drinks** (Settings → Features): choose them once; the first order on a table offers
+  one tap to add them.
+- **Cash payments** show the change to hand back, and refuse a short payment.
+- **Every KOT** says where it came from: Captain, Owner or Guest phone.
+
+**For captains.** Tables waiting to be cleared are no longer listed as free. You can set the
+**waiter** on your own bill. A table you open with nobody assigned becomes yours.
+
+Not yet: none of this has been opened against the live database from here (the end-to-end tier
+could not run). Sub-menu categories and a "favorite menu" quick add are not built — see the run
+notes.
+
+**Fixed — 24-Sep-2026 — Reports showed nothing, whatever dates you picked.** Every payment you
+recorded was saved and the report was worked out correctly, but the Reports screen threw the
+answer away and said "Nothing in this range" instead. It should now show the figures, and nothing
+was lost: every bill closed since the start is still there. "Nothing in this range" now appears only
+when the dates really have no bill and no expense. When a report cannot be shown (for example, a
+role without access to sales), the screen now says why instead of a general message. The guest's
+entrance queue had the same mistake: a guest whose queue closed after the page opened now sees
+"We have stopped taking the queue" instead of "That did not go through."
+
+Not yet: the corrected Reports screen has not been opened against real bills. To check it, open
+Reports, pick 23-Sep and expect one bill, B-1044, paid by UPI.
+
 ### Added — 23-Sep-2026 — set up the thermal printer from Printers
 
 **For Javeed.** A new **Printers** section on the console. Press *Connect Printing Computer*,

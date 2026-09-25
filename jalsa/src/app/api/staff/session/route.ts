@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { signInWithPin } from '@/lib/db/auth';
+import { audit } from '@/lib/db/mutations';
+import { logError } from '@/lib/logger';
 import { clearStaffSession } from '@/lib/sessions';
 
 /**
@@ -39,6 +41,28 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       code: 'unauthenticated',
       message: 'That PIN did not work. Javeed reissues it from Staff if you have forgotten yours.',
     });
+  }
+  /* WHO SIGNED IN, WHERE, AND WHEN (24-Sep list, G2). Both surfaces share one sign-in, so a
+     phone signed in as the owner on /owner is signed in as the owner on /staff too - and every
+     round from it is recorded against the owner. Without this entry there was no way to tell
+     afterwards whose session a round came from. */
+  // Best-effort and never fatal: the person IS signed in (the cookie is written), so a failed
+  // record must not turn their sign-in into an error. The surface is the page they signed in
+  // from, as the browser reports it - a hint for whoever reads the log, not a security fact.
+  try {
+    let from = '/';
+    try {
+      from = new URL(req.headers.get('referer') ?? '/', 'http://x').pathname;
+    } catch {
+      /* a malformed Referer names no surface */
+    }
+    await audit({
+      action: 'Signed in',
+      detail: `${session.name} signed in on the ${from.startsWith('/owner') ? 'owner console' : 'staff app'}`,
+      actor: { staffId: session.staffId, label: session.name },
+    });
+  } catch (err) {
+    logError('api', err, { url: req.url });
   }
   return ok({ name: session.name, role: session.role, initials: session.initials });
 });

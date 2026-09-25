@@ -1,23 +1,26 @@
 import { NextResponse } from 'next/server';
 import { fail, handler, ok } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
-import { billTotals, listClosedBillsBetween, listExpensesBetween, readAllSettings } from '@/lib/db/queries';
+import {
+  billTotals,
+  lastClosedBillBefore,
+  listClosedBillsBetween,
+  listExpensesBetween,
+  readAllSettings,
+} from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
+import { KOT_SOURCE_LABEL } from '@/lib/status';
 import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
-import { dayIn, nowForRangeCheck } from '@/lib/restaurant-time';
+import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
 
-/* The same three words the console uses. Duplicated nowhere else: a fourth spelling of "guest
- * phone" is how a report and a bill detail end up disagreeing about where an order came from. */
 /** Money formatted once, on the server, like every other figure this route sends. */
 function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxLabel: string } {
   return { grossLabel: rupees(side.gross), netLabel: rupees(side.net), taxLabel: rupees(side.tax) };
 }
 
-const SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
-  guest: 'Guest phone',
-  captain: 'Captain',
-  owner: 'Owner',
-};
+/* The same three words the console and the printed KOT use - `KOT_SOURCE_LABEL`, one map. A
+ * second spelling of "guest phone" is how a report and a bill detail end up disagreeing about
+ * where an order came from. */
 
 /**
  * The ranged report — one date range, read once, projected into every panel.
@@ -68,10 +71,12 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     return fail(400, { code: 'validation', message: verdict.problem });
   }
 
-  const [bills, expenses, settings] = await Promise.all([
+  const [bills, expenses, settings, lastBefore] = await Promise.all([
     listClosedBillsBetween(from, to),
     listExpensesBetween(from, to),
     readAllSettings(),
+    // The actual last bill before this range, for the empty state's "Last bill" line (A1).
+    lastClosedBillBefore(from),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -172,12 +177,19 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         captain: b.captain,
         guests: b.guests,
         rounds: b.kots.length,
-        sources: [...new Set(b.kots.map((k) => SOURCE_LABEL[k.source]))].join(', '),
+        sources: [...new Set(b.kots.map((k) => KOT_SOURCE_LABEL[k.source]))].join(', '),
         closedOn: t.closedOn,
         payable,
         payableLabel: rupees(payable),
       };
     }),
     expenses,
+    lastBillBefore: lastBefore
+      ? {
+          code: lastBefore.code,
+          closedOn: dayIn(new Date(lastBefore.closedAt)),
+          closedOnLabel: shortDayLabel(dayIn(new Date(lastBefore.closedAt))),
+        }
+      : null,
   });
 });
