@@ -95,6 +95,12 @@ than a link. `20260923090000` is applied to both projects (23-Sep-2026).
 | `20260916100000_jalsa_guest_queue.sql` | ✅ 16-Sep | ✅ 16-Sep | `waitlist_entry.seated_table_id` and its check |
 | `20260916110000_jalsa_print_setup.sql` | ✅ 16-Sep | ✅ 16-Sep | printer station / connection / address / port / enabled; routes re-seeded onto menu categories |
 | `20260916120000_jalsa_hr_documents.sql` | ✅ 16-Sep | ✅ 16-Sep | the last five employment columns and `staff.paperwork` |
+| `20260925090000_jalsa_kot_item_line_order.sql` | ✅ 25-Sep (as `jalsa_kot_item_line_order`) | ✅ 25-Sep | `kot_item.line_seq` (identity, cart order) + index — item 3 |
+| `20260925100000_jalsa_item_routing_and_media.sql` | ✅ 25-Sep | ✅ 25-Sep | `menu_item.printer_id/station`, `kot_item.route_printer_id/route_station` + indexes, private storage bucket `media` (1 MB, png/jpeg) — items 23, 25, 26, 32 |
+| `20260925110000_jalsa_payment_notice_once.sql` | ✅ 25-Sep | ✅ 25-Sep | partial unique index: one open "Clear the table" / "Bill requested" per bill — item 37 |
+
+**25-Sep-2026, data (owner's request, not a migration):** on `yxgxmbyilpivbmeemqkp` only - six printers deleted, keeping `RP3160 GOLD(U) 1` (their 16 stale queued jobs marked failed with a reason first; all 58 print jobs kept, `printer_id` set null); the four revoked bridge tokens deleted, keeping `Kitchen PC`; the KOT template's `phone` / `branch` switched off. Each written to `audit_entry` as "Owner request · 25-Sep correction list". Verified after: printers 1, bridge tokens 1 (its mapping intact), queued jobs on no printer 0.
+**Applied live by other branches, not in this branch:** `jalsa_change_versions*` (festive-brown-bhheua) and `jalsa_menu_sub_categories` (gifted-thompson-lyr4de) — recorded here so the next reader of `list_migrations` is not surprised.
 
 **Verified after the 16-Sep run**, on `yxgxmbyilpivbmeemqkp`, against the counts taken immediately
 before it: staff 27, menu items 57, tables 20, bills 2, KOTs 6, printers 4, settings 11 — every
