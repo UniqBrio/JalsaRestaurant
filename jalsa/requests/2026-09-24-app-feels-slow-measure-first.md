@@ -129,4 +129,21 @@ retries for **≈7 s** before the designed "unavailable" screen appears (measure
 | Step | Function region (edge `cf.colo`) | Per-call time (origin_time p50) | Guest load/poll server time | Measured |
 |---|---|---|---|---|
 | Before | iad1 (IAD) | 375 ms (min 229) | ≈2.9 s | 24-Sep 03:06 trace |
-| After fix 1 | *pending: requester's phone run* | | | |
+| After fix 1 (`syd1`) | **syd1 (SYD)** — confirmed at runtime | **25 ms min · 71 ms p50** (26 calls) | **≈0.54 s** warm (09:48:22 load); the first call of a fresh instance took 952 ms | 24-Sep 09:11–09:48 UTC, requester's phone, Supabase edge logs |
+
+### Fixes 2–5 — local rig (same method for before and after)
+Real PostgREST 12.2 on Postgres 16, schema from `supabase/migrations/` (seed: 57 items, 20 tables,
+27 staff). A proxy adds **100 ms to every database call**, so time ≈ rounds × 100 ms. "Rounds" = the
+longest chain of calls that had to wait for each other. Payloads were compared before/after with
+ids and clock times normalised: **identical** for guest (welcome + live), staff and owner polls.
+
+| Load | Before (calls / rounds / ms) | After fix 2 |
+|---|---|---|
+| Guest page `/t/A5`, open bill | 12 / 8 / 896 | **10 / 2 / 247** |
+| Guest poll, open bill | 12 / 8 / 867 | **10 / 2 / 233** |
+| Guest page / poll, welcome | 12 / 7 / 760–783 | **11 / 3 / 338–350** |
+| Guest cart add | 12 / 6 / 682 | **11 / 4 / 451** |
+| Guest place round (new bill) | 32 / 21 / 2404 | 31 / 18 / 1964 |
+| Staff poll | 12 / 3 / 354 | 12 / 3 / 350 (fix 3–4) |
+| Staff advance KOT + re-read | 5 / 5 / 545 + 12 / 3 / 340 | unchanged (fix 3) |
+| Owner poll | 29 / 5 / 568 | 29 / 5 / 571 (fix 3–4) |

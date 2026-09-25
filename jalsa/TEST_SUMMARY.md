@@ -4,6 +4,14 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 2 of the latency run - 2026-09-24 - guest screen: 8 sequential rounds to 2
+
+FAIL-FIRST: tests/unit/guest-rounds.unit.spec.ts - against the pre-fix tree: "first scan (no session yet) Expected: <= 3 Received: 7"; "live poll Expected: <= 2 Received: 8"; "cart tap echo Expected: <= 2 Received: 4"; bill pointer test "Received + 1" (bill_id rewritten on every poll). 4 of 6 failed; after the fix 6 passed.
+Rig: tests/support/round-rig.ts runs the real data layer with only the database client, the cookie reader and `server-only` swapped. Real PostgREST check (local, 100 ms per call): live poll 8 → 2 rounds, 867 → 233 ms; payloads identical before/after.
+Unit: 946 passed. Typecheck and lint clean. tests/unit/combobox-migration.unit.spec.ts pins the heard-sources gate as source text; the gate is unchanged and the line keeps that text.
+
+---
+
 ## Fix 1 of the latency run - 2026-09-24 - functions next to the database
 
 FAIL-FIRST: tests/unit/function-region.unit.spec.ts - "ENOENT: no such file or directory, open '.../jalsa/vercel.json'" against the pre-fix tree (functions on the iad1 default). After `vercel.json` `regions: ["syd1"]`: 2 passed.

@@ -2,6 +2,20 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-24 - Latency fix 2 of 5: guest screen in 2 rounds, not 8
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`** and the request file. The guest page and its
+6 s poll waited for 8 database round trips in sequence; independent reads now share a round, the
+bill is fetched with its membership row, and the bill pointer is written only when wrong.
+
+FAIL-FIRST: jalsa/tests/unit/guest-rounds.unit.spec.ts - against the pre-fix tree: live poll "Expected: <= 2 Received: 8", first scan "Received: 7", cart echo "Received: 4", bill pointer rewritten every poll; 4 of 6 failed.
+
+Gate run (jalsa): unit 946 passed, typecheck and lint clean; local PostgREST check: live poll
+8 → 2 rounds (867 → 233 ms at 100 ms per call), payloads identical before/after. G8 functional
+was NOT run here (no database reachable from the container).
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Latency fix 1 of 5: functions next to the database
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`** and `jalsa/requests/2026-09-24-app-feels-slow-measure-first.md`.

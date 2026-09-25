@@ -1,5 +1,5 @@
 import 'server-only';
-import { contextForSession, currentGuestSession, type GuestSession } from './guest';
+import { contextForSession, currentGuestSession, startGuestReads, type GuestSession } from './guest';
 import { assembleGuestPayload, type GuestPayload } from './guest-view';
 
 /**
@@ -45,9 +45,10 @@ export async function freshState(session?: GuestSession | null): Promise<GuestPa
   try {
     const known = session ?? (await currentGuestSession());
     if (!known) return null;
-    const ctx = await contextForSession(known);
+    const prefetch = startGuestReads();
+    const ctx = await contextForSession(known, prefetch);
     if (!ctx) return null;
-    return await assembleGuestPayload(ctx);
+    return await assembleGuestPayload(ctx, prefetch);
   } catch {
     return null;
   }

@@ -297,30 +297,36 @@ export async function getBill(billId: string): Promise<Bill | null> {
  * constraint can never disagree about which bill is live.
  */
 export async function openBillForTable(tableId: string): Promise<Bill | null> {
+  // ONE round trip, not two: the membership row embeds its bill. The filter is the same row the
+  // unique index covers, so this still cannot disagree with the constraint. It used to read the
+  // membership, then fetch the bill by id — a second trip that cost ≈250 ms while the functions
+  // ran on the far side of the world from the database (requests/2026-09-24-app-feels-slow-…).
   const { data, error } = await db()
     .from('bill_table')
-    .select('bill_id')
+    .select(`bill:bill_id (${BILL_SELECT})`)
     .eq('table_id', tableId)
     .is('released_at', null)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  return getBill(data.bill_id as string);
+  const bill = (data as { bill?: Record<string, unknown> | null } | null)?.bill;
+  return bill ? shapeBill(bill) : null;
 }
 
 /** The most recently closed bill on a table, for the rescan window ("scan again, bill closed"). */
 export async function lastClosedBillForTable(tableId: string): Promise<Bill | null> {
+  // One round trip, as `openBillForTable`: the same membership row, ordered the same way, with its
+  // bill embedded rather than fetched afterwards.
   const { data, error } = await db()
     .from('bill_table')
-    .select('bill_id, released_at')
+    .select(`released_at, bill:bill_id (${BILL_SELECT})`)
     .eq('table_id', tableId)
     .not('released_at', 'is', null)
     .order('released_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  return getBill(data.bill_id as string);
+  const bill = (data as { bill?: Record<string, unknown> | null } | null)?.bill;
+  return bill ? shapeBill(bill) : null;
 }
 
 export async function listOpenBills(): Promise<Bill[]> {
