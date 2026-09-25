@@ -4,6 +4,17 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Fix 4 correction - 2026-09-25 - a heartbeat that rewrites an unchanged value moves nothing
+
+Found applying 20260924120000 to development: within minutes 'floor' had moved 10 times with nothing on the floor changed. Cause: `after update of hostname, bridge_version` fires whenever those columns are in the SET list, and the bridge sync rewrites both unchanged. 20260924130000 replaces both column-list triggers (bridge_token, guest_session) with row triggers that fire only when a watched value is DISTINCT.
+Local proof (Postgres 16, same migrations): bridge_token insert -> floor 1; two unchanged syncs -> still 1; a real bridge_version change -> 2; a guest last_seen_at stamp -> still 2.
+FAIL-FIRST: observed on development itself before the correction: 'floor' 0 -> 10 in minutes with only bridge PATCH/POST/DELETE traffic in the edge logs.
+tests/unit/change-stamp.unit.spec.ts "the heartbeat columns move nothing" superseded in place (dated note): it pinned the first migration's column-list text, which was the defect.
+Both migrations applied to yxgxmbyilpivbmeemqkp and uxmyomxtosjlkvjxnvpy on 25-Sep. After the correction, development 'floor' held at 53 from 10:48:34 to 10:51:11 UTC - but no writes reached the edge logs in that window, so the bridge case is proven locally, not yet on development.
+Unit: 979 passed.
+
+---
+
 ## Fix 4 of the latency run - 2026-09-24 - polling asks "changed?" instead of re-reading everything
 
 FAIL-FIRST: tests/unit/change-stamp.unit.spec.ts - against the pre-fix routes: "every full screen carries the stamp" Received: null; "when nothing moved, a tick is one round..." Expected true Received false; "another table's business does not make a guest phone re-read" Expected true Received false. 3 of 8 failed.

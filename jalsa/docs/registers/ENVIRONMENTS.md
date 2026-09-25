@@ -97,6 +97,8 @@ than a link. `20260923090000` is applied to both projects (23-Sep-2026).
 | `20260916100000_jalsa_guest_queue.sql` | ✅ 16-Sep | ✅ 16-Sep | `waitlist_entry.seated_table_id` and its check |
 | `20260916110000_jalsa_print_setup.sql` | ✅ 16-Sep | ✅ 16-Sep | printer station / connection / address / port / enabled; routes re-seeded onto menu categories |
 | `20260916120000_jalsa_hr_documents.sql` | ✅ 16-Sep | ✅ 16-Sep | the last five employment columns and `staff.paperwork` |
+| `20260924120000_jalsa_change_versions.sql` | ✅ 25-Sep | ✅ 25-Sep | `change_version` ('floor', 'catalog'), `bill.version`, bump triggers — the polling change check (latency fix 4). Verified after apply: 32 triggers, RLS on, staff 28 / menu 57 / tables 20 / bills 12 unchanged on development |
+| `20260924130000_jalsa_change_versions_exact.sql` | ✅ 25-Sep | ✅ 25-Sep | bridge_token / guest_session bump only on a real change: the bridge sync rewrote `hostname`/`bridge_version` unchanged and moved 'floor' ten times in minutes after the first apply |
 
 **Verified after the 16-Sep run**, on `yxgxmbyilpivbmeemqkp`, against the counts taken immediately
 before it: staff 27, menu items 57, tables 20, bills 2, KOTs 6, printers 4, settings 11 — every

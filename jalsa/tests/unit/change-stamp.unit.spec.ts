@@ -105,7 +105,20 @@ test('every table a polled screen reads moves a counter, or is excluded on purpo
   expect(missing, 'a table no counter watches is a screen that never updates').toEqual([]);
 });
 
-test('the heartbeat columns move nothing', () => {
-  expect(MIGRATION).toMatch(/update of table_id, bill_id, heard_about on public\.guest_session/);
-  expect(MIGRATION).toMatch(/update of label, revoked_at, source, hostname, bridge_version on public\.bridge_token/);
+// SUPERSEDED 24-Sep-2026: this pinned the first migration's `update of <columns>` triggers. Those
+// fire whenever a column is in the SET list, and the bridge's sync rewrites `hostname` and
+// `bridge_version` unchanged on every call — the floor counter moved ten times in minutes on
+// development. 20260924130000 replaces them with row triggers that fire only on a real difference.
+const CORRECTION = read('supabase/migrations/20260924130000_jalsa_change_versions_exact.sql');
+
+test('a heartbeat that rewrites an unchanged value moves nothing', () => {
+  for (const col of ['label', 'revoked_at', 'source', 'hostname', 'bridge_version']) {
+    expect(CORRECTION, col).toContain(`old.${col} is distinct from new.${col}`);
+  }
+  for (const col of ['table_id', 'bill_id', 'heard_about']) {
+    expect(CORRECTION, col).toContain(`old.${col} is distinct from new.${col}`);
+  }
+  expect(CORRECTION).not.toMatch(/last_seen_at|last_sync_at/);
+  expect(CORRECTION).toContain('drop trigger if exists bridge_token_bump_floor on public.bridge_token');
+  expect(CORRECTION).toContain('drop trigger if exists guest_session_bump_floor on public.guest_session');
 });

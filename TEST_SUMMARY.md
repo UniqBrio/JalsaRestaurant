@@ -2,6 +2,19 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - Fix 4 correction: heartbeats move nothing
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Applying the change-version migration to
+development showed the print bridge's sync (which rewrites `hostname`/`bridge_version` unchanged)
+moving the floor counter every few seconds. A second migration makes those triggers fire only on
+a real difference. Both migrations applied to development and test.
+
+FAIL-FIRST: observed on development before the correction ('floor' 0 -> 10 in minutes from bridge traffic alone); after it, locally: two unchanged syncs moved nothing, a real change moved it once.
+
+Gate run (jalsa): unit 979 passed. G8 functional NOT run here.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - Latency fix 4 of 5: polling asks "changed?"
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** Every open screen re-read its whole world on a
