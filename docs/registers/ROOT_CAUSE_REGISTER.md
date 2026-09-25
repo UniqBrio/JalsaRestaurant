@@ -59,6 +59,37 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-021 — CI on main went red on Node 20 while every local run on Node 22 passed
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** print bridge packaging, CI
+
+**Symptom** — the `jalsa` job on UniqBrio/JalsaRestaurant#11 and on main failed in
+`bridge-package.unit.spec.ts` ("THE REGRESSION ... fails at 125:97"); `gate` and
+`self-tests-windows` showed as cancelled on the same pushes.
+
+**Root cause** — two. (1) `ansiView()` decoded with `TextDecoder('windows-1252')`. Node 20's
+small-ICU build treats that label as Latin-1, so byte 0x92 became U+0092 instead of `’` and the
+very quote the view exists to expose disappeared; Node 22 decodes it correctly, and CI pins Node 20.
+(2) Both workflow files are named `CI` and keyed their concurrency group on the workflow name, so
+each push's second workflow cancelled the first's run.
+
+**Fix** — `ansiView` maps 0x80-0x9F through an explicit Windows-1252 table (the only range where it
+differs from Latin-1). Each workflow has its own concurrency group.
+
+**Files** — `jalsa/bridge/package/powershell-lint.ts`, `.github/workflows/ci.yml`,
+`.github/workflows/github-actions-ci.yml`, `jalsa/tests/unit/bridge-package.unit.spec.ts`.
+
+**How to verify** — `npx -y node@20 node_modules/@playwright/test/cli.js test
+tests/unit/bridge-package.unit.spec.ts` from `jalsa/` (with a unit-only config): all pass.
+
+**Recurrence risk** — `grep -rn "TextDecoder(" jalsa/src jalsa/bridge`: no other non-UTF-8 label.
+
+**Prevention** — the appended rung "the ANSI view maps 0x80-0x9F as Windows-1252 itself" pins the
+mapping and forbids the ICU-dependent decoder.
+
+**Process check** — No: local runs used the container's Node, not CI's; one line, done.
+
+---
+
 ## RC-020 — A printer set up through a printing computer could not be saved: the form demanded a network address it will never have
 **Date:** 24-Sep-2026  ·  **Severity:** S3  ·  **Modules:** printing (Print setup)
 

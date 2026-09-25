@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Application run - jalsa - 2026-09-25 - CI red on Node 20 (RC-021)
+
+FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts under Node 20.20.2 (`npx node@20`, CI's pinned major) against main's `ansiView`: **1 failed** (THE REGRESSION rung - the `’` never appears), 16 passed; with the Windows-1252 table: 17 passed on Node 20 and 18 passed on Node 22 (the appended rung included). The appended rung pins the table and forbids the ICU-dependent decoder.
+Workflow concurrency: both files are named `CI`; each now has its own group. Not runnable here (GitHub Actions only) - verified on the next push's checks.
+
+---
+
 ## Gate run - 2026-09-24 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.

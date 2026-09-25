@@ -193,8 +193,20 @@ export function lintPowerShell(text: string): LintResult {
  * shipped, and is what the regression test exercises.
  */
 export function ansiView(utf8: Uint8Array): string {
-  return new TextDecoder('windows-1252').decode(utf8);
+  let out = '';
+  for (const b of utf8) out += b >= 0x80 && b <= 0x9f ? CP1252_80_9F[b - 0x80] : String.fromCharCode(b);
+  return out;
 }
+
+/**
+ * Windows-1252 differs from Latin-1 only in 0x80-0x9F. Spelled out rather than asking
+ * TextDecoder for the windows-1252 label, because Node 20's small-ICU build decodes it as Latin-1
+ * (0x86 -> U+0086, not the dagger), which hid the very quote this view exists to expose and
+ * turned CI red on Node 20 while Node 22 passed. The five undefined bytes map to themselves.
+ */
+const CP1252_80_9F =
+  '\u20ac\u0081\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u008d\u017d\u008f' +
+  '\u0090\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u009d\u017e\u0178';
 
 export const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 
