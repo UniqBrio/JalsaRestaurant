@@ -2,6 +2,13 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
+
+`jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.
+FAIL-FIRST: observed failing on Node 20.19.0 before the fix (CI run 27, and reproduced locally with `npx node@20.19.0`: `"â"` for E2 86 92); after: bridge-package.unit.spec.ts **17 passed under Node 22.22 and under Node 20.19**. Typecheck, lint: pass. Not this PR's defect (red on the base since PR #10); fixed here at the owner's choice so #12 and main go green.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - 25-Sep correction list, code-review fixes
 
 Review (REQUEST CHANGES, 2 blockers, 7 major, 12 minor). Fixed: new columns read before their migrations (applied to both projects before this branch can deploy; kotPrintableItems no longer turns a read error into an empty round); the floor's unbounded session `.in()` (now carts via an inner join + sessions on open bills only); "Set all" as a URL-sized id list (one update by restaurant; lists chunked by 100); a dish's printer changeable without `set.printer`; routing to an Invoice printer; the daily chart silently cut at 92 days; tipped bills printing a TOTAL without the tip; a big TOTAL and item figures clipped (never cut now; a space between every column); `large` never reaching the printer (font B at GS ! 0x11); two-tap duplicate notices (partial unique index, 23505 ignored; freeTable resolves them; the floor badge leaves the counter's out); the category routing table ignoring the default station; addCategory half-succeeding; unchecked upload/station input; 0% tax on the test bill; a test KOT to a bill printer always blocked; a half-written DLL; no index behind `on delete set null`; two misplaced doc comments; a look-alike Google host.

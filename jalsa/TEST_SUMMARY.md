@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Run - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
+
+`jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.
+FAIL-FIRST: observed failing on Node 20.19.0 before the fix (CI run 27, and reproduced locally with `npx node@20.19.0`: `"â"` for E2 86 92); after: bridge-package.unit.spec.ts **17 passed under Node 22.22 and under Node 20.19**. Typecheck, lint: pass. Not this PR's defect (red on the base since PR #10); fixed here at the owner's choice so #12 and main go green.
+
+---
+
 ## Run - 2026-09-25 - gate, read honestly (25-Sep correction list, final)
 
 The two gate reports below say G8 FAIL. What actually ran, with the image's Chromium (`PLAYWRIGHT_CHROMIUM_PATH`, KL-3) and `npm run dev` on :3000: **80 functional cases passed** - every journey mocked at the API boundary (sign-in, keyboard parity, degraded screen, owner and captain screens); **16 failed = 4 specs x 4 viewports**, all database-bound: `reachability` (needs the seeded test DB), `guest-journey`, `closure-upsell-tip`, `guest-total-visibility` (all fail on their first line, `/t/<table>` showing the designed `unreachable-guest` screen); **32 did not run** (serial files after that first failure). Cause, verified: the container's egress proxy denies `*.supabase.co` (connect_rejected, organization policy), so no server started here can reach either project - the same class every 24-Sep run recorded as BLOCKED. The first report below (144 failed) is the run before the Chromium override, where no browser launched at all. G1-G7, G9-G12: PASS.
