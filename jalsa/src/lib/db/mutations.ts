@@ -120,9 +120,15 @@ export async function ensureOpenBill(
      * seating two parties at one table would otherwise both succeed onto one bill.
      */
     mustBeNew?: boolean;
+    /**
+     * The caller read this table a moment ago and found no open bill, so the same read is not
+     * repeated. A bill opened in between is still caught: the `bill_table` insert below is
+     * guarded by its unique index, and the 23505 path answers with the bill that won.
+     */
+    knownAbsent?: boolean;
   } = {}
 ): Promise<Bill> {
-  const existing = await openBillForTable(tableId);
+  const existing = opts.knownAbsent ? null : await openBillForTable(tableId);
   if (existing) {
     if (opts.mustBeNew) throw new Error(`${existing.tables.join(', ')} already has a party on it. Choose another table.`);
     return existing;
@@ -278,35 +284,31 @@ export async function placeRound(input: {
 
   const restaurantId = await currentRestaurantId();
   const ids = input.lines.map((l) => l.menuItemId);
-  const { data: items, error: itemErr } = await db()
-    .from('menu_item')
-    // The category comes back in the SAME query the availability check already runs. Routing a
-    // round to its station therefore costs nothing on the order path — which is the only reason
-    // it is done here rather than by a worker reading the job back.
-    .select('id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name,parent_id)')
-    .eq('restaurant_id', restaurantId)
-    .in('id', ids);
+  /* ONE ROUND FOR EVERYTHING THE ROUND IS DECIDED FROM (requests/2026-09-24-app-feels-slow-…).
+     The dishes, the printers they may route to and the two settings that shape routing and the
+     ticket split need nothing from each other. They were three rounds one after another; when
+     every dish turns out to be sold out, the printer and setting reads are simply unused. */
+  const [{ data: items, error: itemErr }, kotPrinters, routing, printSettings] = await Promise.all([
+    db()
+      .from('menu_item')
+      // The category comes back in the SAME query the availability check already runs. Routing a
+      // round to its station therefore costs nothing on the order path — which is the only reason
+      // it is done here rather than by a worker reading the job back. So does the sub-menu's
+      // parent (I3), snapshotted so a report reads what the dish sold UNDER even after the menu
+      // is reorganised - embedded here rather than read afterwards, which was another round.
+      .select(
+        'id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name,parent_id,parent:parent_id(name))'
+      )
+      .eq('restaurant_id', restaurantId)
+      .in('id', ids),
+    routablePrinters(restaurantId, 'KOT', { strict: true }),
+    readSettings('routing', { defaultStation: '' } as { defaultStation: string }),
+    readSettings('print', { splitByFoodType: false }),
+  ]);
   if (itemErr) throw itemErr;
 
-  /* The sub-menu's parent, snapshotted with the category (I3), so a report reads what the dish
-     sold UNDER even after the menu is reorganised. One extra read, and only when a dish in the
-     round sits in a sub-menu. */
-  const parentIds = [
-    ...new Set(
-      (items ?? [])
-        .map((i) => (i.menu_category as unknown as { parent_id: string | null } | null)?.parent_id ?? null)
-        .filter((id): id is string => id !== null)
-    ),
-  ];
-  const parentName = new Map<string, string>();
-  if (parentIds.length > 0) {
-    const { data: parents, error: parentErr } = await db()
-      .from('menu_category')
-      .select('id,name')
-      .in('id', parentIds);
-    if (parentErr) throw parentErr;
-    for (const p of parents ?? []) parentName.set(p.id as string, p.name as string);
-  }
+  const parentNameOf = (item: { menu_category: unknown }): string =>
+    (item.menu_category as { parent?: { name: string } | null } | null)?.parent?.name ?? '';
 
   const now = Date.now();
   const byId = new Map((items ?? []).map((i) => [i.id as string, i]));
@@ -336,10 +338,6 @@ export async function placeRound(input: {
      A dish's own printer and station, and the default station for a dish nothing routes, are
      read at this moment only - the job below, the composed ticket and any reprint read the
      snapshot, so they route the line identically however the settings change afterwards. */
-  const [kotPrinters, routing] = await Promise.all([
-    routablePrinters(restaurantId, 'KOT'),
-    readSettings('routing', { defaultStation: '' } as { defaultStation: string }),
-  ]);
   const snapshotOf = (item: (typeof accepted)[number]['item']): ItemRoute => {
     const category = (item.menu_category as unknown as { name: string } | null)?.name ?? '';
     const chosenPrinter = (item.printer_id as string | null) ?? null;
@@ -389,9 +387,7 @@ export async function placeRound(input: {
         // taken off the menu. Joined instead, a reprint would resolve differently from the
         // original and land at the wrong station.
         menu_category_name: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
-        menu_parent_category_name:
-          parentName.get((item.menu_category as unknown as { parent_id: string | null } | null)?.parent_id ?? '') ??
-          '',
+        menu_parent_category_name: parentNameOf(item),
         qty: line.qty,
       }))
     );
@@ -417,6 +413,9 @@ export async function placeRound(input: {
         foodType: item.food_type as FoodType,
         route: routes[i] ?? null,
       })),
+      // Read above, a moment ago, in the round that decided the routes: the ticket is split on
+      // the same printers the lines were routed to, and nobody reads them twice.
+      known: { printers: kotPrinters, splitByFoodType: printSettings.splitByFoodType === true },
     }),
     audit({
       action: 'Order placed',
@@ -677,13 +676,20 @@ export interface PrintableItem {
  * PostgREST feels like, which is how the owner's Routing screen (which orders by `machine_id`)
  * and the order path came to disagree about which machine claims a category.
  */
-async function routablePrinters(restaurantId: string, purpose: string): Promise<RoutablePrinter[]> {
-  const { data: rows } = await db()
+async function routablePrinters(
+  restaurantId: string,
+  purpose: string,
+  /** Fail rather than answer "no printers" - for placing a round, where the read comes BEFORE
+      anything is written and a failure can simply be tried again (review, 26-Sep-2026). */
+  opts: { strict?: boolean } = {}
+): Promise<RoutablePrinter[]> {
+  const { data: rows, error } = await db()
     .from('printer')
     .select('id,machine_id,name,purpose,station,routes,online,enabled')
     .eq('restaurant_id', restaurantId)
     .eq('purpose', purpose)
     .order('machine_id', { ascending: true });
+  if (error && opts.strict) throw error;
 
   return (rows ?? []).map((p) => ({
     id: p.id as string,
@@ -828,15 +834,22 @@ export async function queuePrint(input: {
    * it rather than a shortfall.
    */
   items?: readonly PrintableItem[];
+  /** The printers and the split switch, when the caller has just read them (placeRound). */
+  known?: { printers: RoutablePrinter[]; splitByFoodType: boolean };
 }): Promise<void> {
   const restaurantId = await currentRestaurantId();
   const purpose = input.kind === 'KOT' ? 'KOT' : 'Invoice';
-  const printers = await routablePrinters(restaurantId, purpose);
-
   // The design puts the veg/non-veg split on the Routing screen as a switch, separate from the
-  // routing itself. Reading it here is what connects that switch to paper.
-  const splitByFoodType =
-    purpose === 'KOT' && (await readSettings('print', { splitByFoodType: false })).splitByFoodType === true;
+  // routing itself. Reading it here is what connects that switch to paper. The two reads need
+  // nothing from each other, so they share a round (requests/2026-09-24-app-feels-slow-…).
+  const [printers, splitByFoodType] = input.known
+    ? [input.known.printers, purpose === 'KOT' && input.known.splitByFoodType]
+    : await Promise.all([
+        routablePrinters(restaurantId, purpose),
+        purpose === 'KOT'
+          ? readSettings('print', { splitByFoodType: false }).then((p) => p.splitByFoodType === true)
+          : Promise.resolve(false),
+      ]);
 
   const tickets: RoundTicket[] = input.items?.length
     ? splitRound({ items: input.items, printers, splitByFoodType })
@@ -1602,7 +1615,10 @@ export async function setCartLine(input: { sessionId: string; menuItemId: string
 }
 
 export async function clearCart(sessionId: string): Promise<void> {
-  await db().from('guest_cart_line').delete().eq('session_id', sessionId);
+  // The client answers a failure with `{ error }` rather than a throw; unchecked, a failed clear
+  // looked exactly like a successful one (review, 26-Sep-2026).
+  const { error } = await db().from('guest_cart_line').delete().eq('session_id', sessionId);
+  if (error) throw error;
 }
 
 export async function readCart(sessionId: string): Promise<Array<{ menuItemId: string; qty: number }>> {

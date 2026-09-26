@@ -366,6 +366,37 @@ export async function currentGuestSession(): Promise<GuestSession | null> {
   };
 }
 
+/**
+ * This phone's session AND its cart, in one read. Placing a round needs both, and read one after
+ * the other (the cart is keyed on the session's id) they were a whole round trip before anything
+ * else on that path could start (requests/2026-09-24-app-feels-slow-measure-first.md).
+ */
+export async function currentGuestSessionWithCart(): Promise<{
+  session: GuestSession;
+  cart: Array<{ menuItemId: string; qty: number }>;
+} | null> {
+  const token = await readGuestToken();
+  if (!token) return null;
+  const { data, error } = await db()
+    .from('guest_session')
+    .select('id,table_id,bill_id,heard_about,guest_cart_line (menu_item_id,qty)')
+    .eq('token', token)
+    .maybeSingle();
+  // As `currentGuestSession` answers: a session that cannot be read is no session, and the phone
+  // is asked to scan again rather than shown an error.
+  if (error || !data) return null;
+  const lines = (data as { guest_cart_line?: Array<{ menu_item_id: string; qty: number }> }).guest_cart_line ?? [];
+  return {
+    session: {
+      id: data.id as string,
+      tableId: data.table_id as string,
+      billId: (data.bill_id as string) ?? null,
+      heardAbout: (data.heard_about as string) ?? '',
+    },
+    cart: lines.map((r) => ({ menuItemId: r.menu_item_id, qty: r.qty })),
+  };
+}
+
 /*
  * `tableNameForSession` was here. It existed for one caller — `freshState()` — which turned a
  * table id into a NAME so that `buildGuestPayload` could turn the name back into the same row.

@@ -4,6 +4,179 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 11s total - slowest G8 Functional / integration (1m 56s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (51ms)
+- **G3 Theme assets present per theme** - PASS (79ms)
+- **G4 No hard-coded colours** - PASS (87ms)
+- **G5 Types** - PASS (12.0s)
+- **G6 Lint** - PASS (13.6s)
+- **G7 Unit + pure specs** - PASS (45.1s)
+- **G8 Functional / integration** - FAIL (1m 56s)
+
+```
+    Error: expect(locator).toHaveText(expected) failed
+    Expected: "3"
+          - unexpected value "2"
+    test-results/guest-total-visibility.fun-db3a7-and-a-run-of-taps-all-count-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-db3a7-and-a-run-of-taps-all-count-desktop/error-context.md
+  1 failed
+[WebServer] [error] guest.page: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1. {
+[WebServer]   stack: 'Error: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1.\n' +
+[WebServer] [error] guest.page: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1. {
+[WebServer]   stack: 'Error: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1.\n' +
+[WebServer] [error] guest.page: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1. {
+[WebServer]   stack: 'Error: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1.\n' +
+[We
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (70ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (62ms)
+- **G12 Installable as an application** - PASS (80ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 09s total - slowest G8 Functional / integration (2m 00s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (63ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (54ms)
+- **G3 Theme assets present per theme** - PASS (70ms)
+- **G4 No hard-coded colours** - PASS (95ms)
+- **G5 Types** - PASS (2.6s)
+- **G6 Lint** - PASS (14.2s)
+- **G7 Unit + pure specs** - PASS (47.4s)
+- **G8 Functional / integration** - FAIL (2m 00s)
+
+```
+    Error: asking for the bill is a request, not a closure
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "payment_requested"
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: the ₹20 tip is on the bill, read back through the state route
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 20
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop-wide/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop-wide/error-context.md
+    Error: asking for the bill is a request, not a closure
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "payment_requested"
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-mobile/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-mobile/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (63ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (78ms)
+- **G12 Installable as an application** - PASS (101ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 27s total - slowest G8 Functional / integration (2m 09s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (56ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (52ms)
+- **G3 Theme assets present per theme** - PASS (49ms)
+- **G4 No hard-coded colours** - PASS (120ms)
+- **G5 Types** - PASS (12.0s)
+- **G6 Lint** - PASS (13.6s)
+- **G7 Unit + pure specs** - PASS (47.6s)
+- **G8 Functional / integration** - FAIL (2m 09s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.4s)
+- **G11 Wide tables are configurable** - PASS (57ms)
+- **G12 Installable as an application** - PASS (75ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Merge with main, and the write paths - 2026-09-26 - every screen and action waits only for what it needs
+
+Merge: main's separate sign-ins (`currentStaff('owner' | 'staff')`) kept in both state routes and the owner echo, beside the stamp read; the round rig's actions scenario and the PGlite prelude (a `storage.buckets` stand-in for main's media bucket) updated to match. `20260925090000_jalsa_change_versions_review.sql` renumbered to `20260925130000` - main's `jalsa_kot_item_line_order` holds that version (main's own precedent for sub-menus); the entries below keep the old number as written. Applied remotely under its name, so nothing to re-apply.
+Found re-measuring the merged tree (real PostgREST, 100 ms per call):
+- owner console load and poll answered 500 - `listPrinters` read `print_job.printed_at`; only `kot` has it. Now `completed_at`, which the bridge stamps only on a print. Also on development: the column is absent there too;
+- floor read (every staff and owner poll) waited for the open bills to learn their ids - now filtered by the bill's status in the same round;
+- a guest's round: 20 rounds. Cart now rides in the session read; ensureOpenBill is told the table was just read (`knownAbsent`) - a racing bill is still caught by the bill_table unique index; dishes, printers, routing and print settings in one round with the sub-menu parent embedded; queuePrint reuses the printers the lines were routed on; the reply screen is built while the cart is cleared (told `cartEmptied`);
+- owner console: grants read after the staff list, print-history table names after the history, open bills read 3x and requests 2x - all now in one round, read once (`SharedReads`);
+- owner action: identity re-check then the console - now together, `me`/`grants` taken from the re-check.
+FAIL-FIRST: tests/unit/write-rounds.unit.spec.ts - against the merged tree (my src changes checked out): first round 21 rounds, later round 15, floor 2, staff screen 2, owner console 3, owner action 8; separate cart reads 2, printer reads 2, open-bill list reads 2 (staff) / 3 (owner), request reads 2, print-history name reads 1.
+FAIL-FIRST: tests/unit/print-trail-columns.db.unit.spec.ts - against the merged queries.ts: "Received: [\"printed_at\"]".
+Superseded in place (dated notes): pin-and-attribution G2 guest `ensureOpenBill` regex; queue-seat-and-closed F3 `ensureOpenBill` text; sub-menus parent select text. Each still pins the same rule.
+Real rig after (calls / rounds / ms): round 31/14/1568 (was 35/20/2264); staff poll 13/2/237 (15/3/345); staff tap 15/5/562 (17/6/668); owner poll 29/2/254 (broken, then 33/4/469); owner save 33/5/576 (37/8/876). Load 40 phones + 5 captains + 1 owner: 27.0 /s busy, 17.3 /s quiet. Screens identical to the merged build (ids and times normalised).
+Review (code-reviewer, REQUEST CHANGES) fixed: `clearCart` ignored the client's `{ error }`, so with `cartEmptied` a failed clear showed an empty cart the next poll refilled (a guest could send the round twice) - it now throws and the route rebuilds the echo from the real cart; the owner grants read ignored its error, so presets would show as grants - it now throws; a failed queue read no longer turns a no-session phone's 401 into a 500; `currentGuestSessionWithCart` answers an unreadable session as none, as `currentGuestSession` does; the round's printer read fails the round (before any KOT write) rather than routing every ticket nowhere. The fake database can now answer `{ __error }` the way the real client fails.
+FAIL-FIRST: tests/unit/write-rounds.unit.spec.ts (appended rungs) - against the pre-review code: failed clear "Expected: 2 Received: 0" (cart shown empty); no-session phone "Expected: 401 Received: 500"; grants failure "Received has value: null" (console built on presets). 3 of 11 failed; after: 11 passed.
+Not unit-tested against a real schema: the new embeds (session->cart, session->bill!inner, category->parent, kot->table, permission->staff!inner). Proven on the real PostgREST rig instead: every screen and action above answered 200 with payloads identical to the merged build.
+tests/functional/guest-journey.functional.spec.ts - steps 5 and 6 now wait for the phone's own POST /api/guest/bill before reading state back (dated note). The read and the write raced; it passed only while a state read was slower than the write. Observed failing on this tree before the change: "Expected: payment_requested Received: open" on 3 projects, with the bill correctly payment_requested in the database and the server log showing the GET (86 ms) finishing before the POST (194 ms). After: 8 passed. Assertions unchanged.
+The four gate records above this entry are this run's, newest first. The two oldest FAILs and the BLOCKED are the rig, not the app: the app was first pointed straight at PostgREST, which answers every request carrying a key with 500 "Server lacks JWT secret" (the proxy strips it). The newest is the run described here.
+Gate (npm run gate, local rig: Postgres 16 + PostgREST 12.2.3 via the header-stripping proxy at 0 ms, next dev on :3000, fresh seed): G1-G7, G9-G12 PASS; **G8 FAIL** - 1 spec, guest-total-visibility "a tap lands on the row at once, and a run of taps all count" (desktop: "Expected 3 Received 2" at a 600 ms timeout). NOT this change's: the same spec on origin/main's own code, same rig, failed 2 of 4 projects (Received "2"; Received 1). Every other functional spec passed, including the four database-bound ones main recorded as unverifiable here.
+Unit: 1194 passed. Typecheck, lint, audit:all clean.
+
+---
+
+## Gate run - 2026-09-26 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 53.9s total - slowest G7 Unit + pure specs (32.8s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (60ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (56ms)
+- **G3 Theme assets present per theme** - PASS (55ms)
+- **G4 No hard-coded colours** - PASS (81ms)
+- **G5 Types** - PASS (2.7s)
+- **G6 Lint** - PASS (14.7s)
+- **G7 Unit + pure specs** - PASS (32.8s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.4s)
+- **G11 Wide tables are configurable** - PASS (58ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
 ## Gate run - 2026-09-25 - VERDICT: BLOCKED
 
 Steps: 11 pass, 0 fail, 1 blocked.

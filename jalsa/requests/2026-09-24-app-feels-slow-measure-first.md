@@ -183,6 +183,34 @@ session and cart; the staff stamp is bound to the person and their grants. Same 
 | 40 phones, 5 captains, 1 owner | | **27.6 /s** (48 full, 397 quiet) | **16.8 /s** (5 full, 444 quiet) |
 Screens byte-identical to the pre-review build (ids and clock times normalised).
 
+### After merging main (26-Sep-2026) — the write paths and the regressions main brought
+Re-measured on the merged tree before anything else (same rig, 100 ms per call). Found: main's
+floor read waited for the open bills to learn their ids (staff poll 2 → 3 rounds); main's Printers
+read named `print_job.printed_at`, which does not exist, so **every owner console load and poll
+answered 500** (on the development database too); and the guest's round - never measured as a
+fix of its own - waited for 20 rounds one after another. Fixed, measured the same way:
+
+| Screen / action (calls / rounds / ms) | Merged, before | After |
+|---|---|---|
+| Guest places a round (new bill) | 35 / 20 / 2264 | **31 / 14 / 1568** |
+| Staff poll | 15 / 3 / 345 | **13 / 2 / 237** |
+| Staff taps a KOT (screen rides back) | 17 / 6 / 668 | **15 / 5 / 562** |
+| Owner poll | 500 (broken) · 33 / 4 / 469 once fixed | **29 / 2 / 254** |
+| Owner saves a setting (console rides back) | 37 / 8 / 876 once fixed | **33 / 5 / 576** |
+| 40 phones, 5 captains, 1 owner | | **27.0 /s busy · 17.3 /s quiet** |
+
+How: the cart rides in the session read; the table's open bill and the printers are read once,
+not twice; the dishes, printers and routing settings share a round and the sub-menu parent rides
+in the dishes read; the reply screen is built while the cart is cleared; the floor reads phones on
+open bills by the bill's status, not its ids; the owner's grants and the print history's table
+names ride in the main round; the open bills and requests are read once per screen, not once per
+section; the owner action re-checks identity while the console is built. Screens identical
+before/after (ids and clock times normalised).
+
+Left as it is, deliberately: a full guest read after a change costs one extra round because the
+change stamp is read BEFORE the screen (read beside it, a write landing between the two could be
+missed for good); the heard-sources scan runs only on the welcome screen (fix-2 review).
+
 ### Fix 5 — outage: fail fast to the designed screen (local production build)
 | Database state | Before (guest page `/t/A5` → "cannot reach the till") | After fix 5 |
 |---|---|---|

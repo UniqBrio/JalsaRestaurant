@@ -1,4 +1,5 @@
 import 'server-only';
+import { early } from './guest';
 import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
@@ -28,7 +29,7 @@ import {
   readRestaurant,
 } from './queries';
 import type { SignedInStaff } from './auth';
-import { db } from '@/lib/supabase/server';
+import { currentRestaurantId, db } from '@/lib/supabase/server';
 import { currentBridgeDownload } from '@/lib/print-bridge-artifact';
 import type {
   AuditRow, Bill, BridgeTokenRow, ExpenseRow, PrintComputerRow, PrinterMappingRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
@@ -327,6 +328,8 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
 }
 
 export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string): Promise<OwnerPayload> {
+  // Read once and shared with the floor and the staff list, which show the same bills.
+  const shared = { bills: early(listOpenBills()), requests: early(listOpenRequests()) };
   const [
     restaurant,
     settings,
@@ -347,16 +350,17 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     printComputers,
     printerMappings,
     pairing,
+    grantsRes,
   ] = await Promise.all([
     readRestaurant(),
     readAllSettings(),
-    listFloor(),
-    listOpenBills(),
+    listFloor(shared),
+    shared.bills,
     listClosedBillsToday(),
-    listOpenRequests(),
+    shared.requests,
     listSuggestions(),
     listMenu(),
-    listStaff(),
+    listStaff(shared),
     listTips(),
     listExpenses(),
     listPrinters(),
@@ -367,6 +371,17 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     listPrintComputers(),
     listPrinterMappings(),
     pendingPairing(),
+    // Every grant in this restaurant, in the same round as the people it belongs to. It used to be
+    // read AFTER `listStaff`, by the ids it returned - the last round of every owner poll
+    // (requests/2026-09-24-app-feels-slow-measure-first.md, cause 2). Kept below to the people
+    // listed, exactly as the id filter did.
+    currentRestaurantId().then((restaurantId) =>
+      db()
+        .from('staff_permission')
+        .select('staff_id,perm_key,staff!inner(restaurant_id)')
+        .eq('granted', true)
+        .eq('staff.restaurant_id', restaurantId)
+    ),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -375,17 +390,14 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
   // One query for every grant in the building, rather than one per person opened. Twenty-seven
   // people and forty permissions is a few hundred rows - trivial - and it means the access panel
   // opens showing what is TRUE, never a preset standing in for it.
-  const { data: grantRows } = await db()
-    .from('staff_permission')
-    .select('staff_id,perm_key')
-    .eq('granted', true)
-    .in(
-      'staff_id',
-      people.map((p) => p.id)
-    );
+  // A failed read must not become "no grants": the access panel would show the role's presets as
+  // if they were true, and a save would write them over the real ones (review, 26-Sep-2026).
+  if (grantsRes.error) throw grantsRes.error;
+  const listed = new Set(people.map((p) => p.id));
   const staffGrants: Record<string, string[]> = {};
-  for (const row of grantRows ?? []) {
+  for (const row of grantsRes.data ?? []) {
     const id = row.staff_id as string;
+    if (!listed.has(id)) continue;
     staffGrants[id] = [...(staffGrants[id] ?? []), row.perm_key as string];
   }
 

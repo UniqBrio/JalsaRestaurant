@@ -62,8 +62,10 @@ const code = (path: string): string =>
 
 test('every round snapshots the menu its dish sold under; the bill read carries it', () => {
   const m = code('src/lib/db/mutations.ts');
-  expect(m).toContain('menu_category!inner(name,parent_id)');
-  expect(m).toContain('menu_parent_category_name:');
+  /* SUPERSEDED 26-Sep-2026 (latency, write path): previously 'menu_category!inner(name,parent_id)'
+     followed by a separate read of the parents. The parent's name now rides in the same read. */
+  expect(m).toContain('menu_category!inner(name,parent_id,parent:parent_id(name))');
+  expect(m).toContain('menu_parent_category_name: parentNameOf(item)');
   const q = code('src/lib/db/queries.ts');
   /* SUPERSEDED 26-Sep-2026 (merge with main): previously 'menu_category_name, menu_parent_category_name )';
      main's line order (line_seq) is now read after it on the same select. */

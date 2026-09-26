@@ -184,6 +184,11 @@ async function run(q: FakeQuery): Promise<Answer> {
     throw err;
   }
   record(false);
+  // `{ __error }` answers the way the real client reports a failure: `{ data: null, error }`,
+  // with no throw - the shape code that forgets to check `error` gets wrong (added 26-Sep-2026).
+  if (answer && typeof answer === 'object' && !Array.isArray(answer) && '__error' in answer) {
+    return { data: null, error: { message: String((answer as { __error: unknown }).__error) } } as unknown as Answer;
+  }
   const rows = Array.isArray(answer) ? answer : answer === null ? [] : [answer];
   if (q.head) return { data: null, error: null, count: rows.length };
   if (q.single || q.maybe) return { data: rows[0] ?? null, error: null };

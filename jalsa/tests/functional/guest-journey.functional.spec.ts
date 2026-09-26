@@ -57,6 +57,11 @@ async function state(page: Page): Promise<GuestState> {
   return (await res.json()) as GuestState;
 }
 
+/** The phone's write to its bill (request payment, tip) - answered, not merely sent. */
+function billWrite(page: Page) {
+  return page.waitForResponse((r) => r.url().includes('/api/guest/bill') && r.request().method() === 'POST');
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('a guest orders, watches the kitchen, adds more, asks for the bill and tips — and the data agrees', async ({
@@ -108,7 +113,12 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
 
   // 5. Request payment. The guest asks; the status changes; nobody has closed anything.
   await page.getByTestId('guest-see-my-order').click();
-  await page.getByTestId('guest-request-payment').click();
+  /* 26-Sep-2026: the click and the state read used to race - the read was issued the moment the
+     click returned, before the phone's POST had landed. It passed while reads were slower than
+     writes; once a state read took ~80 ms and the request ~190 ms (the latency run), the read won
+     and saw 'open'. Waiting for the phone's own write is what the assertion always assumed. The
+     assertion itself is unchanged. */
+  await Promise.all([billWrite(page), page.getByTestId('guest-request-payment').click()]);
   s = await state(page);
   expect(s.billStatus, 'asking for the bill is a request, not a closure').toBe('payment_requested');
 
@@ -142,7 +152,8 @@ test('a guest orders, watches the kitchen, adds more, asks for the bill and tips
     await page.getByTestId('guest-upsell-tip').click();
   }
   await expect(tip).toBeVisible();
-  await page.getByTestId('guest-tip-20').click();
+  // Same race as step 5 (26-Sep-2026): read only after the tip's own write has landed.
+  await Promise.all([billWrite(page), page.getByTestId('guest-tip-20').click()]);
   s = await state(page);
   expect(s.tipChosen, 'the ₹20 tip is on the bill, read back through the state route').toBe(20);
   expect(s.billStatus, 'a tip does not close a bill').toBe('payment_requested');

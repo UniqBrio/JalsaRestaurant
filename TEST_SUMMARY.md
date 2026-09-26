@@ -2,6 +2,24 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-26 - Merge with main; write-path latency; the owner console 500
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Merged main (separate staff/owner sign-ins,
+sub-menus, routing, payment notices) into the latency branch; `20260925090000_jalsa_change_versions_review`
+renumbered to `20260925130000` (the version was taken by main's `jalsa_kot_item_line_order`; the
+earlier entries below keep the old number, as written). Re-measuring found main's owner console
+answering 500 (`print_job.printed_at` does not exist) and extra rounds on the staff poll, owner poll
+and the guest's round. Fixed.
+
+FAIL-FIRST: jalsa/tests/unit/write-rounds.unit.spec.ts - against the merged tree: first round 21 rounds (<= 15 expected), later round 15 (<= 10), floor 2 (1), staff screen 2 (1), owner console 3 (1), owner action 8 (<= 5); cart read separately 2x, printers 2x, open bills read 3x on the owner console.
+FAIL-FIRST: jalsa/tests/unit/print-trail-columns.db.unit.spec.ts - against the merged tree: missing print_job columns Received ["printed_at"].
+
+FAIL-FIRST: jalsa/tests/unit/write-rounds.unit.spec.ts (review rungs) - against the pre-review code: failed cart clear shown as empty (Expected 2 Received 0); no-session phone 500 not 401; grants failure built the console on presets. 3 of 11 failed.
+
+Gate run (jalsa, local rig): G1-G7, G9-G12 PASS; **G8 FAIL** on one spec, guest-total-visibility "a run of taps all count", which fails on origin/main's own code on the same rig too (2 of 4 projects). guest-journey fixed (it read state before its own write landed). Unit 1194 passed.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - review fixes (G2, E1, I3)
 
 Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-027 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).

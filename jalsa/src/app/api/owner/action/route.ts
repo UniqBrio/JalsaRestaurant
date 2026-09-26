@@ -92,7 +92,13 @@ type Action =
   | { action: 'add-category'; name: string; printerId?: string | null }
   | ({ action: 'add-dish' } & NewDish)
   | { action: 'set-category-parent'; categoryId: string; parentId: string | null }
-  | { action: 'set-item-routing'; itemIds: string[]; all?: boolean; station?: string | null; printerId?: string | null }
+  | {
+      action: 'set-item-routing';
+      itemIds: string[];
+      all?: boolean;
+      station?: string | null;
+      printerId?: string | null;
+    }
   | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
@@ -175,10 +181,19 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   // for whoever the database says is signed in now, with exactly the gate `/api/owner/state`
   // applies. Anyone who no longer passes it gets no console here; the phone's own re-read then
   // receives the same refusal it always would have.
+  //
+  // The check and the build run TOGETHER (requests/2026-09-24-app-feels-slow-measure-first.md):
+  // the console depends on the person only for `me` and `grants`, which are taken from the fresh
+  // check below, so a build begun with the pre-action identity is the same console. Someone who
+  // fails the check still gets none - the build is simply discarded.
   return withState(result, async () => {
-    const now = await currentStaff('owner');
+    const [now, built] = await Promise.all([currentStaff('owner'), buildOwnerPayload(staff, publicConfig.qrOrigin)]);
     if (!now || !now.grants.can('orders.view')) return null;
-    return buildOwnerPayload(now, publicConfig.qrOrigin);
+    return {
+      ...built,
+      me: { id: now.staffId, name: now.name, role: now.role, initials: now.initials },
+      grants: now.grants.list(),
+    };
   });
 });
 
@@ -345,7 +360,9 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       );
 
     case 'upload-image':
-      return ok(await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor }));
+      return ok(
+        await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor })
+      );
 
     case 'upsert-table':
       await upsertTable({
