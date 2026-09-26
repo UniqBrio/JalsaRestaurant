@@ -165,6 +165,13 @@ FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - the new case was run aga
 
 ---
 
+## Run - 2026-09-26 - the fixed badge sat unseen behind a day-long cache
+
+After #17 went live the owner's own browser still showed the drawn "J" on every code, while a fresh browser showed the Jalsa logo (owner confirmed). The edge logs agree: the QR route had not run since 04:06Z. `svgHeaders` said `max-age=86400` under a URL that never changes, so the logo - an input to the picture - could change without any screen fetching a new one. Fix: `src/lib/qr-url.ts` builds every code URL with `v=<hash of logo_url>`; all nine `src`/`href` in SettingsSection and TableStandSheet go through it; the cache is an hour.
+FAIL-FIRST: tests/unit/tables-qr-25sep.unit.spec.ts - the new case, run with the builder present but the screens unchanged, failed at `SettingsSection.tsx imports the one URL builder`; after the screens changed it caught its own over-broad regex (matched the builder's own path literal) and was corrected to `src`/`href` attributes. Three assertions pinning bare URLs SUPERSEDED in place (guest-reports-25sep, qr-stand, tables-qr-25sep) with dated notes. After: **unit 1197 passed**. Typecheck, lint: pass. Prettier drift in SettingsSection, TableStandSheet and qr-svg predates this change (identical warnings at HEAD) and is left alone.
+
+---
+
 ## Run - 2026-09-26 - the badge as a constant: the door code still showed the drawn "J" after #16
 
 After #16 reached production the owner's screenshot of "The code at the door" still carried the drawn badge. The reader read `public/brand/jalsa-badge.png` from disk at request time, which on a Vercel function depends on file tracing having noticed the read, and whose only symptom of failure is the fallback. Replaced by `scripts/gen-brand-badge.mjs`, which derives `src/lib/brand-badge.generated.ts` (base64) from the PNG; the reader decodes the constant and reads no file. `outputFileTracingIncludes` removed with it.

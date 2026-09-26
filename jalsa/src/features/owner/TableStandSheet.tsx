@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { billName, restaurantIdentity } from '@/lib/restaurant-identity';
+import { qrImageUrl } from '@/lib/qr-url';
 
 /**
  * TableStandSheet — the two faces of the tabletop stand, previewed and printed from Settings.
@@ -96,7 +97,7 @@ export function TableStandSheet({
 
             {/* eslint-disable-next-line @next/next/no-img-element -- a generated vector the size it prints at; the optimiser would only cache a second copy of it. */}
             <img
-              src={`/api/owner/qr?table=${encodeURIComponent(table)}`}
+              src={qrImageUrl('/api/owner/qr', restaurant, { table })}
               alt={`QR code for table ${table}, with the Jalsa badge in the centre`}
               width={260}
               height={260}
@@ -146,7 +147,7 @@ export function TableStandSheet({
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element -- the same generated vector as the front. */}
                 <img
-                  src="/api/owner/review-qr"
+                  src={qrImageUrl('/api/owner/review-qr', restaurant)}
                   alt="QR code for the Google review page, with the Jalsa badge in the centre"
                   width={260}
                   height={260}
