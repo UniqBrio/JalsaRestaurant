@@ -919,6 +919,11 @@ export async function listPrinters(): Promise<PrinterRow[]> {
  * Printers screen has to be the time something PRINTED (item 12, 25-Sep-2026). Bounded to the
  * most recent 500 jobs, which spans weeks of service; a machine idle for longer says "Nothing
  * printed yet" - honest, because the History tab has nothing older on screen either.
+ *
+ * The time column is `completed_at`: that is the stamp a print_job carries when it printed.
+ * `printed_at` lives on `kot`, not here — asking print_job for it was a 400 from PostgREST, and
+ * because this read sits inside the owner payload's Promise.all it took the whole console down
+ * with "we cannot reach the till" (26-Sep-2026).
  */
 async function latestPerKey(
   key: 'printer_id' | 'claimed_by',

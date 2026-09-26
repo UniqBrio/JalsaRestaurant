@@ -17,6 +17,10 @@ FAIL-FIRST: jalsa/tests/unit/print-trail-columns.db.unit.spec.ts - against the m
 FAIL-FIRST: jalsa/tests/unit/write-rounds.unit.spec.ts (review rungs) - against the pre-review code: failed cart clear shown as empty (Expected 2 Received 0); no-session phone 500 not 401; grants failure built the console on presets. 3 of 11 failed.
 
 Gate run (jalsa, local rig): G1-G7, G9-G12 PASS; **G8 FAIL** on one spec, guest-total-visibility "a run of taps all count", which fails on origin/main's own code on the same rig too (2 of 4 projects). guest-journey fixed (it read state before its own write landed). Unit 1194 passed.
+## Application run - jalsa - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
+
+`jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.
+FAIL-FIRST: observed failing on Node 20.19.0 before the fix (CI run 27, and reproduced locally with `npx node@20.19.0`: `"â"` for E2 86 92); after: bridge-package.unit.spec.ts **17 passed under Node 22.22 and under Node 20.19**. Typecheck, lint: pass. Not this PR's defect (red on the base since PR #10); fixed here at the owner's choice so #12 and main go green.
 
 ---
 
