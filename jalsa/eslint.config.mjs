@@ -19,6 +19,7 @@ const config = [
       '.framework/**',
       'node_modules/**',
       'src/theme/tokens.generated.*',
+      'src/lib/brand-badge.generated.*',
       'playwright-report/**',
       'test-results/**',
       'public/sw.js',

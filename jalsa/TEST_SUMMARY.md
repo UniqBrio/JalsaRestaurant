@@ -165,6 +165,13 @@ FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - the new case was run aga
 
 ---
 
+## Run - 2026-09-26 - the badge as a constant: the door code still showed the drawn "J" after #16
+
+After #16 reached production the owner's screenshot of "The code at the door" still carried the drawn badge. The reader read `public/brand/jalsa-badge.png` from disk at request time, which on a Vercel function depends on file tracing having noticed the read, and whose only symptom of failure is the fallback. Replaced by `scripts/gen-brand-badge.mjs`, which derives `src/lib/brand-badge.generated.ts` (base64) from the PNG; the reader decodes the constant and reads no file. `outputFileTracingIncludes` removed with it.
+FAIL-FIRST: tests/unit/tables-qr-25sep.unit.spec.ts - the item-31 case is SUPERSEDED in place (same day); it now asserts the generated import, no `node:fs`, and that the constant decodes to exactly the bytes of the PNG the pages show. NOT OBSERVED FAILING against the #16 tree in this container, where the disk read succeeds - the defect is a property of the Vercel function bundle, observed by the owner on the production domain. Typecheck, lint, prettier: pass. tables-qr-25sep + qr-stand **20 passed**; full unit tier below.
+
+---
+
 ## Run - 2026-09-26 - the door code and every stand still carried the drawn "J"
 
 `restaurant.logo_url` is the schema default `/brand/jalsa-badge.png` on the live project (no upload; the media bucket is empty), and `restaurantLogo()` accepted `/api/media/` uploads only, so every code fell back to the drawn badge while Restaurant details showed the Jalsa logo. Fix: the bundled badge is read from `public/` and embedded like an upload; `outputFileTracingIncludes` ships the file with the two QR routes so the same holds inside a Vercel function.
