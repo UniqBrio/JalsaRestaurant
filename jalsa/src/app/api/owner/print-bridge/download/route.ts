@@ -17,7 +17,7 @@ import { BRIDGE_PACKAGE_FILENAME, DOWNLOAD_UNAVAILABLE } from '@/lib/print-bridg
  * says so in a sentence, never a link that leads nowhere.
  */
 export const GET = handler(async (): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
   if (!staff.grants.can('set.printer')) {
     return fail(403, {

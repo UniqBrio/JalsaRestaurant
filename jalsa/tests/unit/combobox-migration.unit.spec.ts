@@ -134,7 +134,13 @@ test('the 11 static selects were left alone', () => {
   const remaining = tsx
     .filter((f) => !f.endsWith('components/ui/field.tsx'))
     .flatMap((f) => (read(f).match(/<Select\b/g) ?? []).map(() => f));
-  expect(remaining.length, 'exactly the eleven the audit said to keep').toBe(11);
+  // SUPERSEDED 25-Sep-2026 (items 24, 34): still eleven, but not the same eleven. The item
+  // editor's Food type became a search-only Combobox (item 24: behave like Category), and the
+  // table editor's Zone - a free-text box - became a Select of AC / Non-AC / Terrace (item 34).
+  expect(remaining.length, 'eleven: Food type left, Zone joined').toBe(11);
+  // Merged 26-Sep-2026: the new-dish form (E1) and the sub-menu parent picker (I3) both use the
+  // combobox, so neither adds a static select.
+  expect(remaining.filter((f) => f.endsWith('components/ui/new-dish.tsx'))).toHaveLength(0);
 });
 
 test('creating a category reuses an existing one rather than making a second', () => {
@@ -148,8 +154,11 @@ test('creating a category reuses an existing one rather than making a second', (
 
   // And the mutation honours it instead of surfacing a constraint violation.
   expect(ownerMutations, 'a duplicate is re-read, not thrown').toContain("error.code !== '23505'");
-  expect(ownerMutations, 'the id comes back so the form can select it').toContain(
-    'export async function addCategory(input: { name: string; actor: Actor }): Promise<string>'
+  // SUPERSEDED 25-Sep-2026 (item 29): previously the one-line signature
+  // `addCategory(input: { name: string; actor: Actor }): Promise<string>`. It gained an optional
+  // printer; the id still comes back.
+  expect(ownerMutations, 'the id comes back so the form can select it').toMatch(
+    /export async function addCategory\(input: \{\s*name: string;[\s\S]*?printerId\?: string \| null;\s*actor: Actor;\s*\}\): Promise<string>/
   );
   expect(ownerMutations, 'creation is still behind its grant').toContain("demand(input.actor, 'menu.category')");
 });

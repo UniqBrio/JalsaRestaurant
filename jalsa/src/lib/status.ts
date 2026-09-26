@@ -28,6 +28,19 @@ export interface StatusWord {
   tone: Tone;
 }
 
+/**
+ * Where a round came from, in words (24-Sep list, C3). Read from `kot.source` - the column the
+ * route that placed the round wrote - never inferred from a name or a screen.
+ *
+ * ONE map, used by the owner's board, the report's orders table and the printed KOT. It was
+ * written out twice before, each copy noting that it was "duplicated nowhere else".
+ */
+export const KOT_SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
+  guest: 'Guest phone',
+  captain: 'Captain',
+  owner: 'Owner',
+};
+
 export const KOT_STATUS: Record<KotStatus, StatusWord> = {
   // "Order received" rather than the "Sent to the kitchen" this shipped with: the reference
   // design draws the first step as Order received, and CLAUDE.md makes the design set the
@@ -180,14 +193,34 @@ export function tableStateFrom(input: {
   kotStatuses: readonly KotStatus[];
   awaitingClearing?: boolean;
 }): TableState {
-  if (input.awaitingClearing) return 'clearing';
-  if (!input.hasBill) return 'free';
+  // A table with a party at it is that party's, whatever an older bill left behind: the open bill
+  // decides first, and "needs clearing" is only for a table with nobody on it (items 35/36).
+  if (!input.hasBill) return input.awaitingClearing ? 'clearing' : 'free';
   if (input.billStatus === 'payment_requested') return 'payment_requested';
   // Most urgent first: a table with one ready round and three served ones needs a runner.
   if (input.kotStatuses.includes('ready')) return 'ready';
   if (input.kotStatuses.includes('preparing') || input.kotStatuses.includes('new')) return 'in_the_kitchen';
   if (input.kotStatuses.length === 0) return 'ordering';
   return 'served';
+}
+
+/**
+ * How many phones are HOLDING each table (items 35/36, 25-Sep-2026): a session counts while it
+ * has an unsent cart, or while its bill is still open. A session whose bill was paid, or that
+ * scanned and left nothing, holds nothing - they are never deleted on payment, so counting every
+ * one kept Mark free on any table a guest had ever scanned.
+ */
+export function phonesHoldingTables(
+  sessions: ReadonlyArray<{ id: string; table_id: string; bill_id: string | null }>,
+  sessionsWithCart: ReadonlySet<string>,
+  openBillIds: ReadonlySet<string>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const s of sessions) {
+    const holding = s.bill_id ? openBillIds.has(s.bill_id) : sessionsWithCart.has(s.id);
+    if (holding) out.set(s.table_id, (out.get(s.table_id) ?? 0) + 1);
+  }
+  return out;
 }
 
 /**
@@ -280,6 +313,25 @@ const ELIGIBLE: Record<'captain' | 'waiter', readonly string[]> = {
 
 export function canHoldBillRole(role: 'captain' | 'waiter', staffRole: string): boolean {
   return (ELIGIBLE[role] ?? []).includes(staffRole);
+}
+
+/**
+ * The captain's own door into `reassignBillStaff` (G1): the WAITER, on a bill that is theirs and
+ * still open, under `tables.assign`. Exported for the payload, which offers the control exactly
+ * where this is true, and for the rung that pins it.
+ */
+export function captainMayAssignWaiter(input: {
+  role: 'captain' | 'waiter';
+  actor: { staffId: string | null; grants?: { can(key: string): boolean } };
+  bill: { captainId: string | null; status: string };
+}): boolean {
+  return (
+    input.role === 'waiter' &&
+    (input.bill.status === 'open' || input.bill.status === 'payment_requested') &&
+    input.actor.staffId !== null &&
+    input.bill.captainId === input.actor.staffId &&
+    (input.actor.grants?.can('tables.assign') ?? false)
+  );
 }
 
 /**

@@ -3,6 +3,7 @@ import { fail, handler } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
 import { readAllSettings } from '@/lib/db/queries';
 import { brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
+import { restaurantLogo } from '@/lib/db/restaurant-logo';
 
 /**
  * The Google review code — the back of the tabletop stand.
@@ -21,7 +22,7 @@ import { brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
  *   meal — so the card and the phone can never send a happy guest to two different pages.
  */
 export const GET = handler(async (): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in to view a table code.' });
   // The same grant as the table codes: this is one of the printable codes, not a new kind.
   if (!staff.grants.can('tables.qr')) {
@@ -51,6 +52,6 @@ export const GET = handler(async (): Promise<NextResponse> => {
     });
   }
 
-  const svg = await brandedQrSvg(reviewUrl);
+  const svg = await brandedQrSvg(reviewUrl, await restaurantLogo());
   return new NextResponse(svg, { headers: svgHeaders('jalsa-google-review') });
 });

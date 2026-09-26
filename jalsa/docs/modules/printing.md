@@ -212,6 +212,10 @@ same `escpos.ts` the golden-byte tests pin. `bridge/README.md` is the runbook.
 
 ## The customer setup (23-Sep-2026)
 
+> Step-by-step for the person at the computer: [`docs/PRINT-BRIDGE-WINDOWS-INSTALL.md`](../PRINT-BRIDGE-WINDOWS-INSTALL.md)
+> (download, extract, Run as administrator, pairing code, select / change / stop using a printer,
+> delete, troubleshooting, uninstall).
+
 > The owner sets up a **printer**, not a bridge. Dashboard → **Printers** → Connect Printing
 > Computer → Download for Windows → Install → type the pairing code once → the computer's printers
 > appear → Select → Station → Save → Test Print.

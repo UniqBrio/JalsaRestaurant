@@ -94,11 +94,14 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | Tables — **mark a table free by hand** (`tables.free`, added 12-Sep-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Menu — view, mark sold out | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Menu — edit items, prices, categories | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Menu — **add a dish from the ordering screen** (same `menu.item_edit`, added 25-Sep-2026, E1 — the "+" on Add items and New round shows only to a holder; a captain gets it only when the owner grants it) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Menu — **add a dish from the ordering screen, as corrected in review** (25-Sep-2026: `menu.item_edit` **and** `menu.price_edit` - a new dish sets a price; supersedes the row above) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Bills — see a bill and its total** | ✅ | **❌** | ❌ | ✅ | ✅ |
 | Bills — record payment, reprint | ✅ | ❌ | ❌ | ✅ | ✅ |
 | Bills — discounts | ❌ | ❌ | ❌ | percentage only | ✅ |
 | Bills — void a closed bill | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Bills — **change the captain or waiter on a bill** (`bill.reassign_staff`, added 12-Sep-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Bills — **set the waiter on their OWN open bill** (via `tables.assign`, added 24-Sep-2026, G1 — the waiter moves no money; the captain position stays `bill.reassign_staff`) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Tips — own | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Tips — everyone's, settlement | ❌ | ❌ | ❌ | settle only | ✅ |
 | Reports — products | ✅ | ❌ | ❌ | ❌ | ✅ |

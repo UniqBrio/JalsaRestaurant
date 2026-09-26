@@ -215,3 +215,44 @@ export function mirrorDiscount(input: { payable: number; typed: 'pct' | 'flat'; 
   const pct = Math.round((capped / input.payable) * 1000) / 10;
   return { pct: String(pct), flat: input.value };
 }
+
+/* ── Cash tendered and change (24-Sep list, H3) ────────────────────────── */
+
+/**
+ * What the cashier typed as cash received, in PAISE, or null when it is not an amount.
+ *
+ * Parsed from the text, never through `parseFloat`: "850.10" as a float is 850.0999..., and a
+ * till that is out by a paisa on every tenth bill is out every night. Up to two decimals; commas
+ * and a leading ₹ are tolerated because that is how people write money.
+ */
+export function paiseFromInput(text: string): number | null {
+  const t = text.replace(/[₹,\s]/g, '');
+  const m = /^(\d{1,7})(?:\.(\d{1,2}))?$/.exec(t);
+  if (!m) return null;
+  const whole = Number(m[1]);
+  const frac = Number((m[2] ?? '').padEnd(2, '0'));
+  return whole * 100 + frac;
+}
+
+/**
+ * Change to hand back for a cash payment, all in integer paise.
+ *
+ * `payable` is the bill in whole rupees - the figure `totalBill` produces and the server charges.
+ * Tendered below it is not "negative change": it is a shortfall, returned as its own number so
+ * the screen can refuse to record the bill rather than print a minus sign.
+ */
+export function cashChange(
+  payableRupees: number,
+  tenderedPaise: number
+): { changePaise: number; shortPaise: number } {
+  const due = asInt(payableRupees) * 100;
+  const diff = tenderedPaise - due;
+  return diff >= 0 ? { changePaise: diff, shortPaise: 0 } : { changePaise: 0, shortPaise: -diff };
+}
+
+/** ₹150 or ₹150.50 - paise shown only when there are some. */
+export function rupeesFromPaise(paise: number): string {
+  const whole = Math.floor(paise / 100);
+  const frac = paise % 100;
+  return `₹${whole.toLocaleString('en-IN')}${frac ? `.${String(frac).padStart(2, '0')}` : ''}`;
+}

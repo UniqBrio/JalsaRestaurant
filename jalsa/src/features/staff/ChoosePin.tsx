@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import type { Surface } from '@/lib/cookie-names';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/states';
 
@@ -25,7 +26,7 @@ import { ErrorState } from '@/components/ui/states';
  *   counter is the realistic threat, and without it anyone passing could lock its owner out of
  *   their own name.
  */
-export function ChoosePin({ name }: { name: string }) {
+export function ChoosePin({ name, surface }: { name: string; surface: Surface }) {
   const router = useRouter();
   const [step, setStep] = React.useState<'current' | 'next' | 'confirm'>('current');
   const [current, setCurrent] = React.useState('');
@@ -45,7 +46,7 @@ export function ChoosePin({ name }: { name: string }) {
         const res = await fetch('/api/staff/pin', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ current, next: chosen }),
+          body: JSON.stringify({ current, next: chosen, surface }),
         });
         const parsed = (await res.json()) as { message?: string };
         if (!res.ok) {
@@ -64,7 +65,7 @@ export function ChoosePin({ name }: { name: string }) {
         setBusy(false);
       }
     },
-    [current, router]
+    [current, router, surface]
   );
 
   const advance = React.useCallback(
@@ -219,7 +220,7 @@ export function ChoosePin({ name }: { name: string }) {
           void fetch('/api/staff/pin', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ skip: true }),
+            body: JSON.stringify({ skip: true, surface }),
           })
             .then(() => router.refresh())
             .finally(() => setBusy(false));
@@ -231,7 +232,13 @@ export function ChoosePin({ name }: { name: string }) {
       <Button
         data-testid="staff-choose-pin-signout"
         variant="ghost"
-        onClick={() => void fetch('/api/staff/session', { method: 'DELETE' }).then(() => router.refresh())}
+        onClick={() =>
+          void fetch('/api/staff/session', {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ surface }),
+          }).then(() => router.refresh())
+        }
       >
         Not you? Sign out
       </Button>

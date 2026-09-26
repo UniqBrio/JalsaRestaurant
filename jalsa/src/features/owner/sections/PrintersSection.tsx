@@ -12,13 +12,18 @@ import { BRIDGE_DOWNLOAD_ROUTE, DOWNLOAD_UNAVAILABLE } from '@/lib/print-bridge-
 import {
   COMPUTER_WORDS,
   OWNER_PRINT_MESSAGES,
+  addedOnLabel,
   computerState,
+  lastPrintedLabel,
   printerReadiness,
   testPrintProgress,
 } from '@/lib/print-computer';
 import type { DiscoveredPrinterRow, PrintComputerRow, PrinterRow } from '@/lib/db/types';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { PrintSetupSection } from './PrintSetupSection';
+import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
+import type { TicketKind } from '@/lib/print-template';
+import { stationOptions } from '@/lib/print-routing';
 
 /**
  * Printers — the owner's own entry point to printing (23-Sep-2026).
@@ -64,29 +69,46 @@ export function PrintersSection(props: OwnerSectionProps) {
   const canEdit = data.grants.includes('set.printer');
   const [manage, setManage] = React.useState(false);
   const [setupOpen, setSetupOpen] = React.useState(false);
-  const [choosing, setChoosing] = React.useState<{ computer: PrintComputerRow; printer: DiscoveredPrinterRow } | null>(null);
+  const [choosing, setChoosing] = React.useState<{
+    computer: PrintComputerRow;
+    printer: DiscoveredPrinterRow;
+    /** The Jalsa printer this Windows printer prints as now, when it is being CHANGED (B3). */
+    currentPrinterId?: string;
+  } | null>(null);
   const [disconnecting, setDisconnecting] = React.useState<PrintComputerRow | null>(null);
+  const [deleting, setDeleting] = React.useState<PrinterRow | null>(null);
   /* WHICH printer is being tested, and the job it queued — so the line beside the button follows
      that one job through History rather than guessing from the latest row. */
   const [testing, setTesting] = React.useState<string | null>(null);
   const [testJobs, setTestJobs] = React.useState<Record<string, string>>({});
+  /* Which ticket each printer's Preview | Test Print acts on (item 9). Starts at what the
+     machine is for: a bill printer previews a bill. */
+  const [ticketFor, setTicketFor] = React.useState<Record<string, TicketKind>>({});
+  const kindOf = (p: PrinterRow): TicketKind => ticketFor[p.id] ?? (p.purpose === 'Invoice' ? 'bill' : 'kot');
+  const [previewing, setPreviewing] = React.useState<PrinterRow | null>(null);
 
   const now = useNow(15_000);
   const computers = data.printComputers;
   const mappingByPrinter = new Map(data.printerMappings.map((m) => [m.printerId, m]));
   const computerById = new Map(computers.map((c) => [c.id, c]));
   const printerById = new Map(data.printers.map((p) => [p.id, p]));
-  const connected = data.printers.filter((p) => mappingByPrinter.has(p.id));
+  // EVERY printer, those on a computer first (item 1, 25-Sep-2026). This list used to hold only
+  // printers on a computer, so a printer that was never mapped - or whose computer was
+  // disconnected - could not be seen or deleted from here at all.
+  const listed = [
+    ...data.printers.filter((p) => mappingByPrinter.has(p.id)),
+    ...data.printers.filter((p) => !mappingByPrinter.has(p.id)),
+  ];
   const nothingYet = computers.length === 0 && !data.pairing;
 
-  const runTest = (p: PrinterRow): void => {
+  const runTest = (p: PrinterRow, ticket: TicketKind = kindOf(p)): void => {
     if (testing) return;
     setTesting(p.id);
     void (async () => {
       try {
         const result = await send<{ queued: boolean; jobId: string | null; printerName: string; reason: string }>(
           '/api/owner/action',
-          { action: 'test-print', printerId: p.id }
+          { action: 'test-print', printerId: p.id, ticket }
         );
         if (result.queued && result.jobId) {
           const jobId = result.jobId;
@@ -106,6 +128,17 @@ export function PrintersSection(props: OwnerSectionProps) {
     void runBusy(async () => {
       await send('/api/owner/action', { action: 'remove-printer-mapping', printerId: p.id });
       toast.show(`${p.name} is no longer on a computer`, { tone: 'success' });
+    });
+  };
+
+  /* Delete only after the confirmation, and only once the server has confirmed it: the dialog
+     stays open and the toast says why when it is refused (tickets still waiting on it). The
+     console reloads from the database after every action, so the row goes because it is gone. */
+  const removePrinter = (p: PrinterRow): void => {
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'delete-printer', printerId: p.id });
+      setDeleting(null);
+      toast.show(`${p.name} deleted`, { tone: 'success' });
     });
   };
 
@@ -146,11 +179,11 @@ export function PrintersSection(props: OwnerSectionProps) {
       ) : null}
 
       {/* ── Printers ─────────────────────────────────────────────────────── */}
-      {connected.length ? (
+      {listed.length ? (
         <Card className="flex flex-col gap-3">
           <SectionLabel>Printers</SectionLabel>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {connected.map((p) => {
+            {listed.map((p) => {
               const mapping = mappingByPrinter.get(p.id) ?? null;
               const computer = mapping ? (computerById.get(mapping.computerId) ?? null) : null;
               const discovered = computer && mapping ? (computer.discovered.find((d) => d.queueName === mapping.queueName) ?? null) : null;
@@ -172,11 +205,39 @@ export function PrintersSection(props: OwnerSectionProps) {
                       <span className="min-w-[10rem] flex-1">
                         <span className="block type-caption text-[var(--text-muted)]">{p.station}</span>
                         <span className="block type-body font-semibold">{p.name}</span>
+                        <span className="block type-caption text-[var(--text-muted)]" data-testid={`owner-printers-added-${p.id}`}>
+                          {addedOnLabel(p.createdAt)}
+                        </span>
                         <span className="block type-caption text-[var(--text-muted)]">
-                          {computer ? `On ${computer.label}` : 'Not on a computer'}
+                          {computer ? `On ${computer.label}` : 'Not on a computer'} · {lastPrintedLabel(p.lastPrintedAt)}
                         </span>
                       </span>
                       <Pill tone={readiness.tone}>{readiness.word}</Pill>
+                      {/* Preview | Test Print, for a kitchen ticket or a bill (item 9). */}
+                      <span className="flex gap-1" role="group" aria-label={`Which ticket for ${p.name}`}>
+                        <Chip
+                          on={kindOf(p) === 'kot'}
+                          onClick={() => setTicketFor((prev) => ({ ...prev, [p.id]: 'kot' }))}
+                          data-testid={`owner-printers-kind-kot-${p.id}`}
+                        >
+                          KOT
+                        </Chip>
+                        <Chip
+                          on={kindOf(p) === 'bill'}
+                          onClick={() => setTicketFor((prev) => ({ ...prev, [p.id]: 'bill' }))}
+                          data-testid={`owner-printers-kind-bill-${p.id}`}
+                        >
+                          Bill
+                        </Chip>
+                      </span>
+                      <Button
+                        data-testid={`owner-printers-preview-${p.id}`}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setPreviewing(p)}
+                      >
+                        Preview
+                      </Button>
                       {canEdit ? (
                         <Button
                           data-testid={`owner-printers-test-${p.id}`}
@@ -188,7 +249,7 @@ export function PrintersSection(props: OwnerSectionProps) {
                           {testing === p.id ? 'Sending…' : 'Test Print'}
                         </Button>
                       ) : null}
-                      {canEdit ? (
+                      {canEdit && mapping ? (
                         <Button
                           data-testid={`owner-printers-remove-${p.id}`}
                           size="sm"
@@ -197,6 +258,18 @@ export function PrintersSection(props: OwnerSectionProps) {
                           onClick={() => removeMapping(p)}
                         >
                           Remove
+                        </Button>
+                      ) : null}
+                      {canEdit ? (
+                        <Button
+                          data-testid={`owner-printers-delete-${p.id}`}
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => setDeleting(p)}
+                          className="text-[var(--error)]"
+                        >
+                          Delete
                         </Button>
                       ) : null}
                     </div>
@@ -291,7 +364,33 @@ export function PrintersSection(props: OwnerSectionProps) {
                                 </span>
                                 <Pill tone={d.status === 'ready' ? 'success' : d.status === 'unknown' ? 'neutral' : 'error'}>{word}</Pill>
                                 {jalsaPrinter ? (
-                                  <span className="type-caption font-semibold">→ {jalsaPrinter.station} · {jalsaPrinter.name}</span>
+                                  <>
+                                    <span className="type-caption font-semibold">→ {jalsaPrinter.station} · {jalsaPrinter.name}</span>
+                                    {/* Change what it prints as, or stop using it, from right here (B3):
+                                        a mapped printer used to show no control at all. */}
+                                    {canEdit ? (
+                                      <>
+                                        <Button
+                                          data-testid={`owner-printers-change-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
+                                          size="sm"
+                                          variant="secondary"
+                                          disabled={busy}
+                                          onClick={() => setChoosing({ computer: c, printer: d, currentPrinterId: jalsaPrinter.id })}
+                                        >
+                                          Change
+                                        </Button>
+                                        <Button
+                                          data-testid={`owner-printers-stop-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled={busy}
+                                          onClick={() => removeMapping(jalsaPrinter)}
+                                        >
+                                          Stop using
+                                        </Button>
+                                      </>
+                                    ) : null}
+                                  </>
                                 ) : canEdit ? (
                                   <Button
                                     data-testid={`owner-printers-select-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
@@ -332,11 +431,44 @@ export function PrintersSection(props: OwnerSectionProps) {
 
       <SetupSheet {...props} open={setupOpen} onClose={() => setSetupOpen(false)} />
 
+      <PrinterPreviewSheet
+        data={data}
+        printer={previewing}
+        kind={previewing ? kindOf(previewing) : 'kot'}
+        onClose={() => setPreviewing(null)}
+        {...(canEdit ? { onTest: (p: PrinterRow, k: TicketKind) => runTest(p, k) } : {})}
+        testing={previewing !== null && testing === previewing.id}
+      />
+
       <ChoosePrinterSheet
         {...props}
         choosing={choosing}
         onClose={() => setChoosing(null)}
-        existing={data.printers.filter((p) => !mappingByPrinter.has(p.id))}
+        existing={data.printers}
+        placeOf={(id) => {
+          // Where a printer is now, so choosing it here says it will MOVE (B3). The server's
+          // one-computer-per-printer upsert already moved it; the chooser used to hide it.
+          const m = mappingByPrinter.get(id);
+          if (!m) return null;
+          return `${computerById.get(m.computerId)?.label ?? 'another computer'} · ${m.queueName}`;
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={deleting ? `Delete ${deleting.name}?` : 'Delete printer'}
+        consequence={
+          <>
+            <strong>{deleting?.name}</strong>
+            {deleting ? ` (${deleting.station}, ${deleting.paperMm} mm)` : ''} is removed from Jalsa and from any computer
+            it is on. Categories it printed go to the main kitchen printer. Its past tickets stay in History.
+          </>
+        }
+        confirmLabel="Delete the printer"
+        onConfirm={() => deleting && removePrinter(deleting)}
+        testId="owner-printers-delete-confirm"
+        busy={busy}
       />
 
       <ConfirmDialog
@@ -345,8 +477,9 @@ export function PrintersSection(props: OwnerSectionProps) {
         title={disconnecting ? `Disconnect ${disconnecting.label}?` : 'Disconnect'}
         consequence={
           <>
-            Tickets for the printers on <strong>{disconnecting?.label}</strong> will wait in the queue and nothing will print
-            there until it is connected again. The computer itself is not changed.
+            Its printers are taken off <strong>{disconnecting?.label}</strong>, and their tickets go to the main kitchen
+            printer. To use this computer again, connect it with a new pairing code and select its printers again. The
+            computer itself is not changed.
           </>
         }
         confirmLabel="Disconnect the computer"
@@ -500,29 +633,38 @@ function SetupSheet({ data, send, open, onClose }: OwnerSectionProps & { open: b
 /* ── Select a printer ──────────────────────────────────────────────────── */
 
 function ChoosePrinterSheet({
+  data,
   send,
   runBusy,
   busy,
   choosing,
   onClose,
   existing,
+  placeOf,
 }: OwnerSectionProps & {
-  choosing: { computer: PrintComputerRow; printer: DiscoveredPrinterRow } | null;
+  choosing: { computer: PrintComputerRow; printer: DiscoveredPrinterRow; currentPrinterId?: string } | null;
   onClose: () => void;
   existing: PrinterRow[];
+  placeOf: (printerId: string) => string | null;
 }) {
   const toast = useToast();
-  const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' });
+  // A new printer starts at the default station (item 30), else Main Kitchen as before.
+  const firstStation = ((data.settings.routing ?? {}) as { defaultStation?: string }).defaultStation?.trim() || 'Main Kitchen';
+  const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: firstStation, paperMm: 80, purpose: 'KOT' });
 
   // Reset the form for each printer chosen. The suggested name comes from Windows' own name.
   const key = choosing ? `${choosing.computer.id}/${choosing.printer.queueName}` : '';
   const [formKey, setFormKey] = React.useState(key);
   if (key !== formKey) {
     setFormKey(key);
-    setTarget({ kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' });
+    setTarget(
+      choosing?.currentPrinterId
+        ? { kind: 'existing', printerId: choosing.currentPrinterId }
+        : { kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: firstStation, paperMm: 80, purpose: 'KOT' }
+    );
   }
 
-  const stations = [...new Set(['Main Kitchen', 'Tandoor', 'Billing', ...existing.map((p) => p.station)])];
+  const stations = stationOptions(existing, firstStation);
 
   const save = (): void => {
     if (!choosing) return;
@@ -574,13 +716,20 @@ function ChoosePrinterSheet({
               onValueChange={(v) =>
                 setTarget(
                   v === 'new'
-                    ? { kind: 'new', name: suggestedName(choosing.printer.queueName), station: 'Main Kitchen', paperMm: 80, purpose: 'KOT' }
+                    ? { kind: 'new', name: suggestedName(choosing.printer.queueName), station: firstStation, paperMm: 80, purpose: 'KOT' }
                     : { kind: 'existing', printerId: v }
                 )
               }
               options={[
                 { value: 'new', label: 'A new printer' },
-                ...existing.map((p) => ({ value: p.id, label: p.name, hint: `${p.station} · already in Jalsa` })),
+                ...existing.map((p) => {
+                  const place = p.id === choosing.currentPrinterId ? null : placeOf(p.id);
+                  return {
+                    value: p.id,
+                    label: p.name,
+                    hint: place ? `${p.station} · now on ${place} — moves here` : `${p.station} · already in Jalsa`,
+                  };
+                }),
               ]}
               placeholder="A new printer, or one already in Jalsa"
             />

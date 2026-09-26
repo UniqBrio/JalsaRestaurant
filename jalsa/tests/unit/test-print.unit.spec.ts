@@ -222,7 +222,11 @@ test('14. the Answering / Not answering pill is unchanged', () => {
 test('the route hands the printer id through without reinterpreting it', () => {
   const src = codeOnly(ROUTE);
   expect(src).toContain("case 'test-print'");
-  expect(src).toContain('testPrint({ printerId: input.printerId, actor })');
+  // SUPERSEDED 25-Sep-2026 (item 9): previously `testPrint({ printerId: input.printerId, actor })`.
+  // The id still goes straight through; the only addition is which ticket, and only 'bill' is
+  // passed on - anything else is the kitchen ticket, as before.
+  expect(src).toMatch(/testPrint\(\{\s*printerId: input\.printerId,\s*actor,/);
+  expect(src).toContain("...(input.ticket === 'bill' ? { ticket: 'bill' as const } : {})");
 });
 
 /* ── The limitation itself ─────────────────────────────────────────────────────────────────── */

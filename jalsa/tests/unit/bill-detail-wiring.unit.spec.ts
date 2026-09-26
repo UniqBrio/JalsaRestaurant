@@ -33,7 +33,11 @@ test('the bill number in Closed today opens the bill', () => {
 
 test('viewing a bill and closing one are separate pieces of state', () => {
   // One `selected` would open the wrong sheet the first time both were reachable from one table.
-  expect(payments).toContain('const [viewing, setViewing]');
+  // SUPERSEDED 25-Sep-2026 (item 38): previously `const [viewing, setViewing]` - a state holding
+  // the bill OBJECT, which froze the shared text at the moment the sheet opened. Viewing is now
+  // its own state by id (still separate from closing), and the bill is read from each poll.
+  expect(payments).toContain('const [viewingId, setViewingId]');
+  expect(payments).toContain('const setViewing = (b: OwnerBillView | null): void => setViewingId(b ? b.id : null);');
   expect(payments).toContain('const [closing, setClosing]');
   expect(payments).toContain('open={viewing !== null}');
   expect(payments).toContain('open={closing !== null}');

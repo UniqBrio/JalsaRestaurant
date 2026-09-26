@@ -21,8 +21,14 @@ import {
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
+import { newDishProblem, type NewDish } from '@/lib/new-dish';
 import {
   addCategory,
+  addDishWhileOrdering,
+  setCategoryParent,
+  SubMenuRefused,
+  setItemRouting,
+  uploadImage,
   deleteExpense,
   issuePin,
   removeStaff,
@@ -41,6 +47,7 @@ import {
   issuePairingCode,
   savePrinterMapping,
   removePrinterMapping,
+  deletePrinter,
   revokeBridgeToken,
   upsertStaff,
   upsertTable,
@@ -79,8 +86,14 @@ type Action =
       categoryId: string;
       foodType: 'veg' | 'non_veg' | 'egg';
       description?: string;
+      imageUrl?: string;
+      printerId?: string | null;
     }
-  | { action: 'add-category'; name: string }
+  | { action: 'add-category'; name: string; printerId?: string | null }
+  | ({ action: 'add-dish' } & NewDish)
+  | { action: 'set-category-parent'; categoryId: string; parentId: string | null }
+  | { action: 'set-item-routing'; itemIds: string[]; all?: boolean; station?: string | null; printerId?: string | null }
+  | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
@@ -88,7 +101,7 @@ type Action =
   | { action: 'remove-staff'; staffId: string; reason: string }
   | { action: 'set-on-duty'; staffId: string; onDuty: boolean }
   | { action: 'write-setting'; key: string; value: Record<string, unknown> }
-  | { action: 'test-print'; printerId: string }
+  | { action: 'test-print'; printerId: string; ticket?: 'kot' | 'bill' }
   | { action: 'write-identity'; patch: Record<string, unknown> }
   | {
       action: 'upsert-expense';
@@ -137,6 +150,7 @@ type Action =
       purpose?: string;
     }
   | { action: 'remove-printer-mapping'; printerId: string }
+  | { action: 'delete-printer'; printerId: string }
   | { action: 'retry-print'; jobId: string }
   /* Print elsewhere. The printer is REQUIRED and comes from the operator: this is the one
      path to a machine other than the assigned one, and it exists so no automatic path has
@@ -153,7 +167,7 @@ type Action =
  * this file cannot accidentally become a second, more generous, copy of the matrix.
  */
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
   const result = await perform(staff, await body<Action>(req));
   // The answer carries the console as it now stands (`action-echo.ts`). Unlike a captain, an
@@ -162,7 +176,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   // applies. Anyone who no longer passes it gets no console here; the phone's own re-read then
   // receives the same refusal it always would have.
   return withState(result, async () => {
-    const now = await currentStaff();
+    const now = await currentStaff('owner');
     if (!now || !now.grants.can('orders.view')) return null;
     return buildOwnerPayload(now, publicConfig.qrOrigin);
   });
@@ -229,7 +243,7 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       /* Always `ensureOpenBill`: this door exists for a table with no bill. Adding to a bill
          that already exists is the captain's screen, and giving this verb a second mode nothing
          calls would be a branch no test ever walks. */
-      const bill = await ensureOpenBill(input.tableId);
+      const bill = await ensureOpenBill(input.tableId, { actor });
       const placed = await placeRound({
         billId: bill.id,
         tableId: input.tableId,
@@ -276,16 +290,62 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           categoryId: input.categoryId,
           foodType: input.foodType,
           ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
+          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
           actor,
         })
       );
 
+    case 'add-dish': {
+      // A dish the menu does not list yet, added from the ordering screen (E1): the Menu
+      // section's own write and grant; a duplicate name comes back as the existing dish.
+      const problem = newDishProblem(input);
+      if (problem) return fail(400, { code: 'validation', message: problem });
+      return ok(
+        await addDishWhileOrdering({
+          name: input.name,
+          price: input.price,
+          categoryId: input.categoryId,
+          foodType: input.foodType,
+          actor,
+        })
+      );
+    }
+
+    case 'set-category-parent':
+      // Sub-menus (I3). One level; the rule is the database's, stated first in words.
+      try {
+        await setCategoryParent({ categoryId: input.categoryId, parentId: input.parentId ?? null, actor });
+      } catch (err) {
+        if (err instanceof SubMenuRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
+      return ok({ done: true });
+
     case 'add-category': {
       // The id comes back so the Add-item combobox can select the category it just created,
       // in the same form, before the item is saved.
-      const categoryId = await addCategory({ name: input.name, actor });
+      const categoryId = await addCategory({
+        name: input.name,
+        ...(input.printerId ? { printerId: input.printerId } : {}),
+        actor,
+      });
       return ok({ done: true, id: categoryId });
     }
+
+    case 'set-item-routing':
+      return ok(
+        await setItemRouting({
+          itemIds: Array.isArray(input.itemIds) ? input.itemIds : [],
+          ...(input.all === true ? { all: true } : {}),
+          ...(input.station !== undefined ? { station: input.station } : {}),
+          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
+          actor,
+        })
+      );
+
+    case 'upload-image':
+      return ok(await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor }));
 
     case 'upsert-table':
       await upsertTable({
@@ -332,7 +392,11 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
          a diagnostic that could land on a different machine would be worse than none.
          And it is an ORDINARY print job: the bridge lists it, claims it, composes it through
          `buildTicket`, encodes it through `escpos.ts` and reports it like any kitchen ticket. */
-      const result = await testPrint({ printerId: input.printerId, actor });
+      const result = await testPrint({
+        printerId: input.printerId,
+        actor,
+        ...(input.ticket === 'bill' ? { ticket: 'bill' as const } : {}),
+      });
       return ok(result);
     }
 
@@ -379,7 +443,10 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       return ok({ done: true });
 
     case 'seat-waitlist':
-      await seatWaitlist({ id: input.id, ...(input.tableId ? { tableId: input.tableId } : {}), actor });
+      // A seat is AT a table: seating now opens that table's bill, so there is no seat without one.
+      if (!input.tableId)
+        return fail(400, { code: 'validation', message: 'Choose the table this party is sitting at.' });
+      await seatWaitlist({ id: input.id, tableId: input.tableId, actor });
       return ok({ done: true });
 
     case 'remove-waitlist':
@@ -435,6 +502,9 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
 
     case 'remove-printer-mapping':
       return ok(await removePrinterMapping({ printerId: input.printerId, actor }));
+
+    case 'delete-printer':
+      return ok(await deletePrinter({ printerId: input.printerId, actor }));
 
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));

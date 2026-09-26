@@ -1,7 +1,8 @@
 import 'server-only';
-import { dayWindow } from '@/lib/restaurant-time';
+import { dayWindow, todayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
-import { tableStateFrom, type KotStatus } from '@/lib/status';
+import { phonesHoldingTables, tableStateFrom, type KotStatus } from '@/lib/status';
+import { isCounterNotice } from '@/lib/payment-notice';
 import { totalBill } from '@/lib/money';
 import type {
   AuditRow,
@@ -66,11 +67,15 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
     db()
       .from('menu_item')
       .select(
-        'id,name,description,price,food_type,image_url,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+        'id,name,description,price,food_type,image_url,printer_id,station,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
       )
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
-    db().from('menu_category').select('id,name,sort').eq('restaurant_id', restaurantId).order('sort', { ascending: true }),
+    db()
+      .from('menu_category')
+      .select('id,name,sort,parent_id')
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
   ]);
   if (error) throw error;
 
@@ -91,6 +96,8 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
       category: cat.name,
       categoryId: cat.id,
       imageUrl: (row.image_url as string) ?? '',
+      printerId: (row.printer_id as string | null) ?? null,
+      station: (row.station as string | null) ?? null,
       available: (row.available as boolean) && !stillClosed,
       closedReason: (row.closed_reason as string) ?? '',
       closedUntil: stillClosed ? closedUntil : null,
@@ -102,13 +109,14 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
   for (const it of items) {
     const seen = byCat.get(it.categoryId);
     if (seen) seen.count += 1;
-    else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1 });
+    else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1, parentId: null });
   }
   const categories: MenuCategory[] = (cats ?? []).map((c) => ({
     id: c.id as string,
     name: c.name as string,
     sort: (c.sort as number) ?? 0,
     count: byCat.get(c.id as string)?.count ?? 0,
+    parentId: (c.parent_id as string | null) ?? null,
   }));
 
   return { items, categories };
@@ -131,13 +139,19 @@ const BILL_SELECT = `
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name ),
+    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name, menu_parent_category_name, line_seq ),
     print_job (
       id, status, attempts, is_reprint, last_error,
       printer_id, printer_name, station, routing_rule, redirected_from_job_id
     )
   )
 `;
+
+/** A round's lines in cart order - `kot_item.line_seq`, assigned by the one insert that wrote them. */
+export function sortByLineSeq<T extends Record<string, unknown>>(rows: readonly T[]): T[] {
+  const seq = (r: T): number => (r.line_seq == null ? Number.MAX_SAFE_INTEGER : Number(r.line_seq));
+  return [...rows].sort((a, b) => seq(a) - seq(b));
+}
 
 interface RawRef {
   name?: string;
@@ -183,8 +197,13 @@ function shapeBill(row: Record<string, unknown>): Bill {
   const discountBy = (row.discount_by ?? null) as RawRef | null;
   const hostTable = (row.host_table ?? null) as RawRef | null;
 
-  const memberships = (row.bill_table ?? []) as Array<{ dining_table: RawRef }>;
+  const memberships = (row.bill_table ?? []) as Array<{ dining_table: RawRef; released_at?: string | null }>;
+  // A bill still in service holds only the tables it has NOT released (items 35/36, 25-Sep-2026) -
+  // the same rule `openBillForTable` uses. A closed or void bill keeps every table it had, for
+  // the record.
+  const live = row.status === 'open' || row.status === 'payment_requested';
   const tables = memberships
+    .filter((m) => !live || !m.released_at)
     .map((m) => m.dining_table?.name ?? '')
     .filter(Boolean)
     .sort();
@@ -212,7 +231,10 @@ function shapeBill(row: Record<string, unknown>): Bill {
         readyAt: (k.ready_at as string) ?? null,
         pickedUpAt: (k.picked_up_at as string) ?? null,
         servedAt: (k.served_at as string) ?? null,
-        items: ((k.kot_item ?? []) as Array<Record<string, unknown>>).map((i) => ({
+        // In the order they were put in the cart (item 3, 25-Sep-2026). An embedded select has no
+        // order of its own, so without this the bill, its share text and the browser invoice
+        // listed a round's lines in whatever order the database returned them.
+        items: sortByLineSeq((k.kot_item ?? []) as Array<Record<string, unknown>>).map((i) => ({
           id: i.id as string,
           name: i.name as string,
           unitPrice: Number(i.unit_price),
@@ -222,12 +244,14 @@ function shapeBill(row: Record<string, unknown>): Bill {
           cancelledAt: (i.cancelled_at as string) ?? null,
           cancelReason: (i.cancel_reason as string) ?? '',
           category: (i.menu_category_name as string) ?? '',
+          parentCategory: (i.menu_parent_category_name as string) ?? '',
         })),
       };
     })
     // Oldest first. Rounds are read as a history, and a history that starts at the end is
-    // read wrongly by everyone at least once.
-    .sort((a, b) => a.code.localeCompare(b.code));
+    // read wrongly by everyone at least once. By time, then code: codes compared as text put
+    // K-1000 before K-999 (item 3, 25-Sep-2026).
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.code.localeCompare(b.code));
 
   return {
     id: row.id as string,
@@ -341,7 +365,10 @@ export async function listOpenBills(): Promise<Bill[]> {
     .from('bill')
     .select(BILL_SELECT)
     .eq('restaurant_id', restaurantId)
-    .neq('status', 'closed')
+    // Open or asked to pay - nothing else is in service. `.neq('closed')` let a VOID bill (the
+    // empty bill Mark free writes off) hold its table on the floor for ever, so a freed table
+    // kept its Mark free button (A5, items 35/36, 25-Sep-2026).
+    .in('status', ['open', 'payment_requested'])
     .order('opened_at', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
@@ -349,14 +376,18 @@ export async function listOpenBills(): Promise<Bill[]> {
 
 export async function listClosedBillsToday(): Promise<Bill[]> {
   const restaurantId = await currentRestaurantId();
-  const since = new Date();
-  since.setHours(0, 0, 0, 0);
+  /* The restaurant's day, not the host's (RC-016). `setHours(0,0,0,0)` on a UTC server began
+     "today" at 05:30 IST, so a bill settled at 00:20 counted on the previous day - and between
+     midnight and 05:30 "today" still showed yesterday's evening. The same window every one-day
+     Report uses, so the two agree by construction. */
+  const { start, end } = todayWindow();
   const { data, error } = await db()
     .from('bill')
     .select(BILL_SELECT)
     .eq('restaurant_id', restaurantId)
     .eq('status', 'closed')
-    .gte('closed_at', since.toISOString())
+    .gte('closed_at', start.toISOString())
+    .lt('closed_at', end.toISOString())
     .order('closed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
@@ -391,6 +422,47 @@ export async function listClosedBillsBetween(from: string, to: string): Promise<
     .order('closed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+}
+
+/**
+ * The most recent bill closed BEFORE a range began - read, never guessed.
+ *
+ * For the empty Today state (24-Sep list, A1): "no bills closed today" is true and unhelpful on
+ * its own the morning after a busy night, so the screen names the actual last bill and offers
+ * the day it belongs to. Only the code and the instant are read; nothing here is a figure.
+ */
+export async function lastClosedBillBefore(from: string): Promise<{ code: string; closedAt: string } | null> {
+  const restaurantId = await currentRestaurantId();
+  const { start } = dayWindow(from, from);
+  const { data, error } = await db()
+    .from('bill')
+    .select('code, closed_at')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'closed')
+    .lt('closed_at', start.toISOString())
+    .order('closed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { code: data.code as string, closedAt: data.closed_at as string } : null;
+}
+
+/**
+ * Every "how did you hear about us" answer given on a visit that began in the range (H2), read
+ * from the one place it is stored. The day is the restaurant's (`dayWindow`), like every range.
+ */
+export async function listHeardAboutBetween(from: string, to: string): Promise<string[]> {
+  const restaurantId = await currentRestaurantId();
+  const { start, end } = dayWindow(from, to);
+  const { data, error } = await db()
+    .from('guest_session')
+    .select('heard_about')
+    .eq('restaurant_id', restaurantId)
+    .neq('heard_about', '')
+    .gte('created_at', start.toISOString())
+    .lt('created_at', end.toISOString());
+  if (error) throw error;
+  return (data ?? []).map((r) => (r.heard_about as string) ?? '');
 }
 
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */
@@ -439,7 +511,12 @@ export async function listFloor(): Promise<FloorTable[]> {
        scanned, filled a cart and walked out leaves one of these and no bill — but it IS stale
        data sitting on a table the restaurant considers free, and the only thing that can see it
        is this query. It is what `tables.free` clears. */
-    db().from('guest_session').select('table_id').eq('restaurant_id', restaurantId),
+    /* Only what can HOLD a table (items 35/36): phones with an unsent cart, read through the
+       cart itself - a small set - rather than every session the restaurant ever had. */
+    db()
+      .from('guest_cart_line')
+      .select('session_id, session:session_id!inner(id,table_id,bill_id,restaurant_id)')
+      .eq('session.restaurant_id', restaurantId),
     /* Tables a closure has released and nobody has reset yet. `released_at` is stamped by
        release_tables_on_close the instant a bill closes — that stamp is "the guests have gone"
        — and `cleared_at` is the other end. Until this read existed, tableStateFrom's
@@ -452,11 +529,26 @@ export async function listFloor(): Promise<FloorTable[]> {
   ]);
   if (tablesRes.error) throw tablesRes.error;
 
-  const phones = new Map<string, number>();
-  for (const row of phonesRes.data ?? []) {
-    const id = row.table_id as string;
-    phones.set(id, (phones.get(id) ?? 0) + 1);
+  /* A phone HOLDS a table only while it has something there (items 35/36): an unsent cart, or
+     the table's bill still open. Every session a table has ever had used to count - they are
+     not removed when a bill is paid - so any table a guest had once scanned offered Mark free
+     for ever, free or not. */
+  if (phonesRes.error) throw phonesRes.error;
+  const carts = (phonesRes.data ?? []) as unknown as Array<{ session_id: string; session: { id: string; table_id: string; bill_id: string | null } }>;
+  const withCart = new Set(carts.map((c) => c.session_id));
+  const byId = new Map(carts.map((c) => [c.session.id, c.session]));
+  // Phones on a bill still open: bounded by the open bills, which are few.
+  const openIds = bills.map((b) => b.id);
+  if (openIds.length) {
+    const { data: onOpen, error: openErr } = await db()
+      .from('guest_session')
+      .select('id,table_id,bill_id')
+      .eq('restaurant_id', restaurantId)
+      .in('bill_id', openIds);
+    if (openErr) throw openErr;
+    for (const r of onOpen ?? []) byId.set(r.id as string, r as { id: string; table_id: string; bill_id: string | null });
   }
+  const phones = phonesHoldingTables([...byId.values()], withCart, new Set(openIds));
 
   const billByTable = new Map<string, Bill>();
   for (const b of bills) for (const t of b.tables) billByTable.set(t, b);
@@ -481,7 +573,12 @@ export async function listFloor(): Promise<FloorTable[]> {
   }
 
   const requestsByTable = new Map<string, number>();
-  for (const r of requests) requestsByTable.set(r.tableName, (requestsByTable.get(r.tableName) ?? 0) + 1);
+  // The bill counter's own notice is not a request at the table (item 37): the floor badge, which
+  // captains read, counts what the table is waiting on a captain for.
+  for (const r of requests) {
+    if (isCounterNotice(r.kind)) continue;
+    requestsByTable.set(r.tableName, (requestsByTable.get(r.tableName) ?? 0) + 1);
+  }
 
   return (tablesRes.data ?? []).map((t) => {
     const name = t.name as string;
@@ -767,10 +864,11 @@ export async function listPrinters(): Promise<PrinterRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('printer')
-    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at')
+    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at,created_at')
     .eq('restaurant_id', restaurantId)
     .order('machine_id', { ascending: true });
   if (error) throw error;
+  const lastPrinted = await latestPerKey('printer_id', 'printed_at', restaurantId);
   return (data ?? []).map((p) => ({
     id: p.id as string,
     machineId: p.machine_id as string,
@@ -788,7 +886,40 @@ export async function listPrinters(): Promise<PrinterRow[]> {
     // no opinion is "the owner has not switched it off".
     enabled: (p.enabled as boolean | null) ?? true,
     lastSeenAt: (p.last_seen_at as string | null) ?? null,
+    createdAt: p.created_at as string,
+    lastPrintedAt: lastPrinted.get(p.id as string) ?? null,
   }));
+}
+
+/**
+ * The newest `at` column per `key` over the print trail, for "Last printed" and "Last ticket".
+ *
+ * Read from `print_job`, the event itself, rather than from a heartbeat column: a time on the
+ * Printers screen has to be the time something PRINTED (item 12, 25-Sep-2026). Bounded to the
+ * most recent 500 jobs, which spans weeks of service; a machine idle for longer says "Nothing
+ * printed yet" - honest, because the History tab has nothing older on screen either.
+ */
+async function latestPerKey(
+  key: 'printer_id' | 'claimed_by',
+  at: 'printed_at' | 'claimed_at',
+  restaurantId: string
+): Promise<Map<string, string>> {
+  const { data, error } = await db()
+    .from('print_job')
+    .select(`${key},${at}`)
+    .eq('restaurant_id', restaurantId)
+    .not(key, 'is', null)
+    .not(at, 'is', null)
+    .order(at, { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  const out = new Map<string, string>();
+  for (const row of (data ?? []) as unknown as Array<Record<string, string>>) {
+    const k = row[key];
+    const v = row[at];
+    if (k && v && !out.has(k)) out.set(k, v);
+  }
+  return out;
 }
 
 /**
@@ -1042,6 +1173,7 @@ export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false });
   if (error) throw error;
+  const lastTicket = await latestPerKey('claimed_by', 'claimed_at', restaurantId);
 
   return (data ?? []).map((t) => ({
     id: t.id as string,
@@ -1049,6 +1181,7 @@ export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
     createdAt: t.created_at as string,
     lastSeenAt: (t.last_seen_at as string | null) ?? null,
     revokedAt: (t.revoked_at as string | null) ?? null,
+    lastTicketAt: lastTicket.get(t.label as string) ?? null,
   }));
 }
 

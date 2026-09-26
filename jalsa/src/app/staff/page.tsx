@@ -23,17 +23,17 @@ export default async function StaffPage() {
     return <NotConfiguredState problem={configurationProblem() ?? 'Configuration could not be read.'} />;
   }
 
-  const session = await attempt('staff.page.session', () => currentStaff());
+  const session = await attempt('staff.page.session', () => currentStaff('staff'));
   if (!session.ok)
     return <UnreachableState surface="staff" {...(session.detail ? { detail: session.detail } : {})} />;
 
   const staff = session.value;
-  if (!staff) return <PinSignIn />;
+  if (!staff) return <PinSignIn surface="staff" />;
 
   // An issued PIN opens this and nothing else. Not the floor with a banner over it — a banner is
   // a thing people dismiss, and the promise on the sign-in screen does not survive being
   // dismissed.
-  if (staff.provisional) return <ChoosePin name={staff.name} />;
+  if (staff.provisional) return <ChoosePin name={staff.name} surface="staff" />;
 
   const loaded = await attempt('staff.page.payload', () => buildStaffPayload(staff));
   if (!loaded.ok) return <UnreachableState surface="staff" {...(loaded.detail ? { detail: loaded.detail } : {})} />;

@@ -59,6 +59,353 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-027 — RC-026's split left the owner's pre-deploy sessions valid on the staff app
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
+
+**Symptom** — found in review before push: RC-026 says "anyone signed in to the owner console signs
+in once more", but the danger ran the other way.
+
+**Root cause** — RC-026 kept the staff app's cookie name `jalsa_staff` so captains stayed signed in.
+Every owner sign-in BEFORE the split had been written into that same cookie, so a captain's phone
+the owner had used would still open /staff as the owner for up to 14 hours after the deploy, and
+the owner console's new sign-out clears only `jalsa_owner`.
+
+**Fix** — the staff app's cookie is renamed `jalsa_staff_app`; the old `jalsa_staff` is honoured by
+nobody and expires on its own. Everyone, on both surfaces, signs in once after the deploy.
+**Files** — `jalsa/src/lib/cookie-names.ts`, `jalsa/tests/unit/session-surfaces.unit.spec.ts`.
+
+**How to verify** — `session-surfaces.unit.spec.ts` ("each surface has its own cookie"): no surface
+uses `jalsa_staff`.
+
+**Recurrence risk** — any rename of a session's MEANING must rename its cookie; a cookie whose
+contents change meaning in place carries old grants forward.
+
+**Prevention** — the spec above. **Process check** — yes: the review rung caught it before push.
+
+---
+
+## RC-026 — One sign-in opened both the owner console and the staff app (closes RC-017's open risk)
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
+
+**Symptom** — a round placed from a captain's phone was recorded against the owner (RC-017, KOT-129).
+
+**Root cause** — `/owner` and `/staff` read the same `jalsa_staff` cookie, so signing in on either
+signed the handset in on both, and the owner's name travelled to the floor with the phone.
+RC-017 recorded who signed in where; it left the shared session itself in place.
+
+**Fix** — the owner decided "separate the sessions". The owner console has its own cookie
+(`jalsa_owner`); the staff app keeps `jalsa_staff`, so captains already signed in stay signed in.
+`readStaffSession`, `writeStaffSession`, `clearStaffSession`, `signInWithPin` and `currentStaff`
+take a required `surface`; every `/api/owner/*` route reads the owner session and every
+`/api/staff/*` floor route the staff session. The keypad, choose-PIN and sign-out send the
+surface they belong to. The sign-in audit now names that surface instead of the Referer.
+Consequence on deploy: anyone signed in to the owner console signs in once more.
+
+**Files** — `jalsa/src/lib/{cookie-names,sessions}.ts`, `jalsa/src/lib/db/auth.ts`,
+`jalsa/src/app/{owner,staff}/page.tsx`, `jalsa/src/app/api/owner/**`, `jalsa/src/app/api/staff/**`,
+`jalsa/src/features/staff/{PinSignIn,ChoosePin,StaffApp}.tsx`, `jalsa/src/features/owner/OwnerConsole.tsx`.
+
+**How to verify** — `jalsa/tests/unit/session-surfaces.unit.spec.ts`. By hand: sign in on
+/owner, open /staff on the same browser - the keypad shows.
+
+**Recurrence risk** — a new route reading a session must name its surface; there is no default,
+so the compiler asks. The spec scans all of `src/` for an argument-less reader.
+
+**Prevention** — `session-surfaces.unit.spec.ts` ("no reader anywhere asks for whichever session
+is there").
+
+**Process check** — no.
+
+---
+
+## RC-025 — CI on main went red on Node 20 while every local run on Node 22 passed
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** print bridge packaging, CI
+
+**Symptom** — the `jalsa` job on UniqBrio/JalsaRestaurant#11 and on main failed in
+`bridge-package.unit.spec.ts` ("THE REGRESSION ... fails at 125:97"); `gate` and
+`self-tests-windows` showed as cancelled on the same pushes.
+
+**Root cause** — two. (1) `ansiView()` decoded with `TextDecoder('windows-1252')`. Node 20's
+small-ICU build treats that label as Latin-1, so byte 0x92 became U+0092 instead of `’` and the
+very quote the view exists to expose disappeared; Node 22 decodes it correctly, and CI pins Node 20.
+(2) Both workflow files are named `CI` and keyed their concurrency group on the workflow name, so
+each push's second workflow cancelled the first's run.
+
+**Fix** — `ansiView` maps 0x80-0x9F through an explicit Windows-1252 table (the only range where it
+differs from Latin-1). Each workflow has its own concurrency group.
+
+**Files** — `jalsa/bridge/package/powershell-lint.ts`, `.github/workflows/ci.yml`,
+`.github/workflows/github-actions-ci.yml`, `jalsa/tests/unit/bridge-package.unit.spec.ts`.
+
+**How to verify** — `npx -y node@20 node_modules/@playwright/test/cli.js test
+tests/unit/bridge-package.unit.spec.ts` from `jalsa/` (with a unit-only config): all pass.
+
+**Recurrence risk** — `grep -rn "TextDecoder(" jalsa/src jalsa/bridge`: no other non-UTF-8 label.
+
+**Prevention** — the appended rung "the ANSI view maps 0x80-0x9F as Windows-1252 itself" pins the
+mapping and forbids the ICU-dependent decoder.
+
+**Process check** — No: local runs used the container's Node, not CI's; one line, done.
+## RC-024 — A payment request reached the counter and the captain as one row nobody was told was theirs; the shared bill could be an earlier copy
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** guest payment, owner Payments, WhatsApp share
+
+**Symptom** — "Guest requests payment: send the captain and the bill counter separate notifications." "Share Bill on WhatsApp" was reported broken.
+
+**Root cause** — `requestPayment` only changed the bill's status; no request row was raised for anyone. Payments held the viewed bill as an OBJECT captured when the sheet opened, so a later change never reached the share text; and the link carried no number (no guest phone is stored).
+
+**Fix** — one request raises "Clear the table" (captain) and "Bill requested" (counter; a captain's phone leaves it out), never twice; withdraw clears both, payment clears the counter's. Payments holds the bill by id and reads it from each poll; the sheet takes an optional guest number (validated, not stored).
+
+**Files** — `jalsa/src/lib/payment-notice.ts`, `jalsa/src/lib/db/mutations.ts`, `staff-view.ts`, `owner-view.ts`, `Payments.tsx`, `BillDetailSheet.tsx`, `bill-share.ts`
+
+**How to verify** — `npx playwright test tests/unit/guest-reports-25sep.unit.spec.ts` (from jalsa/). On a device: request payment from a guest phone; the captain sees "Clear the table", the console "Bill requested" marked Bill counter; tap again - no new rows.
+
+**Recurrence risk** — any sheet that is handed an object from a poll rather than an id; `CloseBillSheet` was left as it is (it re-reads on submit).
+
+---
+
+## RC-023 — A free table (A5) kept showing Mark free, and Mark free could not take it away
+**Date:** 25-Sep-2026  ·  **Severity:** S2  ·  **Modules:** floor (owner and captain), freeTable
+
+**Symptom** — "A5 is free but still shows the Mark Free button."
+
+**Root cause** — three rules disagreed with the server's. (1) The floor counted every `guest_session` a table ever had as a phone attached (A5 had 14, none holding anything) - sessions are not removed when a bill is paid. (2) `listOpenBills` used `status <> 'closed'`, so the VOID bill Mark free writes off kept holding the table; `openBillForTable` (unreleased membership) found nothing, so a second press did nothing. (3) freeTable released the table but never stamped `cleared_at`, and an old uncleared release outranked a live bill in `tableStateFrom`.
+
+**Fix** — open bills are open/payment_requested holding only unreleased tables; a phone holds a table only with an unsent cart or an open bill (`phonesHoldingTables`); Mark free stamps `cleared_at`; a live bill decides the state before any old release.
+
+**Files** — `jalsa/src/lib/db/queries.ts`, `jalsa/src/lib/status.ts`, `jalsa/src/lib/db/mutations.ts`
+
+**How to verify** — `npx playwright test tests/unit/mark-free-a5.unit.spec.ts`. On the live floor: A5 with no party shows Free (or Needs clearing after a payment) and no Mark free; seat it, Mark free appears while the bill is empty; press it, the tile reads Free after a refresh.
+
+**Recurrence risk** — any second definition of "occupied". There are now two readers of `bill_table` for occupancy and both use `released_at is null`.
+
+---
+
+## RC-022 — Items printed in the wrong order, and big lines ran off the paper
+**Date:** 25-Sep-2026  ·  **Severity:** S2  ·  **Modules:** printing, bill read
+
+**Symptom** — "Incorrect item order on printed bill"; bill alignment and padding reported wrong.
+
+**Root cause** — a round's lines are ONE insert, so they share `created_at`; the ticket ordered by `created_at` alone and the bill's embedded select had no order at all. Separately, `big` lines (GS ! 0x11 is double WIDTH) were centred and padded on the full column count, twice as wide as the roll, so they wrapped; the bill had no fixed columns, and three invoice formats (thermal, preview, browser) had drifted - the thermal one also counted cancelled rounds.
+
+**Fix** — `kot_item.line_seq` (identity, cart order) and ordering by it everywhere; big lines on the half-width grid; one invoice (`invoice.ts`) with fixed QTY / RATE / AMOUNT columns for paper, preview and browser.
+
+**Files** — `jalsa/supabase/migrations/20260925090000_jalsa_kot_item_line_order.sql`, `jalsa/src/lib/print-template.ts`, `invoice.ts`, `bridge-payload.ts`, `queries.ts`
+
+**How to verify** — `npx playwright test tests/unit/print-corrections-25sep.unit.spec.ts tests/unit/ticket-golden.unit.spec.ts`. On paper: print a bill of five items across two rounds; they read in the order ordered, every amount ends in the same column.
+
+**Recurrence risk** — any other read of a one-insert batch ordered by its timestamp.
+
+---
+
+## RC-021 — "Last collected 10:15 pm" was a heartbeat nobody acted on
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** Print setup > Bridges
+
+**Symptom** — the printer screen showed 10:15 although nobody acted on the printer then.
+
+**Root cause** — the Bridges tab printed `bridge_token.last_seen_at` - updated on every idle poll - as "Last collected", in the browser's zone and without a date. Kitchen PC's last poll was 16:45Z on 24-Sep: 10:15 pm IST, the PC's last minute switched on.
+
+**Fix** — "Last ticket <date, time>" from `print_job.claimed_at`, "last in touch <date, time>" for the heartbeat, IST; each printer shows "Last printed" from `print_job.printed_at` and "Added on" from `created_at`.
+
+**Files** — `jalsa/src/lib/print-computer.ts`, `queries.ts`, `PrintSetupSection.tsx`, `PrintersSection.tsx`
+
+**How to verify** — `npx playwright test tests/unit/printers-activity.unit.spec.ts`; after a real test print, the printer's "Last printed" and the bridge's "Last ticket" show that minute and day.
+
+**Recurrence risk** — any `toLocaleTimeString` without `timeZone`; the History tab had one (fixed).
+
+---
+
+## RC-020 — A printer set up through a printing computer could not be saved: the form demanded a network address it will never have
+**Date:** 24-Sep-2026  ·  **Severity:** S3  ·  **Modules:** printing (Print setup)
+
+**Symptom** — "Disable → Save Changes does not persist" (24-Sep correction list, B1).
+
+**Root cause** — `savePrinterMapping` creates a computer-reached printer with `connection:
+'Ethernet'` (any non-USB Windows port) and an empty address, because the computer is how it is
+reached. `upsertPrinter` and the Configure form both required an address of every non-USB
+machine, so Save was disabled and the server would have refused it. `testPrintBlocker` already
+exempted exactly these printers; the save path never learned the same rule.
+
+**Fix** — mapped printers are exempt on both sides; the update is restaurant-scoped and must
+change exactly one row. **Files** — `jalsa/src/lib/db/owner-mutations.ts`,
+`jalsa/src/features/owner/sections/PrintSetupSection.tsx`.
+
+**How to verify** — `jalsa/tests/unit/printer-management.unit.spec.ts` (B1 cases).
+
+**Recurrence risk** — one rule ("does this printer need an address") in two places; the third
+copy (`testPrintBlocker`) had it right. Swept: the three paths that judge an address.
+
+**Prevention** — the spec above. Not verified against a live save (G8 not run here); all five
+live printers are USB, so the tester's exact failing save may have been a different path.
+
+**Process check** — no; a rule written in three places is a known risk the review matrix already
+names.
+
+---
+
+## RC-019 — Seating a queued party stamped the queue row and nothing else, so the table stayed free
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** queue, floor
+
+**Symptom** — "Called queue guest → table selection appears → table is not actually assigned"
+(24-Sep correction list, F2).
+
+**Root cause** — `seatWaitlist` wrote `waitlist_entry.seated_table_id` only, by design ("opens no
+bill and touches no table"). Every floor derives occupancy from an OPEN BILL, and nothing on the
+staff side reads `seated_table_id`, so the table showed free and was offered to the next party.
+Live: W-1 seated at A2 on 19-Sep, no bill ever opened there.
+
+**Fix** — seating checks the table server-side, claims the queue row with a guarded update that
+must match one row, opens the bill through `ensureOpenBill` (guests = party size), and releases
+the claim if the bill fails (owner decision, 24-Sep). **Files** —
+`jalsa/src/lib/db/owner-mutations.ts`, `jalsa/src/app/api/owner/action/route.ts`.
+
+**How to verify** — `jalsa/tests/unit/queue-seat-and-closed.unit.spec.ts` (F2 cases).
+
+**Recurrence risk** — any state recorded somewhere the floor does not read. None other found.
+
+**Prevention** — the spec above. **Process check** — no.
+
+---
+
+## RC-018 — Reissue PIN failed on every press: a migration dropping an ambiguous overload was never applied to the live database
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** staff, auth
+
+**Symptom** — "Reissue PIN is failing" (24-Sep correction list, F1).
+
+**Root cause** — `set_staff_pin(uuid,text)` and `set_staff_pin(uuid,text,boolean)` both exist on
+`yxgxmbyilpivbmeemqkp` (verified in `pg_proc`): `20260917120000_jalsa_drop_ambiguous_set_staff_pin`
+is in the repository and absent from the live migration list. `issuePin` named two arguments,
+which match both, and PostgREST refused the call as ambiguous. It also never passed
+`p_provisional`, so once the drop is applied an issued PIN would not have been provisional.
+
+**Fix** — `issuePin` names `p_provisional: true` (resolves today, and is correct after the drop);
+the PIN drawn is never one another active member of staff holds. **Files** —
+`jalsa/src/lib/db/owner-mutations.ts`.
+
+**How to verify** — `jalsa/tests/unit/pin-and-attribution.unit.spec.ts` (F1 case); and on the
+live project, `select oid::regprocedure from pg_proc where proname = 'set_staff_pin'` returns one
+row once 20260917120000 is applied.
+
+**Recurrence risk** — any migration committed and not applied. `function-overloads.unit.spec.ts`
+checks the repository only; nothing compares the repository's migration list with the live one.
+
+**Prevention** — no rung: a repository-vs-live migration diff needs database access the gate
+does not have here. Recorded, prose only.
+
+**Process check** — yes: a migration was committed and never applied, and nothing noticed for
+seven days. Candidate for /framework-update (a parity check before merge); raised, not run here.
+
+---
+
+## RC-017 — Every "Bill opened" was credited to the guest's phone, and nothing recorded who signed in where
+**Date:** 24-Sep-2026  ·  **Severity:** S3  ·  **Modules:** audit, auth
+
+**Symptom** — "Order placed by Imran (captain) shows under Javeed" (24-Sep correction list, G2).
+
+**Root cause** — two gaps, one of which is the reported one. (1) KOT-129 (24-Sep 08:33 IST, on
+Imran's bill B-1052) is stored with `placed_by` = Javeed and `source = captain`: the round was
+placed from the captain surface under Javeed's session. `/staff` and `/owner` share one sign-in,
+and no sign-in was recorded, so whose session was on which device could not be established
+afterwards. (2) `ensureOpenBill` wrote every "Bill opened" as `GUEST_ACTOR`, so B-1052's opening
+by staff reads "Guest · QR".
+
+**Fix** — every sign-in is audited with person and surface; `ensureOpenBill` takes the actor;
+a captain opening a table with no standing captain becomes its captain. **Files** —
+`jalsa/src/app/api/staff/session/route.ts`, `jalsa/src/lib/db/mutations.ts`, staff and owner routes.
+
+**How to verify** — `jalsa/tests/unit/pin-and-attribution.unit.spec.ts` (G2 cases).
+
+**Recurrence risk** — the shared sign-in itself is unchanged: a phone signed in as the owner is
+the owner on both surfaces. Separating the two sessions is a design change, not made here.
+
+**Prevention** — the spec above; the audit entry makes the next case diagnosable.
+
+**Process check** — no.
+
+---
+
+## RC-016 — Every "today" on the server began at 05:30 IST: the host clock is UTC
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** payments, dashboard, ledgers, uplift, printing, guest
+
+**Symptom** — Payments "Closed today" misfiled bills closed 00:00–05:29 IST (24-Sep correction
+list, A2).
+
+**Root cause** — RC-014's class, at the sites RC-014 recorded and did not change:
+`listClosedBillsToday` and tips-today used `setHours(0,0,0,0)` on a UTC host; server time labels
+and printed KOT/bill date and time had no zone; the door-code and guest hours highlighted the
+host's weekday; screens named today with `toISOString().slice`; Reports presets used the device
+date.
+
+**Fix** — all read `jalsa/src/lib/restaurant-time.ts` (`todayIn`, `todayWindow`, `shiftDay`,
+`weekdayIn`, `timeLabelIn`, `dateLabelIn`, `nowForRangeCheck`).
+
+**How to verify** — `jalsa/tests/unit/restaurant-day.unit.spec.ts` under `TZ=UTC`: 23:59, 00:00,
+00:01, 05:29, 05:30 IST, plus source pins against host-clock "today".
+
+**Recurrence risk** — remaining: `dates.ts` `dayRange` (unused) and an `Intl` fallback in
+`analytics/format.ts`. Swept with `grep -rnE "setHours\(0|toISOString\(\)\.slice|getDay\(\)"`.
+
+**Prevention** — the source pins in the spec above. **Process check** — yes: RC-014 recorded
+these siblings and left them; a sweep that finds siblings should fix them or open an item.
+
+---
+
+## RC-015 — The Reports screen read an envelope the server never sends, so every report arrived and was shown as "Nothing in this range"
+**Date:** 24-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, guest queue
+
+**Symptom** — "When I recorded a payment it's not reflecting under reports" (owner, 24-Sep-2026),
+the second report of R-025 ("In Reports, nothing is showing up", 17-Sep-2026) after RC-014 was
+shipped as its fix.
+
+**Root cause** — a contract mismatch between one screen and the route it calls. `ok()` in
+`src/lib/route.ts` sends the payload as the bare JSON body and `fail()` sends `{ code, message }`
+at the top level. `ReportsSection` was written (1c6aa5c, 16-Sep) against the `{ data, error }`
+envelope of the scaffold's `src/lib/api-client.ts`, which nothing in the app uses and no route
+produces. It read `body.data`, always `undefined`, so `report` was always null and the screen
+fell through to its empty state; a refusal's `body.error.message` was likewise always missing.
+The empty state and a discarded answer looked identical, so nothing on screen said a read had
+been thrown away.
+
+**Proof it was real, not theoretical** — Supabase edge logs for 23-Sep: after bill B-1044 was
+closed at 08:00:05Z, eight report reads for 23-Sep (08:00:15Z to 12:41:57Z) each returned
+`content-range: 0-0/*` (one row, B-1044), and a 30-day read returned seven rows. The data reached
+the route every time; the screen still showed nothing. RC-014 fixed a real window defect on the
+same path, but not this one, which is why R-025 recurred.
+
+**Fix** — the screen's parsing moved into `readReportAnswer` (`src/lib/report-range.ts`), which
+reads the shape `ok()`/`fail()` actually send: the body IS the report; a refusal's reason is the
+top-level `message`, with a fixed sentence when there is none. `GuestQueue` read a refusal the
+same wrong way and now reads `message`.
+
+**Files** — `jalsa/src/lib/report-range.ts`, `jalsa/src/features/owner/sections/ReportsSection.tsx`,
+`jalsa/src/features/guest/GuestQueue.tsx`, `jalsa/tests/unit/report-answer.unit.spec.ts` (new).
+
+**How to verify** — run `tests/unit/report-answer.unit.spec.ts`. It builds responses with
+`NextResponse.json` exactly as `ok()` and `fail()` do and asserts the report survives, an empty
+range stays an empty report, and a 403 shows the server's sentence. Against the pre-fix parsing
+three of its four cases fail, which was observed. In the running app: close a bill, open Reports
+on its day, and the Sales tile and All orders list include it.
+
+**Recurrence risk** — the class is "a client reading a response shape the server does not send".
+Swept every `res.json()` in `jalsa/src` (6 sites, `grep -rn "json()" src`): `ReportsSection`
+(success and error, fixed), `GuestQueue` (error, fixed), `useLiveData`, `ChoosePin`, `PinSignIn`
+(correct), and `api-client.ts` (the envelope reader itself - unused by any screen, left in place;
+its presence is what made the wrong shape look canonical). The route side is one helper, so
+the server has one shape.
+
+**Prevention** — `jalsa/tests/unit/report-answer.unit.spec.ts` pins the Reports contract. No
+rung yet stops a NEW screen from reading `.data`: the unused `api-client.ts` still advertises the
+envelope and `src/app/README.md` still calls it "CP-4: one client". Retiring it, or making the
+routes use it, is a decision for the owner of the pattern register, not a bug fix - recorded here
+rather than done.
+
+**Process check** — yes. R-025 was closed by RC-014 with its screen never opened ("G8 functional
+did not run ... evidence of the DATA, not of the screen"). A fix for "nothing is showing up" was
+accepted without anything observing the screen show something; a rung asserting the parse of the
+route's real response would have caught it on 16-Sep. The framework-update question is whether a
+display-bug fix may close with the display unobserved; raised with the user, not run here.
+
+---
+
 ## RC-014 — A calendar day was turned into an instant in the SERVER's timezone, so every report began five and a half hours into the day it claimed to cover
 **Date:** 22-Sep-2026  ·  **Severity:** S2  ·  **Modules:** owner reports, db/queries
 

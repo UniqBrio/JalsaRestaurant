@@ -243,3 +243,104 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
       .sort((a, b) => b.amount - a.amount),
   };
 }
+
+/* ── Reading the route's answer ────────────────────────────────────────── */
+
+/**
+ * What `/api/owner/report` answered, read into a report or a sentence.
+ *
+ * THE SHAPE IS THE ONE `ok()` AND `fail()` SEND (`src/lib/route.ts`): the report IS the body,
+ * and a refusal is `{ code, message }` at the top level. There is no `{ data, error }` envelope
+ * on the wire. Reading one here discarded every report the route ever returned and showed the
+ * empty state in its place, for every range (RC-015) - an answer that arrived and a range with
+ * nothing in it looked identical, which is exactly what a fallback must never do.
+ *
+ * When the refusal carries no reason, the sentence still says the report failed rather than
+ * that the range was empty.
+ */
+export function readReportAnswer<R>(ok: boolean, body: unknown): { report: R | null; problem: string | null } {
+  if (ok) {
+    // A 200 with nothing in it is a broken answer, not an empty range.
+    return body == null
+      ? { report: null, problem: 'The report could not be read.' }
+      : { report: body as R, problem: null };
+  }
+  const message = (body as { message?: unknown } | null)?.message;
+  return {
+    report: null,
+    problem: typeof message === 'string' && message ? message : 'The report could not be read.',
+  };
+}
+
+/**
+ * A range with no bill closed and no expense recorded - the ONE state the screen shows as
+ * "Nothing in this range". Decided from a report that ARRIVED, never from a missing one: a
+ * report that was not read is a problem, and says so (RC-015).
+ */
+export function rangeIsEmpty(report: { summary: { bills: number }; expenses: readonly unknown[] }): boolean {
+  return report.summary.bills === 0 && report.expenses.length === 0;
+}
+
+/* ── The empty state's words ───────────────────────────────────────────── */
+
+export interface LastBillBefore {
+  code: string;
+  /** `YYYY-MM-DD` in the restaurant's calendar. */
+  closedOn: string;
+  /** "23 Sep". */
+  closedOnLabel: string;
+}
+
+export interface EmptyRangeCopy {
+  title: string;
+  note: string;
+  /** "Last bill: B-1044 • 23 Sep" - only when such a bill was actually read. */
+  lastBill: string | null;
+  /** Offer the Yesterday preset. Only on Today, where yesterday is the question being asked. */
+  offerYesterday: boolean;
+}
+
+/**
+ * What the Reports screen says when a range closed no bills (24-Sep list, A1).
+ *
+ * On Today the generic sentence was true and confusing: the morning after a busy night it read
+ * as "the report lost last night". So Today says so in its own words, names the real last bill
+ * when there is one, and offers Yesterday. Nothing here is invented: with no earlier bill there
+ * is no "Last bill" line, and every other range keeps the generic sentence.
+ */
+export function emptyRangeCopy(preset: RangePreset, lastBillBefore: LastBillBefore | null): EmptyRangeCopy {
+  if (preset !== 'today') {
+    return {
+      title: 'Nothing in this range',
+      note: 'No bill was closed and no expense was recorded between these dates. Every panel below is a projection of the same rows, so all four are empty together rather than disagreeing.',
+      lastBill: null,
+      offerYesterday: false,
+    };
+  }
+  return {
+    title: 'No bills closed today.',
+    note: 'Bills appear here the moment a payment is recorded.',
+    lastBill: lastBillBefore ? `Last bill: ${lastBillBefore.code} • ${lastBillBefore.closedOnLabel}` : null,
+    offerYesterday: lastBillBefore !== null,
+  };
+}
+
+/* ── Finance: income and expenses over one range (24-Sep list, H1) ─────── */
+
+/**
+ * Whether a `YYYY-MM-DD` falls in the range, both ends included - the SAME predicate
+ * `listExpensesBetween` applies in SQL (`spent_on >= from and spent_on <= to`), so the ledger on
+ * the Finance screen and the purchases figure in Reports count the same rows.
+ */
+export function dayInRange(day: string, range: DateRange): boolean {
+  return day >= range.from && day <= range.to;
+}
+
+/** The expenses entered for days inside the range, and their total. */
+export function expensesInRange<E extends { spentOn: string; amount: number }>(
+  rows: readonly E[],
+  range: DateRange
+): { rows: E[]; total: number } {
+  const inside = rows.filter((e) => dayInRange(e.spentOn, range));
+  return { rows: inside, total: inside.reduce((a, e) => a + e.amount, 0) };
+}

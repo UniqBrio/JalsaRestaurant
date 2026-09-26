@@ -15,6 +15,7 @@ import { PlacedScreen, StatusScreen } from './GuestProgress';
 import { UpsellScreen, TipScreen, PayingScreen, FailedScreen, PaidScreen, InvoiceScreen } from './GuestClosure';
 import { GuestSheets, type SheetKind } from './GuestSheets';
 import { factsOf, reconcilePhase, startingPhase, type Phase } from './phase';
+import { NEW_TABLES_CLOSED } from '@/lib/queue-closed';
 
 /**
  * GuestApp — the eleven screens of the guest journey, and the seven sheets behind them.
@@ -234,6 +235,9 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
   if (data.phase === 'table_inactive') {
     return <TableInactive table={data.table.name} callNumber={data.callNumber} />;
   }
+  if (data.newTablesClosed) {
+    return <NewTablesClosed hoursRows={data.hoursRows} callNumber={data.callNumber} />;
+  }
 
   const back = backTarget(phase);
 
@@ -396,6 +400,43 @@ function TableInactive({ table, callNumber }: { table: string; callNumber: strin
       {callNumber ? (
         <Button data-testid="guest-inactive-call" asChild>
           <a data-testid="guest-inactive-call-link" href={`tel:${callNumber.replace(/\s+/g, '')}`}>
+            Call the restaurant
+          </a>
+        </Button>
+      ) : null}
+    </main>
+  );
+}
+
+/**
+ * Scanned a table code while the queue is closed and nobody has been seated here (F3).
+ *
+ * Not a menu that fails on Send: a guest who cannot order is told before they choose anything,
+ * given the hours, and offered the one thing that still works - a person.
+ */
+function NewTablesClosed({
+  hoursRows,
+  callNumber,
+}: {
+  hoursRows: Array<{ day: string; hours: string; today: boolean }>;
+  callNumber: string;
+}) {
+  const today = hoursRows.find((r) => r.today);
+  return (
+    <main
+      className="mx-auto flex min-h-dvh w-full max-w-[26rem] flex-col justify-center gap-4 px-6 text-center"
+      data-testid="guest-new-tables-closed"
+    >
+      <h1 className="type-h2 font-semibold">We are not taking new orders right now</h1>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">{NEW_TABLES_CLOSED}</p>
+      {today ? (
+        <p className="m-0 type-body text-[var(--text-muted)]" data-testid="guest-new-tables-closed-hours">
+          Today: {today.hours}
+        </p>
+      ) : null}
+      {callNumber ? (
+        <Button data-testid="guest-closed-call" asChild>
+          <a data-testid="guest-closed-call-link" href={`tel:${callNumber.replace(/\s+/g, '')}`}>
             Call the restaurant
           </a>
         </Button>

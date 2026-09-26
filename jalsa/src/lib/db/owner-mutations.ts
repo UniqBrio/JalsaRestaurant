@@ -2,9 +2,14 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
+import { NEW_DISH_GRANTS, existingDish, type NewDish } from '@/lib/new-dish';
+import { subMenuProblem } from '@/lib/sub-menus';
 import { testPrintBlocker } from '@/lib/test-print';
-import { audit, nextNumber, type Actor } from './mutations';
-import { randomBytes } from 'node:crypto';
+import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
+import { openBillForTable } from './queries';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { checkReviewLink } from '@/lib/review-link';
+import { IMAGE_CONTENT_TYPE, IMAGE_MESSAGES, MAX_IMAGE_BYTES, imageProblem, isMediaUrl, sniffImage, type MediaFolder } from '@/lib/media';
 import { hashToken } from '@/lib/bridge-token';
 import { formatPairingCode, hashPairingCode, newPairingCode, pairingExpiry } from '@/lib/bridge-pairing-code';
 
@@ -34,10 +39,34 @@ export async function upsertMenuItem(input: {
   categoryId: string;
   foodType: 'veg' | 'non_veg' | 'egg';
   description?: string;
+  /** `/api/media/menu/...` from `uploadImage`, or '' to remove the photo (item 23). Absent: unchanged. */
+  imageUrl?: string;
+  /** The dish's own printer (item 25). null: follow its category / the default. Absent: unchanged. */
+  printerId?: string | null;
   actor: Actor;
 }): Promise<{ id: string }> {
   demand(input.actor, input.id ? 'menu.item_edit' : 'menu.item_edit');
   const restaurantId = await currentRestaurantId();
+
+  // Only an image this app stored, and only a printer of this restaurant - a crafted request
+  // cannot point a dish at somebody else's file or machine.
+  if (input.imageUrl !== undefined && input.imageUrl !== '' && !isMediaUrl(input.imageUrl)) {
+    throw new Error('That image was not uploaded here. Choose the photo again.');
+  }
+  if (input.printerId !== undefined) {
+    // A dish's printer IS routing, so it takes the printer grant - the one `setItemRouting` and a
+    // category's printer take - whenever it would change (review, 25-Sep-2026).
+    const before = input.id
+      ? ((await db().from('menu_item').select('printer_id').eq('id', input.id).eq('restaurant_id', restaurantId).maybeSingle()).data
+          ?.printer_id as string | null | undefined) ?? null
+      : null;
+    if ((input.printerId ?? null) !== before) demand(input.actor, 'set.printer');
+    if (input.printerId) await ownPrinter(input.printerId, restaurantId);
+  }
+  const extras = {
+    ...(input.imageUrl !== undefined ? { image_url: input.imageUrl } : {}),
+    ...(input.printerId !== undefined ? { printer_id: input.printerId } : {}),
+  };
 
   if (input.id) {
     const { data: before } = await db().from('menu_item').select('name,price').eq('id', input.id).maybeSingle();
@@ -54,8 +83,10 @@ export async function upsertMenuItem(input: {
         category_id: input.categoryId,
         food_type: input.foodType,
         description: input.description ?? '',
+        ...extras,
       })
-      .eq('id', input.id);
+      .eq('id', input.id)
+      .eq('restaurant_id', restaurantId);
     if (error) throw error;
 
     await audit({
@@ -78,6 +109,7 @@ export async function upsertMenuItem(input: {
       category_id: input.categoryId,
       food_type: input.foodType,
       description: input.description ?? '',
+      ...extras,
     })
     .select('id')
     .single();
@@ -85,6 +117,101 @@ export async function upsertMenuItem(input: {
 
   await audit({ action: 'Menu item', detail: `${input.name} added at ${rupees(input.price)}`, actor: input.actor });
   return { id: data.id as string };
+}
+
+/**
+ * Put a category under a top-level one, making it a sub-menu - or back to the top (I3).
+ *
+ * One level only. The database trigger `menu_category_one_level` is the rule (a parent is
+ * top-level, on this menu, not the category itself, and a category with sub-menus cannot go
+ * under another); the same rule is checked here first so the owner reads a sentence rather than
+ * a trigger's error. Rounds already placed keep the menu they sold under - that is a snapshot.
+ */
+export async function setCategoryParent(input: {
+  categoryId: string;
+  parentId: string | null;
+  actor: Actor;
+}): Promise<void> {
+  demand(input.actor, 'menu.category');
+  const restaurantId = await currentRestaurantId();
+  const { data: cats, error: readErr } = await db()
+    .from('menu_category')
+    .select('id,name,parent_id')
+    .eq('restaurant_id', restaurantId);
+  if (readErr) throw readErr;
+  const all = (cats ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    parentId: (c.parent_id as string | null) ?? null,
+  }));
+  const problem = subMenuProblem(all, input.categoryId, input.parentId);
+  if (problem) throw new SubMenuRefused(problem);
+
+  const { data: updated, error } = await db()
+    .from('menu_category')
+    .update({ parent_id: input.parentId })
+    .eq('id', input.categoryId)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  // The trigger's own refusal (a change made elsewhere since the read above) is the same kind of
+  // answer: its message is the sentence, raised as check_violation.
+  if (error?.code === '23514') throw new SubMenuRefused(error.message);
+  if (error) throw error;
+  if (!updated || updated.length !== 1) throw new SubMenuRefused('That category is not on this menu.');
+
+  const cat = all.find((c) => c.id === input.categoryId);
+  const parent = all.find((c) => c.id === input.parentId);
+  await audit({
+    action: 'Menu category',
+    detail: parent
+      ? `${cat?.name ?? 'A category'} is now a sub-menu of ${parent.name}`
+      : `${cat?.name ?? 'A category'} is now a top-level menu`,
+    actor: input.actor,
+  });
+}
+
+/** A refusal the owner can act on, carried to the route as a 400 with this sentence. */
+export class SubMenuRefused extends Error {}
+
+/**
+ * Add a dish from the ordering screen, or hand back the one that already means this (E1).
+ *
+ * The write is `upsertMenuItem`'s own insert, so the grant, the columns and the audit line are the
+ * Menu section's. What this adds is the duplicate answer: two captains typing the same new dish,
+ * or one dish the screen had not polled yet, meets `menu_item_name_unique` (23505) and gets the
+ * existing dish back with `existed: true` - never a second row, never a 500. Nothing is audited
+ * then, because nothing was added.
+ */
+export async function addDishWhileOrdering(input: NewDish & { actor: Actor }): Promise<{
+  id: string;
+  existed: boolean;
+  available: boolean;
+}> {
+  const name = input.name.trim();
+  // The price is set here, so the price grant is asked for as well as the item grant.
+  for (const grant of NEW_DISH_GRANTS) demand(input.actor, grant);
+  try {
+    const { id } = await upsertMenuItem({
+      name,
+      price: input.price,
+      categoryId: input.categoryId,
+      foodType: input.foodType,
+      actor: input.actor,
+    });
+    return { id, existed: false, available: true };
+  } catch (err) {
+    if ((err as { code?: string } | null)?.code !== '23505') throw err;
+    const restaurantId = await currentRestaurantId();
+    const { data, error } = await db()
+      .from('menu_item')
+      .select('id,name,available')
+      .eq('restaurant_id', restaurantId);
+    if (error) throw error;
+    const found = existingDish((data ?? []) as Array<{ id: string; name: string; available: boolean }>, name);
+    if (!found) throw err;
+    // Sold out is said, not discovered as a refused round at Send.
+    return { id: found.id, existed: true, available: found.available === true };
+  }
 }
 
 /**
@@ -106,8 +233,16 @@ export async function upsertMenuItem(input: {
  *   The combobox's own exact-match guard hides the Add row when the name is already on screen.
  *   This is the guard for the case the screen could not see.
  */
-export async function addCategory(input: { name: string; actor: Actor }): Promise<string> {
+export async function addCategory(input: {
+  name: string;
+  /** Item 29: the printer this category prints on. Absent or null: the default printer. */
+  printerId?: string | null;
+  actor: Actor;
+}): Promise<string> {
   demand(input.actor, 'menu.category');
+  // Checked BEFORE anything is written: a category saved and then refused its printer would be a
+  // failure on screen for a row that exists (review, 25-Sep-2026).
+  if (input.printerId) demand(input.actor, 'set.printer');
   const restaurantId = await currentRestaurantId();
   const name = input.name.trim();
   // The same bounds the column's own check constraint states. Refused here so the person gets a
@@ -134,11 +269,14 @@ export async function addCategory(input: { name: string; actor: Actor }): Promis
     const id = (existing.data?.id as string | undefined) ?? null;
     if (!id) throw error;
     // Not audited: nothing was added. An audit row saying "added" for a category that already
-    // existed is a register telling the owner something untrue.
+    // existed is a register telling the owner something untrue. A printer chosen with it still
+    // applies - the owner asked for this category on that machine.
+    if (input.printerId) await routeCategoryTo(name, input.printerId, restaurantId, input.actor);
     return id;
   }
 
   await audit({ action: 'Menu category', detail: `${name} added`, actor: input.actor });
+  if (input.printerId) await routeCategoryTo(name, input.printerId, restaurantId, input.actor);
   return data.id as string;
 }
 
@@ -272,12 +410,33 @@ export async function issuePin(input: { staffId: string; actor: Actor }): Promis
     '1234',
     '4321',
   ]);
+  /* NOT A PIN SOMEONE ELSE ALREADY HOLDS (24-Sep list, G2). Sign-in looks a person up by PIN
+     alone (`verify_staff_pin` ... limit 1), so two people with the same four digits sign in as
+     whichever row Postgres returns first - and every round the second one places is recorded
+     against the first. The server draws this PIN, so checking it reveals nothing to anyone. */
+  const restaurantId = await currentRestaurantId();
+  const heldByAnother = async (candidate: string): Promise<boolean> => {
+    const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: candidate });
+    if (error) throw error;
+    // ANY holder - including this person - redraws: `verify_staff_pin` returns one row, so a
+    // PIN held by both this person and someone else could come back as this person's own row.
+    return ((data as Array<{ id: string }> | null) ?? []).length > 0;
+  };
   let pin = '';
-  do {
+  for (let tries = 0; ; tries += 1) {
     pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  } while (banned.has(pin));
+    if (banned.has(pin)) continue;
+    if (!(await heldByAnother(pin))) break;
+    if (tries > 50) throw new Error('A free PIN could not be drawn. Try again.');
+  }
 
-  const { error } = await db().rpc('set_staff_pin', { p_staff: input.staffId, p_pin: pin });
+  /* `p_provisional: true` (24-Sep list, F1). Without it the call named two arguments, which
+     matched BOTH `set_staff_pin(uuid,text)` and `set_staff_pin(uuid,text,boolean)` on any
+     database where 20260917120000 had not been applied - PostgREST refused it as ambiguous and
+     Reissue PIN failed every time. Naming the third argument resolves to the one function that
+     has it, and makes the issued PIN provisional: it opens "choose your own PIN" and nothing
+     else (guardrail 5), as that migration's own note intended. */
+  const { error } = await db().rpc('set_staff_pin', { p_staff: input.staffId, p_pin: pin, p_provisional: true });
   if (error) throw error;
 
   const { data: person } = await db().from('staff').select('name').eq('id', input.staffId).maybeSingle();
@@ -389,6 +548,11 @@ const SETTING_PERMISSION: Record<string, string> = {
   // Print Setup surface that is not a machine is one key, because it is one screen's worth of
   // decisions and splitting it would mean four writes for one Save.
   print: 'set.printer',
+  // Which menu items are the welcome drinks, and whether they are offered (24-Sep list, D1):
+  // a guest-facing switch like the ones under customerFeatures.
+  welcomeDrinks: 'set.features',
+  // The default station (item 30, 25-Sep-2026): part of routing, so the printer grant.
+  routing: 'set.printer',
 };
 
 export async function writeSetting(input: {
@@ -398,6 +562,11 @@ export async function writeSetting(input: {
 }): Promise<void> {
   const permission = SETTING_PERMISSION[input.key] ?? 'set.identity';
   demand(input.actor, permission);
+  // The review link (item 40) is checked here too - the screen's word is not a check.
+  if (input.key === 'engagement' && 'reviewUrl' in input.value) {
+    const review = checkReviewLink(String(input.value.reviewUrl ?? ''));
+    if (review.state === 'invalid') throw new Error(review.reason);
+  }
   const restaurantId = await currentRestaurantId();
 
   const { data: before } = await db()
@@ -437,6 +606,14 @@ export async function writeSetting(input: {
 export async function writeIdentity(input: { patch: Record<string, unknown>; actor: Actor }): Promise<void> {
   demand(input.actor, 'set.identity');
   const restaurantId = await currentRestaurantId();
+  // The logo (item 32) is a URL this app stored, or nothing - never an address somebody typed.
+  if ('logo_url' in input.patch) {
+    const logo = input.patch.logo_url;
+    // '' and the column's own default (the Jalsa badge) mean "no uploaded logo".
+    if (logo !== '' && logo !== '/brand/jalsa-badge.png' && !(typeof logo === 'string' && isMediaUrl(logo))) {
+      throw new Error('That logo was not uploaded here. Choose the image again.');
+    }
+  }
   const { error } = await db().from('restaurant').update(input.patch).eq('id', restaurantId);
   if (error) throw error;
   await audit({
@@ -616,36 +793,88 @@ export async function notifyWaitlist(input: { id: string; actor: Actor }): Promi
 }
 
 /**
- * Seated. This stamps the queue row and NOTHING ELSE — it opens no bill and touches no table.
+ * Seated: the party is at a table, and the table has their bill (24-Sep list, F2).
  *
- * Seating and opening a bill are two acts by two people at two moments: the host walks them to
- * a table, the captain takes the first order. There is exactly one way a bill is opened
- * (`ensureOpenBill`, which owns the one-open-bill-per-table rule), and a queue that could open
- * a second would eventually disagree with it about a table that already has a party on it.
+ * WHAT CHANGED AND WHY
+ *   This used to stamp the queue row and nothing else, on the reasoning that seating and opening
+ *   a bill are two acts. In service they were not: the floor reads occupancy from an open bill,
+ *   so a seated party's table still showed FREE on every screen, was offered again to the next
+ *   party in this very sheet, and "the table is not actually assigned" was the report. W-1 on
+ *   19-Sep was seated at A2 with no bill ever opened there. Seating now opens the bill, through
+ *   `ensureOpenBill` - still the ONE way a bill is opened, so the one-open-bill-per-table rule
+ *   has one owner - with the party's size as its guests.
+ *
+ * ORDER, SO A FAILURE LEAVES NOTHING HALF-DONE
+ *   1. The table is checked here, not only in the sheet: in service, no bill on it, not waiting
+ *      to be cleared. A table taken between render and tap is refused, not double-seated.
+ *   2. The queue row is CLAIMED with a guarded update that must match exactly one row. Seated or
+ *      removed already (two hosts, one party) is refused before any bill exists.
+ *   3. The bill is opened. If that fails, the claim is released, so the party is back in the
+ *      queue rather than seated at a table that has no bill.
  */
-export async function seatWaitlist(input: { id: string; tableId?: string; actor: Actor }): Promise<void> {
+export async function seatWaitlist(input: { id: string; tableId: string; actor: Actor }): Promise<void> {
   demand(input.actor, 'queue.seat');
-  const { data: row } = await db().from('waitlist_entry').select('token').eq('id', input.id).maybeSingle();
+  const restaurantId = await currentRestaurantId();
 
-  // WHICH table, recorded. The guest's own screen (Customer Patterns 6c) reads "W-18 · 4 guests
-  // · Table A4" — without the id the alert can only say "your table is ready" and leave a party
-  // of four scanning a dining room. It records where the host SENT them; it still opens no bill.
-  const { error } = await db()
+  const [{ data: table, error: tableErr }, openBill, { data: clearing, error: clearingErr }] = await Promise.all([
+    db()
+      .from('dining_table')
+      .select('id,name,active')
+      .eq('id', input.tableId)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle(),
+    openBillForTable(input.tableId),
+    db()
+      .from('bill_table')
+      .select('table_id')
+      .eq('table_id', input.tableId)
+      .not('released_at', 'is', null)
+      .is('cleared_at', null)
+      .limit(1),
+  ]);
+  if (tableErr) throw tableErr;
+  if (clearingErr) throw clearingErr;
+  if (!table) throw new Error('That table is not on the floor plan.');
+  const tableName = table.name as string;
+  if (table.active !== true) throw new Error(`${tableName} is not in service tonight.`);
+  if (openBill) throw new Error(`${tableName} already has a party on it. Choose another table.`);
+  if ((clearing ?? []).length > 0) throw new Error(`${tableName} is waiting to be cleared. Clear it first.`);
+
+  const { data: claimed, error } = await db()
     .from('waitlist_entry')
     .update({
       seated_at: new Date().toISOString(),
       actor_label: input.actor.label,
-      ...(input.tableId ? { seated_table_id: input.tableId } : {}),
+      seated_table_id: input.tableId,
     })
     .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
     .is('seated_at', null)
-    .is('removed_at', null);
+    .is('removed_at', null)
+    .select('token,party_size');
   if (error) throw error;
+  const row = (claimed ?? [])[0];
+  if (!row) throw new Error('That party is no longer waiting - someone may have seated or removed them already.');
+
+  try {
+    await ensureOpenBill(input.tableId, {
+      guests: (row.party_size as number) || 2,
+      actor: input.actor,
+      mustBeNew: true,
+    });
+  } catch (err) {
+    await db()
+      .from('waitlist_entry')
+      .update({ seated_at: null, seated_table_id: null, actor_label: '' })
+      .eq('id', input.id)
+      .eq('seated_table_id', input.tableId);
+    throw err;
+  }
 
   await audit({
     action: 'Waitlist',
-    detail: `${(row?.token as string) ?? 'A party'} seated by ${input.actor.label}`,
-    ...(input.tableId ? { tableId: input.tableId } : {}),
+    detail: `${(row.token as string) ?? 'A party'} seated at ${tableName} by ${input.actor.label}`,
+    tableId: input.tableId,
     actor: input.actor,
   });
 }
@@ -707,7 +936,20 @@ export async function upsertPrinter(input: {
   const restaurantId = await currentRestaurantId();
 
   if (!input.name.trim()) throw new Error('Give the machine a name first — somebody has to find it in a kitchen.');
-  if (input.connection !== 'USB' && !input.address.trim()) {
+  /* A printer reached THROUGH A PRINTING COMPUTER has no address of its own - the computer is
+     how it is reached (24-Sep list, B1). `savePrinterMapping` creates those with no address, so
+     this rule refused every save on them: switching one off and pressing Save did nothing. The
+     same exemption `testPrintBlocker` already makes for them. */
+  const { data: mapping, error: mappingErr } = input.id
+    ? await db()
+        .from('bridge_printer')
+        .select('printer_id')
+        .eq('printer_id', input.id)
+        .eq('restaurant_id', restaurantId)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (mappingErr) throw mappingErr;
+  if (input.connection !== 'USB' && !input.address.trim() && !mapping) {
     throw new Error('A network machine needs an address, or nothing can reach it.');
   }
 
@@ -731,8 +973,16 @@ export async function upsertPrinter(input: {
       .eq('id', input.id)
       .maybeSingle();
 
-    const { error } = await db().from('printer').update(patch).eq('id', input.id);
+    // Scoped to this restaurant, and it must actually change one row: a save that touched
+    // nothing is not reported as saved (B1).
+    const { data: saved, error } = await db()
+      .from('printer')
+      .update(patch)
+      .eq('id', input.id)
+      .eq('restaurant_id', restaurantId)
+      .select('id');
     if (error) throw error;
+    if ((saved ?? []).length !== 1) throw new Error('That printer is no longer configured. Reload the page.');
 
     const wasEnabled = (before?.enabled as boolean | null) ?? true;
     const routesChanged = JSON.stringify((before?.routes as string[]) ?? []) !== JSON.stringify(input.routes);
@@ -909,7 +1159,12 @@ export async function writeEmployment(input: {
  * `routing_rule: 'chosen'` because a person picked the machine. That is not a routing outcome and
  * must not be mistakable for one — the same reasoning `printElsewhere` already records.
  */
-export async function testPrint(input: { printerId: string; actor: Actor }): Promise<{
+export async function testPrint(input: {
+  printerId: string;
+  actor: Actor;
+  /** Which ticket to put on paper (item 9, 25-Sep-2026). Omitted: the kitchen ticket, as before. */
+  ticket?: 'kot' | 'bill';
+}): Promise<{
   queued: boolean;
   /** Null when nothing was queued. */
   jobId: string | null;
@@ -968,7 +1223,8 @@ export async function testPrint(input: { printerId: string; actor: Actor }): Pro
       station,
       routing_rule: 'chosen',
       food_side: 'all',
-      kind: 'Test',
+      // 'TestBill' composes the sample invoice; 'Test' the kitchen test ticket (item 9).
+      kind: input.ticket === 'bill' ? 'TestBill' : 'Test',
       kot_id: null,
       bill_id: null,
       status: 'queued',
@@ -988,7 +1244,7 @@ export async function testPrint(input: { printerId: string; actor: Actor }): Pro
     // `Printer`, not `Reprint` — kept from `main` at the merge, and it is the better call: a
     // diagnostic filed among the night's reprints would read as trade that never happened.
     action: 'Printer',
-    detail: `Test ticket queued for ${name} (${printer.machine_id as string})`,
+    detail: `Test ${input.ticket === 'bill' ? 'bill' : 'ticket'} queued for ${name} (${printer.machine_id as string})`,
     actor: input.actor,
   });
 
@@ -1044,6 +1300,63 @@ export async function issueBridgeToken(input: { label: string; actor: Actor }): 
 }
 
 /**
+ * Delete a printer (24-Sep list, B2).
+ *
+ * WHAT GOES WITH IT, AND WHAT STAYS
+ *   - Its mapping to a printing computer goes with it (`bridge_printer` cascades).
+ *   - Its category routes go with it - they are a column on the row - so those categories print
+ *     at the main kitchen's fallback, exactly as if it had been switched off. The confirmation
+ *     says so before anyone presses Delete.
+ *   - Its HISTORY stays: every print job snapshots the printer's name and station, and the job's
+ *     link becomes empty (`on delete set null`) rather than the job disappearing.
+ *
+ * REFUSED WHILE TICKETS ARE WAITING ON IT. A queued or printing job whose printer vanished is a
+ * ticket no computer will ever claim - a kitchen order lost silently. The owner is told how many
+ * and where, and can reprint them to another machine first.
+ */
+export async function deletePrinter(input: { printerId: string; actor: Actor }): Promise<{ name: string }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: printer, error: readErr } = await db()
+    .from('printer')
+    .select('id,name')
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
+  const name = printer.name as string;
+
+  const { count, error: jobsErr } = await db()
+    .from('print_job')
+    .select('id', { count: 'exact', head: true })
+    .eq('printer_id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['queued', 'processing']);
+  if (jobsErr) throw jobsErr;
+  if ((count ?? 0) > 0) {
+    throw new Error(
+      `${name} still has ${count} ${count === 1 ? 'ticket' : 'tickets'} waiting to print. Reprint ${
+        count === 1 ? 'it' : 'them'
+      } to another printer from History, then delete it.`
+    );
+  }
+
+  const { data: gone, error } = await db()
+    .from('printer')
+    .delete()
+    .eq('id', input.printerId)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  if ((gone ?? []).length !== 1) throw new Error('That printer is no longer configured. Reload the page.');
+
+  await audit({ action: 'Printer', detail: `${name} deleted`, actor: input.actor });
+  return { name };
+}
+
+/**
  * Stop a bridge token working.
  *
  * A timestamp, not a delete: the job history says which PC carried which ticket, and a revoked
@@ -1063,6 +1376,16 @@ export async function revokeBridgeToken(input: { tokenId: string; actor: Actor }
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('That bridge token is already revoked, or is not one of this restaurant’s.');
+
+  /* A disconnected computer prints nothing, so it is no longer where any printer is (B3). Left
+     in place, its mappings kept those printers "on a computer" that no longer exists: hidden
+     from the chooser, and stuck until someone knew to press Remove on each first. */
+  const { error: unmapErr } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('bridge_token_id', input.tokenId)
+    .eq('restaurant_id', restaurantId);
+  if (unmapErr) throw unmapErr;
 
   await audit({
     action: 'Set permissions',
@@ -1205,7 +1528,14 @@ export async function savePrinterMapping(input: {
     printerName = printer.name as string;
     // Its routes, station and paper stay exactly as the owner configured them. Only how it is
     // reached changes, and only when Windows says it is on USB.
-    if (viaUsb) await db().from('printer').update({ connection: 'USB', address: '', port: 0 }).eq('id', printerId);
+    if (viaUsb) {
+      const { error: usbErr } = await db()
+        .from('printer')
+        .update({ connection: 'USB', address: '', port: 0 })
+        .eq('id', printerId)
+        .eq('restaurant_id', restaurantId);
+      if (usbErr) throw usbErr;
+    }
   } else {
     const name = input.target.name.trim();
     if (!name) throw new Error('Give the printer a name first — somebody has to find it in a kitchen.');
@@ -1235,6 +1565,18 @@ export async function savePrinterMapping(input: {
     printerId = created.id as string;
     printerName = name;
   }
+
+  /* ONE JALSA PRINTER PER WINDOWS PRINTER (B3). Changing what this queue prints as replaces
+     whatever it printed as before; two Jalsa printers on one paper roll would print every
+     ticket twice. */
+  const { error: clearErr } = await db()
+    .from('bridge_printer')
+    .delete()
+    .eq('bridge_token_id', input.computerId)
+    .eq('restaurant_id', restaurantId)
+    .eq('queue_name', input.queueName)
+    .neq('printer_id', printerId);
+  if (clearErr) throw clearErr;
 
   // ONE COMPUTER PER PRINTER. Moving it to this computer replaces the old mapping.
   const { error: mapErr } = await db()
@@ -1276,4 +1618,137 @@ export async function removePrinterMapping(input: { printerId: string; actor: Ac
 
   await audit({ action: 'Printer', detail: 'A printer was disconnected from its computer', actor: input.actor });
   return { done: true };
+}
+
+/* ── Routing: a dish's printer and station; a category's printer (items 25-30, 25-Sep-2026) ── */
+
+/** The printer, if it belongs to this restaurant - or a sentence saying it does not. */
+async function ownPrinter(printerId: string, restaurantId: string): Promise<{ id: string; name: string; routes: string[] }> {
+  const { data, error } = await db()
+    .from('printer')
+    .select('id,name,routes,purpose')
+    .eq('id', printerId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('That printer is no longer configured. Reload the page.');
+  // Dishes print kitchen tickets: a bill printer is never a routing target (routeItem would not
+  // find it and the dish would fall back silently).
+  if ((data.purpose as string) !== 'KOT') throw new Error(`${data.name as string} prints bills, not kitchen tickets. Choose a kitchen printer.`);
+  return { id: data.id as string, name: data.name as string, routes: (data.routes as string[]) ?? [] };
+}
+
+/**
+ * Point a category at one printer (item 29) - through the ONE place category routing lives,
+ * `printer.routes`, and exactly as the Routing screen already moves a category: taken off
+ * whichever machine held it first, then added to the new one. Removal first, so a failure
+ * between the two leaves it unrouted (the default printer takes it), never on two machines.
+ */
+async function routeCategoryTo(category: string, printerId: string, restaurantId: string, actor: Actor): Promise<void> {
+  // Routing is the printer grant's to change, whoever may add a category.
+  demand(actor, 'set.printer');
+  const target = await ownPrinter(printerId, restaurantId);
+  const key = category.trim().toLowerCase();
+  const { data: holders, error } = await db().from('printer').select('id,routes').eq('restaurant_id', restaurantId);
+  if (error) throw error;
+  for (const h of holders ?? []) {
+    const routes = ((h.routes as string[]) ?? []);
+    if (h.id !== target.id && routes.some((r) => r.trim().toLowerCase() === key)) {
+      const { error: e } = await db()
+        .from('printer')
+        .update({ routes: routes.filter((r) => r.trim().toLowerCase() !== key) })
+        .eq('id', h.id as string)
+        .eq('restaurant_id', restaurantId);
+      if (e) throw e;
+    }
+  }
+  if (!target.routes.some((r) => r.trim().toLowerCase() === key)) {
+    const { error: e } = await db()
+      .from('printer')
+      .update({ routes: [...target.routes, category.trim()] })
+      .eq('id', target.id)
+      .eq('restaurant_id', restaurantId);
+    if (e) throw e;
+  }
+  await audit({ action: 'Printer', detail: `${category.trim()} now prints at ${target.name}`, actor });
+}
+
+/**
+ * Set the station and/or printer of several dishes at once (items 26, 27): one row's dropdown
+ * sends one id, the column header sends every row's. `undefined` leaves that column alone, so
+ * changing the Station column never touches anybody's printer (item 27: "do not modify
+ * unrelated columns"). `null` clears it back to the category / default.
+ */
+export async function setItemRouting(input: {
+  itemIds: string[];
+  /** Every dish of the restaurant (the column header): filtered by restaurant, not by an id list. */
+  all?: boolean;
+  station?: string | null;
+  printerId?: string | null;
+  actor: Actor;
+}): Promise<{ updated: number }> {
+  demand(input.actor, 'set.printer');
+  const restaurantId = await currentRestaurantId();
+  const ids = [...new Set(input.itemIds)].filter((x) => typeof x === 'string' && x);
+  if (!input.all && ids.length === 0) return { updated: 0 };
+  const patch: Record<string, unknown> = {};
+  if (input.station !== undefined) {
+    if (input.station !== null && typeof input.station !== 'string') throw new Error('A station is a name.');
+    const station = input.station === null ? null : input.station.trim();
+    if (station !== null && (station.length < 1 || station.length > 40)) throw new Error('A station name is between 1 and 40 characters.');
+    patch.station = station;
+  }
+  if (input.printerId !== undefined) {
+    if (input.printerId) await ownPrinter(input.printerId, restaurantId);
+    patch.printer_id = input.printerId;
+  }
+  if (Object.keys(patch).length === 0) return { updated: 0 };
+  // "All" is one update by restaurant; a list is sent in chunks, so neither ever becomes a URL
+  // too long for the gateway on a big menu (review, 25-Sep-2026).
+  let updated = 0;
+  const chunks = input.all ? [null] : Array.from({ length: Math.ceil(ids.length / 100) }, (_, i) => ids.slice(i * 100, i * 100 + 100));
+  for (const chunk of chunks) {
+    let q = db().from('menu_item').update(patch).eq('restaurant_id', restaurantId);
+    if (chunk) q = q.in('id', chunk);
+    const { data, error } = await q.select('id');
+    if (error) throw error;
+    updated += (data ?? []).length;
+  }
+  await audit({
+    action: 'Printer',
+    detail: `Routing of ${updated} ${updated === 1 ? 'dish' : 'dishes'}: ${[
+      input.station !== undefined ? `station ${input.station ?? 'default'}` : '',
+      input.printerId !== undefined ? `printer ${input.printerId ? 'chosen' : 'default'}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ')}`,
+    actor: input.actor,
+  });
+  return { updated };
+}
+
+/* ── Images (items 23, 32) ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Store one PNG or JPEG of at most 1 MB and hand back the URL this app serves it at.
+ *
+ * The bytes are checked HERE, whatever the phone checked: the signature decides the type, the
+ * length the size. Stored under a fresh uuid, so a replaced photo is a new file and the old URL
+ * never starts showing a different picture. A dish photo needs `menu.item_edit`; the logo is
+ * restaurant identity (`set.identity`).
+ */
+export async function uploadImage(input: { folder: MediaFolder; base64: string; actor: Actor }): Promise<{ url: string }> {
+  demand(input.actor, input.folder === 'brand' ? 'set.identity' : 'menu.item_edit');
+  // Refused before decoding: not text, or longer than 1 MB of base64 could ever be.
+  if (typeof input.base64 !== 'string' || input.base64.length > Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 4) {
+    throw new Error(IMAGE_MESSAGES.tooBig(Math.floor(((typeof input.base64 === 'string' ? input.base64.length : 0) * 3) / 4)));
+  }
+  const bytes = new Uint8Array(Buffer.from(input.base64, 'base64'));
+  const problem = imageProblem(bytes);
+  if (problem) throw new Error(problem);
+  const kind = sniffImage(bytes)!;
+  const key = `${input.folder}/${randomUUID()}.${kind === 'png' ? 'png' : 'jpg'}`;
+  const { error } = await db().storage.from('media').upload(key, bytes, { contentType: IMAGE_CONTENT_TYPE[kind], upsert: false });
+  if (error) throw new Error(`The image could not be stored: ${error.message}`);
+  return { url: `/api/media/${key}` };
 }

@@ -6,11 +6,14 @@ import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, Input, Select, Toggle } from '@/components/ui/field';
-import { Sheet } from '@/components/ui/sheet';
+import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
-import { PRINT_STATUS } from '@/components/ui/print';
+import { PRINT_STATUS, TicketPaper } from '@/components/ui/print';
 import { useToast } from '@/components/ui/toast';
 import { TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '@/lib/test-print';
+import { previewBillData, previewIdentity, previewKotData, previewRound, previewTaxRate } from '@/lib/ticket-preview';
+import { addedOnLabel, bridgeActivityLabel } from '@/lib/print-computer';
+import { timeLabelIn } from '@/lib/restaurant-time';
 import {
   PAPER,
   autoFit,
@@ -20,6 +23,10 @@ import {
   fieldsFor,
   LOCKED_FIELDS,
   printOrder,
+  ROW_MODE_LABEL,
+  ROW_MODES,
+  rowMode,
+  type RowMode,
   validateTemplate,
   type FontSize,
   type ItemLayout,
@@ -29,8 +36,9 @@ import {
   type TicketData,
   type TicketKind,
 } from '@/lib/print-template';
-import { mainPrinter, printerShortName, resolvePrinter, type RoutablePrinter } from '@/lib/print-routing';
-import type { PrintJobRow } from '@/lib/db/types';
+import { mainPrinter, printerShortName, resolvePrinter, routeItem, stationOptions, type RoutablePrinter } from '@/lib/print-routing';
+import type { PrintJobRow, PrinterRow } from '@/lib/db/types';
+import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { MetricTile } from '../OwnerConsole';
 
@@ -66,45 +74,8 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'history', label: 'History' },
 ];
 
-/**
- * The round the preview is drawn with — taken from THIS restaurant's own menu.
- *
- * WHY NOT A HAND-WRITTEN SPECIMEN
- *   A preview built from an invented round proves only that the invented round fits. The
- *   question the owner is actually asking is "does MY menu fit on 58 mm paper", and the item
- *   that answers it is whichever dish here has the longest name. A fixed sample would pass
- *   validation on a menu whose longest name is eleven characters longer — and the first person
- *   to find out would be a cook holding half a dish name.
- *
- *   So the round is composed from the real menu, deliberately awkwardly: the longest name
- *   first, then one item of each food type so the grouping bands are all exercised, then
- *   whatever fills five lines. A double quantity and a special instruction are attached to the
- *   first item, because both widen the line and neither is stored on a menu row.
- */
-function previewRound(
-  menu: OwnerSectionProps['data']['menu']
-): Array<{ name: string; qty: number; foodType: 'veg' | 'non_veg' | 'egg'; rate: number; category: string; instruction: string }> {
-  if (menu.length === 0) return [];
-  const longest = [...menu].sort((a, b) => b.name.length - a.name.length)[0]!;
-  const picked = [longest];
-  (['veg', 'non_veg', 'egg'] as const).forEach((t) => {
-    const found = menu.find((m) => m.foodType === t && !picked.some((p) => p.id === m.id));
-    if (found) picked.push(found);
-  });
-  menu.forEach((m) => {
-    if (picked.length < 5 && !picked.some((p) => p.id === m.id)) picked.push(m);
-  });
-  return picked.map((m, i) => ({
-    name: m.name,
-    // A quantity of two on one line, because "2" and "12" are different widths and a template
-    // validated only against single digits is a template validated against half the evening.
-    qty: i === 1 ? 12 : 1,
-    foodType: m.foodType,
-    rate: m.price,
-    category: m.category,
-    instruction: i === 0 ? 'less spicy, no onion' : '',
-  }));
-}
+/* The round the preview is drawn with lives in `@/lib/ticket-preview` (`previewRound`) since
+   25-Sep-2026, so the Printers screen's Preview draws the same round from the same menu. */
 
 const toRoutable = (p: OwnerSectionProps['data']['printers'][number]): RoutablePrinter => ({
   id: p.id,
@@ -322,10 +293,14 @@ const blankPrinter = (): PrinterForm => ({
 function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const [form, setForm] = React.useState<PrinterForm | null>(null);
+  const [deleting, setDeleting] = React.useState<PrinterForm | null>(null);
   const canEdit = data.grants.includes('set.printer');
+  // Reached through a printing computer: it has no address of its own, and needs none (B1).
+  const throughComputer = new Set(data.printerMappings.map((m) => m.printerId));
   /* WHICH printer is being tested, not WHETHER one is. Testing the tandoor must not disable the
      counter's button — four machines are usually tested one after another. */
   const [testing, setTesting] = React.useState<string | null>(null);
+  const [previewing, setPreviewing] = React.useState<PrinterRow | null>(null);
 
   /**
    * Queue a test ticket for exactly this machine.
@@ -338,14 +313,14 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
    * printer that is switched off or has no address, and the sentence says which so the owner
    * goes to Configure rather than to the kitchen.
    */
-  const runTest = (p: { id: string }): void => {
+  const runTest = (p: { id: string; purpose: string }, ticket: TicketKind = p.purpose === 'Invoice' ? 'bill' : 'kot'): void => {
     if (testing) return;
     setTesting(p.id);
     void (async () => {
       try {
         const result = await send<{ queued: boolean; printerName: string; reason: string }>(
           '/api/owner/action',
-          { action: 'test-print', printerId: p.id }
+          { action: 'test-print', printerId: p.id, ticket }
         );
         toast.show(result.queued ? TEST_PRINT_QUEUED(result.printerName) : result.reason, {
           tone: result.queued ? 'success' : 'error',
@@ -376,6 +351,19 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       });
       setForm(null);
       toast.show(`${f.name} saved · ${f.paperMm} mm · ${f.purpose} template`, { tone: 'success' });
+    });
+  };
+
+  /* Delete (B2). Only after the server confirms: the sheet stays open and the toast says why if
+     it is refused - tickets still waiting on it, most often. */
+  const remove = (f: PrinterForm): void => {
+    if (!f.id) return;
+    const id = f.id;
+    void runBusy(async () => {
+      await send('/api/owner/action', { action: 'delete-printer', printerId: id });
+      setDeleting(null);
+      setForm(null);
+      toast.show(`${f.name} deleted`, { tone: 'success' });
     });
   };
 
@@ -419,6 +407,9 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="min-w-[10rem] flex-1">
                     <span className="block type-body font-semibold">{p.name}</span>
+                    <span className="block type-caption text-[var(--text-muted)]" data-testid={`owner-print-added-${p.id}`}>
+                      {addedOnLabel(p.createdAt)}
+                    </span>
                     <span className="block type-caption text-[var(--text-muted)]">
                       {p.purpose} template · {p.station}
                     </span>
@@ -440,6 +431,14 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       {testing === p.id ? 'Queueing…' : 'Test print'}
                     </Button>
                   ) : null}
+                  <Button
+                    data-testid={`owner-print-preview-${p.id}`}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPreviewing(p)}
+                  >
+                    Preview
+                  </Button>
                   {canEdit ? (
                     <Button
                       data-testid={`owner-print-configure-${p.id}`}
@@ -471,6 +470,15 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         </ul>
       )}
 
+      <PrinterPreviewSheet
+        data={data}
+        printer={previewing}
+        kind={previewing?.purpose === 'Invoice' ? 'bill' : 'kot'}
+        onClose={() => setPreviewing(null)}
+        {...(canEdit ? { onTest: (p: PrinterRow, k: TicketKind) => runTest(p, k) } : {})}
+        testing={previewing !== null && testing === previewing.id}
+      />
+
       <p className="m-0 rounded-[var(--radius-md)] bg-[var(--warning-surface)] px-4 py-3 type-caption leading-relaxed text-[var(--on-warning-surface)]">
         <strong>Connectivity is still an unvalidated dependency.</strong> These rows record what each machine
         <em> is</em>, and the order path routes to them. Nothing in this deployment opens a socket to a TVS device, so a
@@ -486,12 +494,27 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-print-form"
         footer={
           <>
+            {form?.id && canEdit ? (
+              <Button
+                data-testid="owner-print-delete"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setDeleting(form)}
+                className="mr-auto text-[var(--error)]"
+              >
+                Delete
+              </Button>
+            ) : null}
             <Button data-testid="owner-print-cancel" variant="ghost" onClick={() => setForm(null)}>
               Cancel
             </Button>
             <Button
               data-testid="owner-print-save"
-              disabled={busy || !form?.name.trim() || (form.connection !== 'USB' && !form.address.trim())}
+              disabled={
+                busy ||
+                !form?.name.trim() ||
+                (form.connection !== 'USB' && !form.address.trim() && !(form.id && throughComputer.has(form.id)))
+              }
               onClick={() => form && save(form)}
             >
               {form?.id ? 'Save changes' : 'Add the printer'}
@@ -591,13 +614,30 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </div>
         ) : null}
       </Sheet>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={deleting ? `Delete ${deleting.name}?` : 'Delete printer'}
+        consequence={
+          deleting
+            ? `${deleting.name} is removed from Jalsa${
+                deleting.routes.length
+                  ? `, and ${deleting.routes.join(', ')} will print at the main kitchen printer instead`
+                  : ''
+              }. Tickets it has already printed keep its name in History. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete printer"
+        onConfirm={() => deleting && remove(deleting)}
+        busy={busy}
+        testId="owner-print-delete-confirm"
+      />
     </div>
   );
 }
 
 
-const timeLabel = (iso: string): string =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
 
 /* ── Bridges ───────────────────────────────────────────────────────────── */
 
@@ -668,11 +708,7 @@ function BridgesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <div className="min-w-0">
                   <p className="m-0 type-body font-semibold">{b.label}</p>
                   <p className="m-0 type-caption text-[var(--text-muted)]">
-                    {b.revokedAt
-                      ? 'Revoked — it can no longer collect tickets'
-                      : b.lastSeenAt
-                        ? `Last collected ${timeLabel(b.lastSeenAt)}`
-                        : 'Has never connected'}
+                    {b.revokedAt ? 'Revoked — it can no longer collect tickets' : bridgeActivityLabel(b)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -766,51 +802,16 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     setConfig(initial(k));
   };
 
-  // `restaurant` is the raw row, so every value is narrowed at the point it is read rather
-  // than by a cast that would be a promise this payload does not make.
-  const restaurant = data.restaurant as { name?: string; address?: string; phone?: string };
-  const tax = (data.settings.tax ?? {}) as { gstin?: string };
-  const engagement = (data.settings.engagement ?? {}) as { upiId?: string };
-
+  // THE SAME SAMPLE AND THE SAME INVOICE AS PRINTING (item 8/9, 25-Sep-2026). This panel used to
+  // build its own sample: `restaurant.name` (a column that does not exist, so the preview always
+  // said JALSA RESTAURANT), its own tax rounding and the browser's clock. It now takes the
+  // restaurant's identity, the round and the bill from `@/lib/ticket-preview`, which the
+  // Printers screen and the printed invoice share.
+  const who = previewIdentity(data.restaurant as Record<string, unknown>, data.settings);
   const items = previewRound(data.menu);
-  const subtotal = items.reduce((a, i) => a + i.rate * i.qty, 0);
-  const taxRate = typeof (data.settings.tax as { rate?: number } | undefined)?.rate === 'number'
-    ? (data.settings.tax as { rate: number }).rate
-    : 5;
-  const billTax = Math.round(subtotal * (taxRate / 100));
+  const taxRate = previewTaxRate(data.settings);
 
-  /**
-   * The identifiers are the only invented values on this ticket, and they are invented on
-   * purpose: a preview must not carry a real bill number, or somebody will pick the paper up and
-   * go looking for table T12's outstanding round. Everything that affects whether the template
-   * FITS — the names, the prices, the categories, the restaurant's own header — is real.
-   */
-  const sample: TicketData = {
-    restaurant: (restaurant.name || 'Jalsa Restaurant').toUpperCase(),
-    branch: restaurant.address || '',
-    phone: restaurant.phone || '',
-    gstin: tax.gstin || '—',
-    kotCode: 'KOT-0000',
-    station: 'Main Kitchen',
-    roundCode: 'R-0',
-    billCode: 'B-0000',
-    table: 'PREVIEW',
-    customer: 'Preview',
-    captain: 'Preview',
-    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-    time: new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }),
-    source: 'Guest phone',
-    note: 'Preview of the longest note this template can carry without clipping',
-    items,
-    totals: {
-      subtotal,
-      discount: 0,
-      tax: billTax,
-      payable: subtotal + billTax,
-      paymentMode: 'UPI',
-    },
-    ...(engagement.upiId ? { upiId: engagement.upiId } : {}),
-  };
+  const sample: TicketData = kind === 'kot' ? previewKotData(data.menu, who) : previewBillData(data.menu, who, taxRate);
 
   const verdict = validateTemplate(kind, sample, config);
   const lines = buildTicket(kind, sample, config);
@@ -830,15 +831,16 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     setConfig({ ...config, order: arr });
   };
 
-  const toggleField = (key: string, label: string): void => {
-    if ((LOCKED_FIELDS as readonly string[]).includes(key)) {
+  const setMode = (key: string, label: string, mode: RowMode): void => {
+    if ((LOCKED_FIELDS as readonly string[]).includes(key) && mode !== 'always') {
       toast.show(`${label} cannot be switched off — the ticket is useless without it`, { tone: 'error' });
       return;
     }
-    setConfig({ ...config, on: { ...config.on, [key]: config.on[key] === false } });
+    // `on` is kept in step, so a template read by code that predates row modes means the same.
+    setConfig({ ...config, modes: { ...(config.modes ?? {}), [key]: mode }, on: { ...config.on, [key]: mode !== 'off' } });
   };
 
-  const onCount = order.filter((k) => config.on[k] !== false).length;
+  const onCount = order.filter((k) => rowMode(config, k) !== 'off').length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -933,7 +935,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           {order.map((key) => {
             const def = defs.find((d) => d.key === key);
             if (!def) return null;
-            const on = config.on[key] !== false;
+            const on = rowMode(config, key) !== 'off';
             const locked = (LOCKED_FIELDS as readonly string[]).includes(key);
             return (
               <li
@@ -949,15 +951,21 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     {def.hint ? ` · ${def.hint}` : ''}
                   </span>
                 </span>
-                <Button
-                  data-testid={`owner-print-field-${key}`}
-                  size="sm"
-                  variant="ghost"
-                  disabled={!canEdit}
-                  onClick={() => toggleField(key, def.label)}
-                >
-                  {locked ? 'Always on' : on ? 'On' : 'Off'}
-                </Button>
+                {/* Off | On | Always on, per row (item 14, 25-Sep-2026). Saved in this kind's
+                    template only, so a kitchen-ticket row never changes the bill. */}
+                <span className="flex gap-1" role="radiogroup" aria-label={`${def.label}: when it prints`} data-testid={`owner-print-field-${key}`}>
+                  {ROW_MODES.map((m) => (
+                    <Chip
+                      key={m}
+                      on={rowMode(config, key) === m}
+                      disabled={!canEdit || (locked && m !== 'always')}
+                      onClick={() => setMode(key, def.label, m)}
+                      data-testid={`owner-print-field-${key}-${m}`}
+                    >
+                      {ROW_MODE_LABEL[m]}
+                    </Chip>
+                  ))}
+                </span>
                 <Button
                   data-testid={`owner-print-up-${key}`}
                   size="sm"
@@ -1058,12 +1066,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         <SectionLabel>
           Preview · {PAPER[config.width].mm} mm · {verdict.cols} characters
         </SectionLabel>
-        <pre
-          data-testid="owner-print-preview"
-          className="m-0 overflow-x-auto rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-4 font-mono type-caption leading-normal"
-        >
-          {lines.map((l) => l.text).join('\n')}
-        </pre>
+        <TicketPaper testId="owner-print-preview" lines={lines} cols={verdict.cols} />
         <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
           Every line above was built by the same module a printer would be handed, wrapped on the character grid rather
           than by the browser. What fits here fits on the paper.
@@ -1150,6 +1153,7 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const fallback = mainPrinter('KOT', printers);
   const printCfg = (data.settings.print ?? {}) as { splitByFoodType?: boolean };
   const split = printCfg.splitByFoodType === true;
+  const routingSettings = (data.settings.routing ?? {}) as { defaultStation?: string };
 
   /**
    * MOVING A CATEGORY IS TWO WRITES, AND THAT IS DELIBERATE.
@@ -1221,21 +1225,24 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         />
       ) : (
         <Card className="flex flex-col gap-2">
-          <div className="grid grid-cols-[1fr_auto] gap-2 type-caption text-[var(--text-muted)] sm:grid-cols-[1fr_1fr_auto]">
+          {/* ONE column template for the header and every row (item 28): with an `auto` column the
+              width followed each row's own dropdown, so no heading sat over its column. */}
+          <div className={`${CATEGORY_GRID} type-caption text-[var(--text-muted)]`}>
             <span>Menu category</span>
             <span className="hidden sm:block">Station</span>
             <span>Printer</span>
           </div>
           <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="owner-print-routes">
             {data.categories.map((c) => {
-              const decision = resolvePrinter({ purpose: 'KOT', category: c.name, printers });
+              // The same decision a round gets, default station included (review, 25-Sep-2026).
+              const decision = routeItem({ category: c.name, route: null, printers, defaultStation: routingSettings.defaultStation ?? '' });
               const claimed = data.printers.find((p) =>
                 p.routes.some((r) => r.trim().toLowerCase() === c.name.trim().toLowerCase())
               );
               return (
                 <li
                   key={c.id}
-                  className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 sm:grid-cols-[1fr_1fr_auto]"
+                  className={`${CATEGORY_GRID} items-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2`}
                 >
                   <span className="min-w-0">
                     <span className="block type-caption font-semibold">{c.name}</span>
@@ -1249,7 +1256,7 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       <span className="block type-caption text-[var(--error)]">printing at the main kitchen</span>
                     ) : null}
                   </span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     {/* SEARCH ONLY — no `allowCreate`. A printer is a machine on a network
                         with an address and a paper width; it is added in the Machines section,
                         not conjured from a routing row. The option list is `kotPrinters`, so it
@@ -1274,6 +1281,8 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </ul>
         </Card>
       )}
+
+      <ItemRoutingTable data={data} send={send} runBusy={runBusy} busy={busy} canEdit={canEdit} />
 
       <Card className="flex flex-col gap-3">
         <SectionLabel>Food type splits the kitchen ticket</SectionLabel>
@@ -1365,11 +1374,7 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
             <li key={j.id}>
               <Card className="flex flex-wrap items-center gap-3">
                 <span className="shrink-0 type-caption tabular-nums text-[var(--text-muted)]">
-                  {new Date(j.createdAt).toLocaleTimeString('en-IN', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true,
-                  })}
+                  {timeLabelIn(j.createdAt)}
                 </span>
 
                 <span className="min-w-[10rem] flex-1">
@@ -1520,5 +1525,153 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         </div>
       </Sheet>
     </div>
+  );
+}
+
+/* ── Per-dish routing (items 26, 27, 28 - 25-Sep-2026) ──────────────────────────────────── */
+
+const CATEGORY_GRID = 'grid gap-2 grid-cols-[minmax(0,1fr)_minmax(10rem,1fr)] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1fr)]';
+const ITEM_GRID =
+  'grid gap-2 grid-cols-1 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(10rem,1fr)_minmax(10rem,1.2fr)]';
+
+/**
+ * Every dish, its station and its printer - each changeable on its own row, and the Station
+ * column settable for every dish at once from its header.
+ *
+ * The header's control changes STATION ONLY and says so before it does anything: a confirmation
+ * names how many dishes and which station, and that printers are left as they are. Routing then
+ * follows `routeItem`: a dish's printer, else a printer at its station, else its category.
+ */
+function ItemRoutingTable({
+  data,
+  send,
+  runBusy,
+  busy,
+  canEdit,
+}: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'> & { canEdit: boolean }) {
+  const toast = useToast();
+  const [allTo, setAllTo] = React.useState<string | null>(null);
+  const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
+  const printers = data.printers.map(toRoutable);
+  const kotPrinters = data.printers.filter((p) => p.purpose === 'KOT');
+  const stations = stationOptions(data.printers, routing.defaultStation);
+  const defaultStationLabel = routing.defaultStation ? `Default (${routing.defaultStation})` : 'Default';
+
+  const setRouting = (
+    itemIds: string[],
+    patch: { station?: string | null; printerId?: string | null; all?: boolean },
+    said: string
+  ): void => {
+    void runBusy(async () => {
+      const res = await send<{ updated: number }>('/api/owner/action', { action: 'set-item-routing', itemIds, ...patch });
+      toast.show(`${said} · ${res.updated} ${res.updated === 1 ? 'dish' : 'dishes'} updated`, { tone: 'success' });
+    });
+  };
+
+  if (data.menu.length === 0) return null;
+
+  return (
+    <Card className="flex flex-col gap-2" data-testid="owner-print-item-routing">
+      <SectionLabel>Each dish · {data.menu.length}</SectionLabel>
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+        Leave a dish on Default to follow its category. A station sends it to the printer at that station; a printer
+        sends it to that machine.
+      </p>
+      <div className={`${ITEM_GRID} items-end type-caption text-[var(--text-muted)]`}>
+        <span>Dish</span>
+        <span className="hidden sm:block">Category</span>
+        <span className="flex flex-col gap-1">
+          <span>Station</span>
+          {canEdit ? (
+            <Combobox
+              ariaLabel="Set the station of every dish"
+              testId="owner-print-station-all"
+              // Nothing is "selected" here: the header acts, it does not hold a value. Choosing
+              // opens the confirmation below; `__default__` clears every dish to the default.
+              value=""
+              disabled={busy}
+              onValueChange={(v) => setAllTo(v === '__default__' ? '' : v)}
+              options={[{ value: '__default__', label: defaultStationLabel }, ...stations.map((st) => ({ value: st, label: st }))]}
+              placeholder="Set all dishes to…"
+              emptyLabel="No matching station"
+            />
+          ) : null}
+        </span>
+        <span className="hidden sm:block">Printer</span>
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="owner-print-item-routes">
+        {data.menu.map((m) => {
+          const decision = routeItem({
+            category: m.category,
+            route: { printerId: m.printerId, station: m.station },
+            printers,
+            ...(routing.defaultStation ? { defaultStation: routing.defaultStation } : {}),
+          });
+          return (
+            <li key={m.id} className={`${ITEM_GRID} items-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2`}>
+              <span className="min-w-0">
+                <span className="block truncate type-caption font-semibold">{m.name}</span>
+                <span className="block type-caption text-[var(--text-muted)] sm:hidden">{m.category}</span>
+                <span className="block type-caption text-[var(--text-muted)]" data-testid={`owner-print-item-decision-${m.id}`}>
+                  → {decision.station || '—'} · {decision.printer?.name ?? 'no printer'}
+                </span>
+              </span>
+              <span className="hidden min-w-0 truncate type-caption sm:block">{m.category}</span>
+              <span className="min-w-0">
+                <Combobox
+                  ariaLabel={`Station for ${m.name}`}
+                  testId={`owner-print-item-station-${m.id}`}
+                  value={m.station ?? ''}
+                  disabled={!canEdit || busy}
+                  onValueChange={(v) => setRouting([m.id], { station: v || null }, `${m.name} → ${v || defaultStationLabel}`)}
+                  options={[{ value: '', label: defaultStationLabel }, ...stations.map((st) => ({ value: st, label: st }))]}
+                  placeholder="Search stations"
+                  emptyLabel="No matching station"
+                />
+              </span>
+              <span className="min-w-0">
+                <Combobox
+                  ariaLabel={`Printer for ${m.name}`}
+                  testId={`owner-print-item-printer-${m.id}`}
+                  value={m.printerId ?? ''}
+                  disabled={!canEdit || busy || kotPrinters.length === 0}
+                  onValueChange={(v) =>
+                    setRouting([m.id], { printerId: v || null }, `${m.name} → ${kotPrinters.find((p) => p.id === v)?.name ?? 'default printer'}`)
+                  }
+                  options={[{ value: '', label: 'Default' }, ...kotPrinters.map((p) => ({ value: p.id, label: p.name, hint: p.station }))]}
+                  placeholder="Search machines"
+                  emptyLabel="No matching machines"
+                />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <ConfirmDialog
+        open={allTo !== null}
+        onOpenChange={(o) => !o && setAllTo(null)}
+        title={allTo ? `Set every dish to ${allTo}?` : 'Set every dish'}
+        tone="primary"
+        consequence={
+          <>
+            The Station of all <strong>{data.menu.length}</strong> dishes becomes <strong>{allTo || defaultStationLabel}</strong>. Their
+            printers stay as they are. You can change any single dish afterwards.
+          </>
+        }
+        confirmLabel={`Set all ${data.menu.length} dishes`}
+        onConfirm={() => {
+          const station = allTo;
+          setAllTo(null);
+          setRouting(
+            [],
+            { station: station || null, all: true },
+            `Every dish → ${station || defaultStationLabel}`
+          );
+        }}
+        testId="owner-print-station-all-confirm"
+        busy={busy}
+      />
+    </Card>
   );
 }

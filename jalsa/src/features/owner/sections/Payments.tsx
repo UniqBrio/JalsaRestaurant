@@ -11,6 +11,27 @@ import { CloseBillSheet } from '../CloseBillSheet';
 import { restaurantIdentity } from '@/lib/restaurant-identity';
 import { defaultWhatsAppTemplate, type WhatsAppTemplate } from '@/lib/bill-share';
 import { BillDetailSheet } from '../BillDetailSheet';
+import { previewIdentity, previewTaxRate, ticketPreview } from '@/lib/ticket-preview';
+import type { TemplateConfig } from '@/lib/print-template';
+
+/**
+ * This bill as the counter printer would print it (item 8): the saved bill template, at the paper
+ * width of the machine that prints bills, through the one invoice builder.
+ */
+function invoiceForScreen(bill: OwnerBillView, data: OwnerSectionProps['data']) {
+  const counter = data.printers.find((p) => p.purpose === 'Invoice' && p.enabled);
+  const stored = (data.settings.print ?? {}) as { bill?: Partial<TemplateConfig> };
+  const preview = ticketPreview({
+    kind: 'bill',
+    width: counter?.paperMm === 58 ? '58' : '80',
+    template: stored.bill,
+    menu: data.menu,
+    who: previewIdentity(data.restaurant as Record<string, unknown>, data.settings),
+    taxRate: previewTaxRate(data.settings),
+    bill: bill.invoice,
+  });
+  return { lines: preview.lines, cols: preview.cols };
+}
 
 /**
  * Screen 24 — the closure queue, and everything closed today.
@@ -28,7 +49,14 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
   /* Two sheets, two pieces of state, deliberately not one. Reading a closed bill and recording
      a payment are different acts on different bills, and a single `selected` would open the
      wrong one the first time both were reachable from the same table. */
-  const [viewing, setViewing] = React.useState<OwnerBillView | null>(null);
+  /* The bill being viewed, BY ID, read from this poll's data (item 38). Holding the object
+     froze it at the moment it was opened: a later discount, payment or round never reached the
+     share text, which could then send an earlier state of the bill. */
+  const [viewingId, setViewingId] = React.useState<string | null>(null);
+  const viewing: OwnerBillView | null = viewingId
+    ? ([...data.closedToday, ...data.openBills].find((b) => b.id === viewingId) ?? null)
+    : null;
+  const setViewing = (b: OwnerBillView | null): void => setViewingId(b ? b.id : null);
 
   /* The owner's saved WhatsApp template, with any gap filled from the default — which IS the
      message that shipped before it was configurable, so an owner who has never opened Templates
@@ -180,6 +208,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
            nothing. Resolved from the real columns now, in one place. */
         identity={restaurantIdentity(data.restaurant, data.settings.tax as { gstin?: unknown })}
         whatsAppTemplate={waTemplate}
+        {...(viewing ? { invoice: invoiceForScreen(viewing, data) } : {})}
       />
 
       <CloseBillSheet

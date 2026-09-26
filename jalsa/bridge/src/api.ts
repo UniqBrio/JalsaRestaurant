@@ -1,4 +1,4 @@
-import type { PaperWidth, TicketLine } from '../../src/lib/print-template';
+import type { FontSize, PaperWidth, TicketLine } from '../../src/lib/print-template';
 import type { BridgeConfig } from './config';
 
 /**
@@ -35,6 +35,8 @@ export interface TicketPayload {
   lines: TicketLine[];
   width: PaperWidth;
   itemCount: number;
+  /** The font the lines were laid out in (item 7, 25-Sep-2026). Absent from an older Jalsa. */
+  font?: FontSize;
 }
 
 export interface ClaimResult {

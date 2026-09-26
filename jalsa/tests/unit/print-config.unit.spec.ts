@@ -58,7 +58,9 @@ test('a test print INSERTS a print_job and does nothing else', () => {
   expect(body).toContain(".from('print_job')");
   expect(body).toContain('.insert(');
   expect(body).toContain("status: 'queued'");
-  expect(body).toContain("kind: 'Test'");
+  // SUPERSEDED 25-Sep-2026 (item 9): previously `kind: 'Test'` verbatim. A test print is now of
+  // the kitchen ticket ('Test') or of the bill ('TestBill') - still one INSERT, still queued.
+  expect(body).toContain("kind: input.ticket === 'bill' ? 'TestBill' : 'Test'");
 });
 
 test('a test print cannot bypass the bridge, the encoder or the transport', () => {
@@ -266,7 +268,12 @@ test('revoking is a timestamp, never a delete', () => {
   // unreadable.
   const body = code(bodyOf(OWNER, 'revokeBridgeToken'));
   expect(body).toContain('revoked_at:');
-  expect(body).not.toContain('.delete(');
+  /* SUPERSEDED 24-Sep-2026 (B3): previously asserted the body contains no `.delete(` at all.
+     Revoking now also removes the computer's PRINTER MAPPINGS (`bridge_printer`), which left
+     printers stuck "on" a computer that no longer prints. The token row itself is still never
+     deleted - that is what the job history's labels depend on - and that is what this pins. */
+  expect(body).not.toMatch(/from\('bridge_token'\)[\s\S]{0,120}\.delete\(/);
+  expect(body).toMatch(/from\('bridge_printer'\)\s*\.delete\(\)/);
   // And revoking an already-revoked token is refused rather than silently repeated.
   expect(body).toContain(".is('revoked_at', null)");
 });

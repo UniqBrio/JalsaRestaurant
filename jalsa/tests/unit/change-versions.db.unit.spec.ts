@@ -22,6 +22,8 @@ const SUPABASE_PRELUDE = `
   create schema extensions; create extension pgcrypto with schema extensions;
   create schema auth; create table auth.users (id uuid primary key);
   create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
+  create schema storage; create table storage.buckets (id text primary key, name text, public boolean,
+    file_size_limit bigint, allowed_mime_types text[]);
   set search_path = public, extensions;
 `;
 

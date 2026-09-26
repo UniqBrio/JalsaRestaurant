@@ -1,7 +1,8 @@
-import { resolvePrinter, splitRound, type RoutablePrinter, type TicketSide } from './print-routing';
+import { effectiveTemplate } from './invoice';
+import { routeItem, splitRound, type ItemRoute, type RoutablePrinter, type TicketSide } from './print-routing';
 import {
   buildTicket,
-  defaultTemplate,
+  type FontSize,
   type PaperWidth,
   type TemplateConfig,
   type TicketData,
@@ -47,6 +48,8 @@ export interface ComposeItem {
   /** `kot_item.menu_category_name` — the routing input, snapshotted. */
   category: string;
   instruction: string;
+  /** `kot_item.route_printer_id` / `route_station` - the dish's own routing, snapshotted (item 25/26). */
+  route?: ItemRoute | null;
 }
 
 /**
@@ -98,6 +101,8 @@ export interface ComposeOk {
   width: PaperWidth;
   /** How many of the round's lines ended up on this ticket. For the log, never for a decision. */
   itemCount: number;
+  /** The font the lines were laid out in - the printer has to be told (item 7). */
+  font: FontSize;
 }
 
 export interface ComposeBlocked {
@@ -137,11 +142,11 @@ const BLOCKED_AMBIGUOUS =
  * changes, the rung goes red rather than the kitchen getting the wrong paper.
  */
 function bucketKeyOf(
-  item: { category: string; foodType: FoodType },
+  item: { category: string; foodType: FoodType; route?: ItemRoute | null },
   printers: readonly RoutablePrinter[],
   splitByFoodType: boolean
 ): string {
-  const decision = resolvePrinter({ purpose: 'KOT', category: item.category, printers });
+  const decision = routeItem({ category: item.category, route: item.route ?? null, printers });
   const side = splitByFoodType && item.foodType === 'non_veg' ? 'non_veg' : 'veg_side';
   return `${decision.printer?.id ?? 'none'}|${decision.station}|${splitByFoodType ? side : 'all'}`;
 }
@@ -224,11 +229,9 @@ export function composeTicket(input: ComposeInput): ComposeResult {
   const chosen = itemsForJob(input);
   if ('blocked' in chosen) return { ok: false, blocked: chosen.blocked };
 
-  const config: TemplateConfig = {
-    ...defaultTemplate(input.job.kind, input.width),
-    ...input.template,
-    width: input.width,
-  };
+  // The one merge, shared with every preview (`invoice.ts`), so a preview cannot be laid out at a
+  // width the paper does not have.
+  const config: TemplateConfig = effectiveTemplate(input.job.kind, input.width, input.template);
 
   const data: TicketData = {
     ...input.header,
@@ -246,6 +249,7 @@ export function composeTicket(input: ComposeInput): ComposeResult {
     lines: buildTicket(input.job.kind, data, config, { reprint: input.job.isReprint }),
     width: input.width,
     itemCount: chosen.items.length,
+    font: config.font,
   };
 }
 

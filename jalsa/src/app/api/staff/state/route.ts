@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export const GET = handler(async (req: Request): Promise<NextResponse> => {
   // Who is asking, and whether anything on the floor has moved, in one round (change-stamp.ts).
   // The identity check still runs on every poll: a removed person loses access on the next one.
-  const [staff, floor] = await Promise.all([currentStaff(), floorStamp()]);
+  const [staff, floor] = await Promise.all([currentStaff('staff'), floorStamp()]);
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to see your tables.' });
   }

@@ -2,19 +2,27 @@
 
 import * as React from 'react';
 import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
+import { Button } from '@/components/ui/button';
 import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
+import { BarList, ColumnChart } from '@/components/ui/bar-chart';
 import { Field, Input } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { rupees } from '@/lib/money';
 import {
   PRESET_LABEL,
   checkRange,
+  emptyRangeCopy,
   rangeLabel,
+  rangeIsEmpty,
+  readReportAnswer,
   resolvePreset,
   type DateRange,
+  type EmptyRangeCopy,
+  type LastBillBefore,
   type RangePreset,
 } from '@/lib/report-range';
+import { nowForRangeCheck } from '@/lib/restaurant-time';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -77,7 +85,15 @@ interface RangeReport {
     byPaymentMode: Array<{ mode: string; amount: number; bills: number; amountLabel: string; share: number }>;
   };
   products: Array<{ name: string; qty: number; revenue: number }>;
-  categories: Array<{ category: string; qty: number; revenue: number; dishes: number }>;
+  /** Sales per day over the range (item 39). Absent from an older server: no chart. */
+  daily?: Array<{ day: string; label: string; sales: number; bills: number }>;
+  /** The range is longer than the chart draws; it shows the first `dailyLimit` days. */
+  dailyTruncated?: boolean;
+  dailyLimit?: number;
+  /** `parent` is the top-level menu a sub-menu sat under when the dish sold; '' when top-level (I3). */
+  categories: Array<{ category: string; parent: string; qty: number; revenue: number; dishes: number }>;
+  /** The same sales rolled up to each top-level menu, its sub-menus included. */
+  menus: Array<{ menu: string; qty: number; revenue: number; dishes: number; subMenus: number }>;
   orders: Array<{
     id: string;
     code: string;
@@ -91,12 +107,14 @@ interface RangeReport {
     payableLabel: string;
   }>;
   expenses: Array<{ id: string; spentOn: string; category: string; note: string; amount: number; enteredBy: string }>;
+  /** The actual last bill closed before this range, for the empty Today state. */
+  lastBillBefore: LastBillBefore | null;
 }
 
 export function ReportsSection({ data }: OwnerSectionProps) {
   const [tab, setTab] = React.useState<ReportTab>('sales');
   const [preset, setPreset] = React.useState<RangePreset>('today');
-  const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', new Date()));
+  const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', nowForRangeCheck()));
   /**
    * ONE PIECE OF STATE, STAMPED WITH THE RANGE IT ANSWERS.
    *
@@ -112,7 +130,10 @@ export function ReportsSection({ data }: OwnerSectionProps) {
     problem: string | null;
   } | null>(null);
 
-  const verdict = checkRange(range, new Date());
+  /* The restaurant's today, not the device's (RC-016): a phone set to another zone, or with a
+     wrong clock, named the wrong day for Today and Yesterday, and disagreed with the server's
+     own check of the same range. */
+  const verdict = checkRange(range, nowForRangeCheck());
   const key = `${range.from}|${range.to}`;
 
   React.useEffect(() => {
@@ -121,15 +142,11 @@ export function ReportsSection({ data }: OwnerSectionProps) {
     const [from, to] = key.split('|');
     fetch(`/api/owner/report?from=${from}&to=${to}`)
       .then(async (res) => {
-        const body = (await res.json()) as { data?: RangeReport; error?: { message?: string } };
+        const body: unknown = await res.json();
         if (cancelled) return;
         // The reason the SERVER gave, not a generic one: a report that will not load is either a
         // question about permission or one about the dates, and those need different actions.
-        setResult({
-          key,
-          report: res.ok ? (body.data ?? null) : null,
-          problem: res.ok ? null : (body.error?.message ?? 'The report could not be read.'),
-        });
+        setResult({ key, ...readReportAnswer<RangeReport>(res.ok, body) });
       })
       .catch(() => {
         if (!cancelled) {
@@ -149,7 +166,7 @@ export function ReportsSection({ data }: OwnerSectionProps) {
 
   const pick = (p: RangePreset): void => {
     setPreset(p);
-    setRange(resolvePreset(p, new Date()));
+    setRange(resolvePreset(p, nowForRangeCheck()));
   };
 
   const canSeeMoney = data.grants.includes('rep.sales');
@@ -216,20 +233,19 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         ))}
       </nav>
 
-      {!report ? (
-        problem ? null : (
-          <FirstRunState
-            title={loading ? 'Reading the range' : 'Nothing in this range'}
-            note={
-              loading
-                ? 'The rows are being read for the dates above.'
-                : 'No bill was closed and no expense was recorded between these dates. Every panel below is a projection of the same rows, so all four are empty together rather than disagreeing.'
-            }
-            testId="owner-rep-empty"
-          />
+      {!report || rangeIsEmpty(report) ? (
+        problem ? null : loading || !report ? (
+          <FirstRunState title="Reading the range" note="The rows are being read for the dates above." testId="owner-rep-empty" />
+        ) : (
+          <EmptyRange copy={emptyRangeCopy(preset, report.lastBillBefore)} onYesterday={() => pick('yesterday')} />
         )
       ) : (
         <>
+          {/* Today with expenses but no bill yet: the panels still show the expenses, and the
+              notice says where the takings went (A1). */}
+          {preset === 'today' && report.summary.bills === 0 ? (
+            <EmptyRange copy={emptyRangeCopy('today', report.lastBillBefore)} onYesterday={() => pick('yesterday')} compact />
+          ) : null}
           {tab === 'sales' ? <SalesPanel report={report} canSeeMoney={canSeeMoney} /> : null}
           {tab === 'orders' ? <OrdersPanel report={report} /> : null}
           {tab === 'expenses' ? <ExpensesPanel report={report} /> : null}
@@ -237,6 +253,51 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * A range with no bill closed. On Today it names the real last bill and offers Yesterday (A1);
+ * `compact` is the one-line form shown above panels that still have expenses to show.
+ */
+function EmptyRange({
+  copy,
+  onYesterday,
+  compact = false,
+}: {
+  copy: EmptyRangeCopy;
+  onYesterday: () => void;
+  compact?: boolean;
+}) {
+  const action = copy.offerYesterday
+    ? { label: 'View Yesterday', onClick: onYesterday, testId: 'owner-rep-view-yesterday' }
+    : undefined;
+  if (!compact) {
+    return (
+      <FirstRunState
+        title={copy.title}
+        note={copy.lastBill ? `${copy.lastBill}. ${copy.note}` : copy.note}
+        {...(action ? { action } : {})}
+        testId="owner-rep-empty"
+      />
+    );
+  }
+  return (
+    <Card className="flex flex-wrap items-center gap-3" data-testid="owner-rep-no-bills-today">
+      <span className="min-w-0 flex-1">
+        <span className="block type-body font-semibold">{copy.title}</span>
+        {copy.lastBill ? (
+          <span className="block type-caption text-[var(--text-muted)]" data-testid="owner-rep-last-bill">
+            {copy.lastBill}
+          </span>
+        ) : null}
+      </span>
+      {action ? (
+        <Button variant="secondary" data-testid={action.testId} onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
+    </Card>
   );
 }
 
@@ -353,6 +414,77 @@ function PaymentPanel({ report }: { report: RangeReport }) {
   );
 }
 
+/* ── Charts (item 39, 25-Sep-2026) ─────────────────────────────────────── */
+
+/**
+ * Sales by day, and sales by category - drawn from THIS report's figures, for the range above,
+ * so they move with the date controls and never disagree with the tiles. The loading, error and
+ * no-bills states are the report's own: this panel is only drawn once a report has loaded, and a
+ * range with nothing sold says so here rather than drawing empty axes.
+ */
+function ChartsPanel({ report }: { report: RangeReport }) {
+  const daily = report.daily ?? [];
+  const total = daily.reduce((a, d) => a + d.sales, 0);
+  const cats = report.categories.slice(0, 8);
+  const rest = report.categories.slice(8);
+  const catBars = [
+    ...cats.map((c) => ({ key: c.category, label: c.category, value: c.revenue, valueLabel: rupees(c.revenue), detail: `${c.qty} sold` })),
+    ...(rest.length
+      ? [
+          {
+            key: '__other',
+            label: `Other (${rest.length})`,
+            value: rest.reduce((a, c) => a + c.revenue, 0),
+            valueLabel: rupees(rest.reduce((a, c) => a + c.revenue, 0)),
+            detail: `${rest.reduce((a, c) => a + c.qty, 0)} sold`,
+          },
+        ]
+      : []),
+  ];
+  return (
+    <section data-testid="owner-rep-charts" className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card className="flex flex-col gap-2">
+          <SectionLabel className="mb-0">Sales by day</SectionLabel>
+          {report.dailyTruncated ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-daily-truncated">
+              This range is longer than {report.dailyLimit ?? daily.length} days, so the chart shows its first{' '}
+              {daily.length}. The figures above cover all of it.
+            </p>
+          ) : null}
+          {daily.length === 0 || total === 0 ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-daily-empty">
+              {report.dailyTruncated ? 'No sales in the days shown.' : 'No sales on any day of this range.'}
+            </p>
+          ) : (
+            <ColumnChart
+              testId="owner-rep-chart-daily"
+              summary={`Sales by day: ${daily.map((d) => `${d.label} ${rupees(d.sales)}`).join(', ')}`}
+              bars={daily.map((d) => ({
+                key: d.day,
+                label: d.label,
+                value: d.sales,
+                valueLabel: rupees(d.sales),
+                detail: d.bills === 1 ? '1 bill' : `${d.bills} bills`,
+              }))}
+            />
+          )}
+        </Card>
+        <Card className="flex flex-col gap-2">
+          <SectionLabel className="mb-0">Sales by category</SectionLabel>
+          {catBars.length === 0 ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-category-empty">
+              Nothing sold in this range.
+            </p>
+          ) : (
+            <BarList testId="owner-rep-chart-category" bars={catBars} />
+          )}
+        </Card>
+      </div>
+    </section>
+  );
+}
+
 /* ── Sales and products ────────────────────────────────────────────────── */
 
 function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney: boolean }) {
@@ -390,16 +522,60 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
         ) : null}
       </section>
 
+      <ChartsPanel report={report} />
+
       <GstPanel report={report} />
 
       <PaymentPanel report={report} />
+
+      {/* Only once the owner has put a category under another: until then every menu IS a
+          category and this table would repeat the one below. */}
+      {report.categories.some((c) => c.parent) ? (
+        <section>
+          <SectionLabel>What sold by menu · {report.menus.length} menus, sub-menus included</SectionLabel>
+          <DataTable
+            rows={report.menus}
+            rowKey={(m) => m.menu}
+            defaultSort={{ key: 'revenue', direction: 'desc' }}
+            exportName="jalsa-menus"
+            emptyTitle="Nothing sold in this range"
+            emptyNote="Closed bills fill this in."
+            searchPlaceholder="Search a menu"
+            testId="owner-menus-table"
+            columns={[
+              {
+                key: 'menu',
+                header: 'Menu',
+                cell: (m) => <span className="font-semibold">{m.menu}</span>,
+                value: (m) => m.menu,
+              },
+              {
+                key: 'subMenus',
+                header: 'Sub-menus',
+                cell: (m) => m.subMenus,
+                value: (m) => m.subMenus,
+                align: 'right',
+              },
+              { key: 'dishes', header: 'Dishes', cell: (m) => m.dishes, value: (m) => m.dishes, align: 'right' },
+              { key: 'qty', header: 'Sold', cell: (m) => m.qty, value: (m) => m.qty, align: 'right' },
+              {
+                key: 'revenue',
+                header: 'Revenue',
+                cell: (m) => <span className="tabular-nums">{rupees(m.revenue)}</span>,
+                value: (m) => m.revenue,
+                align: 'right',
+              },
+            ]}
+          />
+        </section>
+      ) : null}
 
       <section>
         <SectionLabel>What sold by category · {report.categories.length} categories</SectionLabel>
         {report.categories.length === 0 ? null : (
           <DataTable
             rows={report.categories}
-            rowKey={(c) => c.category}
+            rowKey={(c) => `${c.parent}\u0000${c.category}`}
             defaultSort={{ key: 'revenue', direction: 'desc' }}
             exportName="jalsa-categories"
             emptyTitle="Nothing sold in this range"
@@ -412,6 +588,12 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
                 header: 'Category',
                 cell: (c) => <span className="font-semibold">{c.category}</span>,
                 value: (c) => c.category,
+              },
+              {
+                key: 'parent',
+                header: 'Sub-menu of',
+                cell: (c) => c.parent || '—',
+                value: (c) => c.parent,
               },
               { key: 'dishes', header: 'Dishes', cell: (c) => c.dishes, value: (c) => c.dishes, align: 'right' },
               { key: 'qty', header: 'Sold', cell: (c) => c.qty, value: (c) => c.qty, align: 'right' },

@@ -442,7 +442,9 @@ test('nothing a composed result carries could name a printer', () => {
   const result = compose();
   expect(result.ok).toBe(true);
   if (!result.ok) return;
-  expect(Object.keys(result).sort()).toEqual(['itemCount', 'lines', 'ok', 'width']);
+  // SUPERSEDED 25-Sep-2026 (item 7): previously ['itemCount', 'lines', 'ok', 'width']. `font` - the
+  // size the lines were laid out in, so the bridge can select it - names no printer either.
+  expect(Object.keys(result).sort()).toEqual(['font', 'itemCount', 'lines', 'ok', 'width']);
 });
 
 /* ── R4-1 · A redirected ticket carries the ORIGIN's half ──────────────── */

@@ -4,6 +4,9 @@ import * as React from 'react';
 import { Card, SectionLabel } from '@/components/ui/atoms';
 import { FirstRunState } from '@/components/ui/states';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
+import { readReportAnswer, rangeLabel, resolvePreset } from '@/lib/report-range';
+import { nowForRangeCheck } from '@/lib/restaurant-time';
+import type { HeardTally } from '@/lib/heard-about';
 
 /**
  * Uplift — revenue the system itself created.
@@ -65,6 +68,8 @@ export function UpliftSection({ data }: OwnerSectionProps) {
         testId="owner-uplift-empty"
       />
 
+      <HeardAboutCard />
+
       <Card>
         <SectionLabel>The four sources, and where each already lives</SectionLabel>
         <ul className="m-0 flex list-none flex-col gap-2 p-0 type-caption leading-relaxed text-[var(--text-muted)]">
@@ -87,5 +92,75 @@ export function UpliftSection({ data }: OwnerSectionProps) {
         </ul>
       </Card>
     </div>
+  );
+}
+
+/**
+ * How guests found Jalsa (24-Sep list, H2) - the answers the welcome screen already records,
+ * counted over the last 30 days in the restaurant's calendar. Read on open from its own endpoint,
+ * never on the console's poll, and shown as counts with shares: this is where guests came FROM,
+ * not what they spent.
+ */
+function HeardAboutCard() {
+  // Fixed once per mount: the range is "the last 30 days" as of opening the section.
+  const [range] = React.useState(() => resolvePreset('last30', nowForRangeCheck()));
+  const [result, setResult] = React.useState<{
+    total: number;
+    sources: HeardTally[];
+  } | null>(null);
+  const [problem, setProblem] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/owner/heard?from=${range.from}&to=${range.to}`)
+      .then(async (res) => {
+        const read = readReportAnswer<{ total: number; sources: HeardTally[] }>(res.ok, await res.json());
+        if (cancelled) return;
+        setResult(read.report);
+        setProblem(read.problem);
+      })
+      .catch(() => {
+        if (!cancelled) setProblem('The answers could not be read — the connection may have dropped.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range.from, range.to]);
+
+  return (
+    <Card data-testid="owner-uplift-heard">
+      <SectionLabel>How guests found Jalsa · {rangeLabel(range)}</SectionLabel>
+      {problem ? (
+        <p className="m-0 type-caption text-[var(--error)]" data-testid="owner-uplift-heard-problem">
+          {problem}
+        </p>
+      ) : !result ? (
+        <p className="m-0 type-caption text-[var(--text-muted)]">Reading the answers…</p>
+      ) : result.total === 0 ? (
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="owner-uplift-heard-empty">
+          No answers to “How did you hear about us?” are on record for these 30 days. It is asked once, on the
+          welcome screen of the table’s menu.
+        </p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {result.sources.map((r) => (
+            <li key={r.source} data-testid="owner-uplift-heard-row">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="type-body font-semibold">{r.source}</span>
+                <span className="type-caption text-[var(--text-muted)]">
+                  <span className="tabular-nums">{r.count}</span> · {r.share}%
+                </span>
+              </div>
+              <div aria-hidden className="mt-1 h-2 w-full rounded-full bg-[var(--surface-sunken)]">
+                <div className="h-2 rounded-full bg-[var(--primary)]" style={{ width: `${Math.max(r.share, 2)}%` }} />
+              </div>
+            </li>
+          ))}
+          <li className="type-caption text-[var(--text-muted)]">
+            {result.total} {result.total === 1 ? 'answer' : 'answers'} from guests at their tables.
+          </li>
+        </ul>
+      )}
+    </Card>
   );
 }

@@ -97,8 +97,9 @@ export function GuestQueue({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const json = (await res.json()) as { entry?: QueueSelfView | null; error?: { message?: string } };
-    if (!res.ok) throw new Error(json.error?.message ?? 'That did not go through.');
+    // fail() sends `{ code, message }` at the top level; there is no `error` wrapper (RC-015).
+    const json = (await res.json()) as { entry?: QueueSelfView | null; message?: string };
+    if (!res.ok) throw new Error(json.message ?? 'That did not go through.');
     return json.entry ?? null;
   }, []);
 

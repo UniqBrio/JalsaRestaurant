@@ -2,7 +2,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { serverConfig } from '@/lib/config';
-import { COOKIE_NAMES } from '@/lib/cookie-names';
+import { COOKIE_NAMES, type Surface } from '@/lib/cookie-names';
 
 /**
  * sessions - the two kinds of session this application has, and nothing else.
@@ -24,8 +24,27 @@ import { COOKIE_NAMES } from '@/lib/cookie-names';
  *   name and role, which they can already see on screen.
  */
 
-const STAFF_COOKIE = COOKIE_NAMES.staff;
 const GUEST_COOKIE = COOKIE_NAMES.guest;
+
+/**
+ * Which app a staff session belongs to (24-Sep list, G2).
+ *
+ * The owner console and the staff app used to share ONE cookie, so signing in on either signed
+ * the phone in on both: a captain's handset that the owner had once used for the console carried
+ * the owner's name onto the floor, and every round from it was recorded against the owner. Each
+ * surface now has its own cookie, and signing in on one never signs you in on the other.
+ *
+ * It is a required argument everywhere, deliberately with no default, so a new route cannot
+ * read "whichever session happens to be there" without the compiler asking which one it meant.
+ */
+export type { Surface };
+
+/** A surface named by a request. Anything but exactly 'owner' is the staff app. */
+export function surfaceFrom(value: unknown): Surface {
+  return value === 'owner' ? 'owner' : 'staff';
+}
+
+const cookieFor = (surface: Surface): string => (surface === 'owner' ? COOKIE_NAMES.owner : COOKIE_NAMES.staff);
 
 /** A shift, not a week. Long enough to survive a phone locking; short enough that a handset
  *  left on a counter overnight is signed out by morning. */
@@ -83,14 +102,14 @@ export function decodeStaffSession(raw: string | undefined): StaffSession | null
   }
 }
 
-export async function readStaffSession(): Promise<StaffSession | null> {
+export async function readStaffSession(surface: Surface): Promise<StaffSession | null> {
   const jar = await cookies();
-  return decodeStaffSession(jar.get(STAFF_COOKIE)?.value);
+  return decodeStaffSession(jar.get(cookieFor(surface))?.value);
 }
 
-export async function writeStaffSession(s: StaffSession): Promise<void> {
+export async function writeStaffSession(surface: Surface, s: StaffSession): Promise<void> {
   const jar = await cookies();
-  jar.set(STAFF_COOKIE, encodeStaffSession(s), {
+  jar.set(cookieFor(surface), encodeStaffSession(s), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -99,9 +118,9 @@ export async function writeStaffSession(s: StaffSession): Promise<void> {
   });
 }
 
-export async function clearStaffSession(): Promise<void> {
+export async function clearStaffSession(surface: Surface): Promise<void> {
   const jar = await cookies();
-  jar.delete(STAFF_COOKIE);
+  jar.delete(cookieFor(surface));
 }
 
 /* --- Guest ------------------------------------------------------------- */

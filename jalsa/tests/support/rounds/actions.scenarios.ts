@@ -136,7 +136,7 @@ db.calls = [];
 db.respond = responder({});
 db.delayFor = () => 0;
 g.__fakeSession = { staff: CAPTAIN };
-const who = await currentStaff();
+const who = await currentStaff('staff');
 results.push({
   name: 'currentStaff alone',
   status: who ? 200 : 401,

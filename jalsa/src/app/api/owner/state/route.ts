@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export const GET = handler(async (req: Request): Promise<NextResponse> => {
   // Who is asking, and whether anything has moved, in one round (change-stamp.ts).
-  const [staff, floor] = await Promise.all([currentStaff(), floorStamp()]);
+  const [staff, floor] = await Promise.all([currentStaff('owner'), floorStamp()]);
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to open the console.' });
   }

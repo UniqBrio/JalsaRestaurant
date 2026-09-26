@@ -378,3 +378,13 @@ test('the audit trail already covers the queue, and was not duplicated', () => {
   // No second audit mechanism was introduced for this feature.
   expect(codeOnly(GUEST_ROUTE), 'the route does not audit separately').not.toContain('audit(');
 });
+
+test('2e. the refusal the screen compares is the one fail() sent, not a fallback (RC-015)', () => {
+  // 2d proved the comparison exists; it could not see that the compared sentence never arrived.
+  // fail() answers `{ code, message }` at the top level. Read as `json.error?.message`, every
+  // refusal became "That did not go through.", so `message === QUEUE_CLOSED` was never true and
+  // the closed screen could not appear. Asserted against the send helper's own lines.
+  const screen = codeOnly(QUEUE_SCREEN);
+  expect(screen).toContain('throw new Error(json.message ??');
+  expect(screen).not.toContain('json.error?.message');
+});

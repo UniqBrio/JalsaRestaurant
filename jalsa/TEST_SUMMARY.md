@@ -4,6 +4,516 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-09-25 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 37.9s total - slowest G7 Unit + pure specs (19.3s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (55ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (60ms)
+- **G3 Theme assets present per theme** - PASS (54ms)
+- **G4 No hard-coded colours** - PASS (80ms)
+- **G5 Types** - PASS (2.5s)
+- **G6 Lint** - PASS (12.5s)
+- **G7 Unit + pure specs** - PASS (19.3s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (63ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.2s)
+- **G11 Wide tables are configurable** - PASS (55ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Application run - jalsa - 2026-09-25 - review fixes (G2, E1, I3)
+
+Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-027 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).
+FAIL-FIRST: against the pre-fix src/: session-surfaces + sub-menus + combobox-migration **3 failed**, 26 passed; new-dish (rule module kept) **3 failed**, 5 passed; after: all pass. Specs updated in place with dated SUPERSEDED notes (added in this same unpushed branch).
+NOT CHANGED, raised with the owner: "Skip for now" on choose-PIN has no effect - `currentStaff` re-reads `pin_provisional` from the row on every request (since 10-Sep, 08d2dc2), so the cookie the skip rewrites is not what the pages gate on; fixing it needs a decision against guardrail 5. The one-level sub-menu trigger takes no lock: two owners re-parenting in opposite directions at the same instant could make two levels (low; a follow-up migration with an advisory lock would close it). `listMenu` ignores the category read's error (pre-existing).
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 50.2s total - slowest G7 Unit + pure specs (31.3s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (49ms)
+- **G3 Theme assets present per theme** - PASS (46ms)
+- **G4 No hard-coded colours** - PASS (60ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (12.8s)
+- **G7 Unit + pure specs** - PASS (31.3s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (53ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (71ms)
+- **G12 Installable as an application** - PASS (61ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Application run - jalsa - 2026-09-25 - I3 sub-menus and sales by menu
+
+FAIL-FIRST: jalsa/tests/unit/sub-menus.unit.spec.ts - `parentChoices` injected to offer sub-menus as parents and reverted: **1 failed**; against main's mutations, queries, routes and screens (rule module and migration kept): **3 failed** (snapshot, report roll-up, the owner's panel and verb); after: 7 passed. report-gst-split and print-assignment unchanged and passing (the single walk and `catKey` line are kept).
+Migration `20260925120000_jalsa_menu_sub_categories.sql`: applied to TEST (uxmyomxtosjlkvjxnvpy), trigger exercised in a rolled-back DO block (accepted: sub-menu under a top-level; refused: under a sub-menu, under itself, a parent moved under another, deleting a parent; 0 rows left behind), then to LIVE (yxgxmbyilpivbmeemqkp): both columns and the trigger present, 0 sub-menus, 57 order lines untouched. The code reading the new columns is committed only after that - the 22-Sep lesson.
+Not run here: the screens in a browser (G8). Needs a tester: Menu → Sub-menus → put a category under another → close a bill with a dish from it → Reports shows "What sold by menu" with the sub-menu counted under its menu.
+
+---
+
+## Application run - jalsa - 2026-09-25 - E1 add a dish from the ordering screen
+
+FAIL-FIRST: jalsa/tests/unit/new-dish.unit.spec.ts - `dishKey` injected to keep case and reverted: **1 failed**; against main's routes, mutations, screens and staff view (the new rule module kept): **3 failed** (server write, both route verbs, both screens); after: 7 passed. The rule cases for the refusal sentences are new surface: NOT OBSERVED FAILING beyond the injection above.
+No migration: the dish is an ordinary `menu_item` row written by `upsertMenuItem`; `menu_item_name_unique` (23505) is answered with the existing dish. RBAC_MATRIX: one row (same `menu.item_edit`).
+Not run here: the screens in a browser (G8 - no database reachable). Needs a tester: Add items → search an unlisted dish → "+ Add ... to the menu" → it appears in the list with 1 in the round, without a reload.
+
+---
+
+## Application run - jalsa - 2026-09-25 - G2 separate owner and staff sessions (RC-026)
+
+FAIL-FIRST: jalsa/tests/unit/session-surfaces.unit.spec.ts - against main's src/: **5 failed** (no owner cookie, argument-less readers, pages, routes and clients not surface-specific); after: 5 passed; pin-and-attribution still 7 passed (its sign-in audit case now reads the surface, not the Referer).
+Functional sign-in specs stub `**/api/staff/session` and match `{ pin }` with toMatchObject, so the added `surface` field leaves them valid (not run here: G8, no database).
+
+---
+
+## Application run - jalsa - 2026-09-25 - CI red on Node 20 (RC-025)
+
+FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts under Node 20.20.2 (`npx node@20`, CI's pinned major) against main's `ansiView`: **1 failed** (THE REGRESSION rung - the `’` never appears), 16 passed; with the Windows-1252 table: 17 passed on Node 20 and 18 passed on Node 22 (the appended rung included). The appended rung pins the table and forbids the ICU-dependent decoder.
+Workflow concurrency: both files are named `CI`; each now has its own group. Not runnable here (GitHub Actions only) - verified on the next push's checks.
+## Run - 2026-09-25 - gate, read honestly (25-Sep correction list, final)
+
+The two gate reports below say G8 FAIL. What actually ran, with the image's Chromium (`PLAYWRIGHT_CHROMIUM_PATH`, KL-3) and `npm run dev` on :3000: **80 functional cases passed** - every journey mocked at the API boundary (sign-in, keyboard parity, degraded screen, owner and captain screens); **16 failed = 4 specs x 4 viewports**, all database-bound: `reachability` (needs the seeded test DB), `guest-journey`, `closure-upsell-tip`, `guest-total-visibility` (all fail on their first line, `/t/<table>` showing the designed `unreachable-guest` screen); **32 did not run** (serial files after that first failure). Cause, verified: the container's egress proxy denies `*.supabase.co` (connect_rejected, organization policy), so no server started here can reach either project - the same class every 24-Sep run recorded as BLOCKED. The first report below (144 failed) is the run before the Chromium override, where no browser launched at all. G1-G7, G9-G12: PASS.
+Owner decision, as the runner says: G8's database-bound class is not verified from this container. Run `npm run test:functional` from a machine that reaches `uxmyomxtosjlkvjxnvpy` before merge.
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 5m 06s total - slowest G8 Functional / integration (4m 16s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (59ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (59ms)
+- **G3 Theme assets present per theme** - PASS (54ms)
+- **G4 No hard-coded colours** - PASS (80ms)
+- **G5 Types** - PASS (12.2s)
+- **G6 Lint** - PASS (14.9s)
+- **G7 Unit + pure specs** - PASS (18.7s)
+- **G8 Functional / integration** - FAIL (4m 16s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (64ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (68ms)
+- **G12 Installable as an application** - PASS (81ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 2m 12s total - slowest G8 Functional / integration (1m 07s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (112ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (74ms)
+- **G3 Theme assets present per theme** - PASS (126ms)
+- **G4 No hard-coded colours** - PASS (343ms)
+- **G5 Types** - PASS (14.9s)
+- **G6 Lint** - PASS (17.4s)
+- **G7 Unit + pure specs** - PASS (28.0s)
+- **G8 Functional / integration** - FAIL (1m 07s)
+
+```
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-4e119-nd-is-told-what-still-works-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-b1f49-t’s-voice-not-the-runtime’s-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    Error Context: test-results/degraded.functional-the-da-a99d4-hable-control-at-phone-size-desktop/error-context.md
+    Error: browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (75ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (67ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Run - 2026-09-25 - 25-Sep correction list, code-review fixes
+
+Review (REQUEST CHANGES, 2 blockers, 7 major, 12 minor). Fixed: new columns read before their migrations (applied to both projects before this branch can deploy; kotPrintableItems no longer turns a read error into an empty round); the floor's unbounded session `.in()` (now carts via an inner join + sessions on open bills only); "Set all" as a URL-sized id list (one update by restaurant; lists chunked by 100); a dish's printer changeable without `set.printer`; routing to an Invoice printer; the daily chart silently cut at 92 days; tipped bills printing a TOTAL without the tip; a big TOTAL and item figures clipped (never cut now; a space between every column); `large` never reaching the printer (font B at GS ! 0x11); two-tap duplicate notices (partial unique index, 23505 ignored; freeTable resolves them; the floor badge leaves the counter's out); the category routing table ignoring the default station; addCategory half-succeeding; unchecked upload/station input; 0% tax on the test bill; a test KOT to a bill printer always blocked; a half-written DLL; no index behind `on delete set null`; two misplaced doc comments; a look-alike Google host.
+FAIL-FIRST: tests/unit/review-fixes-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`dailyTruncated` absent; `totalLine` absent): 7 of 7 not passing; after: 7 passed. Three specs added earlier in this branch updated in place to the fixed shapes (mark-free-a5, menu-routing-25sep, print-corrections-25sep).
+Unit tier: 1105 passed. Typecheck, lint, audit:all 10/10, next build, bridge build: pass.
+NOT CHANGED (review #20): some rungs read source text rather than behaviour - the pattern this repo's unit tier already uses for DB-bound code; the behaviour cases run beside them.
+
+---
+
+## Run - 2026-09-25 - 25-Sep correction list, guest payment notices, WhatsApp share, report charts, review link (items 37-40)
+
+FAIL-FIRST: tests/unit/guest-reports-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/payment-notice` absent; `whatsAppNumber`, `dailySeries`, `checkReviewLink` absent): 10 of 10 not passing; after: 10 passed.
+Superseded in place: bill-detail-wiring - viewing is held by id, read from each poll (it held the bill object, freezing the shared text).
+Unit tier: 1097 passed. Typecheck, lint: pass. Not verified from here: a real WhatsApp open on a phone; the charts on a device (no database reachable to load a real report).
+
+---
+
+## Run - 2026-09-25 - 25-Sep correction list, tables & QR (items 31-36)
+
+Root cause, A5 (read from the live rows): A5 had 14 guest_session rows and six closed, released bills; the floor counted every session as a phone attached, so a free A5 was "freeable" and showed Mark free. Mark free on an empty bill voided it, and `listOpenBills` (`status <> 'closed'`) kept the VOID bill holding the table - so the button stayed and pressing it again did nothing. Also: freeTable never stamped cleared_at (a freed table went to "Needs clearing"), and an old uncleared release outranked a live bill in tableStateFrom.
+FAIL-FIRST: tests/unit/mark-free-a5.unit.spec.ts - against the pre-fix tree the file fails to load (`phonesHoldingTables` absent); the superseded case in status.unit.spec.ts ('ready' over an old release) failed against the old tableStateFrom (received 'clearing'). After: 7 passed.
+FAIL-FIRST: tests/unit/tables-qr-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`BLOCK_TABLE_HEADING` absent); the scan test with the obscured square widened to 50% of the width: **3 failed** (it can fail); at the real 27%: 3 of 3 codes decode, white and noise.
+Superseded in place: status (clearing vs live bill), combobox-migration (still 11 selects: Food type out, Zone in), qr-stand (generator takes the logo, x2), restaurant-details (logo_url is the 11th read; upload-image allowed beside write-identity).
+Unit tier: 1088 passed. Typecheck, lint: pass. QR scanning with a phone camera and on paper: not done from here.
+
+---
+
+## Run - 2026-09-25 - 25-Sep correction list, menu & routing (items 23-30) and KOT cases 15-22
+
+FAIL-FIRST: tests/unit/menu-routing-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/media` does not exist; `routeItem`, `defaultPrinter`, `stationOptions` absent from print-routing): 16 of 16 not passing; after: 16 passed.
+FAIL-FIRST: tests/unit/kot-scenarios-25sep.unit.spec.ts - a verification suite over the production split/compose path; with egg injected onto the non-veg side in `splitRound` (reverted): **5 failed**, 4 passed; after: 9 passed.
+Superseded in place (contract changes, dated notes): combobox-migration - static selects 11 -> 10 (Food type is a Combobox, item 24); addCategory signature gained `printerId` (item 29).
+Unit tier: 1072 passed. Typecheck and lint: pass. Physical printing: not verified from here (no printer or bridge reachable).
+
+---
+
+## Run - 2026-09-25 - 25-Sep correction list, printing (items 1-9, 12-14)
+
+FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - against the pre-fix tree the file fails to load (`addedOnLabel`, `bridgeActivityLabel` do not exist in print-computer.ts): 8 of 8 not passing; after: 8 passed.
+FAIL-FIRST: tests/unit/print-corrections-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/invoice` does not exist): 22 of 22 not passing; after: 22 passed. Case-level evidence for the layout change: tests/unit/ticket-golden.unit.spec.ts run against the new composer failed 4 of its goldens with exactly two differences - the big lines ("JALSA", "KOT-113") re-centred on the half-width grid, and the KOT address/phone lines gone - and nothing else; superseded in place (goldens kept, compared with big lines removed).
+Unit tier: 1049 passed. Typecheck and lint (whole app, --max-warnings 0): pass.
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 49.9s total - slowest G7 Unit + pure specs (30.9s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (78ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (67ms)
+- **G3 Theme assets present per theme** - PASS (76ms)
+- **G4 No hard-coded colours** - PASS (96ms)
+- **G5 Types** - PASS (2.5s)
+- **G6 Lint** - PASS (12.5s)
+- **G7 Unit + pure specs** - PASS (30.9s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (CONNECT to *.supabase.co refused, 403); screens not observed against live rows
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (69ms)
+- **G12 Installable as an application** - PASS (71ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 37.1s total - slowest G7 Unit + pure specs (19.0s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (60ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (57ms)
+- **G3 Theme assets present per theme** - PASS (57ms)
+- **G4 No hard-coded colours** - PASS (83ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (12.0s)
+- **G7 Unit + pure specs** - PASS (19.0s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (CONNECT to *.supabase.co refused, 403); the screen was not observed
+- **G9 Automation addressability** - PASS (57ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (57ms)
+- **G12 Installable as an application** - PASS (71ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 37.1s total - slowest G7 Unit + pure specs (19.3s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (59ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (55ms)
+- **G3 Theme assets present per theme** - PASS (52ms)
+- **G4 No hard-coded colours** - PASS (82ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (11.7s)
+- **G7 Unit + pure specs** - PASS (19.3s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (CONNECT to *.supabase.co refused, 403); fix proven by tests/unit/report-answer.unit.spec.ts and indoor-queue rung 2e
+- **G9 Automation addressability** - PASS (66ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (57ms)
+- **G12 Installable as an application** - PASS (70ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, code-review fixes
+
+Review (REQUEST CHANGES) found, and this run fixed: seating race could join a second party onto the first party's bill (ensureOpenBill `mustBeNew`, 23505 refused); add-round accepted a VOID bill or a table moved off the bill (only open/payment_requested, table must be on the bill; same status rule for the waiter picker); issuePin could pass a PIN held by both the person and another; Net went stale beside a live Expenses tile (now income - live expenses); entries outside the range could not be edited (Show every entry); the Disconnect dialog promised tickets would wait; sign-in audit could fail a successful sign-in; an unchecked write in savePrinterMapping; "No guest has answered" overclaimed; ticket month spelling depended on ICU.
+FAIL-FIRST: finance-section, pin-and-attribution, queue-seat-and-closed, assign-waiter (appended) - with the review fixes reverted: **5 failed**, 20 passed; after: all pass. Unit tier: 1017 passed. Specs updated in place with dated SUPERSEDED notes (they were added in this same unmerged branch).
+NOT CHANGED, raised with the owner: set_own_pin has no uniqueness check (a refusal would reveal a colleague's PIN); provisional PINs are gated by the pages, not the API routes, and "Skip for now" deliberately lets a provisional session proceed (KL-4) - an API-level block would contradict that design.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, final validation
+
+Typecheck: PASS. Lint (whole app, --max-warnings 0): PASS. Unit tier: 1016 passed, 0 failed (also under TZ=UTC). Production build (`next build`, placeholder non-secret config): PASS, 19 static pages. audit:all 10/10. Gate: BLOCKED - G1-G7, G9-G12 PASS; G8 functional BLOCKED (no database reachable from this container; CONNECT to *.supabase.co refused, 403).
+Sweeps: host-clock day boundaries - two left, both inert (`dates.ts` dayRange unused; `analytics/format.ts` Intl-failure fallback). Server toLocale* without a zone - none. Printer mapping writes - only savePrinterMapping, removePrinterMapping, revokeBridgeToken and the re-pair move. Source label maps - one (KOT_SOURCE_LABEL). Staff identity fallbacks - `opts.actor ?? GUEST_ACTOR` only, whose sole actor-less caller is the guest round; no fallback from one staff member to another.
+K "Catch Your Craving": no code on any remote branch; mentioned only in TEST_SUMMARY notes on origin/claude/jalsa-restaurant-app-dev-j6k218 (quick-add, promotions, craving lost to a checkout, recovered only in a local tree). Nothing to integrate from this repository; left untouched.
+Not built: E1 (no "favorite menu" flow exists to add a "+" to), I3 sub-menu categories (needs a menu_category level + migration applied to live first). Live migration outstanding: 20260917120000_jalsa_drop_ambiguous_set_staff_pin (in the repo since 17-Sep, never applied to yxgxmbyilpivbmeemqkp).
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, D1 welcome drinks
+
+FAIL-FIRST: jalsa/tests/unit/welcome-drinks.unit.spec.ts - isFirstOrder injected to always true and reverted: **1 failed**; against HEAD's wiring: **1 failed**; after: 7 passed. Unit tier: 1016 passed. The rule cases for offer/add/added are new surface (functions did not exist): NOT OBSERVED FAILING for those beyond the injection above.
+Stored in the existing `setting` table under key welcomeDrinks ({enabled, itemIds}); permission set.features. No migration.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, H1 income & expenses
+
+FAIL-FIRST: jalsa/tests/unit/finance-section.unit.spec.ts - range end made exclusive (injected, reverted): **2 failed**; against HEAD's screen: **1 failed**; after: 4 passed. Unit tier: 1009 passed.
+Decision (owner delegated to engineering, 24-Sep): Income = closed-bill revenue (tips excluded), read from the report route over the chosen IST range; no manual income ledger and no new table, so nothing can be counted twice. A manual "other income" ledger would be a new table + migration - not built.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, H2 heard-about in Uplift
+
+FAIL-FIRST: jalsa/tests/unit/heard-about-uplift.unit.spec.ts - case folding injected away and reverted: **1 failed**; against HEAD's wiring (no query, route or card): **2 failed**; after: 5 passed. Unit tier: 1005 passed.
+Live evidence (read-only): guest_session.heard_about holds 2 answers ("Friend recommended" x2). Caveat recorded: a session row is deleted when a phone moves to another table or a table with no kitchen rounds is freed by hand, and its answer goes with it - that is the existing store, unchanged.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, G1 captain assigns waiter
+
+FAIL-FIRST: jalsa/tests/unit/assign-waiter.unit.spec.ts - rule injected to ignore the position (captain allowed too) and reverted: **1 failed** (the captain position); against HEAD's wiring: **2 failed** (server door, captain phone); after: 5 passed. Unit tier: 1000 passed. RBAC_MATRIX: one row added.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, C3 KOT source
+
+FAIL-FIRST: jalsa/tests/unit/kot-source.unit.spec.ts - against HEAD's sources (shared map kept): **2 failed** (one map; printed words + locked field), 2 passed - those two verify EXISTING correct behaviour (each route already stamps captain/owner/guest), so they are verification, not fail-first.
+FAIL-FIRST: jalsa/tests/unit/ticket-golden.unit.spec.ts - the four golden byte rungs failed when source became locked (every KOT gains one SOURCE line). SUPERSEDED IN PLACE with dated notes: goldens A and B are kept byte for byte and compared with today's ticket minus exactly the SOURCE line; a new rung pins the SOURCE line (Guest phone, after CAPTAIN, full width) even with a template that stored source off. Unit tier: 995 passed.
+Live evidence (read-only): setting 'print'.kot.on has "source": false stored - why a default change alone would not have reached the paper.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, H3 cash change
+
+FAIL-FIRST: jalsa/tests/unit/cash-change.unit.spec.ts - defect injected into cashChange (a shortfall returned as negative change) and reverted: **2 failed**, 5 passed; after: 7 passed. Unit tier: 990 passed. The UI (CashChangeField on both closure screens) is new surface: NOT OBSERVED FAILING beyond the source pin that both screens use it.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, batch 3 (B1-B4 printers)
+
+FAIL-FIRST: jalsa/tests/unit/printer-management.unit.spec.ts - against HEAD's sources: **8 failed** of 8; after: 8 passed. Unit tier: 983 passed.
+SUPERSEDED IN PLACE: jalsa/tests/unit/print-config.unit.spec.ts "revoking is a timestamp, never a delete" - previously "no .delete( at all"; now "the bridge_token row is never deleted, its bridge_printer mappings are" (dated note).
+
+Live evidence (read-only): all five printers are USB, three already saved enabled=false; the paired
+computer "Bill counter PC" (last seen 24-Sep) has NO printer mapped - consistent with B3 (no way to
+change a mapping, chooser hiding mapped printers, revoked computers keeping theirs).
+NOT VERIFIED: the save / delete / change paths against a running app and database (G8 not run
+here). B1's confirmed cause is the address rule on computer-reached printers; if the tester's
+failing save was on a USB printer, that path was not reproduced from here.
+B4: jalsa/docs/PRINT-BRIDGE-WINDOWS-INSTALL.md, written from install.ps1, uninstall.ps1, the package
+builder and the on-screen labels; no screenshots exist in the repository (KL-7).
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, batch 2 (F2, F3)
+
+FAIL-FIRST: jalsa/tests/unit/queue-seat-and-closed.unit.spec.ts - against HEAD's sources (new shared sentence kept): **7 failed**, 1 passed (the sentence-shape case, which is new surface: NOT OBSERVED FAILING for that one); after: 8 passed. Unit tier: 975 passed.
+
+F2 evidence (read-only, live): W-1 seated 19-Sep 17:59 IST with seated_table_id = A2; no bill was
+opened on A2 that evening. Seating now opens the bill (owner decision 24-Sep: "Open a bill").
+F3: the queue's own switch (settings.queue.open) now stops NEW tables on the table code, screen and
+server; a table with a bill keeps ordering. Chosen over a new switch because the correction list
+says to use the existing queue state.
+
+---
+
+## Run - 2026-09-24 - 24-Sep correction list, batch 1 (A2/I5, A1, F1, G2, C1)
+
+FAIL-FIRST: jalsa/tests/unit/restaurant-day.unit.spec.ts - with the call sites reverted (new helpers kept): **2 failed** (source pins: a server "today" from the host clock; screens naming today with the UTC date), 6 passed; after, under TZ=UTC as on Vercel: 8 passed. The six helper cases cover functions that did not exist before: NOT OBSERVED FAILING for those six - new surface, no prior behaviour.
+FAIL-FIRST: jalsa/tests/unit/report-empty-today.unit.spec.ts - emptyRangeCopy stubbed to the old screen's generic sentence: **2 failed** (both Today cases), 4 passed; after: 6 passed. Live read for Today = 24-Sep returns B-1044, closed 23-Sep IST.
+FAIL-FIRST: jalsa/tests/unit/pin-and-attribution.unit.spec.ts - against HEAD's sources: **7 failed** of 7; after: 7 passed.
+SUPERSEDED IN PLACE: jalsa/tests/unit/owner-new-round.unit.spec.ts - two assertions, with dated notes (ensureOpenBill now takes the actor; tables awaiting clearing are not free).
+
+Evidence (read-only, live project yxgxmbyilpivbmeemqkp): pg_proc has set_staff_pin(uuid,text) AND
+(uuid,text,boolean) - migration 20260917120000 not applied; the test project has only the
+3-argument one. KOT-129 (24-Sep 08:33 IST, B-1052, captain Imran) is source=captain,
+placed_by = Javeed Ahmed (Owner/Admin); its "Bill opened" entry reads Guest - QR. No two staff
+share a PIN hash today. Unit tier: 967 passed. G8 functional not run (no database from here).
+
+---
+
+## Run - 2026-09-24 - Bug RC-015, review follow-up
+
+Code review (REQUEST CHANGES; the fix itself judged correct) raised: the changelog claimed a
+screen nobody had seen (now carries a "Not yet" line and the check to run); the new spec's claim
+that server drift would fail it was untrue (now pinned: a case reads route.ts's ok()/fail()
+lines); a 200 with a null body still read as an empty range (now a problem); and an empty range
+had lost the designed "Nothing in this range" state (now `rangeIsEmpty`: no bill and no expense).
+
+FAIL-FIRST: jalsa/tests/unit/report-answer.unit.spec.ts (appended cases) - null-body and empty-range cases: **2 failed** against the pre-follow-up code (rangeIsEmpty stubbed to the screen's old behaviour). Server-contract pin: **1 failed** with route.ts ok() re-wrapped as `{ data }`, injected and reverted (route.ts unchanged in this commit). After: 71 passed across the report and queue specs.
+
+CORRECTION TO RC-015 (the register is append-only, so recorded here): its Files list omits
+jalsa/tests/unit/indoor-queue.unit.spec.ts (rung 2e), which is part of the fix. Where this run's
+gate line says the fix is "proven by" unit specs, read "the parser is proven by"; the SCREEN was
+not observed. Rung 2e is a source assertion in that file's own idiom and would not catch every
+spelling of the old read; a behavioural reader for queue refusals was not built here.
+RC-015 also collides by number with an unrelated RC-015 in framework-upstream/'s own register;
+the two registers are separate files and are not merged.
+
+---
+
+## Run - 2026-09-24 - Bug: Reports showed nothing for any range (RC-015, R-025 second report)
+
+ROOT CAUSE: the Reports screen read `body.data` / `body.error.message`, an envelope nothing on the
+server sends; `ok()` returns the report as the bare body and `fail()` returns `{ code, message }`.
+Every report reached the screen and was discarded into "Nothing in this range". Proven from
+Supabase edge logs: after B-1044 closed (23-Sep 08:00:05Z), eight report reads for 23-Sep returned
+one row each. Sibling: GuestQueue read refusals the same way, so its "queue closed" screen could
+never appear. Sweep: 6 `res.json()` sites in src; 2 wrong, both fixed.
+
+FAIL-FIRST: jalsa/tests/unit/report-answer.unit.spec.ts - against the screen's pre-fix parsing (moved verbatim into `readReportAnswer` before the fix): **3 failed, 1 passed** - "expected report, received null" (twice) and "expected the 403 sentence, received 'The report could not be read.'". After the fix: 4 passed.
+FAIL-FIRST: jalsa/tests/unit/indoor-queue.unit.spec.ts (appended rung 2e) - against HEAD's GuestQueue.tsx: **1 failed, 22 passed**; with the fix: 23 passed.
+
+Gate (jalsa): G1-G7 and G9-G12 PASS, unit 942 then 943 after rung 2e; G8 functional BLOCKED, as
+recorded with --skip G8: `*.supabase.co` CONNECT is refused from this container (403), so the
+corrected screen was NOT opened against live rows. The first gate run of the day is also recorded
+as FAIL: G7/G8 timed out because the dev servers had no environment; the rerun supplied
+placeholder, non-secret values. Verify on the deployment: open Reports, pick 23-Sep, expect
+1 bill (B-1044, UPI).
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 43.9s total - slowest G7 Unit + pure specs (24.7s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (62ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (57ms)
+- **G3 Theme assets present per theme** - PASS (59ms)
+- **G4 No hard-coded colours** - PASS (90ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (12.7s)
+- **G7 Unit + pure specs** - PASS (24.7s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container (egress to *.supabase.co refused); the fix is proven by tests/unit/report-answer.unit.spec.ts
+- **G9 Automation addressability** - PASS (60ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (59ms)
+- **G12 Installable as an application** - PASS (71ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-24 - VERDICT: FAIL
+
+Steps: 10 pass, 2 fail, 0 blocked.
+Time: 6m 24s total - slowest G8 Functional / integration (3m 03s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (71ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (56ms)
+- **G3 Theme assets present per theme** - PASS (54ms)
+- **G4 No hard-coded colours** - PASS (74ms)
+- **G5 Types** - PASS (2.3s)
+- **G6 Lint** - PASS (12.0s)
+- **G7 Unit + pure specs** - FAIL (3m 03s)
+
+```
+Error: Timed out waiting 180000ms from config.webServer.
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+```
+
+- **G8 Functional / integration** - FAIL (3m 03s)
+
+```
+Error: Timed out waiting 180000ms from config.webServer.
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+[WebServer]   61 |     `Configuration error: ${missing.length} required ${scope} variable(s) are missing.\n\n${lines}\n\n` +
+[WebServer] ⨯ Error: Configuration error: 3 required client variable(s) are missing.
+[WebServer] > 60 |   throw new Error(
+```
+
+- **G9 Automation addressability** - PASS (66ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.5s)
+- **G11 Wide tables are configurable** - PASS (85ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## Fix 4 review follow-ups - 2026-09-25 - every counter moves when its screen does, and only then
 
 Found by a fresh-context review of fix 4; each reproduced before the fix:

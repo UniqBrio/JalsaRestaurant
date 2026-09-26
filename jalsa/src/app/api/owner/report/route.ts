@@ -1,23 +1,27 @@
+import { dailySeries, dailyTruncated, MAX_DAILY_POINTS } from '@/lib/report-daily';
 import { NextResponse } from 'next/server';
 import { fail, handler, ok } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
-import { billTotals, listClosedBillsBetween, listExpensesBetween, readAllSettings } from '@/lib/db/queries';
+import {
+  billTotals,
+  lastClosedBillBefore,
+  listClosedBillsBetween,
+  listExpensesBetween,
+  readAllSettings,
+} from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
+import { KOT_SOURCE_LABEL } from '@/lib/status';
 import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
-import { dayIn, nowForRangeCheck } from '@/lib/restaurant-time';
+import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
 
-/* The same three words the console uses. Duplicated nowhere else: a fourth spelling of "guest
- * phone" is how a report and a bill detail end up disagreeing about where an order came from. */
 /** Money formatted once, on the server, like every other figure this route sends. */
 function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxLabel: string } {
   return { grossLabel: rupees(side.gross), netLabel: rupees(side.net), taxLabel: rupees(side.tax) };
 }
 
-const SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
-  guest: 'Guest phone',
-  captain: 'Captain',
-  owner: 'Owner',
-};
+/* The same three words the console and the printed KOT use - `KOT_SOURCE_LABEL`, one map. A
+ * second spelling of "guest phone" is how a report and a bill detail end up disagreeing about
+ * where an order came from. */
 
 /**
  * The ranged report — one date range, read once, projected into every panel.
@@ -42,7 +46,7 @@ const SOURCE_LABEL: Record<'guest' | 'captain' | 'owner', string> = {
 export const dynamic = 'force-dynamic';
 
 export const GET = handler(async (request: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to open the console.' });
   }
@@ -68,10 +72,12 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     return fail(400, { code: 'validation', message: verdict.problem });
   }
 
-  const [bills, expenses, settings] = await Promise.all([
+  const [bills, expenses, settings, lastBefore] = await Promise.all([
     listClosedBillsBetween(from, to),
     listExpensesBetween(from, to),
     readAllSettings(),
+    // The actual last bill before this range, for the empty state's "Last bill" line (A1).
+    lastClosedBillBefore(from),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -109,7 +115,16 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
   /* What sold, by the category it sold under. The same walk as the products map below and in
      the same loop on purpose: two walks over the same lines is how a category total ends up
      disagreeing with the dishes listed inside it. */
-  const categories = new Map<string, { category: string; qty: number; revenue: number; dishes: Set<string> }>();
+  const categories = new Map<
+    string,
+    { category: string; parent: string; qty: number; revenue: number; dishes: Set<string> }
+  >();
+  /* The same sales rolled up to the top-level menu (I3): a sub-menu's lines count under the menu
+     it sat under when the round was placed, and a top-level category under itself. Same walk. */
+  const menus = new Map<
+    string,
+    { menu: string; qty: number; revenue: number; dishes: Set<string>; subMenus: Set<string> }
+  >();
   for (const b of bills) {
     for (const k of b.kots) {
       if (k.status === 'cancelled') continue;
@@ -118,11 +133,33 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         const line = i.unitPrice * i.qty;
         // A round placed before the category was snapshotted still sold something.
         const catKey = i.category || 'Uncategorised';
-        const cat = categories.get(catKey) ?? { category: catKey, qty: 0, revenue: 0, dishes: new Set<string>() };
+        const parent = i.parentCategory;
+        // Keyed by parent AND name: "Veg" under Starters is not "Veg" under Mains.
+        const rowKey = `${parent}\u0000${catKey}`;
+        const cat = categories.get(rowKey) ?? {
+          category: catKey,
+          parent,
+          qty: 0,
+          revenue: 0,
+          dishes: new Set<string>(),
+        };
         cat.qty += i.qty;
         cat.revenue += line;
         cat.dishes.add(i.name);
-        categories.set(catKey, cat);
+        categories.set(rowKey, cat);
+        const menuKey = parent || catKey;
+        const menu = menus.get(menuKey) ?? {
+          menu: menuKey,
+          qty: 0,
+          revenue: 0,
+          dishes: new Set<string>(),
+          subMenus: new Set<string>(),
+        };
+        menu.qty += i.qty;
+        menu.revenue += line;
+        menu.dishes.add(i.name);
+        if (parent) menu.subMenus.add(catKey);
+        menus.set(menuKey, menu);
         const seen = products.get(i.name) ?? { name: i.name, qty: 0, revenue: 0 };
         seen.qty += i.qty;
         // The price the round was PLACED at, not today's menu price. A dish repriced mid-month
@@ -158,9 +195,22 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         share: summary.sales > 0 ? Math.round((m.amount / summary.sales) * 100) : 0,
       })),
     },
+    // The "Sales by day" chart (item 39): the same bills, the same summarise, per day.
+    daily: dailySeries(from, to, rangeBills, rangeExpenses),
+    dailyTruncated: dailyTruncated(from, to),
+    dailyLimit: MAX_DAILY_POINTS,
     products: [...products.values()].sort((a, b) => b.revenue - a.revenue),
     categories: [...categories.values()]
-      .map((c) => ({ category: c.category, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))
+      .map((c) => ({ category: c.category, parent: c.parent, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))
+      .sort((a, b) => b.revenue - a.revenue),
+    menus: [...menus.values()]
+      .map((m) => ({
+        menu: m.menu,
+        qty: m.qty,
+        revenue: m.revenue,
+        dishes: m.dishes.size,
+        subMenus: m.subMenus.size,
+      }))
       .sort((a, b) => b.revenue - a.revenue),
     orders: bills.map((b, i) => {
       const t = rangeBills[i]!;
@@ -172,12 +222,19 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         captain: b.captain,
         guests: b.guests,
         rounds: b.kots.length,
-        sources: [...new Set(b.kots.map((k) => SOURCE_LABEL[k.source]))].join(', '),
+        sources: [...new Set(b.kots.map((k) => KOT_SOURCE_LABEL[k.source]))].join(', '),
         closedOn: t.closedOn,
         payable,
         payableLabel: rupees(payable),
       };
     }),
     expenses,
+    lastBillBefore: lastBefore
+      ? {
+          code: lastBefore.code,
+          closedOn: dayIn(new Date(lastBefore.closedAt)),
+          closedOnLabel: shortDayLabel(dayIn(new Date(lastBefore.closedAt))),
+        }
+      : null,
   });
 });

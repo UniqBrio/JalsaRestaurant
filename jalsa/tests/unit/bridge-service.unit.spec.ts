@@ -181,7 +181,9 @@ test('BRIDGE AUTHENTICATION: the token is sent as a bearer on every call and buy
     const written = readdirSync(join(b.spool, 'TVS-RP3160'));
     expect(written.some((f) => f.endsWith('.bin'))).toBe(true);
     const bytes = readFileSync(join(b.spool, 'TVS-RP3160', written.find((f) => f.endsWith('.bin')) as string));
-    expect(hex(new Uint8Array(bytes))).toBe(hex(encodeTicket(linesFor().lines, { ...DEFAULT_ENCODER, width: '80' })));
+    // SUPERSEDED 25-Sep-2026 (item 7): previously `{ ...DEFAULT_ENCODER, width: '80' }` - the
+    // bridge now also sets the print area and font (`area: true`).
+    expect(hex(new Uint8Array(bytes))).toBe(hex(encodeTicket(linesFor().lines, { ...DEFAULT_ENCODER, width: '80', area: true })));
     expect(b.statuses.at(-1)?.state).toBe('connected');
   } finally {
     await jalsa.stop();
