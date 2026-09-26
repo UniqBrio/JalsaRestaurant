@@ -34,15 +34,6 @@ const nextConfig: NextConfig = {
    * guest mid-order. It costs nothing at runtime. */
   typedRoutes: true,
 
-  /* The QR routes read the bundled Jalsa badge from disk to put it in the middle of every code
-   * (src/lib/db/restaurant-logo.ts). `public/` is served by the CDN, not shipped inside a
-   * serverless function, so the file is named here or the door code and every stand silently
-   * fall back to the drawn "J" in production while working on a laptop (26-Sep-2026). */
-  outputFileTracingIncludes: {
-    '/api/owner/qr': ['./public/brand/jalsa-badge.png'],
-    '/api/owner/review-qr': ['./public/brand/jalsa-badge.png'],
-  },
-
   async headers() {
     return [
       {

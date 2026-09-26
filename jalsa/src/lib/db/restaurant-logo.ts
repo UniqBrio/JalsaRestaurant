@@ -1,9 +1,8 @@
 import 'server-only';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { currentRestaurantId, db } from '@/lib/supabase/server';
 import { isMediaUrl, sniffImage } from '@/lib/media';
 import type { QrLogo } from '@/lib/qr-svg';
+import { JALSA_BADGE_PNG_BASE64 } from '@/lib/brand-badge.generated';
 
 /**
  * The logo the schema gives every restaurant until one is uploaded: the Jalsa badge bundled with
@@ -25,7 +24,7 @@ export async function restaurantLogo(): Promise<QrLogo | null> {
     const restaurantId = await currentRestaurantId();
     const { data } = await db().from('restaurant').select('logo_url').eq('id', restaurantId).maybeSingle();
     const url = (data?.logo_url as string | null) ?? '';
-    const bytes = url === BUNDLED_BADGE_URL ? await bundledBadge() : await uploaded(url);
+    const bytes = url === BUNDLED_BADGE_URL ? bundledBadge() : await uploaded(url);
     if (!bytes) return null;
     const kind = sniffImage(bytes);
     return kind ? { bytes, contentType: kind === 'png' ? 'image/png' : 'image/jpeg' } : null;
@@ -43,14 +42,11 @@ async function uploaded(url: string): Promise<Uint8Array | null> {
 }
 
 /**
- * The bundled badge, read from `public/` on disk. The path is spelled out from `process.cwd()`
- * so the build's file tracing ships the file with this function (see `outputFileTracingIncludes`
- * in next.config.ts); a CDN-only asset would be a 404 from inside a serverless function.
+ * The bundled badge, from the constant scripts/gen-brand-badge.mjs derives from
+ * public/brand/jalsa-badge.png. Not a file read: in a Vercel function that depends on the build's
+ * file tracing having noticed it, and the only symptom of it not having is the drawn "J" coming
+ * back (26-Sep-2026). A constant is in the bundle by construction.
  */
-async function bundledBadge(): Promise<Uint8Array | null> {
-  try {
-    return new Uint8Array(await readFile(join(process.cwd(), 'public', 'brand', 'jalsa-badge.png')));
-  } catch {
-    return null;
-  }
+function bundledBadge(): Uint8Array {
+  return new Uint8Array(Buffer.from(JALSA_BADGE_PNG_BASE64, 'base64'));
 }

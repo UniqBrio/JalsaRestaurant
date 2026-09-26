@@ -19,6 +19,8 @@
     "framework:status": "node ../scripts/lineage.mjs --status",
     "framework:upgrade": "node ../scripts/upgrade.mjs",
     "icons:build": "node scripts/gen-pwa-icons.mjs",
+    "badge:build": "node scripts/gen-brand-badge.mjs",
+    "badge:check": "node scripts/gen-brand-badge.mjs --check",
     "theme:assets": "node ../scripts/check-theme-assets.mjs",
     "audit:colors": "node ../scripts/audits/check-hardcoded-colors.mjs",
     "audit:testids": "node ../scripts/audits/check-testid-coverage.mjs",

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { BLOCK_TABLE_HEADING, blockTablePosterSvg, brandedQrSvg } from '../../src/lib/qr-svg';
+import { JALSA_BADGE_PNG_BASE64 } from '../../src/lib/brand-badge.generated';
 
 /**
  * Tables & QR - 25-Sep correction list, items 31-34. (35/36 are mark-free-a5.unit.spec.ts.)
@@ -110,9 +111,16 @@ test('item 34: Add Table offers AC, Non-AC and Terrace, and keeps a zone a table
  * logo too: it is read from public/ and embedded like an upload.
  */
 test('item 31: the bundled Jalsa badge counts as a logo for the centre of every code', () => {
+  /* SUPERSEDED 26-Sep-2026 (same day): first asserted a `readFile(join(process.cwd(), 'public',
+     'brand', 'jalsa-badge.png'))` at request time. On the production function the door code still
+     showed the drawn "J" after that merge, so the badge is now a generated constant and this
+     case asserts the constant, that it is what the pages show, and that no file is read. */
   const m = code('src/lib/db/restaurant-logo.ts');
   expect(m).toContain("'/brand/jalsa-badge.png'");
-  expect(m).toContain("join(process.cwd(), 'public', 'brand', 'jalsa-badge.png')");
-  expect(m, 'the bundled file is sniffed like an upload, never trusted by its name').toContain('sniffImage(bytes)');
-  expect(existsSync('public/brand/jalsa-badge.png')).toBe(true);
+  expect(m).toContain("from '@/lib/brand-badge.generated'");
+  expect(m, 'nothing is read from disk at request time').not.toContain('node:fs');
+  expect(m, 'the bundled bytes are sniffed like an upload, never trusted by their name').toContain('sniffImage(bytes)');
+  const png = readFileSync('public/brand/jalsa-badge.png');
+  expect(Buffer.from(JALSA_BADGE_PNG_BASE64, 'base64').equals(png), 'the constant IS the file the pages show').toBe(true);
+  expect(existsSync('src/lib/brand-badge.generated.ts')).toBe(true);
 });
