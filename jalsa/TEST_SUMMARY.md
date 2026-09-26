@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Run - 2026-09-26 - production: owner console showed "we cannot reach the till"
+
+Edge logs on `yxgxmbyilpivbmeemqkp` (00:53Z and 01:01Z): every owner load issued `print_job?select=printer_id,printed_at&...&printed_at=not.is.null&order=printed_at.desc` and PostgREST answered **400** - `print_job` has never had a `printed_at` column (that stamp is on `kot`; the job carries `completed_at`). The read is `latestPerKey` behind "Last printed" (item 12, merged in #12); it sits in the owner payload's `Promise.all`, so its throw put the unreachable screen over the whole console. Every other PostgREST call in the window returned 200, including the `guest_cart_line` embed. Fix: read `completed_at`.
+FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - the new case was run against the unfixed tree first and failed at `expect(src).toContain("latestPerKey('printer_id', 'completed_at', restaurantId)")`; after the fix, **unit: 1106 passed**. Typecheck, lint: pass. Production is never an automated target: this needs a merge and a deploy to take effect.
+
+---
+
 ## Run - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
 
 `jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.
