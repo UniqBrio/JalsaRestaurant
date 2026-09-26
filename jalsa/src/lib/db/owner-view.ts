@@ -1,5 +1,7 @@
 import 'server-only';
+import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
+import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
@@ -93,6 +95,11 @@ export interface OwnerBillView {
    * onto the new bill.
    */
   perTable: Array<{ table: string; amountLabel: string; isHost: boolean }>;
+  /**
+   * The bill as the ONE invoice reads it (item 8, 25-Sep-2026): `invoiceLines` turns this into the
+   * exact lines the counter printer is handed, for the preview and the browser copy.
+   */
+  invoice: InvoiceBill;
   kots: Array<{
     id: string;
     code: string;
@@ -172,6 +179,7 @@ export interface OwnerPayload {
     captain: string;
     ageMinutes: number;
     urgent: boolean;
+    forCounter: boolean;
   }>;
   suggestions: Suggestion[];
   menu: Array<{
@@ -185,6 +193,10 @@ export interface OwnerPayload {
     available: boolean;
     closedReason: string;
     description: string;
+    /** `/api/media/...` or empty (item 23). */
+    imageUrl: string;
+    printerId: string | null;
+    station: string | null;
   }>;
   /** `parentId`: the top-level category this one is a sub-menu of, or null (I3). */
   categories: Array<{ id: string; name: string; count: number; parentId: string | null }>;
@@ -266,6 +278,30 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     tip: totals.tip,
     totals: totalsRows(totals, { taxRate, tipTo: b.captain }),
     perTable: b.tables.length > 1 ? perTable : [],
+    invoice: {
+      code: b.code,
+      hostTable: b.hostTable,
+      tables: b.tables,
+      captain: b.captain,
+      openedAt: b.openedAt,
+      closedAt: b.closedAt,
+      discountPct: b.discountPct,
+      discountAmount: b.discountAmount,
+      taxRate: b.taxRate,
+      paymentMode: b.paymentMode,
+      tip: b.tip,
+      kots: b.kots.map((k) => ({
+        status: k.status,
+        items: k.items.map((i) => ({
+          name: i.name,
+          qty: i.qty,
+          unitPrice: i.unitPrice,
+          foodType: i.foodType,
+          category: i.category,
+          cancelledAt: i.cancelledAt,
+        })),
+      })),
+    },
     kots: b.kots.map((k) => ({
       id: k.id,
       code: k.code,
@@ -445,6 +481,8 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       captain: r.captain,
       ageMinutes: r.ageMinutes,
       urgent: r.ageMinutes >= 5,
+      /** Who the row is for (item 37): the bill counter's own, or the floor's. */
+      forCounter: isCounterNotice(r.kind),
     })),
 
     suggestions,
@@ -460,6 +498,9 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       available: i.available,
       closedReason: i.closedReason,
       description: i.description,
+      imageUrl: i.imageUrl,
+      printerId: i.printerId,
+      station: i.station,
     })),
     categories: categories.map((c) => ({ id: c.id, name: c.name, count: c.count, parentId: c.parentId })),
 

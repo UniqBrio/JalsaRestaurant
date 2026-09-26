@@ -1,4 +1,5 @@
 import 'server-only';
+import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn } from '@/lib/restaurant-time';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import {
@@ -256,7 +257,9 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       .filter((p) => p.active === true && canHoldBillRole('waiter', p.role as string))
       .map((p) => ({ id: p.id as string, name: p.name as string, role: p.role as string })),
     ready,
-    requests: requests.map((r) => ({
+    // The bill counter's "Bill requested" is for the console, not a captain's phone (item 37):
+    // the captain gets their own notification for the same request, "Clear the table".
+    requests: requests.filter((r) => !isCounterNotice(r.kind)).map((r) => ({
       id: r.id,
       kind: r.kind,
       note: r.note,

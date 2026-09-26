@@ -185,6 +185,33 @@ export function billShareText(
  * reference with a `#` in it would otherwise truncate the message at that character, and the
  * owner would send half a bill without noticing.
  */
-export function whatsAppShareUrl(text: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+export function whatsAppShareUrl(text: string, phoneDigits?: string | null): string {
+  // With a number (item 38, 25-Sep-2026) the link opens THAT chat; without one, WhatsApp asks
+  // which chat - the behaviour this link always had.
+  return phoneDigits
+    ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`
+    : `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * A guest's WhatsApp number as wa.me wants it: country code and digits, nothing else (item 38).
+ *
+ * Empty is fine - the link then lets WhatsApp ask which chat. A ten-digit Indian mobile (6-9
+ * first) gets 91 in front; +91 / 0 / spaces / dashes are tidied; anything else is refused in
+ * words rather than turned into a link to a stranger.
+ */
+export function whatsAppNumber(input: string): { ok: true; digits: string | null } | { ok: false; reason: string } {
+  const raw = input.trim();
+  if (!raw) return { ok: true, digits: null };
+  let d = raw.replace(/[\s\-().]/g, '');
+  if (d.startsWith('+')) d = d.slice(1);
+  if (!/^\d+$/.test(d)) return { ok: false, reason: 'A phone number is digits only, with an optional + at the start.' };
+  if (d.length === 11 && d.startsWith('0')) d = d.slice(1);
+  if (d.length === 10) {
+    if (!/^[6-9]/.test(d)) return { ok: false, reason: 'An Indian mobile number starts with 6, 7, 8 or 9.' };
+    return { ok: true, digits: `91${d}` };
+  }
+  if (d.length === 12 && d.startsWith('91') && /^[6-9]/.test(d.slice(2))) return { ok: true, digits: d };
+  if (d.length >= 8 && d.length <= 15 && !d.startsWith('0')) return { ok: true, digits: d };
+  return { ok: false, reason: 'That does not look like a WhatsApp number. Enter the 10-digit mobile, or leave it empty.' };
 }

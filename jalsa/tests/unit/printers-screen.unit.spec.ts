@@ -102,7 +102,9 @@ test('the pairing code lives in component state for as long as the sheet is open
 
 test('TEST PRINT is the existing action, follows its own job, and is refused only when the screen already knows why', () => {
   const s = code(SCREEN);
-  expect(s).toContain("{ action: 'test-print', printerId: p.id }");
+  // SUPERSEDED 25-Sep-2026 (item 9): previously `{ action: 'test-print', printerId: p.id }`. The
+  // same action, now saying which ticket - kitchen or bill - the owner chose beside Preview.
+  expect(s).toContain("{ action: 'test-print', printerId: p.id, ticket }");
   expect(s).toContain('testPrintProgress(job, p.name)');
   expect(s).toContain('data.printJobs.find((j) => j.id === jobId)');
   // No second print path: nothing here encodes, spools or opens a socket.

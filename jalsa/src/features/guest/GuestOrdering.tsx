@@ -433,13 +433,20 @@ function MenuRow({
         <span
           aria-hidden
           data-testid={`guest-item-image-${item.id}`}
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--text-disabled)]"
+          className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--text-disabled)]"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <rect x="3" y="4" width="18" height="16" rx="2.5" />
-            <circle cx="8.5" cy="9.5" r="1.6" />
-            <path d="M3.5 17l4.8-4.8a1.6 1.6 0 0 1 2.3 0L15 16.5l1.9-1.9a1.6 1.6 0 0 1 2.3 0l1.3 1.3" />
-          </svg>
+          {/* The photograph, now that the owner can upload one (item 23): the same 56px tile,
+              so nothing on the row moves. */}
+          {item.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- an owner upload served by our own route
+            <img src={item.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <rect x="3" y="4" width="18" height="16" rx="2.5" />
+              <circle cx="8.5" cy="9.5" r="1.6" />
+              <path d="M3.5 17l4.8-4.8a1.6 1.6 0 0 1 2.3 0L15 16.5l1.9-1.9a1.6 1.6 0 0 1 2.3 0l1.3 1.3" />
+            </svg>
+          )}
         </span>
 
         <span className="min-w-0 flex-1">

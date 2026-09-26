@@ -59,13 +59,13 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
-## RC-023 — RC-022's split left the owner's pre-deploy sessions valid on the staff app
+## RC-027 — RC-026's split left the owner's pre-deploy sessions valid on the staff app
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
 
-**Symptom** — found in review before push: RC-022 says "anyone signed in to the owner console signs
+**Symptom** — found in review before push: RC-026 says "anyone signed in to the owner console signs
 in once more", but the danger ran the other way.
 
-**Root cause** — RC-022 kept the staff app's cookie name `jalsa_staff` so captains stayed signed in.
+**Root cause** — RC-026 kept the staff app's cookie name `jalsa_staff` so captains stayed signed in.
 Every owner sign-in BEFORE the split had been written into that same cookie, so a captain's phone
 the owner had used would still open /staff as the owner for up to 14 hours after the deploy, and
 the owner console's new sign-out clears only `jalsa_owner`.
@@ -84,7 +84,7 @@ contents change meaning in place carries old grants forward.
 
 ---
 
-## RC-022 — One sign-in opened both the owner console and the staff app (closes RC-017's open risk)
+## RC-026 — One sign-in opened both the owner console and the staff app (closes RC-017's open risk)
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
 
 **Symptom** — a round placed from a captain's phone was recorded against the owner (RC-017, KOT-129).
@@ -118,7 +118,7 @@ is there").
 
 ---
 
-## RC-021 — CI on main went red on Node 20 while every local run on Node 22 passed
+## RC-025 — CI on main went red on Node 20 while every local run on Node 22 passed
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** print bridge packaging, CI
 
 **Symptom** — the `jalsa` job on UniqBrio/JalsaRestaurant#11 and on main failed in
@@ -146,6 +146,71 @@ tests/unit/bridge-package.unit.spec.ts` from `jalsa/` (with a unit-only config):
 mapping and forbids the ICU-dependent decoder.
 
 **Process check** — No: local runs used the container's Node, not CI's; one line, done.
+## RC-024 — A payment request reached the counter and the captain as one row nobody was told was theirs; the shared bill could be an earlier copy
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** guest payment, owner Payments, WhatsApp share
+
+**Symptom** — "Guest requests payment: send the captain and the bill counter separate notifications." "Share Bill on WhatsApp" was reported broken.
+
+**Root cause** — `requestPayment` only changed the bill's status; no request row was raised for anyone. Payments held the viewed bill as an OBJECT captured when the sheet opened, so a later change never reached the share text; and the link carried no number (no guest phone is stored).
+
+**Fix** — one request raises "Clear the table" (captain) and "Bill requested" (counter; a captain's phone leaves it out), never twice; withdraw clears both, payment clears the counter's. Payments holds the bill by id and reads it from each poll; the sheet takes an optional guest number (validated, not stored).
+
+**Files** — `jalsa/src/lib/payment-notice.ts`, `jalsa/src/lib/db/mutations.ts`, `staff-view.ts`, `owner-view.ts`, `Payments.tsx`, `BillDetailSheet.tsx`, `bill-share.ts`
+
+**How to verify** — `npx playwright test tests/unit/guest-reports-25sep.unit.spec.ts` (from jalsa/). On a device: request payment from a guest phone; the captain sees "Clear the table", the console "Bill requested" marked Bill counter; tap again - no new rows.
+
+**Recurrence risk** — any sheet that is handed an object from a poll rather than an id; `CloseBillSheet` was left as it is (it re-reads on submit).
+
+---
+
+## RC-023 — A free table (A5) kept showing Mark free, and Mark free could not take it away
+**Date:** 25-Sep-2026  ·  **Severity:** S2  ·  **Modules:** floor (owner and captain), freeTable
+
+**Symptom** — "A5 is free but still shows the Mark Free button."
+
+**Root cause** — three rules disagreed with the server's. (1) The floor counted every `guest_session` a table ever had as a phone attached (A5 had 14, none holding anything) - sessions are not removed when a bill is paid. (2) `listOpenBills` used `status <> 'closed'`, so the VOID bill Mark free writes off kept holding the table; `openBillForTable` (unreleased membership) found nothing, so a second press did nothing. (3) freeTable released the table but never stamped `cleared_at`, and an old uncleared release outranked a live bill in `tableStateFrom`.
+
+**Fix** — open bills are open/payment_requested holding only unreleased tables; a phone holds a table only with an unsent cart or an open bill (`phonesHoldingTables`); Mark free stamps `cleared_at`; a live bill decides the state before any old release.
+
+**Files** — `jalsa/src/lib/db/queries.ts`, `jalsa/src/lib/status.ts`, `jalsa/src/lib/db/mutations.ts`
+
+**How to verify** — `npx playwright test tests/unit/mark-free-a5.unit.spec.ts`. On the live floor: A5 with no party shows Free (or Needs clearing after a payment) and no Mark free; seat it, Mark free appears while the bill is empty; press it, the tile reads Free after a refresh.
+
+**Recurrence risk** — any second definition of "occupied". There are now two readers of `bill_table` for occupancy and both use `released_at is null`.
+
+---
+
+## RC-022 — Items printed in the wrong order, and big lines ran off the paper
+**Date:** 25-Sep-2026  ·  **Severity:** S2  ·  **Modules:** printing, bill read
+
+**Symptom** — "Incorrect item order on printed bill"; bill alignment and padding reported wrong.
+
+**Root cause** — a round's lines are ONE insert, so they share `created_at`; the ticket ordered by `created_at` alone and the bill's embedded select had no order at all. Separately, `big` lines (GS ! 0x11 is double WIDTH) were centred and padded on the full column count, twice as wide as the roll, so they wrapped; the bill had no fixed columns, and three invoice formats (thermal, preview, browser) had drifted - the thermal one also counted cancelled rounds.
+
+**Fix** — `kot_item.line_seq` (identity, cart order) and ordering by it everywhere; big lines on the half-width grid; one invoice (`invoice.ts`) with fixed QTY / RATE / AMOUNT columns for paper, preview and browser.
+
+**Files** — `jalsa/supabase/migrations/20260925090000_jalsa_kot_item_line_order.sql`, `jalsa/src/lib/print-template.ts`, `invoice.ts`, `bridge-payload.ts`, `queries.ts`
+
+**How to verify** — `npx playwright test tests/unit/print-corrections-25sep.unit.spec.ts tests/unit/ticket-golden.unit.spec.ts`. On paper: print a bill of five items across two rounds; they read in the order ordered, every amount ends in the same column.
+
+**Recurrence risk** — any other read of a one-insert batch ordered by its timestamp.
+
+---
+
+## RC-021 — "Last collected 10:15 pm" was a heartbeat nobody acted on
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** Print setup > Bridges
+
+**Symptom** — the printer screen showed 10:15 although nobody acted on the printer then.
+
+**Root cause** — the Bridges tab printed `bridge_token.last_seen_at` - updated on every idle poll - as "Last collected", in the browser's zone and without a date. Kitchen PC's last poll was 16:45Z on 24-Sep: 10:15 pm IST, the PC's last minute switched on.
+
+**Fix** — "Last ticket <date, time>" from `print_job.claimed_at`, "last in touch <date, time>" for the heartbeat, IST; each printer shows "Last printed" from `print_job.printed_at` and "Added on" from `created_at`.
+
+**Files** — `jalsa/src/lib/print-computer.ts`, `queries.ts`, `PrintSetupSection.tsx`, `PrintersSection.tsx`
+
+**How to verify** — `npx playwright test tests/unit/printers-activity.unit.spec.ts`; after a real test print, the printer's "Last printed" and the bridge's "Last ticket" show that minute and day.
+
+**Recurrence risk** — any `toLocaleTimeString` without `timeZone`; the History tab had one (fixed).
 
 ---
 

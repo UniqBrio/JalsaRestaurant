@@ -1,3 +1,4 @@
+import type { InvoiceBill } from './invoice';
 import type { ComposeItem } from './ticket-compose';
 
 /**
@@ -88,3 +89,35 @@ export const testTicketHeader = (facts: TestTicketFacts) => ({
   source: `${facts.machineName} (${facts.machineId})`,
   note: 'This is a test print. Nothing here is an order. If this came out of the wrong machine, the machine id above is the one Jalsa sent it to.',
 });
+
+/**
+ * The bill a "Test Print - Bill" puts on paper (item 9, 25-Sep-2026).
+ *
+ * Laid out by the SAME `invoiceTicketData` → `buildBill` as a guest's invoice, so the paper shows
+ * exactly how a real bill sits on this machine: the item table, the totals, the big TOTAL. Its
+ * bill number reads TEST PRINT, so nobody at the counter takes it for a guest's bill.
+ */
+export function testBill(taxRate: number, now: Date = new Date()): InvoiceBill {
+  return {
+    code: 'TEST PRINT',
+    hostTable: '—',
+    tables: ['—'],
+    captain: '',
+    openedAt: now.toISOString(),
+    closedAt: now.toISOString(),
+    discountPct: 0,
+    discountAmount: 0,
+    taxRate,
+    paymentMode: 'TEST',
+    kots: [
+      {
+        status: 'served',
+        items: [
+          { name: 'TEST PRINT - not a bill', qty: 1, unitPrice: 0, foodType: 'veg', category: '', cancelledAt: null },
+          { name: 'Rate and amount columns', qty: 2, unitPrice: 120, foodType: 'veg', category: '', cancelledAt: null },
+          { name: 'A four-figure amount, to check the right edge', qty: 12, unitPrice: 1250, foodType: 'non_veg', category: '', cancelledAt: null },
+        ],
+      },
+    ],
+  };
+}

@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { fail, handler } from '@/lib/route';
 import { publicConfig } from '@/lib/config';
 import { currentStaff } from '@/lib/db/auth';
-import { brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
+import { blockTablePosterSvg, brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
+import { currentRestaurantId, db } from '@/lib/supabase/server';
+import { restaurantLogo } from '@/lib/db/restaurant-logo';
 
 /**
  * The tabletop QR code, as an image.
@@ -47,9 +49,21 @@ export const GET = handler(async (req: Request): Promise<NextResponse> => {
     it does not change when the queue opens or closes — the page it points at answers that.
   */
   const table = new URL(req.url).searchParams.get('table');
+  const poster = new URL(req.url).searchParams.get('poster');
   const origin = publicConfig.qrOrigin.replace(/\/+$/, '');
   const target = table ? `${origin}/t/${encodeURIComponent(table)}` : `${origin}/q`;
-  const svg = await brandedQrSvg(target);
+  // The restaurant's own logo in the centre when one is uploaded (item 31); the drawn badge otherwise.
+  const logo = await restaurantLogo();
+
+  // "Scan to Block Your Table" (item 33): the entrance code, on a poster that says what it is for.
+  // Only for the entrance - a table's code is never dressed as a queue poster.
+  if (!table && poster === 'block') {
+    const { data: r } = await db().from('restaurant').select('display_name,legal_name').eq('id', await currentRestaurantId()).maybeSingle();
+    const name = ((r?.display_name as string) || (r?.legal_name as string) || '').trim();
+    return new NextResponse(await blockTablePosterSvg(target, name, logo), { headers: svgHeaders('scan-to-block-your-table') });
+  }
+
+  const svg = await brandedQrSvg(target, logo);
 
   return new NextResponse(svg, {
     headers: svgHeaders(table ? `jalsa-table-${table}` : 'jalsa-entrance-queue'),

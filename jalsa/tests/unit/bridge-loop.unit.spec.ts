@@ -675,7 +675,10 @@ test('FILE OUTPUT: what lands in the sink is the encoder output, byte for byte',
   await runCycle(deps);
 
   const { lines, width } = linesFor('p3', 'Tandoor');
-  const expected = encodeTicket(lines, { ...DEFAULT_ENCODER, width });
+  // SUPERSEDED 25-Sep-2026 (item 7): previously `{ ...DEFAULT_ENCODER, width }`. The bridge now
+  // sets the print area (left margin 0, the roll's printable dots) and the font before the first
+  // line; the sink still receives exactly what the encoder produced, byte for byte.
+  const expected = encodeTicket(lines, { ...DEFAULT_ENCODER, width, area: true });
   const written = new Uint8Array(readFileSync(join(dir, 'TANDOOR-QUEUE', 'job-1.bin')));
 
   expect(hex(written)).toBe(hex(expected));

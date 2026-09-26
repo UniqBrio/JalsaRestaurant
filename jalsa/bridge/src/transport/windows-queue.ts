@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { WindowsSpoolerTransport, type SpoolerCommand } from './windows';
 import type { PrintTransport } from './types';
 import { MAX_ENCODED, encodeCommand, powershellRunner, type ScriptRunner } from '../windows/powershell';
@@ -40,7 +42,7 @@ $st = [string]$p.PrinterStatus
 if (@('Offline','PaperOut','PaperJam','Error','DoorOpen','NotAvailable','Paused','UserIntervention') -contains $st) {
   [Console]::Error.WriteLine("Windows reports the printer '$queue' as $st."); exit 5
 }
-Add-Type -TypeDefinition @'
+$src = @'
 using System;
 using System.Runtime.InteropServices;
 public static class JalsaRawPrint {
@@ -87,6 +89,26 @@ public static class JalsaRawPrint {
   }
 }
 '@
+# Compiled ONCE and kept beside the spool (item 6, 25-Sep-2026). Compiling this class with
+# Add-Type took seconds on every ticket. The file name carries a hash of the source, so a new
+# bridge compiles its own; a file that will not load is left alone and the class is compiled in
+# memory as before - this script deletes nothing.
+$loaded = $false
+$dll = $env:JALSA_DLL
+if ($dll) {
+  try {
+    if (-not (Test-Path -LiteralPath $dll)) {
+      $part = "$dll.$PID.part"
+      Add-Type -TypeDefinition $src -OutputAssembly $part -OutputType Library -ErrorAction Stop
+      Move-Item -LiteralPath $part -Destination $dll -Force -ErrorAction Stop
+    }
+    Add-Type -LiteralPath $dll -ErrorAction Stop
+    $loaded = $true
+  } catch {
+    $loaded = $false
+  }
+}
+if (-not $loaded) { Add-Type -TypeDefinition $src }
 $bytes = [System.IO.File]::ReadAllBytes($file)
 $rc = [JalsaRawPrint]::Send($queue, $doc, $bytes)
 if ($rc -eq 2) { [Console]::Error.WriteLine("No printer named '$queue' could be opened on this computer (Windows error $([JalsaRawPrint]::LastError))."); exit 2 }
@@ -110,12 +132,24 @@ export const QUEUE_REFUSAL = 'it is not a Windows printer name.';
 export const rawPrintFits = (): boolean => encodeCommand(RAW_PRINT_SCRIPT).length < MAX_ENCODED;
 
 /** `SpoolerCommand`, spoken through PowerShell. The runner is injected; Windows supplies the real one. */
+/**
+ * Where the compiled printing class is cached: in the spool directory, named for a hash of the
+ * script, so a bridge upgrade that changes the class never loads the old one (item 6).
+ */
+export const rawPrintDll = (spoolDir: string): string =>
+  join(spoolDir, `jalsa-raw-print-${createHash('sha256').update(RAW_PRINT_SCRIPT).digest('hex').slice(0, 12)}.dll`);
+
 export const windowsQueueCommand =
-  (run: ScriptRunner): SpoolerCommand =>
+  (run: ScriptRunner, spoolDir?: string): SpoolerCommand =>
   async ({ file, destination, timeoutMs }) => {
     const r = await run({
       script: RAW_PRINT_SCRIPT,
-      env: { JALSA_QUEUE: destination, JALSA_FILE: file, JALSA_DOC: 'Jalsa ticket' },
+      env: {
+        JALSA_QUEUE: destination,
+        JALSA_FILE: file,
+        JALSA_DOC: 'Jalsa ticket',
+        ...(spoolDir ? { JALSA_DLL: rawPrintDll(spoolDir) } : {}),
+      },
       timeoutMs,
     });
     return { code: r.code, stdout: r.stdout, stderr: r.stderr, timedOut: r.timedOut };
@@ -128,7 +162,7 @@ export const windowsQueueTransport = (
   run: ScriptRunner = powershellRunner
 ): PrintTransport =>
   new WindowsSpoolerTransport({
-    command: windowsQueueCommand(run),
+    command: windowsQueueCommand(run, spoolDir),
     tempDir: spoolDir,
     timeoutMs,
     destination: { accepts: acceptsQueueName, refusal: QUEUE_REFUSAL },

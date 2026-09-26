@@ -1,5 +1,9 @@
 -- =============================================================================
--- 20260925090000_jalsa_menu_sub_categories
+-- 20260925120000_jalsa_menu_sub_categories
+--
+-- (Written as 20260925090000; renumbered on merge, 26-Sep-2026, because `jalsa_kot_item_line_order`
+-- took that version on main. Already applied to both projects as `jalsa_menu_sub_categories`;
+-- every statement is idempotent, so a replay in either order converges.)
 --
 -- Sub-menus (24-Sep correction list, I3): "sales breakdown by category, including sub-menu".
 --

@@ -1,3 +1,4 @@
+import { dateLabelIn, dateTimeLabelIn } from './restaurant-time';
 import type { Tone } from './status';
 
 /**
@@ -125,4 +126,32 @@ export function testPrintProgress(
   if (job.status === 'printed') return { text: OWNER_PRINT_MESSAGES.completed, tone: 'success' };
   if (job.status === 'failed') return { text: ownerPrintError(job.lastError, printerName), tone: 'error' };
   return { text: OWNER_PRINT_MESSAGES.sending, tone: 'info' };
+}
+
+/* ── Times on the Printers screens (items 2 and 12, 25-Sep-2026) ──────────────────────────── */
+
+/**
+ * "Added on 24 Sep 2026" - from `printer.created_at`, never an update time, in the restaurant's
+ * calendar wherever the browser is.
+ */
+export const addedOnLabel = (createdAt: string): string => `Added on ${dateLabelIn(createdAt)}`;
+
+/**
+ * The last thing that actually PRINTED on a machine, with its date. A machine that has printed
+ * nothing says so rather than showing a time.
+ */
+export const lastPrintedLabel = (lastPrintedAt: string | null): string =>
+  lastPrintedAt ? `Last printed ${dateTimeLabelIn(lastPrintedAt)}` : 'Nothing printed yet';
+
+/**
+ * A printing computer's activity, as two different facts.
+ *
+ * `lastSeenAt` moves on every idle poll, so it was never "Last collected": the Bridges tab showed
+ * "Last collected 10:15 pm" for a heartbeat at 16:45 UTC while nothing was printed at all. The
+ * ticket time comes from the job it took; the heartbeat is named for what it is, with its date.
+ */
+export function bridgeActivityLabel(b: { lastSeenAt: string | null; lastTicketAt: string | null }): string {
+  if (!b.lastSeenAt) return 'Has never connected';
+  const ticket = b.lastTicketAt ? `Last ticket ${dateTimeLabelIn(b.lastTicketAt)}` : 'No ticket taken yet';
+  return `${ticket} · last in touch ${dateTimeLabelIn(b.lastSeenAt)}`;
 }

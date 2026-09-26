@@ -4,7 +4,7 @@ _Newest run first. **Append-only: never overwrite a prior run.**_
 
 ## Application run - jalsa - 2026-09-25 - review fixes (G2, E1, I3)
 
-Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-023 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).
+Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-027 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).
 FAIL-FIRST: against the pre-fix src/: session-surfaces + sub-menus + combobox-migration **3 failed**, 26 passed; new-dish (rule module kept) **3 failed**, 5 passed; after: all pass. Specs updated in place with dated SUPERSEDED notes (added in this same unpushed branch).
 NOT CHANGED, raised with the owner: "Skip for now" on choose-PIN has no effect - `currentStaff` re-reads `pin_provisional` from the row on every request (since 10-Sep, 08d2dc2), so the cookie the skip rewrites is not what the pages gate on; fixing it needs a decision against guardrail 5. The one-level sub-menu trigger takes no lock: two owners re-parenting in opposite directions at the same instant could make two levels (low; a follow-up migration with an advisory lock would close it). `listMenu` ignores the category read's error (pre-existing).
 
@@ -13,7 +13,7 @@ NOT CHANGED, raised with the owner: "Skip for now" on choose-PIN has no effect -
 ## Application run - jalsa - 2026-09-25 - I3 sub-menus and sales by menu
 
 FAIL-FIRST: jalsa/tests/unit/sub-menus.unit.spec.ts - `parentChoices` injected to offer sub-menus as parents and reverted: **1 failed**; against main's mutations, queries, routes and screens (rule module and migration kept): **3 failed** (snapshot, report roll-up, the owner's panel and verb); after: 7 passed. report-gst-split and print-assignment unchanged and passing (the single walk and `catKey` line are kept).
-Migration `20260925090000_jalsa_menu_sub_categories.sql`: applied to TEST (uxmyomxtosjlkvjxnvpy), trigger exercised in a rolled-back DO block (accepted: sub-menu under a top-level; refused: under a sub-menu, under itself, a parent moved under another, deleting a parent; 0 rows left behind), then to LIVE (yxgxmbyilpivbmeemqkp): both columns and the trigger present, 0 sub-menus, 57 order lines untouched. The code reading the new columns is committed only after that - the 22-Sep lesson.
+Migration `20260925120000_jalsa_menu_sub_categories.sql`: applied to TEST (uxmyomxtosjlkvjxnvpy), trigger exercised in a rolled-back DO block (accepted: sub-menu under a top-level; refused: under a sub-menu, under itself, a parent moved under another, deleting a parent; 0 rows left behind), then to LIVE (yxgxmbyilpivbmeemqkp): both columns and the trigger present, 0 sub-menus, 57 order lines untouched. The code reading the new columns is committed only after that - the 22-Sep lesson.
 Not run here: the screens in a browser (G8). Needs a tester: Menu → Sub-menus → put a category under another → close a bill with a dish from it → Reports shows "What sold by menu" with the sub-menu counted under its menu.
 
 ---
@@ -49,17 +49,58 @@ Not run here: the screens in a browser (G8 - no database reachable). Needs a tes
 
 ---
 
-## Application run - jalsa - 2026-09-25 - G2 separate owner and staff sessions (RC-022)
+## Application run - jalsa - 2026-09-25 - G2 separate owner and staff sessions (RC-026)
 
 FAIL-FIRST: jalsa/tests/unit/session-surfaces.unit.spec.ts - against main's src/: **5 failed** (no owner cookie, argument-less readers, pages, routes and clients not surface-specific); after: 5 passed; pin-and-attribution still 7 passed (its sign-in audit case now reads the surface, not the Referer).
 Functional sign-in specs stub `**/api/staff/session` and match `{ pin }` with toMatchObject, so the added `surface` field leaves them valid (not run here: G8, no database).
 
 ---
 
-## Application run - jalsa - 2026-09-25 - CI red on Node 20 (RC-021)
+## Application run - jalsa - 2026-09-25 - CI red on Node 20 (RC-025)
 
 FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts under Node 20.20.2 (`npx node@20`, CI's pinned major) against main's `ansiView`: **1 failed** (THE REGRESSION rung - the `’` never appears), 16 passed; with the Windows-1252 table: 17 passed on Node 20 and 18 passed on Node 22 (the appended rung included). The appended rung pins the table and forbids the ICU-dependent decoder.
 Workflow concurrency: both files are named `CI`; each now has its own group. Not runnable here (GitHub Actions only) - verified on the next push's checks.
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, code-review fixes
+
+Review (REQUEST CHANGES, 2 blockers, 7 major, 12 minor). Fixed: new columns read before their migrations (applied to both projects before this branch can deploy; kotPrintableItems no longer turns a read error into an empty round); the floor's unbounded session `.in()` (now carts via an inner join + sessions on open bills only); "Set all" as a URL-sized id list (one update by restaurant; lists chunked by 100); a dish's printer changeable without `set.printer`; routing to an Invoice printer; the daily chart silently cut at 92 days; tipped bills printing a TOTAL without the tip; a big TOTAL and item figures clipped (never cut now; a space between every column); `large` never reaching the printer (font B at GS ! 0x11); two-tap duplicate notices (partial unique index, 23505 ignored; freeTable resolves them; the floor badge leaves the counter's out); the category routing table ignoring the default station; addCategory half-succeeding; unchecked upload/station input; 0% tax on the test bill; a test KOT to a bill printer always blocked; a half-written DLL; no index behind `on delete set null`; two misplaced doc comments; a look-alike Google host.
+FAIL-FIRST: jalsa/tests/unit/review-fixes-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`dailyTruncated` absent; `totalLine` absent): 7 of 7 not passing; after: 7 passed. Three specs added earlier in this branch updated in place to the fixed shapes (mark-free-a5, menu-routing-25sep, print-corrections-25sep).
+Unit tier: 1105 passed. Typecheck, lint, audit:all 10/10, next build, bridge build: pass.
+NOT CHANGED (review #20): some rungs read source text rather than behaviour - the pattern this repo's unit tier already uses for DB-bound code; the behaviour cases run beside them.
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, guest payment notices, WhatsApp share, report charts, review link (items 37-40)
+
+FAIL-FIRST: jalsa/tests/unit/guest-reports-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/payment-notice` absent; `whatsAppNumber`, `dailySeries`, `checkReviewLink` absent): 10 of 10 not passing; after: 10 passed.
+Superseded in place: bill-detail-wiring - viewing is held by id, read from each poll (it held the bill object, freezing the shared text).
+Unit tier: 1097 passed. Typecheck, lint: pass. Not verified from here: a real WhatsApp open on a phone; the charts on a device (no database reachable to load a real report).
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, tables & QR (items 31-36)
+
+Root cause, A5 (read from the live rows): A5 had 14 guest_session rows and six closed, released bills; the floor counted every session as a phone attached, so a free A5 was "freeable" and showed Mark free. Mark free on an empty bill voided it, and `listOpenBills` (`status <> 'closed'`) kept the VOID bill holding the table - so the button stayed and pressing it again did nothing. Also: freeTable never stamped cleared_at (a freed table went to "Needs clearing"), and an old uncleared release outranked a live bill in tableStateFrom.
+FAIL-FIRST: jalsa/tests/unit/mark-free-a5.unit.spec.ts - against the pre-fix tree the file fails to load (`phonesHoldingTables` absent); the superseded case in status.unit.spec.ts ('ready' over an old release) failed against the old tableStateFrom (received 'clearing'). After: 7 passed.
+FAIL-FIRST: jalsa/tests/unit/tables-qr-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`BLOCK_TABLE_HEADING` absent); the scan test with the obscured square widened to 50% of the width: **3 failed** (it can fail); at the real 27%: 3 of 3 codes decode, white and noise.
+Superseded in place: status (clearing vs live bill), combobox-migration (still 11 selects: Food type out, Zone in), qr-stand (generator takes the logo, x2), restaurant-details (logo_url is the 11th read; upload-image allowed beside write-identity).
+Unit tier: 1088 passed. Typecheck, lint: pass. QR scanning with a phone camera and on paper: not done from here.
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, menu & routing (items 23-30) and KOT cases 15-22
+
+FAIL-FIRST: jalsa/tests/unit/menu-routing-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/media` does not exist; `routeItem`, `defaultPrinter`, `stationOptions` absent from print-routing): 16 of 16 not passing; after: 16 passed.
+FAIL-FIRST: jalsa/tests/unit/kot-scenarios-25sep.unit.spec.ts - a verification suite over the production split/compose path; with egg injected onto the non-veg side in `splitRound` (reverted): **5 failed**, 4 passed; after: 9 passed.
+Superseded in place (contract changes, dated notes): combobox-migration - static selects 11 -> 10 (Food type is a Combobox, item 24); addCategory signature gained `printerId` (item 29).
+Unit tier: 1072 passed. Typecheck and lint: pass. Physical printing: not verified from here (no printer or bridge reachable).
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, printing (items 1-9, 12-14)
+
+FAIL-FIRST: jalsa/tests/unit/printers-activity.unit.spec.ts - against the pre-fix tree the file fails to load (`addedOnLabel`, `bridgeActivityLabel` do not exist in print-computer.ts): 8 of 8 not passing; after: 8 passed.
+FAIL-FIRST: jalsa/tests/unit/print-corrections-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/invoice` does not exist): 22 of 22 not passing; after: 22 passed. Case-level evidence for the layout change: tests/unit/ticket-golden.unit.spec.ts run against the new composer failed 4 of its goldens with exactly two differences - the big lines ("JALSA", "KOT-113") re-centred on the half-width grid, and the KOT address/phone lines gone - and nothing else; superseded in place (goldens kept, compared with big lines removed).
+Unit tier: 1049 passed. Typecheck and lint (whole app, --max-warnings 0): pass.
 
 ---
 

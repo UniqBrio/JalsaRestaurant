@@ -6,7 +6,7 @@ import { SUB_MENU_REFUSALS, parentChoices, subMenuProblem } from '../../src/lib/
  * Sub-menus, and sales by menu with its sub-menus included (24-Sep correction list, I3).
  *
  * A category may sit under ONE top-level category. The rule is the database's (trigger
- * `menu_category_one_level`, migration 20260925090000, applied to the test project and then live
+ * `menu_category_one_level`, migration 20260925120000, applied to the test project and then live
  * on 25-Sep-2026 and exercised there in a rolled-back block); the screen offers only what it
  * accepts. Each order line snapshots the menu it sold under, and the report rolls sub-menus up.
  */
@@ -42,7 +42,7 @@ test('the screen offers exactly the choices the rule accepts', () => {
   }
 });
 
-const MIGRATION = readFileSync('supabase/migrations/20260925090000_jalsa_menu_sub_categories.sql', 'utf8');
+const MIGRATION = readFileSync('supabase/migrations/20260925120000_jalsa_menu_sub_categories.sql', 'utf8');
 
 test('the database says the same sentences, and holds the rule itself', () => {
   expect(MIGRATION).toContain(
@@ -65,7 +65,9 @@ test('every round snapshots the menu its dish sold under; the bill read carries 
   expect(m).toContain('menu_category!inner(name,parent_id)');
   expect(m).toContain('menu_parent_category_name:');
   const q = code('src/lib/db/queries.ts');
-  expect(q).toContain('menu_category_name, menu_parent_category_name )');
+  /* SUPERSEDED 26-Sep-2026 (merge with main): previously 'menu_category_name, menu_parent_category_name )';
+     main's line order (line_seq) is now read after it on the same select. */
+  expect(q).toContain('menu_category_name, menu_parent_category_name, line_seq )');
   expect(q).toContain("parentCategory: (i.menu_parent_category_name as string) ?? '',");
   expect(q).toContain('parentId: (c.parent_id as string | null) ?? null,');
 });

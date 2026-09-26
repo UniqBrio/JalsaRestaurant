@@ -5,6 +5,7 @@ import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
+import { BarList, ColumnChart } from '@/components/ui/bar-chart';
 import { Field, Input } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { rupees } from '@/lib/money';
@@ -84,6 +85,11 @@ interface RangeReport {
     byPaymentMode: Array<{ mode: string; amount: number; bills: number; amountLabel: string; share: number }>;
   };
   products: Array<{ name: string; qty: number; revenue: number }>;
+  /** Sales per day over the range (item 39). Absent from an older server: no chart. */
+  daily?: Array<{ day: string; label: string; sales: number; bills: number }>;
+  /** The range is longer than the chart draws; it shows the first `dailyLimit` days. */
+  dailyTruncated?: boolean;
+  dailyLimit?: number;
   /** `parent` is the top-level menu a sub-menu sat under when the dish sold; '' when top-level (I3). */
   categories: Array<{ category: string; parent: string; qty: number; revenue: number; dishes: number }>;
   /** The same sales rolled up to each top-level menu, its sub-menus included. */
@@ -408,6 +414,77 @@ function PaymentPanel({ report }: { report: RangeReport }) {
   );
 }
 
+/* ── Charts (item 39, 25-Sep-2026) ─────────────────────────────────────── */
+
+/**
+ * Sales by day, and sales by category - drawn from THIS report's figures, for the range above,
+ * so they move with the date controls and never disagree with the tiles. The loading, error and
+ * no-bills states are the report's own: this panel is only drawn once a report has loaded, and a
+ * range with nothing sold says so here rather than drawing empty axes.
+ */
+function ChartsPanel({ report }: { report: RangeReport }) {
+  const daily = report.daily ?? [];
+  const total = daily.reduce((a, d) => a + d.sales, 0);
+  const cats = report.categories.slice(0, 8);
+  const rest = report.categories.slice(8);
+  const catBars = [
+    ...cats.map((c) => ({ key: c.category, label: c.category, value: c.revenue, valueLabel: rupees(c.revenue), detail: `${c.qty} sold` })),
+    ...(rest.length
+      ? [
+          {
+            key: '__other',
+            label: `Other (${rest.length})`,
+            value: rest.reduce((a, c) => a + c.revenue, 0),
+            valueLabel: rupees(rest.reduce((a, c) => a + c.revenue, 0)),
+            detail: `${rest.reduce((a, c) => a + c.qty, 0)} sold`,
+          },
+        ]
+      : []),
+  ];
+  return (
+    <section data-testid="owner-rep-charts" className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card className="flex flex-col gap-2">
+          <SectionLabel className="mb-0">Sales by day</SectionLabel>
+          {report.dailyTruncated ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-daily-truncated">
+              This range is longer than {report.dailyLimit ?? daily.length} days, so the chart shows its first{' '}
+              {daily.length}. The figures above cover all of it.
+            </p>
+          ) : null}
+          {daily.length === 0 || total === 0 ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-daily-empty">
+              {report.dailyTruncated ? 'No sales in the days shown.' : 'No sales on any day of this range.'}
+            </p>
+          ) : (
+            <ColumnChart
+              testId="owner-rep-chart-daily"
+              summary={`Sales by day: ${daily.map((d) => `${d.label} ${rupees(d.sales)}`).join(', ')}`}
+              bars={daily.map((d) => ({
+                key: d.day,
+                label: d.label,
+                value: d.sales,
+                valueLabel: rupees(d.sales),
+                detail: d.bills === 1 ? '1 bill' : `${d.bills} bills`,
+              }))}
+            />
+          )}
+        </Card>
+        <Card className="flex flex-col gap-2">
+          <SectionLabel className="mb-0">Sales by category</SectionLabel>
+          {catBars.length === 0 ? (
+            <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-rep-chart-category-empty">
+              Nothing sold in this range.
+            </p>
+          ) : (
+            <BarList testId="owner-rep-chart-category" bars={catBars} />
+          )}
+        </Card>
+      </div>
+    </section>
+  );
+}
+
 /* ── Sales and products ────────────────────────────────────────────────── */
 
 function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney: boolean }) {
@@ -444,6 +521,8 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
           </p>
         ) : null}
       </section>
+
+      <ChartsPanel report={report} />
 
       <GstPanel report={report} />
 

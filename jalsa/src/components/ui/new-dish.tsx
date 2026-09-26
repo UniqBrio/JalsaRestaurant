@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Button } from './button';
 import { Card } from './atoms';
 import { Combobox } from './combobox';
-import { Field, Input, Select } from './field';
+import { Field, Input } from './field';
 import { FOOD_TYPE, type FoodType } from '@/lib/status';
 import { dishKey, newDishProblem, type NewDish, type NewDishSaved } from '@/lib/new-dish';
 
@@ -122,18 +122,17 @@ export function NewDishOffer({
           />
         </Field>
         <Field label="Food type" required htmlFor={`${testIdPrefix}-new-dish-type`} className="min-w-[8rem] flex-1">
-          <Select
+          {/* Search-and-pick, like the Menu item's own Food type (item 24): the three types are
+              the database's, so there is nothing to add. */}
+          <Combobox
             id={`${testIdPrefix}-new-dish-type`}
+            testId={`${testIdPrefix}-new-dish-type`}
             value={foodType}
-            onChange={(e) => setFoodType(e.target.value as FoodType)}
-            data-testid={`${testIdPrefix}-new-dish-type`}
-          >
-            {FOOD_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {FOOD_TYPE[t].label}
-              </option>
-            ))}
-          </Select>
+            onValueChange={(v) => v && setFoodType(v as FoodType)}
+            options={FOOD_TYPES.map((t) => ({ value: t, label: FOOD_TYPE[t].label }))}
+            placeholder="Search food type"
+            emptyLabel="Veg, Non-veg or Egg"
+          />
         </Field>
       </div>
       <Field label="Category" required htmlFor={`${testIdPrefix}-new-dish-cat`}>

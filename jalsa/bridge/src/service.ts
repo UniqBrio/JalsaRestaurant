@@ -125,8 +125,11 @@ export interface ServiceIteration {
 }
 
 export async function servePaired(deps: ServiceDeps, opts: ServiceOptions): Promise<ServiceIteration[]> {
-  const pollMs = opts.pollMs ?? 3_000;
-  const maxBackoffMs = opts.maxBackoffMs ?? 10_000;
+  // Faster than before (item 6, 25-Sep-2026): an idle bridge used to wait up to 10 s before it
+  // noticed a new round, and 3 s between polls while busy. One small request every few seconds is
+  // nothing to a PC or to Jalsa; ten seconds is a cook waiting for paper.
+  const pollMs = opts.pollMs ?? 2_000;
+  const maxBackoffMs = opts.maxBackoffMs ?? 4_000;
   const errorBackoffMs = opts.errorBackoffMs ?? 60_000;
   const syncEveryMs = opts.syncEveryMs ?? 30_000;
   const now = deps.now ?? (() => new Date());
@@ -152,8 +155,7 @@ export async function servePaired(deps: ServiceDeps, opts: ServiceOptions): Prom
     try {
       // With nothing mapped yet the owner is probably at the Printers screen choosing one, so the
       // answer is checked as often as the idle poll rather than every half minute.
-      const due = config && config.machineIds.length ? syncEveryMs : Math.min(syncEveryMs, maxBackoffMs);
-      if (!config || now().getTime() - lastSync >= due) {
+      const sync = async (): Promise<BridgeConfig> => {
         const found = await deps.discover();
         if (!found.ok) deps.log({ event: 'bridge.discovery-failed', note: found.error });
         const answer = await deps.api.sync({
@@ -161,7 +163,7 @@ export async function servePaired(deps: ServiceDeps, opts: ServiceOptions): Prom
           hostname: deps.hostname,
           bridgeVersion: deps.bridgeVersion,
         });
-        config = configFromAssignments({
+        const next = configFromAssignments({
           paired: deps.paired,
           assignments: answer.assignments,
           transport: deps.transportKind,
@@ -173,13 +175,19 @@ export async function servePaired(deps: ServiceDeps, opts: ServiceOptions): Prom
         synced = true;
         await status(
           'connected',
-          config.machineIds.length ? `Connected. Printing for ${config.machineIds.join(', ')}.` : SERVICE_NOTES.noPrinters,
-          config.machineIds.length
+          next.machineIds.length ? `Connected. Printing for ${next.machineIds.join(', ')}.` : SERVICE_NOTES.noPrinters,
+          next.machineIds.length
         );
-      }
+        return next;
+      };
+      const syncDue = (c: BridgeConfig): boolean =>
+        now().getTime() - lastSync >= (c.machineIds.length ? syncEveryMs : Math.min(syncEveryMs, maxBackoffMs));
 
-      if (config.machineIds.length > 0) {
-        const current = config;
+      // Only when there is no mapping yet does the sync go first - there is nothing to print for.
+      let current: BridgeConfig = config ?? (await sync());
+      config = current;
+
+      if (current.machineIds.length > 0) {
         cycle = await runCycle({
           config: current,
           api: deps.api,
@@ -198,7 +206,21 @@ export async function servePaired(deps: ServiceDeps, opts: ServiceOptions): Prom
           });
         }
       }
-      wait = cycle?.claimedJobId ? pollMs : Math.min(Math.max(wait, pollMs) * 2, maxBackoffMs);
+
+      // The periodic re-sync runs AFTER the ticket (item 6): it asks Windows for its printer list,
+      // a PowerShell run of a second or more, and a waiting round used to sit behind it.
+      if (!synced && syncDue(current)) {
+        current = await sync();
+        config = current;
+      }
+
+      // More tickets already waiting: take the next one now, not after a poll interval - a round
+      // split over three machines used to come out a poll interval apart (item 6).
+      wait = cycle?.claimedJobId
+        ? cycle.eligible > 1
+          ? 0
+          : pollMs
+        : Math.min(Math.max(wait, pollMs) * 2, maxBackoffMs);
     } catch (cause) {
       // Re-sync before the next ticket, whatever went wrong: the mapping may have changed while
       // this computer could not hear about it.

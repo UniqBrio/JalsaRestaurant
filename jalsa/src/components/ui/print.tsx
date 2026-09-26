@@ -106,3 +106,43 @@ export function PrintTargets({
     </ul>
   );
 }
+
+/**
+ * A ticket as the paper shows it (items 5, 8, 9, 25-Sep-2026).
+ *
+ * The lines are the exact strings the printer is handed. What this adds over a plain `pre` is
+ * the one thing the printer does to them: a `big` line is double width AND double height, so it
+ * is drawn at twice the font size - a big line laid out wider than half the paper overflows here
+ * exactly as it would on the roll. The block is `cols` characters wide and no wider.
+ */
+export function TicketPaper({
+  lines,
+  cols,
+  testId,
+  className,
+}: {
+  lines: ReadonlyArray<{ text: string; weight: 'plain' | 'bold' | 'big' }>;
+  cols: number;
+  testId: string;
+  className?: string;
+}) {
+  return (
+    <div className={`overflow-x-auto ${className ?? ''}`}>
+      <pre
+        data-testid={testId}
+        className="m-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-4 font-mono type-caption leading-normal"
+        style={{ width: `calc(${cols}ch + 2rem)` }}
+      >
+        {lines.map((l, i) => (
+          <span
+            key={i}
+            className={l.weight === 'plain' ? 'block whitespace-pre' : 'block whitespace-pre font-bold'}
+            style={l.weight === 'big' ? { fontSize: '2em', lineHeight: 1.2 } : undefined}
+          >
+            {l.text}
+          </span>
+        ))}
+      </pre>
+    </div>
+  );
+}

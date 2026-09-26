@@ -1,4 +1,4 @@
-import { PAPER, type LineWeight, type PaperWidth, type TicketLine } from './print-template';
+import { PAPER, type FontSize, type LineWeight, type PaperWidth, type TicketLine } from './print-template';
 
 /**
  * escpos — a composed ticket, as the bytes a thermal printer eats.
@@ -38,8 +38,16 @@ const CODEPAGE = (n: number) => [ESC, 0x74, n];
 const BOLD = (on: boolean) => [ESC, 0x45, on ? 0x01 : 0x00];
 /** GS ! n — character size; the high nibble is width, the low nibble height, each 0-based. */
 const SIZE = (doubled: boolean) => [GS, 0x21, doubled ? 0x11 : 0x00];
+/** GS ! 0x11 — double width and height, the whole ticket's size at `large`. */
+const SIZE_LARGE = [GS, 0x21, 0x11];
 /** ESC d n — feed n lines. */
 const FEED = (lines: number) => [ESC, 0x64, lines];
+/** GS L nL nH — left margin, in dots. */
+const LEFT_MARGIN = (dots: number) => [GS, 0x4c, dots & 0xff, (dots >> 8) & 0xff];
+/** GS W nL nH — print area width, in dots. */
+const AREA_WIDTH = (dots: number) => [GS, 0x57, dots & 0xff, (dots >> 8) & 0xff];
+/** ESC M n — character font: 0 = font A (12x24), 1 = font B (9x17). */
+const FONT = (small: boolean) => [ESC, 0x4d, small ? 0x01 : 0x00];
 /** GS V m — 0 full, 1 partial. */
 const CUT = (partial: boolean) => [GS, 0x56, partial ? 0x01 : 0x00];
 
@@ -97,6 +105,20 @@ export interface EncoderConfig {
   feedLines: number;
   /** `none` leaves the paper attached — the honest default where cut support is unproven. */
   cut: 'none' | 'full' | 'partial';
+  /**
+   * Set the print area before the first line (item 7, 25-Sep-2026): left margin 0 and the area
+   * width to the head's printable dots for this roll (`PAPER[width].dots`). Without it the
+   * printer keeps whatever margin and area its own settings hold, which is where padding the
+   * layout never asked for comes from. Opt-in so every byte already pinned by a golden stays
+   * pinned; the bridge turns it on.
+   */
+  area?: boolean;
+  /**
+   * The font the lines were laid out for. `small` is 64 / 42 columns and needs font B selected -
+   * without ESC M a small-font layout printed in font A and wrapped every line. Only emitted with
+   * `area`.
+   */
+  font?: FontSize;
 }
 
 export const DEFAULT_ENCODER: EncoderConfig = {
@@ -197,14 +219,23 @@ export function encodeTicket(lines: readonly TicketLine[], config: EncoderConfig
 
   out.push(...INIT);
   out.push(...CODEPAGE(config.charset.codepage));
+  // `large` is font B at double size: 64 / 2 = 32 columns on 80 mm and 42 / 2 = 21 on 58 mm, the
+  // grid `PAPER` gives large. Every line is that size, so a `big` line changes nothing but weight.
+  const large = config.area === true && config.font === 'large';
+  if (config.area) {
+    out.push(...LEFT_MARGIN(0));
+    out.push(...AREA_WIDTH(PAPER[config.width].dots));
+    out.push(...FONT(config.font === 'small' || large));
+    if (large) out.push(...SIZE_LARGE);
+  }
 
   let bold = false;
   let big = false;
 
   lines.forEach((line, index) => {
     const weight: LineWeight = line.weight;
-    const wantBold = weight === 'bold';
-    const wantBig = weight === 'big';
+    const wantBold = weight === 'bold' || (large && weight === 'big');
+    const wantBig = !large && weight === 'big';
 
     if (wantBold !== bold) {
       out.push(...BOLD(wantBold));

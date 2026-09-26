@@ -16,9 +16,12 @@ import { discountBothWays, rupees } from '@/lib/money';
 import { PermissionDenied } from '@/lib/permissions';
 import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
+import { PAYMENT_NOTICE, PAYMENT_NOTICE_KINDS, noticesToRaise, paymentNoticeNote } from '@/lib/payment-notice';
 import {
   resolvePrinter,
+  routeItem,
   splitRound,
+  type ItemRoute,
   type RoundTicket,
   type RoutablePrinter,
   type RoutingDecision,
@@ -280,7 +283,7 @@ export async function placeRound(input: {
     // The category comes back in the SAME query the availability check already runs. Routing a
     // round to its station therefore costs nothing on the order path — which is the only reason
     // it is done here rather than by a worker reading the job back.
-    .select('id,name,price,food_type,available,closed_until,menu_category!inner(name,parent_id)')
+    .select('id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name,parent_id)')
     .eq('restaurant_id', restaurantId)
     .in('id', ids);
   if (itemErr) throw itemErr;
@@ -329,6 +332,28 @@ export async function placeRound(input: {
     return { kotCode: '', kotId: '', refused };
   }
 
+  /* THE ROUTING DECISION FOR EACH LINE, taken now and snapshot on the line (items 25, 26, 30).
+     A dish's own printer and station, and the default station for a dish nothing routes, are
+     read at this moment only - the job below, the composed ticket and any reprint read the
+     snapshot, so they route the line identically however the settings change afterwards. */
+  const [kotPrinters, routing] = await Promise.all([
+    routablePrinters(restaurantId, 'KOT'),
+    readSettings('routing', { defaultStation: '' } as { defaultStation: string }),
+  ]);
+  const snapshotOf = (item: (typeof accepted)[number]['item']): ItemRoute => {
+    const category = (item.menu_category as unknown as { name: string } | null)?.name ?? '';
+    const chosenPrinter = (item.printer_id as string | null) ?? null;
+    const chosenStation = ((item.station as string | null) ?? '').trim() || null;
+    if (chosenPrinter || chosenStation) return { printerId: chosenPrinter, station: chosenStation };
+    const d = routeItem({ category, route: null, printers: kotPrinters, defaultStation: routing.defaultStation });
+    // Only the default station is snapshot for a dish that chose nothing: a category route is
+    // already reproduced from the category name, exactly as before.
+    return d.rule === 'unrouted' && routing.defaultStation.trim() && d.printer
+      ? { printerId: d.printer.id, station: routing.defaultStation.trim() }
+      : { printerId: null, station: null };
+  };
+  const routes = accepted.map(({ item }) => snapshotOf(item));
+
   const code = await nextNumber('kot');
   const { data: kot, error: kotErr } = await db()
     .from('kot')
@@ -351,8 +376,10 @@ export async function placeRound(input: {
   const { error: lineErr } = await db()
     .from('kot_item')
     .insert(
-      accepted.map(({ line, item }) => ({
+      accepted.map(({ line, item }, i) => ({
         kot_id: kot.id as string,
+        route_printer_id: routes[i]?.printerId ?? null,
+        route_station: routes[i]?.station ?? null,
         menu_item_id: item.id as string,
         name: item.name as string,
         unit_price: item.price as number,
@@ -385,9 +412,10 @@ export async function placeRound(input: {
       kotId: kot.id as string,
       billId: input.billId,
       actor: input.actor,
-      items: accepted.map(({ item }) => ({
+      items: accepted.map(({ item }, i) => ({
         category: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
         foodType: item.food_type as FoodType,
+        route: routes[i] ?? null,
       })),
     }),
     audit({
@@ -637,6 +665,8 @@ export async function reprintKot(input: { kotId: string; actor: Actor }): Promis
 export interface PrintableItem {
   category: string;
   foodType: FoodType;
+  /** The line's routing snapshot (`kot_item.route_*`, item 25/26). Null routes by category. */
+  route?: ItemRoute | null;
 }
 
 /**
@@ -674,16 +704,20 @@ async function routablePrinters(restaurantId: string, purpose: string): Promise<
  * kitchen back to a station for a dish nobody is cooking any more.
  */
 export async function kotPrintableItems(kotId: string): Promise<PrintableItem[]> {
-  const { data: lines } = await db()
+  const { data: lines, error } = await db()
     .from('kot_item')
-    .select('menu_category_name,food_type,cancelled_at')
+    .select('menu_category_name,food_type,cancelled_at,route_printer_id,route_station')
     .eq('kot_id', kotId);
+  // A failed read is an error, never an empty round: `[]` sends a reprint down the bill path and
+  // prints nothing, silently (review, 25-Sep-2026).
+  if (error) throw error;
 
   return (lines ?? [])
     .filter((l) => l.cancelled_at === null)
     .map((l) => ({
       category: (l.menu_category_name as string) ?? '',
       foodType: l.food_type as FoodType,
+      route: { printerId: (l.route_printer_id as string | null) ?? null, station: (l.route_station as string | null) ?? null },
     }));
 }
 
@@ -1025,12 +1059,16 @@ export async function requestPayment(billId: string): Promise<void> {
   const bill = await getBill(billId);
   if (!bill) throw new Error('No such bill.');
   if (bill.status === 'closed') return; // already settled; asking again changes nothing
+  // Already waiting: a second tap raises no second pair of notifications (item 37).
+  if (bill.status === 'payment_requested') return;
 
   await db()
     .from('bill')
     .update({ status: 'payment_requested', payment_requested_at: new Date().toISOString() })
     .eq('id', billId)
     .neq('status', 'closed');
+
+  await raisePaymentNotices(bill);
 
   await audit({
     action: 'Payment requested',
@@ -1060,6 +1098,8 @@ export async function withdrawPaymentRequest(billId: string): Promise<void> {
   if (bill.status !== 'payment_requested') return; // nothing to withdraw; asking again changes nothing
 
   await db().from('bill').update({ status: 'open' }).eq('id', billId).eq('status', 'payment_requested');
+  // The request is off, so both notifications it raised are resolved (item 37).
+  await resolvePaymentNotices(billId, PAYMENT_NOTICE_KINDS);
 
   await audit({
     action: 'Payment request paused',
@@ -1189,6 +1229,8 @@ export async function closeBill(input: {
   });
 
   await queuePrint({ kind: 'Invoice', billId: input.billId, actor: input.actor });
+  // Paid: the counter's "Bill requested" is done. The captain's stays until the table is seen to.
+  await resolvePaymentNotices(input.billId, [PAYMENT_NOTICE.counter.kind]);
   return { payable: totals.payable };
 }
 
@@ -1259,6 +1301,8 @@ export async function freeTable(input: { tableId: string; actor: Actor }): Promi
   }
 
   if (bill) {
+    // Nothing left to see to or to bill: any payment notice this bill raised is done.
+    await resolvePaymentNotices(bill.id, PAYMENT_NOTICE_KINDS);
     // An empty bill is a bill that never happened. Voided rather than deleted: the code was
     // issued, it may be on a docket, and a number that vanishes is a number someone hunts for.
     await db().from('bill_table').update({ released_at: new Date().toISOString() }).eq('bill_id', bill.id);
@@ -1268,6 +1312,16 @@ export async function freeTable(input: { tableId: string; actor: Actor }): Promi
   // The departed party's phone, and the cart they never sent. Dropping the session is what makes
   // the next scan of this table a fresh welcome rather than someone else's order.
   await db().from('guest_session').delete().eq('table_id', input.tableId);
+
+  // Marked free by a person, so it IS free - not "needs clearing" (items 35/36, 25-Sep-2026). The
+  // release above used to leave the table waiting to be cleared, still showing Mark free.
+  const { error: clearErr } = await db()
+    .from('bill_table')
+    .update({ cleared_at: new Date().toISOString(), cleared_by: input.actor.label })
+    .eq('table_id', input.tableId)
+    .not('released_at', 'is', null)
+    .is('cleared_at', null);
+  if (clearErr) throw clearErr;
 
   await audit({
     action: 'Table freed by hand',
@@ -1838,4 +1892,47 @@ export async function detachTableFromBill(input: {
   });
 
   return { newBillCode: code, movedRounds: movedCount };
+}
+
+/**
+ * Raise the captain's and the bill counter's notification for a payment request (item 37) -
+ * each only if one of its kind is not already open for this bill.
+ */
+async function raisePaymentNotices(bill: Bill): Promise<void> {
+  const restaurantId = await currentRestaurantId();
+  const { data: row } = await db().from('bill').select('host_table_id').eq('id', bill.id).maybeSingle();
+  const tableId = (row?.host_table_id as string | null) ?? null;
+  if (!tableId) return;
+  const { data: open, error } = await db()
+    .from('table_request')
+    .select('kind')
+    .eq('bill_id', bill.id)
+    .is('done_at', null)
+    .in('kind', PAYMENT_NOTICE_KINDS as string[]);
+  if (error) throw error;
+  const toRaise = noticesToRaise((open ?? []).map((r) => r.kind as string));
+  if (toRaise.length === 0) return;
+  const payable = rupees(billTotals(bill).payable);
+  // One row at a time, and a duplicate is not an error: two taps racing past the read above meet
+  // the partial unique index (migration 20260925110000) and the second simply does nothing.
+  for (const a of toRaise) {
+    const { error: insErr } = await db().from('table_request').insert({
+      restaurant_id: restaurantId,
+      table_id: tableId,
+      bill_id: bill.id,
+      kind: PAYMENT_NOTICE[a].kind,
+      note: paymentNoticeNote(a, bill.code, payable),
+    });
+    if (insErr && insErr.code !== '23505') throw insErr;
+  }
+}
+
+async function resolvePaymentNotices(billId: string, kinds: readonly string[]): Promise<void> {
+  const { error } = await db()
+    .from('table_request')
+    .update({ done_at: new Date().toISOString() })
+    .eq('bill_id', billId)
+    .is('done_at', null)
+    .in('kind', kinds as string[]);
+  if (error) throw error;
 }

@@ -1,7 +1,7 @@
 /**
  * sub-menus - a category may sit under ONE top-level category (24-Sep list, I3).
  *
- * The rule lives in the database (`menu_category_one_level`, migration 20260925090000); this is
+ * The rule lives in the database (`menu_category_one_level`, migration 20260925120000); this is
  * the same rule, in the same words, so the Menu screen offers only the choices the database will
  * accept and the owner reads a sentence rather than a trigger's error. Pure, so it runs in a unit
  * test and on both sides of the route.
