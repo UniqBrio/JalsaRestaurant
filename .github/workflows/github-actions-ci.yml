@@ -11,8 +11,10 @@ on:
   push: { branches: [main, dev] }
   pull_request:
 
+# Both workflows are named `CI`, so a group keyed on the workflow name made each cancel the
+# other's run on every push (observed on UniqBrio/JalsaRestaurant#11). Each has its own group.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: framework-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

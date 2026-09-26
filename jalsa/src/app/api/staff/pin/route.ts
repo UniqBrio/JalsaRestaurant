@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { chooseOwnPin, currentStaff } from '@/lib/db/auth';
-import { writeStaffSession } from '@/lib/sessions';
+import { surfaceFrom, writeStaffSession } from '@/lib/sessions';
 
 /**
  * Replacing an issued PIN with one the person chose.
@@ -22,12 +22,14 @@ import { writeStaffSession } from '@/lib/sessions';
  *   screen would leave someone locked out of a shift with nothing to act on.
  */
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const input = await body<{ current?: string; next?: string; skip?: boolean; surface?: string }>(req);
+  // The surface whose "choose your own PIN" screen this is (G2): only its session is read and
+  // rewritten. The other surface re-reads the stored flag on its next request.
+  const surface = surfaceFrom(input.surface);
+  const staff = await currentStaff(surface);
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in first.' });
   }
-
-  const input = await body<{ current?: string; next?: string; skip?: boolean }>(req);
 
   // "Skip for now" - this SESSION proceeds; the stored credential is untouched.
   //
@@ -37,7 +39,7 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   // the difference between "let me in, I am testing" and "1234 is now this account's password
   // forever" - and on a public URL the second one is the whole risk KL-4 exists to bound.
   if (input.skip === true) {
-    await writeStaffSession({ ...staff, provisional: false, issuedAt: Math.floor(Date.now() / 1000) });
+    await writeStaffSession(surface, { ...staff, provisional: false, issuedAt: Math.floor(Date.now() / 1000) });
     return ok({ skipped: true });
   }
 
@@ -71,6 +73,6 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     });
   }
 
-  await writeStaffSession({ ...staff, provisional: false, issuedAt: Math.floor(Date.now() / 1000) });
+  await writeStaffSession(surface, { ...staff, provisional: false, issuedAt: Math.floor(Date.now() / 1000) });
   return ok({ changed: true });
 });

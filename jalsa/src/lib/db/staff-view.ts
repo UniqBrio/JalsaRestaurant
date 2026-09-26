@@ -117,6 +117,8 @@ export interface StaffPayload {
     available: boolean;
   }>;
   categories: string[];
+  /** Every category with its id, for a dish added from the ordering screen (E1). */
+  menuCategories: Array<{ id: string; name: string }>;
   /** What this person may do tonight, as the design's own list of sentences. */
   myTables: string[];
 }
@@ -275,6 +277,7 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       available: i.available,
     })),
     categories: categories.filter((c) => c.count > 0).map((c) => c.name),
+    menuCategories: categories.map((c) => ({ id: c.id, name: c.name })),
     myTables: [...mine].sort(),
   };
 }

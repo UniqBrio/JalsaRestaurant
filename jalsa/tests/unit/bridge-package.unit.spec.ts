@@ -288,3 +288,14 @@ test('the packager cannot skip the check: the command refuses (exit 3) on a scri
   expect(at).toBeLessThan(main.indexOf('assemble({'));
   expect(at).toBeLessThan(main.indexOf('writeFileSync(join(dist, PACKAGE_FILE)'));
 });
+
+/* ── Appended 25-Sep-2026: the ANSI view must not depend on the runtime's ICU ─────────────────
+   CI on main runs Node 20, whose small-ICU `TextDecoder('windows-1252')` is Latin-1: 0x86 came
+   back as U+0086 instead of the dagger, the ’ vanished, and THE REGRESSION rung above went red on
+   Node 20 while passing on Node 22. */
+
+test('the ANSI view maps 0x80-0x9F as Windows-1252 itself, not through TextDecoder', () => {
+  expect(ansiView(Uint8Array.from([0x80, 0x86, 0x92, 0x97, 0x99, 0x9f]))).toBe('€†’—™Ÿ');
+  expect(ansiView(Uint8Array.from([0x41, 0xe2, 0xff, 0x81]))).toBe('Aâÿ\u0081');
+  expect(read('bridge/package/powershell-lint.ts')).not.toContain("TextDecoder('windows-1252')");
+});

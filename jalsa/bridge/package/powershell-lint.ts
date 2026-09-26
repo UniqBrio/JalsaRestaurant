@@ -193,23 +193,20 @@ export function lintPowerShell(text: string): LintResult {
  * shipped, and is what the regression test exercises.
  */
 export function ansiView(utf8: Uint8Array): string {
-  // Decoded by hand, not by `TextDecoder('windows-1252')`: what that returns for 0x80-0x9F
-  // depends on the Node build's ICU (Node 20 / ICU 76 gives C1 controls, Node 22 / ICU 78 the
-  // cp1252 glyphs), which made this view - and the regression test over it - differ between
-  // the CI runner and a developer's machine (26-Sep-2026). Bytes below 0x80 and from 0xA0 are
-  // the same code point in both; only the 32 in between differ, and they are spelled out here.
   let out = '';
-  for (const b of utf8) out += b >= 0x80 && b <= 0x9f ? (CP1252_HIGH[b] ?? String.fromCharCode(b)) : String.fromCharCode(b);
+  for (const b of utf8) out += b >= 0x80 && b <= 0x9f ? CP1252_80_9F[b - 0x80] : String.fromCharCode(b);
   return out;
 }
 
-/** Windows-1252, 0x80-0x9F, per the WHATWG index. The five undefined bytes map to themselves. */
-const CP1252_HIGH: Record<number, string> = {
-  0x80: '\u20ac', 0x82: '\u201a', 0x83: '\u0192', 0x84: '\u201e', 0x85: '\u2026', 0x86: '\u2020', 0x87: '\u2021',
-  0x88: '\u02c6', 0x89: '\u2030', 0x8a: '\u0160', 0x8b: '\u2039', 0x8c: '\u0152', 0x8e: '\u017d',
-  0x91: '\u2018', 0x92: '\u2019', 0x93: '\u201c', 0x94: '\u201d', 0x95: '\u2022', 0x96: '\u2013', 0x97: '\u2014',
-  0x98: '\u02dc', 0x99: '\u2122', 0x9a: '\u0161', 0x9b: '\u203a', 0x9c: '\u0153', 0x9e: '\u017e', 0x9f: '\u0178',
-};
+/**
+ * Windows-1252 differs from Latin-1 only in 0x80-0x9F. Spelled out rather than asking
+ * TextDecoder for the windows-1252 label, because Node 20's small-ICU build decodes it as Latin-1
+ * (0x86 -> U+0086, not the dagger), which hid the very quote this view exists to expose and
+ * turned CI red on Node 20 while Node 22 passed. The five undefined bytes map to themselves.
+ */
+const CP1252_80_9F =
+  '\u20ac\u0081\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u008d\u017d\u008f' +
+  '\u0090\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u009d\u017e\u0178';
 
 export const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 

@@ -1,7 +1,7 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { Grants } from '@/lib/permissions';
-import { readStaffSession, writeStaffSession, type StaffSession } from '@/lib/sessions';
+import { readStaffSession, writeStaffSession, type StaffSession, type Surface } from '@/lib/sessions';
 import { grantsFor } from './queries';
 import type { Actor } from './mutations';
 
@@ -24,7 +24,7 @@ export interface SignedInStaff extends StaffSession {
   grants: Grants;
 }
 
-export async function signInWithPin(pin: string): Promise<StaffSession | null> {
+export async function signInWithPin(pin: string, surface: Surface): Promise<StaffSession | null> {
   if (!/^\d{4}$/.test(pin)) return null;
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: pin });
@@ -43,13 +43,13 @@ export async function signInWithPin(pin: string): Promise<StaffSession | null> {
     provisional: row.provisional === true,
     issuedAt: Math.floor(Date.now() / 1000),
   };
-  await writeStaffSession(session);
+  await writeStaffSession(surface, session);
   return session;
 }
 
-/** The signed-in person for this request, with their live grants. Null when nobody is. */
-export async function currentStaff(): Promise<SignedInStaff | null> {
-  const session = await readStaffSession();
+/** The person signed in on this surface, with their live grants. Null when nobody is. */
+export async function currentStaff(surface: Surface): Promise<SignedInStaff | null> {
+  const session = await readStaffSession(surface);
   if (!session) return null;
 
   // A person removed or deactivated mid-shift must lose access on their next request, not on

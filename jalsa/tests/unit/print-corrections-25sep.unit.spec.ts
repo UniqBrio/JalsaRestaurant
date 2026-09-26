@@ -66,7 +66,9 @@ test('item 3: the ticket reads a round in cart order - line_seq breaks the creat
 
 test('item 3: the bill read sorts each round by line_seq and rounds by time, not by code as text', () => {
   const q = code('src/lib/db/queries.ts');
-  expect(q).toContain('menu_category_name, line_seq )');
+  /* SUPERSEDED 26-Sep-2026 (merge with the sub-menus branch): previously 'menu_category_name, line_seq )'.
+     The same select now also reads the sub-menu snapshot between the two; line_seq is still read. */
+  expect(q).toContain('menu_category_name, menu_parent_category_name, line_seq )');
   expect(q).toContain('items: sortByLineSeq(');
   expect(q).toContain('a.createdAt.localeCompare(b.createdAt) || a.code.localeCompare(b.code)');
 });

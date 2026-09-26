@@ -71,7 +71,11 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
       )
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
-    db().from('menu_category').select('id,name,sort').eq('restaurant_id', restaurantId).order('sort', { ascending: true }),
+    db()
+      .from('menu_category')
+      .select('id,name,sort,parent_id')
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
   ]);
   if (error) throw error;
 
@@ -105,13 +109,14 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
   for (const it of items) {
     const seen = byCat.get(it.categoryId);
     if (seen) seen.count += 1;
-    else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1 });
+    else byCat.set(it.categoryId, { id: it.categoryId, name: it.category, sort: 0, count: 1, parentId: null });
   }
   const categories: MenuCategory[] = (cats ?? []).map((c) => ({
     id: c.id as string,
     name: c.name as string,
     sort: (c.sort as number) ?? 0,
     count: byCat.get(c.id as string)?.count ?? 0,
+    parentId: (c.parent_id as string | null) ?? null,
   }));
 
   return { items, categories };
@@ -134,7 +139,7 @@ const BILL_SELECT = `
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name, line_seq ),
+    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name, menu_parent_category_name, line_seq ),
     print_job (
       id, status, attempts, is_reprint, last_error,
       printer_id, printer_name, station, routing_rule, redirected_from_job_id
@@ -239,6 +244,7 @@ function shapeBill(row: Record<string, unknown>): Bill {
           cancelledAt: (i.cancelled_at as string) ?? null,
           cancelReason: (i.cancel_reason as string) ?? '',
           category: (i.menu_category_name as string) ?? '',
+          parentCategory: (i.menu_parent_category_name as string) ?? '',
         })),
       };
     })

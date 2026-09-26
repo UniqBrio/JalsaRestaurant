@@ -18,6 +18,110 @@ FAIL-FIRST: observed failing on Node 20.19.0 before the fix (CI run 27, and repr
 
 ---
 
+## Gate run - 2026-09-26 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 53.9s total - slowest G7 Unit + pure specs (32.8s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (60ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (56ms)
+- **G3 Theme assets present per theme** - PASS (55ms)
+- **G4 No hard-coded colours** - PASS (81ms)
+- **G5 Types** - PASS (2.7s)
+- **G6 Lint** - PASS (14.7s)
+- **G7 Unit + pure specs** - PASS (32.8s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.4s)
+- **G11 Wide tables are configurable** - PASS (58ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 37.9s total - slowest G7 Unit + pure specs (19.3s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (55ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (60ms)
+- **G3 Theme assets present per theme** - PASS (54ms)
+- **G4 No hard-coded colours** - PASS (80ms)
+- **G5 Types** - PASS (2.5s)
+- **G6 Lint** - PASS (12.5s)
+- **G7 Unit + pure specs** - PASS (19.3s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (63ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.2s)
+- **G11 Wide tables are configurable** - PASS (55ms)
+- **G12 Installable as an application** - PASS (73ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Application run - jalsa - 2026-09-25 - review fixes (G2, E1, I3)
+
+Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-027 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).
+FAIL-FIRST: against the pre-fix src/: session-surfaces + sub-menus + combobox-migration **3 failed**, 26 passed; new-dish (rule module kept) **3 failed**, 5 passed; after: all pass. Specs updated in place with dated SUPERSEDED notes (added in this same unpushed branch).
+NOT CHANGED, raised with the owner: "Skip for now" on choose-PIN has no effect - `currentStaff` re-reads `pin_provisional` from the row on every request (since 10-Sep, 08d2dc2), so the cookie the skip rewrites is not what the pages gate on; fixing it needs a decision against guardrail 5. The one-level sub-menu trigger takes no lock: two owners re-parenting in opposite directions at the same instant could make two levels (low; a follow-up migration with an advisory lock would close it). `listMenu` ignores the category read's error (pre-existing).
+
+---
+
+## Gate run - 2026-09-25 - VERDICT: BLOCKED
+
+Steps: 11 pass, 0 fail, 1 blocked.
+Time: 50.2s total - slowest G7 Unit + pure specs (31.3s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (49ms)
+- **G3 Theme assets present per theme** - PASS (46ms)
+- **G4 No hard-coded colours** - PASS (60ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (12.8s)
+- **G7 Unit + pure specs** - PASS (31.3s)
+- **G8 Functional / integration** - BLOCKED (-) - no database reachable from this container: CONNECT to *.supabase.co refused (403)
+- **G9 Automation addressability** - PASS (53ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (71ms)
+- **G12 Installable as an application** - PASS (61ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
+## Application run - jalsa - 2026-09-25 - I3 sub-menus and sales by menu
+
+FAIL-FIRST: jalsa/tests/unit/sub-menus.unit.spec.ts - `parentChoices` injected to offer sub-menus as parents and reverted: **1 failed**; against main's mutations, queries, routes and screens (rule module and migration kept): **3 failed** (snapshot, report roll-up, the owner's panel and verb); after: 7 passed. report-gst-split and print-assignment unchanged and passing (the single walk and `catKey` line are kept).
+Migration `20260925120000_jalsa_menu_sub_categories.sql`: applied to TEST (uxmyomxtosjlkvjxnvpy), trigger exercised in a rolled-back DO block (accepted: sub-menu under a top-level; refused: under a sub-menu, under itself, a parent moved under another, deleting a parent; 0 rows left behind), then to LIVE (yxgxmbyilpivbmeemqkp): both columns and the trigger present, 0 sub-menus, 57 order lines untouched. The code reading the new columns is committed only after that - the 22-Sep lesson.
+Not run here: the screens in a browser (G8). Needs a tester: Menu → Sub-menus → put a category under another → close a bill with a dish from it → Reports shows "What sold by menu" with the sub-menu counted under its menu.
+
+---
+
+## Application run - jalsa - 2026-09-25 - E1 add a dish from the ordering screen
+
+FAIL-FIRST: jalsa/tests/unit/new-dish.unit.spec.ts - `dishKey` injected to keep case and reverted: **1 failed**; against main's routes, mutations, screens and staff view (the new rule module kept): **3 failed** (server write, both route verbs, both screens); after: 7 passed. The rule cases for the refusal sentences are new surface: NOT OBSERVED FAILING beyond the injection above.
+No migration: the dish is an ordinary `menu_item` row written by `upsertMenuItem`; `menu_item_name_unique` (23505) is answered with the existing dish. RBAC_MATRIX: one row (same `menu.item_edit`).
+Not run here: the screens in a browser (G8 - no database reachable). Needs a tester: Add items → search an unlisted dish → "+ Add ... to the menu" → it appears in the list with 1 in the round, without a reload.
+
+---
+
+## Application run - jalsa - 2026-09-25 - G2 separate owner and staff sessions (RC-026)
+
+FAIL-FIRST: jalsa/tests/unit/session-surfaces.unit.spec.ts - against main's src/: **5 failed** (no owner cookie, argument-less readers, pages, routes and clients not surface-specific); after: 5 passed; pin-and-attribution still 7 passed (its sign-in audit case now reads the surface, not the Referer).
+Functional sign-in specs stub `**/api/staff/session` and match `{ pin }` with toMatchObject, so the added `surface` field leaves them valid (not run here: G8, no database).
+
+---
+
+## Application run - jalsa - 2026-09-25 - CI red on Node 20 (RC-025)
+
+FAIL-FIRST: jalsa/tests/unit/bridge-package.unit.spec.ts under Node 20.20.2 (`npx node@20`, CI's pinned major) against main's `ansiView`: **1 failed** (THE REGRESSION rung - the `’` never appears), 16 passed; with the Windows-1252 table: 17 passed on Node 20 and 18 passed on Node 22 (the appended rung included). The appended rung pins the table and forbids the ICU-dependent decoder.
+Workflow concurrency: both files are named `CI`; each now has its own group. Not runnable here (GitHub Actions only) - verified on the next push's checks.
 ## Run - 2026-09-25 - gate, read honestly (25-Sep correction list, final)
 
 The two gate reports below say G8 FAIL. What actually ran, with the image's Chromium (`PLAYWRIGHT_CHROMIUM_PATH`, KL-3) and `npm run dev` on :3000: **80 functional cases passed** - every journey mocked at the API boundary (sign-in, keyboard parity, degraded screen, owner and captain screens); **16 failed = 4 specs x 4 viewports**, all database-bound: `reachability` (needs the seeded test DB), `guest-journey`, `closure-upsell-tip`, `guest-total-visibility` (all fail on their first line, `/t/<table>` showing the designed `unreachable-guest` screen); **32 did not run** (serial files after that first failure). Cause, verified: the container's egress proxy denies `*.supabase.co` (connect_rejected, organization policy), so no server started here can reach either project - the same class every 24-Sep run recorded as BLOCKED. The first report below (144 failed) is the run before the Chromium override, where no browser launched at all. G1-G7, G9-G12: PASS.

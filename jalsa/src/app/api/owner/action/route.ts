@@ -18,8 +18,12 @@ import {
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
+import { newDishProblem, type NewDish } from '@/lib/new-dish';
 import {
   addCategory,
+  addDishWhileOrdering,
+  setCategoryParent,
+  SubMenuRefused,
   setItemRouting,
   uploadImage,
   deleteExpense,
@@ -83,6 +87,8 @@ type Action =
       printerId?: string | null;
     }
   | { action: 'add-category'; name: string; printerId?: string | null }
+  | ({ action: 'add-dish' } & NewDish)
+  | { action: 'set-category-parent'; categoryId: string; parentId: string | null }
   | { action: 'set-item-routing'; itemIds: string[]; all?: boolean; station?: string | null; printerId?: string | null }
   | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
@@ -158,7 +164,7 @@ type Action =
  * this file cannot accidentally become a second, more generous, copy of the matrix.
  */
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
   const actor = actorFor(staff);
   const input = await body<Action>(req);
@@ -273,6 +279,32 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           actor,
         })
       );
+
+    case 'add-dish': {
+      // A dish the menu does not list yet, added from the ordering screen (E1): the Menu
+      // section's own write and grant; a duplicate name comes back as the existing dish.
+      const problem = newDishProblem(input);
+      if (problem) return fail(400, { code: 'validation', message: problem });
+      return ok(
+        await addDishWhileOrdering({
+          name: input.name,
+          price: input.price,
+          categoryId: input.categoryId,
+          foodType: input.foodType,
+          actor,
+        })
+      );
+    }
+
+    case 'set-category-parent':
+      // Sub-menus (I3). One level; the rule is the database's, stated first in words.
+      try {
+        await setCategoryParent({ categoryId: input.categoryId, parentId: input.parentId ?? null, actor });
+      } catch (err) {
+        if (err instanceof SubMenuRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
+      return ok({ done: true });
 
     case 'add-category': {
       // The id comes back so the Add-item combobox can select the category it just created,

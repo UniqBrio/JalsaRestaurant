@@ -283,10 +283,30 @@ export async function placeRound(input: {
     // The category comes back in the SAME query the availability check already runs. Routing a
     // round to its station therefore costs nothing on the order path — which is the only reason
     // it is done here rather than by a worker reading the job back.
-    .select('id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name)')
+    .select('id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name,parent_id)')
     .eq('restaurant_id', restaurantId)
     .in('id', ids);
   if (itemErr) throw itemErr;
+
+  /* The sub-menu's parent, snapshotted with the category (I3), so a report reads what the dish
+     sold UNDER even after the menu is reorganised. One extra read, and only when a dish in the
+     round sits in a sub-menu. */
+  const parentIds = [
+    ...new Set(
+      (items ?? [])
+        .map((i) => (i.menu_category as unknown as { parent_id: string | null } | null)?.parent_id ?? null)
+        .filter((id): id is string => id !== null)
+    ),
+  ];
+  const parentName = new Map<string, string>();
+  if (parentIds.length > 0) {
+    const { data: parents, error: parentErr } = await db()
+      .from('menu_category')
+      .select('id,name')
+      .in('id', parentIds);
+    if (parentErr) throw parentErr;
+    for (const p of parents ?? []) parentName.set(p.id as string, p.name as string);
+  }
 
   const now = Date.now();
   const byId = new Map((items ?? []).map((i) => [i.id as string, i]));
@@ -369,6 +389,9 @@ export async function placeRound(input: {
         // taken off the menu. Joined instead, a reprint would resolve differently from the
         // original and land at the wrong station.
         menu_category_name: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
+        menu_parent_category_name:
+          parentName.get((item.menu_category as unknown as { parent_id: string | null } | null)?.parent_id ?? '') ??
+          '',
         qty: line.qty,
       }))
     );

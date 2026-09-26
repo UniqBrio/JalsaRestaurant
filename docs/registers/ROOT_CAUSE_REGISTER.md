@@ -59,6 +59,93 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-027 — RC-026's split left the owner's pre-deploy sessions valid on the staff app
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
+
+**Symptom** — found in review before push: RC-026 says "anyone signed in to the owner console signs
+in once more", but the danger ran the other way.
+
+**Root cause** — RC-026 kept the staff app's cookie name `jalsa_staff` so captains stayed signed in.
+Every owner sign-in BEFORE the split had been written into that same cookie, so a captain's phone
+the owner had used would still open /staff as the owner for up to 14 hours after the deploy, and
+the owner console's new sign-out clears only `jalsa_owner`.
+
+**Fix** — the staff app's cookie is renamed `jalsa_staff_app`; the old `jalsa_staff` is honoured by
+nobody and expires on its own. Everyone, on both surfaces, signs in once after the deploy.
+**Files** — `jalsa/src/lib/cookie-names.ts`, `jalsa/tests/unit/session-surfaces.unit.spec.ts`.
+
+**How to verify** — `session-surfaces.unit.spec.ts` ("each surface has its own cookie"): no surface
+uses `jalsa_staff`.
+
+**Recurrence risk** — any rename of a session's MEANING must rename its cookie; a cookie whose
+contents change meaning in place carries old grants forward.
+
+**Prevention** — the spec above. **Process check** — yes: the review rung caught it before push.
+
+---
+
+## RC-026 — One sign-in opened both the owner console and the staff app (closes RC-017's open risk)
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
+
+**Symptom** — a round placed from a captain's phone was recorded against the owner (RC-017, KOT-129).
+
+**Root cause** — `/owner` and `/staff` read the same `jalsa_staff` cookie, so signing in on either
+signed the handset in on both, and the owner's name travelled to the floor with the phone.
+RC-017 recorded who signed in where; it left the shared session itself in place.
+
+**Fix** — the owner decided "separate the sessions". The owner console has its own cookie
+(`jalsa_owner`); the staff app keeps `jalsa_staff`, so captains already signed in stay signed in.
+`readStaffSession`, `writeStaffSession`, `clearStaffSession`, `signInWithPin` and `currentStaff`
+take a required `surface`; every `/api/owner/*` route reads the owner session and every
+`/api/staff/*` floor route the staff session. The keypad, choose-PIN and sign-out send the
+surface they belong to. The sign-in audit now names that surface instead of the Referer.
+Consequence on deploy: anyone signed in to the owner console signs in once more.
+
+**Files** — `jalsa/src/lib/{cookie-names,sessions}.ts`, `jalsa/src/lib/db/auth.ts`,
+`jalsa/src/app/{owner,staff}/page.tsx`, `jalsa/src/app/api/owner/**`, `jalsa/src/app/api/staff/**`,
+`jalsa/src/features/staff/{PinSignIn,ChoosePin,StaffApp}.tsx`, `jalsa/src/features/owner/OwnerConsole.tsx`.
+
+**How to verify** — `jalsa/tests/unit/session-surfaces.unit.spec.ts`. By hand: sign in on
+/owner, open /staff on the same browser - the keypad shows.
+
+**Recurrence risk** — a new route reading a session must name its surface; there is no default,
+so the compiler asks. The spec scans all of `src/` for an argument-less reader.
+
+**Prevention** — `session-surfaces.unit.spec.ts` ("no reader anywhere asks for whichever session
+is there").
+
+**Process check** — no.
+
+---
+
+## RC-025 — CI on main went red on Node 20 while every local run on Node 22 passed
+**Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** print bridge packaging, CI
+
+**Symptom** — the `jalsa` job on UniqBrio/JalsaRestaurant#11 and on main failed in
+`bridge-package.unit.spec.ts` ("THE REGRESSION ... fails at 125:97"); `gate` and
+`self-tests-windows` showed as cancelled on the same pushes.
+
+**Root cause** — two. (1) `ansiView()` decoded with `TextDecoder('windows-1252')`. Node 20's
+small-ICU build treats that label as Latin-1, so byte 0x92 became U+0092 instead of `’` and the
+very quote the view exists to expose disappeared; Node 22 decodes it correctly, and CI pins Node 20.
+(2) Both workflow files are named `CI` and keyed their concurrency group on the workflow name, so
+each push's second workflow cancelled the first's run.
+
+**Fix** — `ansiView` maps 0x80-0x9F through an explicit Windows-1252 table (the only range where it
+differs from Latin-1). Each workflow has its own concurrency group.
+
+**Files** — `jalsa/bridge/package/powershell-lint.ts`, `.github/workflows/ci.yml`,
+`.github/workflows/github-actions-ci.yml`, `jalsa/tests/unit/bridge-package.unit.spec.ts`.
+
+**How to verify** — `npx -y node@20 node_modules/@playwright/test/cli.js test
+tests/unit/bridge-package.unit.spec.ts` from `jalsa/` (with a unit-only config): all pass.
+
+**Recurrence risk** — `grep -rn "TextDecoder(" jalsa/src jalsa/bridge`: no other non-UTF-8 label.
+
+**Prevention** — the appended rung "the ANSI view maps 0x80-0x9F as Windows-1252 itself" pins the
+mapping and forbids the ICU-dependent decoder.
+
+**Process check** — No: local runs used the container's Node, not CI's; one line, done.
 ## RC-024 — A payment request reached the counter and the captain as one row nobody was told was theirs; the shared bill could be an earlier copy
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** guest payment, owner Payments, WhatsApp share
 

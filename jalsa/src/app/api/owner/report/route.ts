@@ -46,7 +46,7 @@ function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxL
 export const dynamic = 'force-dynamic';
 
 export const GET = handler(async (request: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to open the console.' });
   }
@@ -115,7 +115,16 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
   /* What sold, by the category it sold under. The same walk as the products map below and in
      the same loop on purpose: two walks over the same lines is how a category total ends up
      disagreeing with the dishes listed inside it. */
-  const categories = new Map<string, { category: string; qty: number; revenue: number; dishes: Set<string> }>();
+  const categories = new Map<
+    string,
+    { category: string; parent: string; qty: number; revenue: number; dishes: Set<string> }
+  >();
+  /* The same sales rolled up to the top-level menu (I3): a sub-menu's lines count under the menu
+     it sat under when the round was placed, and a top-level category under itself. Same walk. */
+  const menus = new Map<
+    string,
+    { menu: string; qty: number; revenue: number; dishes: Set<string>; subMenus: Set<string> }
+  >();
   for (const b of bills) {
     for (const k of b.kots) {
       if (k.status === 'cancelled') continue;
@@ -124,11 +133,33 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         const line = i.unitPrice * i.qty;
         // A round placed before the category was snapshotted still sold something.
         const catKey = i.category || 'Uncategorised';
-        const cat = categories.get(catKey) ?? { category: catKey, qty: 0, revenue: 0, dishes: new Set<string>() };
+        const parent = i.parentCategory;
+        // Keyed by parent AND name: "Veg" under Starters is not "Veg" under Mains.
+        const rowKey = `${parent}\u0000${catKey}`;
+        const cat = categories.get(rowKey) ?? {
+          category: catKey,
+          parent,
+          qty: 0,
+          revenue: 0,
+          dishes: new Set<string>(),
+        };
         cat.qty += i.qty;
         cat.revenue += line;
         cat.dishes.add(i.name);
-        categories.set(catKey, cat);
+        categories.set(rowKey, cat);
+        const menuKey = parent || catKey;
+        const menu = menus.get(menuKey) ?? {
+          menu: menuKey,
+          qty: 0,
+          revenue: 0,
+          dishes: new Set<string>(),
+          subMenus: new Set<string>(),
+        };
+        menu.qty += i.qty;
+        menu.revenue += line;
+        menu.dishes.add(i.name);
+        if (parent) menu.subMenus.add(catKey);
+        menus.set(menuKey, menu);
         const seen = products.get(i.name) ?? { name: i.name, qty: 0, revenue: 0 };
         seen.qty += i.qty;
         // The price the round was PLACED at, not today's menu price. A dish repriced mid-month
@@ -170,7 +201,16 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     dailyLimit: MAX_DAILY_POINTS,
     products: [...products.values()].sort((a, b) => b.revenue - a.revenue),
     categories: [...categories.values()]
-      .map((c) => ({ category: c.category, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))
+      .map((c) => ({ category: c.category, parent: c.parent, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))
+      .sort((a, b) => b.revenue - a.revenue),
+    menus: [...menus.values()]
+      .map((m) => ({
+        menu: m.menu,
+        qty: m.qty,
+        revenue: m.revenue,
+        dishes: m.dishes.size,
+        subMenus: m.subMenus.size,
+      }))
       .sort((a, b) => b.revenue - a.revenue),
     orders: bills.map((b, i) => {
       const t = rangeBills[i]!;

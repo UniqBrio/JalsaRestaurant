@@ -22,7 +22,7 @@ import { restaurantLogo } from '@/lib/db/restaurant-logo';
  *   meal — so the card and the phone can never send a happy guest to two different pages.
  */
 export const GET = handler(async (): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in to view a table code.' });
   // The same grant as the table codes: this is one of the printable codes, not a new kind.
   if (!staff.grants.can('tables.qr')) {

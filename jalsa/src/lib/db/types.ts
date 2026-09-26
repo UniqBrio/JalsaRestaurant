@@ -35,6 +35,8 @@ export interface MenuCategory {
   name: string;
   sort: number;
   count: number;
+  /** The top-level category this one is a sub-menu of (I3), or null for a top-level one. */
+  parentId: string | null;
 }
 
 export interface KotItem {
@@ -56,6 +58,9 @@ export interface KotItem {
    * dropping the line - a sale that happened is not a sale that can be hidden.
    */
   category: string;
+  /** The top-level menu that category sat under (a sub-menu, I3), snapshotted the same way. Empty
+   *  for a top-level category and for rounds placed before 25-Sep-2026. */
+  parentCategory: string;
 }
 
 export interface Kot {

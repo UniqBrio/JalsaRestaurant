@@ -9,6 +9,7 @@ import { Sheet } from '@/components/ui/sheet';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { FOOD_TYPE, type FoodType } from '@/lib/status';
+import { parentChoices } from '@/lib/sub-menus';
 import { ImagePicker } from '@/components/ui/image-picker';
 import { defaultPrinter } from '@/lib/print-routing';
 import type { OwnerSectionProps } from '../OwnerConsole';
@@ -54,6 +55,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
 
   const canEdit = data.grants.includes('menu.item_edit');
   const canToggle = data.grants.includes('menu.availability');
+  const canManageCategories = data.grants.includes('menu.category');
 
   const closed = data.menu.filter((m) => !m.available);
 
@@ -348,6 +350,10 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
         ) : null}
       </Sheet>
 
+      {canManageCategories && data.categories.length > 1 ? (
+        <SubMenusPanel data={data} send={send} runBusy={runBusy} busy={busy} />
+      ) : null}
+
       <Sheet
         open={editing !== null}
         onOpenChange={(o) => !o && setEditing(null)}
@@ -533,3 +539,83 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
 
 /** A small re-export so the settings screen can reuse the same switch styling. */
 export { Toggle };
+
+/**
+ * Sub-menus (24-Sep list, I3): put a category under a top-level one. Reports then show sales by
+ * menu with its sub-menus rolled up, and each category beside the menu it sits under.
+ *
+ * Only the choices the database accepts are offered (`parentChoices`): a top-level category, not
+ * itself, and nothing for a category that already has sub-menus of its own.
+ */
+function SubMenusPanel({ data, send, runBusy, busy }: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'>) {
+  const toast = useToast();
+  const byId = new Map(data.categories.map((c) => [c.id, c]));
+  const move = (categoryId: string, name: string, parentId: string | null) => {
+    // Choosing where it already sits changes nothing, and must not write an audit line saying so.
+    if ((byId.get(categoryId)?.parentId ?? null) === parentId) return;
+    runBusy(async () => {
+      await send('/api/owner/action', { action: 'set-category-parent', categoryId, parentId });
+      toast.show(
+        parentId
+          ? `${name} is now a sub-menu of ${byId.get(parentId)?.name ?? 'that menu'}`
+          : `${name} is a top-level menu again`,
+        { tone: 'success' }
+      );
+    });
+  };
+  return (
+    <section data-testid="owner-sub-menus">
+      <SectionLabel>Sub-menus</SectionLabel>
+      <Card className="flex flex-col gap-3 p-3">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+          Put a category under another to make it a sub-menu, for example Biryani under Main course. Reports then show
+          each menu’s sales with its sub-menus included. One level only.
+        </p>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {data.categories.map((c) => {
+            const choices = parentChoices(data.categories, c.id);
+            const children = data.categories.filter((k) => k.parentId === c.id);
+            return (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="min-w-0 flex-1 type-body font-semibold">{c.name}</span>
+                {children.length > 0 ? (
+                  <span className="type-caption text-[var(--text-muted)]" data-testid={`owner-sub-menus-of-${c.id}`}>
+                    Sub-menus: {children.map((k) => k.name).join(', ')}
+                  </span>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-2">
+                    {/* A category is an id, so it is picked with the one picker (the combobox
+                        standardisation), never a static select. */}
+                    <span className="w-[14rem]">
+                      <Combobox
+                        testId={`owner-sub-menu-parent-${c.id}`}
+                        ariaLabel={`${c.name} sits under`}
+                        value={c.parentId ?? ''}
+                        disabled={busy}
+                        options={choices.map((p) => ({ value: p.id, label: p.name }))}
+                        placeholder="Top level - choose a menu"
+                        emptyLabel="No top-level menu matches"
+                        onValueChange={(parentId) => move(c.id, c.name, parentId)}
+                      />
+                    </span>
+                    {c.parentId ? (
+                      <Button
+                        data-testid={`owner-sub-menu-top-${c.id}`}
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => move(c.id, c.name, null)}
+                      >
+                        Move to top level
+                      </Button>
+                    ) : null}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    </section>
+  );
+}

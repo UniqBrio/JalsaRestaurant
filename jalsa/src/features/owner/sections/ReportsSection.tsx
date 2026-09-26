@@ -90,7 +90,10 @@ interface RangeReport {
   /** The range is longer than the chart draws; it shows the first `dailyLimit` days. */
   dailyTruncated?: boolean;
   dailyLimit?: number;
-  categories: Array<{ category: string; qty: number; revenue: number; dishes: number }>;
+  /** `parent` is the top-level menu a sub-menu sat under when the dish sold; '' when top-level (I3). */
+  categories: Array<{ category: string; parent: string; qty: number; revenue: number; dishes: number }>;
+  /** The same sales rolled up to each top-level menu, its sub-menus included. */
+  menus: Array<{ menu: string; qty: number; revenue: number; dishes: number; subMenus: number }>;
   orders: Array<{
     id: string;
     code: string;
@@ -525,12 +528,54 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
 
       <PaymentPanel report={report} />
 
+      {/* Only once the owner has put a category under another: until then every menu IS a
+          category and this table would repeat the one below. */}
+      {report.categories.some((c) => c.parent) ? (
+        <section>
+          <SectionLabel>What sold by menu · {report.menus.length} menus, sub-menus included</SectionLabel>
+          <DataTable
+            rows={report.menus}
+            rowKey={(m) => m.menu}
+            defaultSort={{ key: 'revenue', direction: 'desc' }}
+            exportName="jalsa-menus"
+            emptyTitle="Nothing sold in this range"
+            emptyNote="Closed bills fill this in."
+            searchPlaceholder="Search a menu"
+            testId="owner-menus-table"
+            columns={[
+              {
+                key: 'menu',
+                header: 'Menu',
+                cell: (m) => <span className="font-semibold">{m.menu}</span>,
+                value: (m) => m.menu,
+              },
+              {
+                key: 'subMenus',
+                header: 'Sub-menus',
+                cell: (m) => m.subMenus,
+                value: (m) => m.subMenus,
+                align: 'right',
+              },
+              { key: 'dishes', header: 'Dishes', cell: (m) => m.dishes, value: (m) => m.dishes, align: 'right' },
+              { key: 'qty', header: 'Sold', cell: (m) => m.qty, value: (m) => m.qty, align: 'right' },
+              {
+                key: 'revenue',
+                header: 'Revenue',
+                cell: (m) => <span className="tabular-nums">{rupees(m.revenue)}</span>,
+                value: (m) => m.revenue,
+                align: 'right',
+              },
+            ]}
+          />
+        </section>
+      ) : null}
+
       <section>
         <SectionLabel>What sold by category · {report.categories.length} categories</SectionLabel>
         {report.categories.length === 0 ? null : (
           <DataTable
             rows={report.categories}
-            rowKey={(c) => c.category}
+            rowKey={(c) => `${c.parent}\u0000${c.category}`}
             defaultSort={{ key: 'revenue', direction: 'desc' }}
             exportName="jalsa-categories"
             emptyTitle="Nothing sold in this range"
@@ -543,6 +588,12 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
                 header: 'Category',
                 cell: (c) => <span className="font-semibold">{c.category}</span>,
                 value: (c) => c.category,
+              },
+              {
+                key: 'parent',
+                header: 'Sub-menu of',
+                cell: (c) => c.parent || '—',
+                value: (c) => c.parent,
               },
               { key: 'dishes', header: 'Dishes', cell: (c) => c.dishes, value: (c) => c.dishes, align: 'right' },
               { key: 'qty', header: 'Sold', cell: (c) => c.qty, value: (c) => c.qty, align: 'right' },

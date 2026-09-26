@@ -2,6 +2,8 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
+import { NEW_DISH_GRANTS, existingDish, type NewDish } from '@/lib/new-dish';
+import { subMenuProblem } from '@/lib/sub-menus';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
@@ -115,6 +117,101 @@ export async function upsertMenuItem(input: {
 
   await audit({ action: 'Menu item', detail: `${input.name} added at ${rupees(input.price)}`, actor: input.actor });
   return { id: data.id as string };
+}
+
+/**
+ * Put a category under a top-level one, making it a sub-menu - or back to the top (I3).
+ *
+ * One level only. The database trigger `menu_category_one_level` is the rule (a parent is
+ * top-level, on this menu, not the category itself, and a category with sub-menus cannot go
+ * under another); the same rule is checked here first so the owner reads a sentence rather than
+ * a trigger's error. Rounds already placed keep the menu they sold under - that is a snapshot.
+ */
+export async function setCategoryParent(input: {
+  categoryId: string;
+  parentId: string | null;
+  actor: Actor;
+}): Promise<void> {
+  demand(input.actor, 'menu.category');
+  const restaurantId = await currentRestaurantId();
+  const { data: cats, error: readErr } = await db()
+    .from('menu_category')
+    .select('id,name,parent_id')
+    .eq('restaurant_id', restaurantId);
+  if (readErr) throw readErr;
+  const all = (cats ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    parentId: (c.parent_id as string | null) ?? null,
+  }));
+  const problem = subMenuProblem(all, input.categoryId, input.parentId);
+  if (problem) throw new SubMenuRefused(problem);
+
+  const { data: updated, error } = await db()
+    .from('menu_category')
+    .update({ parent_id: input.parentId })
+    .eq('id', input.categoryId)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  // The trigger's own refusal (a change made elsewhere since the read above) is the same kind of
+  // answer: its message is the sentence, raised as check_violation.
+  if (error?.code === '23514') throw new SubMenuRefused(error.message);
+  if (error) throw error;
+  if (!updated || updated.length !== 1) throw new SubMenuRefused('That category is not on this menu.');
+
+  const cat = all.find((c) => c.id === input.categoryId);
+  const parent = all.find((c) => c.id === input.parentId);
+  await audit({
+    action: 'Menu category',
+    detail: parent
+      ? `${cat?.name ?? 'A category'} is now a sub-menu of ${parent.name}`
+      : `${cat?.name ?? 'A category'} is now a top-level menu`,
+    actor: input.actor,
+  });
+}
+
+/** A refusal the owner can act on, carried to the route as a 400 with this sentence. */
+export class SubMenuRefused extends Error {}
+
+/**
+ * Add a dish from the ordering screen, or hand back the one that already means this (E1).
+ *
+ * The write is `upsertMenuItem`'s own insert, so the grant, the columns and the audit line are the
+ * Menu section's. What this adds is the duplicate answer: two captains typing the same new dish,
+ * or one dish the screen had not polled yet, meets `menu_item_name_unique` (23505) and gets the
+ * existing dish back with `existed: true` - never a second row, never a 500. Nothing is audited
+ * then, because nothing was added.
+ */
+export async function addDishWhileOrdering(input: NewDish & { actor: Actor }): Promise<{
+  id: string;
+  existed: boolean;
+  available: boolean;
+}> {
+  const name = input.name.trim();
+  // The price is set here, so the price grant is asked for as well as the item grant.
+  for (const grant of NEW_DISH_GRANTS) demand(input.actor, grant);
+  try {
+    const { id } = await upsertMenuItem({
+      name,
+      price: input.price,
+      categoryId: input.categoryId,
+      foodType: input.foodType,
+      actor: input.actor,
+    });
+    return { id, existed: false, available: true };
+  } catch (err) {
+    if ((err as { code?: string } | null)?.code !== '23505') throw err;
+    const restaurantId = await currentRestaurantId();
+    const { data, error } = await db()
+      .from('menu_item')
+      .select('id,name,available')
+      .eq('restaurant_id', restaurantId);
+    if (error) throw error;
+    const found = existingDish((data ?? []) as Array<{ id: string; name: string; available: boolean }>, name);
+    if (!found) throw err;
+    // Sold out is said, not discovered as a refused round at Send.
+    return { id: found.id, existed: true, available: found.available === true };
+  }
 }
 
 /**

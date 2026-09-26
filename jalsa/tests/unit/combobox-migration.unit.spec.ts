@@ -138,6 +138,9 @@ test('the 11 static selects were left alone', () => {
   // editor's Food type became a search-only Combobox (item 24: behave like Category), and the
   // table editor's Zone - a free-text box - became a Select of AC / Non-AC / Terrace (item 34).
   expect(remaining.length, 'eleven: Food type left, Zone joined').toBe(11);
+  // Merged 26-Sep-2026: the new-dish form (E1) and the sub-menu parent picker (I3) both use the
+  // combobox, so neither adds a static select.
+  expect(remaining.filter((f) => f.endsWith('components/ui/new-dish.tsx'))).toHaveLength(0);
 });
 
 test('creating a category reuses an existing one rather than making a second', () => {

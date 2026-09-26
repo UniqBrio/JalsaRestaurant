@@ -22,7 +22,7 @@ import { restaurantLogo } from '@/lib/db/restaurant-logo';
  *   loaded. Colour still comes from the token map and never from a literal.
  */
 export const GET = handler(async (req: Request): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in to view a table code.' });
   /* The same grant governs both: `tables.qr` is "may see the printable codes", and the entrance
      code is one of them. A separate permission would be a second answer to one question. */

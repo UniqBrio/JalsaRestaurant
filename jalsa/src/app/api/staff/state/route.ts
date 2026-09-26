@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * request. Each is a person waiting, so "within seconds" is the requirement — not milliseconds.
  */
 export const GET = handler(async (): Promise<NextResponse> => {
-  const staff = await currentStaff();
+  const staff = await currentStaff('staff');
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to see your tables.' });
   }

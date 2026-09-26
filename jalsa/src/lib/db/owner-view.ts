@@ -198,7 +198,8 @@ export interface OwnerPayload {
     printerId: string | null;
     station: string | null;
   }>;
-  categories: Array<{ id: string; name: string; count: number }>;
+  /** `parentId`: the top-level category this one is a sub-menu of, or null (I3). */
+  categories: Array<{ id: string; name: string; count: number; parentId: string | null }>;
   staff: StaffMember[];
   /** Each person's ACTUAL grants, so the access panel edits what is true rather than a preset. */
   staffGrants: Record<string, string[]>;
@@ -501,7 +502,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       printerId: i.printerId,
       station: i.station,
     })),
-    categories: categories.map((c) => ({ id: c.id, name: c.name, count: c.count })),
+    categories: categories.map((c) => ({ id: c.id, name: c.name, count: c.count, parentId: c.parentId })),
 
     staff: people,
     staffGrants,
