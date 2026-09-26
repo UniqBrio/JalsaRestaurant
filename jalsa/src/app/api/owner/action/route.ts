@@ -20,6 +20,8 @@ import {
 } from '@/lib/db/mutations';
 import {
   addCategory,
+  setItemRouting,
+  uploadImage,
   deleteExpense,
   issuePin,
   removeStaff,
@@ -77,8 +79,12 @@ type Action =
       categoryId: string;
       foodType: 'veg' | 'non_veg' | 'egg';
       description?: string;
+      imageUrl?: string;
+      printerId?: string | null;
     }
-  | { action: 'add-category'; name: string }
+  | { action: 'add-category'; name: string; printerId?: string | null }
+  | { action: 'set-item-routing'; itemIds: string[]; all?: boolean; station?: string | null; printerId?: string | null }
+  | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
@@ -86,7 +92,7 @@ type Action =
   | { action: 'remove-staff'; staffId: string; reason: string }
   | { action: 'set-on-duty'; staffId: string; onDuty: boolean }
   | { action: 'write-setting'; key: string; value: Record<string, unknown> }
-  | { action: 'test-print'; printerId: string }
+  | { action: 'test-print'; printerId: string; ticket?: 'kot' | 'bill' }
   | { action: 'write-identity'; patch: Record<string, unknown> }
   | {
       action: 'upsert-expense';
@@ -262,6 +268,8 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
           categoryId: input.categoryId,
           foodType: input.foodType,
           ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
+          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
           actor,
         })
       );
@@ -269,9 +277,27 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     case 'add-category': {
       // The id comes back so the Add-item combobox can select the category it just created,
       // in the same form, before the item is saved.
-      const categoryId = await addCategory({ name: input.name, actor });
+      const categoryId = await addCategory({
+        name: input.name,
+        ...(input.printerId ? { printerId: input.printerId } : {}),
+        actor,
+      });
       return ok({ done: true, id: categoryId });
     }
+
+    case 'set-item-routing':
+      return ok(
+        await setItemRouting({
+          itemIds: Array.isArray(input.itemIds) ? input.itemIds : [],
+          ...(input.all === true ? { all: true } : {}),
+          ...(input.station !== undefined ? { station: input.station } : {}),
+          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
+          actor,
+        })
+      );
+
+    case 'upload-image':
+      return ok(await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor }));
 
     case 'upsert-table':
       await upsertTable({
@@ -318,7 +344,11 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
          a diagnostic that could land on a different machine would be worse than none.
          And it is an ORDINARY print job: the bridge lists it, claims it, composes it through
          `buildTicket`, encodes it through `escpos.ts` and reports it like any kitchen ticket. */
-      const result = await testPrint({ printerId: input.printerId, actor });
+      const result = await testPrint({
+        printerId: input.printerId,
+        actor,
+        ...(input.ticket === 'bill' ? { ticket: 'bill' as const } : {}),
+      });
       return ok(result);
     }
 

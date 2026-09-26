@@ -39,7 +39,11 @@ test('the printed ticket carries the words from the stored column, not the enum'
   expect(payload).toMatch(/source: kotRow\?\.source\s*\?\s*\(KOT_SOURCE_LABEL\[kotRow\.source/);
   const template = code('src/lib/print-template.ts');
   expect(template).toContain("export const LOCKED_FIELDS = ['itemName', 'qty', 'amount', 'source'] as const;");
+  // SUPERSEDED 25-Sep-2026 (item 14, row modes): previously matched
+  // `(LOCKED_FIELDS as readonly string[]).includes(key) || config.on[key] !== false` in `isOn`.
+  // The lock now lives in `rowMode`, which answers 'always' for a locked field before anything a
+  // stored template says - the same guarantee, one function up.
   expect(template).toMatch(
-    /\(LOCKED_FIELDS as readonly string\[\]\)\.includes\(key\) \|\| config\.on\[key\] !== false/
+    /if \(\(LOCKED_FIELDS as readonly string\[\]\)\.includes\(key\)\) return 'always';/
   );
 });

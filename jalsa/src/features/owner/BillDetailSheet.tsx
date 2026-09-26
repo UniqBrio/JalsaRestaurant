@@ -5,8 +5,11 @@ import { Sheet } from '@/components/ui/sheet';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { TotalsBlock } from '@/components/ui/bill';
+import { TicketPaper } from '@/components/ui/print';
+import type { TicketLine } from '@/lib/print-template';
 import { cn } from '@/lib/cn';
-import { billShareText, whatsAppShareUrl, type WhatsAppTemplate } from '@/lib/bill-share';
+import { billShareText, whatsAppNumber, whatsAppShareUrl, type WhatsAppTemplate } from '@/lib/bill-share';
+import { Field, Input } from '@/components/ui/field';
 import type { RestaurantIdentity } from '@/lib/restaurant-identity';
 import type { OwnerBillView } from '@/lib/db/owner-view';
 
@@ -40,18 +43,34 @@ export function BillDetailSheet({
   onOpenChange,
   identity,
   whatsAppTemplate,
+  invoice,
 }: {
   bill: OwnerBillView | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   identity: RestaurantIdentity;
   whatsAppTemplate: WhatsAppTemplate;
+  /**
+   * The bill as the ONE invoice lays it out (item 8, 25-Sep-2026) - what "Print" puts on paper.
+   * The browser copy used to be this detail sheet itself, a second invoice format.
+   */
+  invoice?: { lines: TicketLine[]; cols: number };
 }) {
+  // The number is typed per share and kept nowhere: Jalsa stores no guest phone (item 38).
+  const [phone, setPhone] = React.useState('');
+  const [forBill, setForBill] = React.useState(bill?.id ?? null);
+  if ((bill?.id ?? null) !== forBill) {
+    setForBill(bill?.id ?? null);
+    setPhone('');
+  }
   if (!bill) return null;
 
   /* The owner's own WhatsApp template composes the message - the same function the Templates
-     preview renders, so what the preview shows is what the guest receives. */
-  const shareUrl = whatsAppShareUrl(billShareText(bill, identity, whatsAppTemplate));
+     preview renders, so what the preview shows is what the guest receives. `bill` is the one the
+     console has JUST read (Payments looks it up by id on every poll), so the text is never an
+     earlier state of this bill. */
+  const number = whatsAppNumber(phone);
+  const shareUrl = whatsAppShareUrl(billShareText(bill, identity, whatsAppTemplate), number.ok ? number.digits : null);
 
   return (
     <Sheet
@@ -90,20 +109,33 @@ export function BillDetailSheet({
             `rel="noreferrer"` with `target="_blank"`: without it the opened tab gets a handle on
             this one through `window.opener`, and this tab is a signed-in owner console.
           */}
-          <a
-            data-testid="owner-bill-share-whatsapp"
-            href={shareUrl}
-            target="_blank"
-            rel="noreferrer"
-            className={buttonVariants({ variant: 'primary', size: 'md' })}
-          >
-            Share to whatsapp
-          </a>
+          {number.ok ? (
+            <a
+              data-testid="owner-bill-share-whatsapp"
+              href={shareUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: 'primary', size: 'md' })}
+            >
+              Share to whatsapp
+            </a>
+          ) : (
+            <Button data-testid="owner-bill-share-whatsapp" disabled>
+              Share to whatsapp
+            </Button>
+          )}
         </>
       }
     >
-      {/* `j-print-root` is what the print stylesheet keeps; everything else on the page goes. */}
-      <div className="j-print-root flex flex-col gap-4">
+      {/* ONE INVOICE (item 8). Print puts the invoice on paper - the same lines the counter
+          printer is handed - and not this detail view, which was a second invoice format. The
+          block is invisible on screen; `j-print-root` is what the print stylesheet keeps. */}
+      {invoice ? (
+        <div className="j-print-root hidden print:block" data-testid="owner-bill-invoice">
+          <TicketPaper testId="owner-bill-invoice-paper" lines={invoice.lines} cols={invoice.cols} />
+        </div>
+      ) : null}
+      <div className={cn('flex flex-col gap-4', invoice ? 'print:hidden' : 'j-print-root')}>
         <div className="flex flex-wrap items-center gap-2">
           <Pill tone={bill.tone}>{bill.statusLabel}</Pill>
           <span className="type-caption text-[var(--text-muted)]">
@@ -165,6 +197,27 @@ export function BillDetailSheet({
         {/* GST is in here, at this bill's own rate, because `totalsRows` puts it there. It is
             not recomputed for this screen — that is the whole point. */}
         <TotalsBlock rows={bill.totals} testId="owner-bill-detail-totals" />
+
+        {/* WHO TO SEND IT TO (item 38). Optional: empty, WhatsApp asks which chat. */}
+        <div className="print:hidden">
+          <Field
+            label="Guest's WhatsApp number"
+            htmlFor="owner-bill-share-phone"
+            error={number.ok ? null : number.reason}
+            hint={number.ok && number.digits ? `Opens the chat with +${number.digits}.` : 'Optional. Leave it empty and WhatsApp asks which chat to send it to.'}
+          >
+            <Input
+              id="owner-bill-share-phone"
+              data-testid="owner-bill-share-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="98765 43210"
+            />
+          </Field>
+        </div>
 
         {bill.paymentMode ? (
           <div>

@@ -19,6 +19,10 @@ export interface MenuItem {
   category: string;
   categoryId: string;
   imageUrl: string;
+  /** The dish's own printer (item 25). Null: the category's printer, or the default. */
+  printerId: string | null;
+  /** The dish's own station (item 26). Null: the station its printer is at, or the default. */
+  station: string | null;
   /** False when a captain has switched it off, or a dated closure is still running. */
   available: boolean;
   closedReason: string;
@@ -262,6 +266,10 @@ export interface PrinterRow {
   online: boolean;
   enabled: boolean;
   lastSeenAt: string | null;
+  /** `printer.created_at` - when it was added to Jalsa. Never an update time (item 2, 25-Sep). */
+  createdAt: string;
+  /** When a bridge last reported a ticket PRINTED on it. Null when nothing has printed yet. */
+  lastPrintedAt: string | null;
 }
 
 /**
@@ -419,6 +427,12 @@ export interface BridgeTokenRow {
   /** When this bridge last called the API. Null means it has never connected. */
   lastSeenAt: string | null;
   revokedAt: string | null;
+  /**
+   * When this bridge last TOOK a ticket (`print_job.claimed_at` under its label). Distinct from
+   * `lastSeenAt`, which moves on every idle poll - showing that as "Last collected" put a time on
+   * screen at which nobody had printed anything (item 12, 25-Sep-2026).
+   */
+  lastTicketAt: string | null;
 }
 
 /**

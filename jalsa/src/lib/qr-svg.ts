@@ -43,7 +43,18 @@ const n = (v: number): string => v.toFixed(2).replace(/\.?0+$/, '');
  * `target` is encoded as given. Deciding WHAT to encode — a table, the door, a review page —
  * is the caller's job, and this function has deliberately no opinion about it.
  */
-export async function brandedQrSvg(target: string): Promise<string> {
+/**
+ * The restaurant's own logo, for the centre of the code (item 31, 25-Sep-2026): the bytes of the
+ * PNG or JPEG uploaded under Restaurant details. Embedded as a data URI - the one kind of image an
+ * SVG shown as an image may carry - in exactly the square the drawn badge used, so the share of
+ * the code it covers, and therefore how well the code reads, is unchanged.
+ */
+export interface QrLogo {
+  bytes: Uint8Array;
+  contentType: 'image/png' | 'image/jpeg';
+}
+
+export async function brandedQrSvg(target: string, logo?: QrLogo | null): Promise<string> {
   const light = themeValues.light;
   const raw = await QRCode.toString(target, {
     type: 'svg',
@@ -63,7 +74,15 @@ export async function brandedQrSvg(target: string): Promise<string> {
   const scale = badge / MARK_BOX;
 
   // Curves inside a code drawn with crisp edges would render jagged; the overlay opts out.
+  const uploaded = logo
+    ? '<g shape-rendering="geometricPrecision">' +
+      `<rect x="${n(origin - quiet)}" y="${n(origin - quiet)}" width="${n(badge + quiet * 2)}" height="${n(badge + quiet * 2)}" rx="${n(radius + quiet)}" fill="${light.surface}"/>` +
+      `<clipPath id="jalsa-logo-clip"><rect x="${n(origin)}" y="${n(origin)}" width="${n(badge)}" height="${n(badge)}" rx="${n(radius)}"/></clipPath>` +
+      `<image x="${n(origin)}" y="${n(origin)}" width="${n(badge)}" height="${n(badge)}" preserveAspectRatio="xMidYMid meet" clip-path="url(#jalsa-logo-clip)" href="data:${logo.contentType};base64,${Buffer.from(logo.bytes).toString('base64')}"/>` +
+      '</g>'
+    : null;
   const overlay =
+    uploaded ??
     '<g shape-rendering="geometricPrecision">' +
     `<rect x="${n(origin - quiet)}" y="${n(origin - quiet)}" width="${n(badge + quiet * 2)}" height="${n(badge + quiet * 2)}" rx="${n(radius + quiet)}" fill="${light.surface}"/>` +
     `<rect x="${n(origin)}" y="${n(origin)}" width="${n(badge)}" height="${n(badge)}" rx="${n(radius)}" fill="${light.primary}"/>` +
@@ -74,6 +93,45 @@ export async function brandedQrSvg(target: string): Promise<string> {
   return raw
     .replace('shape-rendering="crispEdges">', `shape-rendering="crispEdges" width="${RENDER_PX}" height="${RENDER_PX}">`)
     .replace('</svg>', `${overlay}</svg>`);
+}
+
+/** XML-escape a line of text that goes into the poster. */
+const esc = (t: string): string =>
+  t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+export const BLOCK_TABLE_HEADING = 'Scan to Block Your Table';
+export const BLOCK_TABLE_NOTE = 'Join the queue from your phone. We will hold the next table for you.';
+
+/**
+ * "Scan to Block Your Table" - the poster for the entrance (item 33, 25-Sep-2026).
+ *
+ * The SAME code the door has always had (`/q`, the queue that holds a table for a party),
+ * built by `brandedQrSvg` with the restaurant's logo in it, under a heading that says what it is
+ * for - so nobody at the door mistakes it for a table's ordering code, and nobody at a table
+ * mistakes the table code for this. A portrait sheet; colours from the token file.
+ */
+export async function blockTablePosterSvg(target: string, restaurantName: string, logo?: QrLogo | null): Promise<string> {
+  const light = themeValues.light;
+  const code = await brandedQrSvg(target, logo);
+  // The code's own size attributes come off, so the poster can place and size it.
+  const inner = code
+    .replace(/^<\?xml[^>]*>/, '')
+    .replace(` width="${RENDER_PX}" height="${RENDER_PX}"`, '')
+    .replace('<svg ', '<svg x="140" y="250" width="520" height="520" ');
+  const W = 800;
+  const H = 1100;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">` +
+    `<rect width="${W}" height="${H}" fill="${light.surface}"/>` +
+    `<rect x="0" y="0" width="${W}" height="18" fill="${light.primary}"/>` +
+    `<text x="${W / 2}" y="120" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="58" font-weight="700" fill="${light['text.heading']}">${esc(BLOCK_TABLE_HEADING)}</text>` +
+    `<text x="${W / 2}" y="190" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="34" font-weight="600" fill="${light.primary}">${esc(restaurantName)}</text>` +
+    inner +
+    `<text x="${W / 2}" y="850" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="28" fill="${light['text.body']}">${esc(BLOCK_TABLE_NOTE)}</text>` +
+    `<text x="${W / 2}" y="905" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="22" fill="${light['text.muted']}">This is not a table's ordering code.</text>` +
+    `<rect x="0" y="${H - 18}" width="${W}" height="18" fill="${light.primary}"/>` +
+    '</svg>'
+  );
 }
 
 /** The headers every code is served with. One place, so the two routes cannot drift. */

@@ -58,7 +58,9 @@ test('a test print INSERTS a print_job and does nothing else', () => {
   expect(body).toContain(".from('print_job')");
   expect(body).toContain('.insert(');
   expect(body).toContain("status: 'queued'");
-  expect(body).toContain("kind: 'Test'");
+  // SUPERSEDED 25-Sep-2026 (item 9): previously `kind: 'Test'` verbatim. A test print is now of
+  // the kitchen ticket ('Test') or of the bill ('TestBill') - still one INSERT, still queued.
+  expect(body).toContain("kind: input.ticket === 'bill' ? 'TestBill' : 'Test'");
 });
 
 test('a test print cannot bypass the bridge, the encoder or the transport', () => {

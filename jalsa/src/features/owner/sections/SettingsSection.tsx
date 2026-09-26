@@ -12,9 +12,17 @@ import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
 import { PrintSetupSection } from './PrintSetupSection';
+import { Combobox } from '@/components/ui/combobox';
+import { stationOptions } from '@/lib/print-routing';
 import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { readWelcomeDrinks } from '@/lib/welcome-drinks';
+import { ImagePicker } from '@/components/ui/image-picker';
+import { checkReviewLink } from '@/lib/review-link';
+import { whatsAppShareUrl } from '@/lib/bill-share';
+
+/** The zones a table can be in (item 34, 25-Sep-2026). */
+const TABLE_ZONES = ['AC', 'Non-AC', 'Terrace'] as const;
 
 /**
  * Screen 33 — Settings, split into named sub-tabs rather than one long scroll.
@@ -105,7 +113,12 @@ export function SettingsSection(props: OwnerSectionProps) {
       {panel === 'copy' ? <CopyPanel {...props} /> : null}
       {panel === 'replies' ? <RepliesPanel {...props} /> : null}
       {panel === 'engage' ? <EngagementPanel {...props} /> : null}
-      {panel === 'printers' ? <PrintSetupSection {...props} /> : null}
+      {panel === 'printers' ? (
+        <>
+          <DefaultStationPanel {...props} />
+          <PrintSetupSection {...props} />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -262,6 +275,8 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     fssai: r.fssai ?? '',
     pan: r.pan ?? '',
     hr_email: r.hr_email ?? '',
+    // Uploaded under the brand block (item 32): `/api/media/brand/...`, or '' for the Jalsa badge.
+    logo_url: r.logo_url ?? '',
   });
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -276,13 +291,23 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     <div className="flex flex-col gap-3" data-testid="owner-identity">
       {/* THE BRAND BLOCK */}
       <div className="flex items-center gap-4 rounded-[var(--radius-xl)] bg-[var(--primary)] px-5 py-6 text-[var(--on-primary)]">
-        <Image
-          src="/brand/jalsa-badge.png"
-          alt="The Jalsa badge as it prints"
-          width={56}
-          height={56}
-          className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
-        />
+        {form.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the owner's upload, served by our own route
+          <img
+            src={form.logo_url}
+            alt="Your restaurant logo"
+            data-testid="owner-identity-logo"
+            className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
+          />
+        ) : (
+          <Image
+            src="/brand/jalsa-badge.png"
+            alt="The Jalsa badge as it prints"
+            width={56}
+            height={56}
+            className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] bg-[var(--surface)] object-contain"
+          />
+        )}
         <div className="min-w-0">
           <p className="m-0 type-h3 leading-tight">{form.display_name || 'Your restaurant'}</p>
           <p className="m-0 mt-1 type-caption leading-relaxed opacity-85">
@@ -290,6 +315,20 @@ function IdentityPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </p>
         </div>
       </div>
+
+      {/* THE LOGO (item 32): uploaded here, replaced here, used on the door code, the table
+          codes and the review code (item 31). Saved with the rest of the details below. */}
+      <Field label="Logo" htmlFor="owner-identity-logo-picker-file" hint="Shown in the middle of every QR code and at the door. Save to keep it.">
+        <ImagePicker
+          testId="owner-identity-logo-picker"
+          label="Restaurant logo"
+          value={form.logo_url}
+          onChange={(logo_url) => setForm({ ...form, logo_url })}
+          upload={async (base64) =>
+            (await send<{ url: string }>('/api/owner/action', { action: 'upload-image', folder: 'brand', base64 })).url
+          }
+        />
+      </Field>
 
       <Card className="flex flex-col gap-3">
         <SectionLabel>Restaurant identity</SectionLabel>
@@ -579,6 +618,7 @@ function IndoorQueueCard({
 }: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'>) {
   const toast = useToast();
   const [showQr, setShowQr] = React.useState(false);
+  const [showPoster, setShowPoster] = React.useState(false);
 
   const queue = (data.settings.queue ?? {}) as { open?: boolean };
   // Open unless somebody closed it — the same default `/q` and `guestJoinQueue` both apply.
@@ -615,6 +655,11 @@ function IndoorQueueCard({
         {canSeeCode ? (
           <Button data-testid="owner-entrance-qr-open" variant="secondary" onClick={() => setShowQr(true)}>
             Show the code
+          </Button>
+        ) : null}
+        {canSeeCode ? (
+          <Button data-testid="owner-block-table-open" variant="secondary" onClick={() => setShowPoster(true)}>
+            Scan to Block Your Table poster
           </Button>
         ) : null}
         {canClose ? (
@@ -682,6 +727,37 @@ function IndoorQueueCard({
             height={260}
             unoptimized
             className="rounded-[var(--radius-md)]"
+          />
+          <code className="type-caption text-[var(--text-muted)]">{data.qrOrigin}/q</code>
+        </div>
+      </Sheet>
+
+      {/* "SCAN TO BLOCK YOUR TABLE" (item 33): the same door code, on a poster for the entrance
+          that says what it is for and carries the restaurant's logo - so it cannot be taken for a
+          table's ordering code. */}
+      <Sheet
+        open={showPoster}
+        onOpenChange={setShowPoster}
+        posture="modal"
+        title="Scan to Block Your Table"
+        description="A poster for the entrance. Guests scan it to join the queue; the next table is held for them."
+        testId="owner-block-table-sheet"
+        footer={
+          <Button data-testid="owner-block-table-print" asChild>
+            <a data-testid="owner-block-table-print-link" href="/api/owner/qr?poster=block" target="_blank" rel="noopener noreferrer">
+              Open the poster to print
+            </a>
+          </Button>
+        }
+      >
+        <div className="flex flex-col items-center gap-3">
+          <Image
+            src="/api/owner/qr?poster=block"
+            alt="Scan to Block Your Table poster"
+            width={290}
+            height={400}
+            unoptimized
+            className="rounded-[var(--radius-md)] border border-[var(--border)]"
           />
           <code className="type-caption text-[var(--text-muted)]">{data.qrOrigin}/q</code>
         </div>
@@ -775,7 +851,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       <Button
         data-testid="owner-add-table"
         className="self-start"
-        onClick={() => setEditing({ name: '', zone: zones[0] ?? 'AC', seats: '4', active: true })}
+        onClick={() => setEditing({ name: '', zone: 'AC', seats: '4', active: true })}
       >
         Add a table
       </Button>
@@ -827,12 +903,20 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               />
             </Field>
             <Field label="Zone" required htmlFor="owner-table-zone" className="min-w-[8rem] flex-1">
-              <Input
+              {/* AC, Non-AC or Terrace (item 34). A zone a table already has that is not one of
+                  the three stays offered, so editing that table never silently moves it. */}
+              <Select
                 id="owner-table-zone"
                 value={editing.zone}
                 onChange={(e) => setEditing({ ...editing, zone: e.target.value })}
                 data-testid="owner-table-zone"
-              />
+              >
+                {[...TABLE_ZONES, ...(TABLE_ZONES.includes(editing.zone as (typeof TABLE_ZONES)[number]) || !editing.zone ? [] : [editing.zone])].map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Seats" required htmlFor="owner-table-seats" className="min-w-[6rem] flex-1">
               <Input
@@ -1334,6 +1418,7 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     whatsappProvider?: string;
     invoiceSentWhen?: string;
   };
+  const savedReview = (stored.reviewUrl ?? '').trim();
   const [values, setValues] = React.useState({
     callNumber: stored.callNumber ?? '',
     reviewUrl: stored.reviewUrl ?? '',
@@ -1341,6 +1426,8 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     whatsappProvider: stored.whatsappProvider ?? '',
     invoiceSentWhen: stored.invoiceSentWhen ?? 'closed',
   });
+
+  const review = checkReviewLink(values.reviewUrl);
 
   return (
     <Card className="flex flex-col gap-4">
@@ -1375,6 +1462,43 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           data-testid="owner-engage-review"
         />
       </Field>
+      {/* CHECKED, AND USABLE FROM HERE (item 40): a link that is not a working https address is
+          refused before it is saved; a saved one can be opened, shared and printed as a code. */}
+      {review.state === 'invalid' ? (
+        <p role="alert" data-testid="owner-engage-review-problem" className="m-0 -mt-2 type-caption font-semibold text-[var(--error)]">
+          {review.reason}
+        </p>
+      ) : review.state === 'ok' && review.warning ? (
+        <p data-testid="owner-engage-review-warning" className="m-0 -mt-2 type-caption text-[var(--text-muted)]">
+          {review.warning}
+        </p>
+      ) : null}
+      {review.state === 'ok' ? (
+        <div className="-mt-2 flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="secondary" data-testid="owner-engage-review-open">
+            <a data-testid="owner-engage-review-open-link" href={review.url} target="_blank" rel="noopener noreferrer">
+              Open the link
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-share">
+            <a
+              data-testid="owner-engage-review-share-link"
+              href={whatsAppShareUrl(`Enjoyed your meal? We would love a Google review: ${review.url}`)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Share on WhatsApp
+            </a>
+          </Button>
+          {savedReview === review.url ? (
+            <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-qr">
+              <a data-testid="owner-engage-review-qr-link" href="/api/owner/review-qr" target="_blank" rel="noopener noreferrer">
+                Review QR code
+              </a>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Toggle
         checked={values.askPhotos}
@@ -1412,11 +1536,15 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 
       <Button
         data-testid="owner-engage-save"
-        disabled={busy}
+        disabled={busy || review.state === 'invalid'}
         className="self-start"
         onClick={() =>
           runBusy(async () => {
-            await send('/api/owner/action', { action: 'write-setting', key: 'engagement', value: values });
+            await send('/api/owner/action', {
+              action: 'write-setting',
+              key: 'engagement',
+              value: { ...values, reviewUrl: review.state === 'ok' ? review.url : '' },
+            });
             toast.show('Engagement settings saved — every guest phone picks them up on its next tap', {
               tone: 'success',
             });
@@ -1425,6 +1553,60 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       >
         Save engagement
       </Button>
+    </Card>
+  );
+}
+
+/* ── Default station (item 30, 25-Sep-2026) ───────────────────────────────────────────── */
+
+/**
+ * The station a dish goes to when nothing else says where: no printer or station of its own and
+ * a category no printer claims. Stored as `setting.routing.defaultStation`; read when a round is
+ * PLACED and snapshot on its lines, so changing it never re-routes a round already in the kitchen.
+ * Also what a category left on "Default printer" prints at: the machine at this station.
+ */
+function DefaultStationPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
+  const toast = useToast();
+  const stored = ((data.settings.routing ?? {}) as { defaultStation?: string }).defaultStation ?? '';
+  const [station, setStation] = React.useState(stored);
+  const stations = stationOptions(data.printers, stored);
+  const at = data.printers.find((p) => p.purpose === 'KOT' && p.enabled && p.station.trim().toLowerCase() === station.trim().toLowerCase());
+
+  return (
+    <Card className="flex flex-col gap-3" data-testid="owner-default-station">
+      <SectionLabel>Default station</SectionLabel>
+      <p className="m-0 max-w-prose type-caption leading-relaxed text-[var(--text-muted)]">
+        Where a dish goes when neither the dish nor its category says. Without one, it goes to the main kitchen printer.
+      </p>
+      <Field label="Default station" htmlFor="owner-default-station-pick" hint={station ? (at ? `Prints at ${at.name}.` : 'No switched-on printer is at this station yet; the main kitchen printer takes it, marked with this station.') : 'None: the main kitchen printer.'}>
+        <Combobox
+          id="owner-default-station-pick"
+          testId="owner-default-station-pick"
+          value={station}
+          onValueChange={setStation}
+          options={[{ value: '', label: 'None (main kitchen printer)' }, ...stations.map((st) => ({ value: st, label: st }))]}
+          placeholder="Search stations"
+          emptyLabel="No matching station"
+          allowCreate
+          // A station is a word on a ticket, not a row anywhere: creating one is choosing it.
+          onCreate={async (name) => name.trim()}
+        />
+      </Field>
+      <div>
+        <Button
+          data-testid="owner-default-station-save"
+          size="sm"
+          disabled={busy || station === stored}
+          onClick={() =>
+            runBusy(async () => {
+              await send('/api/owner/action', { action: 'write-setting', key: 'routing', value: { defaultStation: station.trim() } });
+              toast.show(station.trim() ? `Default station: ${station.trim()}` : 'No default station - the main kitchen printer', { tone: 'success' });
+            })
+          }
+        >
+          Save default station
+        </Button>
+      </div>
     </Card>
   );
 }

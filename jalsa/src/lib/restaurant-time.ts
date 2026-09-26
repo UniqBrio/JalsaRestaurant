@@ -183,6 +183,15 @@ export function dateLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZO
   return `${d} ${MONTHS[Number(m) - 1] ?? ''} ${y}`;
 }
 
+/**
+ * "24 Sep 2026, 10:15 pm" in the restaurant's zone - for an event shown on a screen that may be
+ * read on another day. A bare "10:15" with no date and in the browser's zone is how a heartbeat
+ * from last night read as something that happened this morning (item 12, 25-Sep-2026).
+ */
+export function dateTimeLabelIn(at: Date | string, zone: string = RESTAURANT_TIME_ZONE): string {
+  return `${dateLabelIn(at, zone)}, ${timeLabelIn(at, zone)}`;
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /**

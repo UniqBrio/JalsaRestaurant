@@ -2,6 +2,50 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, code-review fixes
+
+Review (REQUEST CHANGES, 2 blockers, 7 major, 12 minor). Fixed: new columns read before their migrations (applied to both projects before this branch can deploy; kotPrintableItems no longer turns a read error into an empty round); the floor's unbounded session `.in()` (now carts via an inner join + sessions on open bills only); "Set all" as a URL-sized id list (one update by restaurant; lists chunked by 100); a dish's printer changeable without `set.printer`; routing to an Invoice printer; the daily chart silently cut at 92 days; tipped bills printing a TOTAL without the tip; a big TOTAL and item figures clipped (never cut now; a space between every column); `large` never reaching the printer (font B at GS ! 0x11); two-tap duplicate notices (partial unique index, 23505 ignored; freeTable resolves them; the floor badge leaves the counter's out); the category routing table ignoring the default station; addCategory half-succeeding; unchecked upload/station input; 0% tax on the test bill; a test KOT to a bill printer always blocked; a half-written DLL; no index behind `on delete set null`; two misplaced doc comments; a look-alike Google host.
+FAIL-FIRST: jalsa/tests/unit/review-fixes-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`dailyTruncated` absent; `totalLine` absent): 7 of 7 not passing; after: 7 passed. Three specs added earlier in this branch updated in place to the fixed shapes (mark-free-a5, menu-routing-25sep, print-corrections-25sep).
+Unit tier: 1105 passed. Typecheck, lint, audit:all 10/10, next build, bridge build: pass.
+NOT CHANGED (review #20): some rungs read source text rather than behaviour - the pattern this repo's unit tier already uses for DB-bound code; the behaviour cases run beside them.
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, guest payment notices, WhatsApp share, report charts, review link (items 37-40)
+
+FAIL-FIRST: jalsa/tests/unit/guest-reports-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/payment-notice` absent; `whatsAppNumber`, `dailySeries`, `checkReviewLink` absent): 10 of 10 not passing; after: 10 passed.
+Superseded in place: bill-detail-wiring - viewing is held by id, read from each poll (it held the bill object, freezing the shared text).
+Unit tier: 1097 passed. Typecheck, lint: pass. Not verified from here: a real WhatsApp open on a phone; the charts on a device (no database reachable to load a real report).
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, tables & QR (items 31-36)
+
+Root cause, A5 (read from the live rows): A5 had 14 guest_session rows and six closed, released bills; the floor counted every session as a phone attached, so a free A5 was "freeable" and showed Mark free. Mark free on an empty bill voided it, and `listOpenBills` (`status <> 'closed'`) kept the VOID bill holding the table - so the button stayed and pressing it again did nothing. Also: freeTable never stamped cleared_at (a freed table went to "Needs clearing"), and an old uncleared release outranked a live bill in tableStateFrom.
+FAIL-FIRST: jalsa/tests/unit/mark-free-a5.unit.spec.ts - against the pre-fix tree the file fails to load (`phonesHoldingTables` absent); the superseded case in status.unit.spec.ts ('ready' over an old release) failed against the old tableStateFrom (received 'clearing'). After: 7 passed.
+FAIL-FIRST: jalsa/tests/unit/tables-qr-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`BLOCK_TABLE_HEADING` absent); the scan test with the obscured square widened to 50% of the width: **3 failed** (it can fail); at the real 27%: 3 of 3 codes decode, white and noise.
+Superseded in place: status (clearing vs live bill), combobox-migration (still 11 selects: Food type out, Zone in), qr-stand (generator takes the logo, x2), restaurant-details (logo_url is the 11th read; upload-image allowed beside write-identity).
+Unit tier: 1088 passed. Typecheck, lint: pass. QR scanning with a phone camera and on paper: not done from here.
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, menu & routing (items 23-30) and KOT cases 15-22
+
+FAIL-FIRST: jalsa/tests/unit/menu-routing-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/media` does not exist; `routeItem`, `defaultPrinter`, `stationOptions` absent from print-routing): 16 of 16 not passing; after: 16 passed.
+FAIL-FIRST: jalsa/tests/unit/kot-scenarios-25sep.unit.spec.ts - a verification suite over the production split/compose path; with egg injected onto the non-veg side in `splitRound` (reverted): **5 failed**, 4 passed; after: 9 passed.
+Superseded in place (contract changes, dated notes): combobox-migration - static selects 11 -> 10 (Food type is a Combobox, item 24); addCategory signature gained `printerId` (item 29).
+Unit tier: 1072 passed. Typecheck and lint: pass. Physical printing: not verified from here (no printer or bridge reachable).
+
+---
+
+## Application run - jalsa - 2026-09-25 - 25-Sep correction list, printing (items 1-9, 12-14)
+
+FAIL-FIRST: jalsa/tests/unit/printers-activity.unit.spec.ts - against the pre-fix tree the file fails to load (`addedOnLabel`, `bridgeActivityLabel` do not exist in print-computer.ts): 8 of 8 not passing; after: 8 passed.
+FAIL-FIRST: jalsa/tests/unit/print-corrections-25sep.unit.spec.ts - against the pre-fix tree the file fails to load (`src/lib/invoice` does not exist): 22 of 22 not passing; after: 22 passed. Case-level evidence for the layout change: tests/unit/ticket-golden.unit.spec.ts run against the new composer failed 4 of its goldens with exactly two differences - the big lines ("JALSA", "KOT-113") re-centred on the half-width grid, and the KOT address/phone lines gone - and nothing else; superseded in place (goldens kept, compared with big lines removed).
+Unit tier: 1049 passed. Typecheck and lint (whole app, --max-warnings 0): pass.
+
+---
+
 ## Application run - jalsa - 2026-09-24 - 24-Sep correction list, code-review fixes
 
 Review (REQUEST CHANGES) found, and this run fixed: seating race could join a second party onto the first party's bill (ensureOpenBill `mustBeNew`, 23505 refused); add-round accepted a VOID bill or a table moved off the bill (only open/payment_requested, table must be on the bill; same status rule for the waiter picker); issuePin could pass a PIN held by both the person and another; Net went stale beside a live Expenses tile (now income - live expenses); entries outside the range could not be edited (Show every entry); the Disconnect dialog promised tickets would wait; sign-in audit could fail a successful sign-in; an unchecked write in savePrinterMapping; "No guest has answered" overclaimed; ticket month spelling depended on ICU.

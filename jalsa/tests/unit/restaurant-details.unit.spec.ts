@@ -65,8 +65,12 @@ test('all TEN columns are still read into the form and still written back', () =
     expect(p, `${column} must have a setter`).toContain(`set('${column}')`);
   }
   // The count is asserted too: an eleventh key would be a new column nobody migrated.
+  // SUPERSEDED 25-Sep-2026 (item 32): previously exactly COLUMNS.length (ten). The eleventh is
+  // `logo_url` - a column that has existed since the core schema (the door page reads it) and
+  // was never editable; it is uploaded, not typed, so it has an image picker rather than `set()`.
   const read = p.match(/^\s+(\w+): r\.\w+ \?\? '',$/gm) ?? [];
-  expect(read.length, 'exactly ten, no more and no fewer').toBe(COLUMNS.length);
+  expect(read.length, 'the ten typed columns plus the uploaded logo').toBe(COLUMNS.length + 1);
+  expect(p).toContain("logo_url: r.logo_url ?? '',");
 });
 
 test('every control keeps the test id a runner already knows', () => {
@@ -86,7 +90,11 @@ test('the save is the SAME one call with the SAME whole patch', () => {
 test('no backend was touched by a presentation change', () => {
   const p = panel();
   expect(p, 'no query').not.toMatch(/from '@\/lib\/db\/queries'/);
-  expect(p, 'no second action').not.toMatch(/action: '(?!write-identity)/);
+  // SUPERSEDED 25-Sep-2026 (item 32): previously no action but 'write-identity' at all. The logo
+  // upload is the one addition - it stores the file and returns its URL; the details, the logo
+  // URL included, are still saved by the ONE write-identity below.
+  expect(p, 'no second action').not.toMatch(/action: '(?!write-identity|upload-image)/);
+  expect(p).toContain("action: 'upload-image', folder: 'brand'");
   // A per-field save would be a new contract and a new failure mode on a screen that had one.
   expect(p).not.toContain('onBlur=');
 });

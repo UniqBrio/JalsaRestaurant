@@ -136,7 +136,14 @@ export async function runCycle(deps: LoopDeps): Promise<CycleOutcome> {
 
   let bytes: Uint8Array;
   try {
-    bytes = encodeTicket(claim.payload.lines, { ...DEFAULT_ENCODER, width: claim.payload.width });
+    bytes = encodeTicket(claim.payload.lines, {
+      ...DEFAULT_ENCODER,
+      width: claim.payload.width,
+      // The full printable width, no left margin, and the font the lines were laid out in
+      // (item 7, 25-Sep-2026). `font` is absent from a payload of an older Jalsa: normal.
+      area: true,
+      ...(claim.payload.font ? { font: claim.payload.font } : {}),
+    });
   } catch (cause) {
     // An unmappable character. The encoder refuses rather than printing a '?', and the reason
     // names the codepoint, the line and the column — so it goes through verbatim.

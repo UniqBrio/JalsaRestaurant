@@ -42,6 +42,8 @@ export interface GuestMenuItem {
   foodType: FoodType;
   category: string;
   available: boolean;
+  /** The dish photo the owner uploaded (item 23) - `/api/media/...`, or '' for none. */
+  imageUrl: string;
   /** In this phone's cart, right now. Server-held, so it survives a reload. */
   inCart: number;
 }
@@ -226,6 +228,7 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
     foodType: i.foodType,
     category: i.category,
     available: i.available,
+    imageUrl: i.imageUrl,
     inCart: cartQty.get(i.id) ?? 0,
   }));
 

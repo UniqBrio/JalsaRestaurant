@@ -3,6 +3,7 @@ import { fail, handler } from '@/lib/route';
 import { currentStaff } from '@/lib/db/auth';
 import { readAllSettings } from '@/lib/db/queries';
 import { brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
+import { restaurantLogo } from '@/lib/db/restaurant-logo';
 
 /**
  * The Google review code — the back of the tabletop stand.
@@ -51,6 +52,6 @@ export const GET = handler(async (): Promise<NextResponse> => {
     });
   }
 
-  const svg = await brandedQrSvg(reviewUrl);
+  const svg = await brandedQrSvg(reviewUrl, await restaurantLogo());
   return new NextResponse(svg, { headers: svgHeaders('jalsa-google-review') });
 });

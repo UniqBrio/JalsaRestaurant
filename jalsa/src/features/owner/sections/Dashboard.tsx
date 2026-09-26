@@ -170,6 +170,13 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                   )}
                 >
                   <span className="type-body font-bold">Table {r.tableName}</span>
+                  {/* Whose notification it is (item 37): a payment request raises one for the
+                      bill counter and one for the captain. */}
+                  {r.forCounter ? (
+                    <Pill tone="primary" data-testid={`owner-request-counter-${r.id}`}>
+                      Bill counter
+                    </Pill>
+                  ) : null}
                   <span className="min-w-0 flex-1 type-body">
                     {r.kind}
                     {r.note ? <span className="opacity-75"> — {r.note}</span> : null}
@@ -195,7 +202,8 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           </ul>
         )}
         <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
-          Captains see the same list — either of you can clear it, and it clears for both.
+          Captains see the same list — either of you can clear it, and it clears for both. Rows marked Bill counter are
+          yours alone: when a guest asks to pay, the captain is told separately to see to the table.
         </p>
       </section>
 
