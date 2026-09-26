@@ -121,7 +121,9 @@ test('the scan instructions are the owner’s words, unparaphrased', () => {
 });
 
 test('the back carries the review code, or says why it cannot', () => {
-  expect(STAND).toContain('src="/api/owner/review-qr"');
+  /* SUPERSEDED 26-Sep-2026: asserted the bare `src="/api/owner/review-qr"`; the URL now carries the
+     logo version (src/lib/qr-url.ts). */
+  expect(STAND).toContain("src={qrImageUrl('/api/owner/review-qr', restaurant)}");
   expect(STAND, 'a missing link is named, not silently blank').toContain('data-testid="owner-stand-no-review"');
   expect(STAND).toContain('Customer engagement');
   // The two images are generated vectors; the optimiser is bypassed on purpose and says so.

@@ -128,7 +128,9 @@ test('40: saved from the screen, checked again on the server, and opened / share
   expect(s).toContain("disabled={busy || review.state === 'invalid'}");
   expect(s).toContain('data-testid="owner-engage-review-open-link"');
   expect(s).toContain('data-testid="owner-engage-review-share-link"');
-  expect(s).toContain('href="/api/owner/review-qr"');
+  /* SUPERSEDED 26-Sep-2026: asserted the bare `href="/api/owner/review-qr"`; the URL now carries the
+     logo version (src/lib/qr-url.ts), so the assertion is on the builder call. */
+  expect(s).toContain("href={qrImageUrl('/api/owner/review-qr', data.restaurant)}");
   expect(code('src/lib/db/owner-mutations.ts')).toContain("if (input.key === 'engagement' && 'reviewUrl' in input.value)");
   for (const f of ['src/features/owner/sections/SettingsSection.tsx', 'src/lib/review-link.ts', 'src/app/api/owner/review-qr/route.ts']) {
     expect(code(f), f).not.toMatch(/https:\/\/g\.page\/r\/[A-Za-z0-9]/);
