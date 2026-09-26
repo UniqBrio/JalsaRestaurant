@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { BLOCK_TABLE_HEADING, blockTablePosterSvg, brandedQrSvg } from '../../src/lib/qr-svg';
@@ -100,4 +100,19 @@ test('item 34: Add Table offers AC, Non-AC and Terrace, and keeps a zone a table
   // Saved through the existing table write, shown when the table is edited.
   expect(panel).toContain('zone: editing.zone,');
   expect(panel).toContain('setEditing({ id: t.id, name: t.name, zone: t.zone');
+});
+
+/*
+ * 26-Sep-2026 — the door code, every table stand and the review face still showed the drawn "J".
+ * `restaurant.logo_url` defaults to the bundled `/brand/jalsa-badge.png` (the Jalsa logo the
+ * Settings page shows), but restaurantLogo() accepted only an uploaded `/api/media/` file and
+ * returned null for the default, so brandedQrSvg drew its fallback badge. The bundled badge is a
+ * logo too: it is read from public/ and embedded like an upload.
+ */
+test('item 31: the bundled Jalsa badge counts as a logo for the centre of every code', () => {
+  const m = code('src/lib/db/restaurant-logo.ts');
+  expect(m).toContain("'/brand/jalsa-badge.png'");
+  expect(m).toContain("join(process.cwd(), 'public', 'brand', 'jalsa-badge.png')");
+  expect(m, 'the bundled file is sniffed like an upload, never trusted by its name').toContain('sniffImage(bytes)');
+  expect(existsSync('public/brand/jalsa-badge.png')).toBe(true);
 });
