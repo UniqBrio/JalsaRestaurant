@@ -63,7 +63,12 @@ export async function runScenario<T>(scenarioFile: string, options: RigOptions =
       },
     ],
   });
-  const out = execFileSync(process.execPath, [outfile], {
+  // supabase-js builds its (unused) realtime client on createClient and refuses where Node has no
+  // WebSocket - Node 20, which CI runs, keeps it behind a flag. Only `realDb` scenarios create the
+  // real client, but the flag is harmless for the rest (26-Sep-2026, first CI run of the outage spec).
+  const flags =
+    typeof (globalThis as { WebSocket?: unknown }).WebSocket === 'undefined' ? ['--experimental-websocket'] : [];
+  const out = execFileSync(process.execPath, [...flags, outfile], {
     cwd: APP,
     encoding: 'utf8',
     // The call is synchronous, so the test runner's own timeout cannot interrupt it: a scenario

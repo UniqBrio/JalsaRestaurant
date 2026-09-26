@@ -2,6 +2,16 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-26 - CI: the outage spec on Node 20
+
+The first CI run of jalsa/tests/unit/outage.unit.spec.ts (PR #14) failed all three rungs: CI runs Node 20, where WebSocket is behind a flag, and supabase-js builds its (unused) realtime client on createClient and throws "Node.js detected but native WebSocket not found". Only `realDb` scenarios create the real client. The round rig now starts its child with `--experimental-websocket` when the parent has no WebSocket.
+
+FAIL-FIRST: jalsa/tests/unit/outage.unit.spec.ts - reproduced locally with NODE_OPTIONS=--no-experimental-websocket: 3 failed with CI's exact error; after the rig change, same flag: 3 passed.
+
+Unit (jalsa): 1195 passed; typecheck and lint clean.
+
+---
+
 ## Application run - jalsa - 2026-09-26 - Merge with main; write-path latency; the owner console 500
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** Merged main (separate staff/owner sign-ins,

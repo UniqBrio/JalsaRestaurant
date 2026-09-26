@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## CI fix - 2026-09-26 - the outage spec's real client on Node 20
+
+CI (Node 20) failed tests/unit/outage.unit.spec.ts 3 of 3: "Node.js detected but native WebSocket not found" - supabase-js builds its realtime client on createClient, and Node 20 keeps WebSocket behind a flag. tests/support/round-rig.ts now passes `--experimental-websocket` to the scenario process when the parent has no WebSocket. The application is untouched: it never opens realtime (guardrail 3), and the live deployment has been answering, so its runtime has WebSocket.
+FAIL-FIRST: reproduced with NODE_OPTIONS=--no-experimental-websocket on Node 22 - 3 failed, same error; after: 3 passed. Unit 1195 passed.
+
+---
+
 ## Gate run - 2026-09-26 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.
