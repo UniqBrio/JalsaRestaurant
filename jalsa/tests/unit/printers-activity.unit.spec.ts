@@ -64,3 +64,19 @@ test('item 1: deleting keeps the print history - the job link is set null, not c
   const schema = readFileSync('supabase/migrations/20260910070000_jalsa_core_schema.sql', 'utf8');
   expect(schema).toContain('printer_id     uuid references public.printer(id) on delete set null');
 });
+
+/*
+ * 26-Sep-2026 — production outage. The "Last printed" read asked print_job for `printed_at`,
+ * a column that exists on `kot` and never existed on `print_job` (the event stamps
+ * `completed_at`). PostgREST answered 400, listPrinters threw, and because the owner payload is
+ * one Promise.all the whole console rendered the "cannot reach the till" screen.
+ */
+test('item 12: "Last printed" reads a column print_job actually has', () => {
+  const schema = readFileSync('supabase/migrations/20260910070000_jalsa_core_schema.sql', 'utf8');
+  const printJob = schema.slice(schema.indexOf('create table if not exists public.print_job'), schema.indexOf('create index if not exists print_job_open_idx'));
+  expect(printJob).toContain('completed_at');
+  expect(printJob).not.toContain('printed_at');
+  const src = readFileSync('src/lib/db/queries.ts', 'utf8');
+  expect(src).toContain("latestPerKey('printer_id', 'completed_at', restaurantId)");
+  expect(src).not.toContain("'printed_at'");
+});

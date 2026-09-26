@@ -2,6 +2,13 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
+
+`jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.
+FAIL-FIRST: observed failing on Node 20.19.0 before the fix (CI run 27, and reproduced locally with `npx node@20.19.0`: `"â"` for E2 86 92); after: bridge-package.unit.spec.ts **17 passed under Node 22.22 and under Node 20.19**. Typecheck, lint: pass. Not this PR's defect (red on the base since PR #10); fixed here at the owner's choice so #12 and main go green.
+
+---
+
 ## Application run - jalsa - 2026-09-25 - review fixes (G2, E1, I3)
 
 Review (REQUEST CHANGES, nothing critical) found, and this run fixed: the staff app kept `jalsa_staff`, into which every pre-split owner sign-in was written (RC-027 - renamed `jalsa_staff_app`); a new dish from the floor needed only `menu.item_edit`, so a price could be set without `menu.price_edit` (now both, screen and server); an existing sold-out dish was put in the round (now left out, and said); "chick" beside Chicken Biryani offered a new dish called "chick" (now only when the search finds nothing); every form refusal showed under Category (now one line above the buttons); a trigger refusal on sub-menus became a 500 (23514 is now the sentence); re-choosing the same parent wrote an audit line (now nothing). The sub-menu parent picker is a combobox (an id picker), so the static-select ratchet moves 11 -> 12 only for the new-dish food-type enum (dated SUPERSEDED note).
