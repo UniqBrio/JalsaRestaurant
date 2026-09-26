@@ -4,6 +4,160 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## CI fix - 2026-09-26 - the outage spec's real client on Node 20
+
+CI (Node 20) failed tests/unit/outage.unit.spec.ts 3 of 3: "Node.js detected but native WebSocket not found" - supabase-js builds its realtime client on createClient, and Node 20 keeps WebSocket behind a flag. tests/support/round-rig.ts now passes `--experimental-websocket` to the scenario process when the parent has no WebSocket. The application is untouched: it never opens realtime (guardrail 3), and the live deployment has been answering, so its runtime has WebSocket.
+FAIL-FIRST: reproduced with NODE_OPTIONS=--no-experimental-websocket on Node 22 - 3 failed, same error; after: 3 passed. Unit 1195 passed.
+
+---
+
+## Gate run - 2026-09-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 11s total - slowest G8 Functional / integration (1m 56s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (51ms)
+- **G3 Theme assets present per theme** - PASS (79ms)
+- **G4 No hard-coded colours** - PASS (87ms)
+- **G5 Types** - PASS (12.0s)
+- **G6 Lint** - PASS (13.6s)
+- **G7 Unit + pure specs** - PASS (45.1s)
+- **G8 Functional / integration** - FAIL (1m 56s)
+
+```
+    Error: expect(locator).toHaveText(expected) failed
+    Expected: "3"
+          - unexpected value "2"
+    test-results/guest-total-visibility.fun-db3a7-and-a-run-of-taps-all-count-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-db3a7-and-a-run-of-taps-all-count-desktop/error-context.md
+  1 failed
+[WebServer] [error] guest.page: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1. {
+[WebServer]   stack: 'Error: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1.\n' +
+[WebServer] [error] guest.page: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1. {
+[WebServer]   stack: 'Error: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1.\n' +
+[WebServer] [error] guest.page: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1. {
+[WebServer]   stack: 'Error: No restaurant with slug "jalsa-hosur". Run the migrations in supabase/migrations against http://127.0.0.1:1.\n' +
+[We
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (70ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.3s)
+- **G11 Wide tables are configurable** - PASS (62ms)
+- **G12 Installable as an application** - PASS (80ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 09s total - slowest G8 Functional / integration (2m 00s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (63ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (54ms)
+- **G3 Theme assets present per theme** - PASS (70ms)
+- **G4 No hard-coded colours** - PASS (95ms)
+- **G5 Types** - PASS (2.6s)
+- **G6 Lint** - PASS (14.2s)
+- **G7 Unit + pure specs** - PASS (47.4s)
+- **G8 Functional / integration** - FAIL (2m 00s)
+
+```
+    Error: asking for the bill is a request, not a closure
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "payment_requested"
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: the ₹20 tip is on the bill, read back through the state route
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 20
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop-wide/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop-wide/error-context.md
+    Error: asking for the bill is a request, not a closure
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "payment_requested"
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-mobile/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-mobile/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (63ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.6s)
+- **G11 Wide tables are configurable** - PASS (78ms)
+- **G12 Installable as an application** - PASS (101ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-09-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 27s total - slowest G8 Functional / integration (2m 09s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (56ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (52ms)
+- **G3 Theme assets present per theme** - PASS (49ms)
+- **G4 No hard-coded colours** - PASS (120ms)
+- **G5 Types** - PASS (12.0s)
+- **G6 Lint** - PASS (13.6s)
+- **G7 Unit + pure specs** - PASS (47.6s)
+- **G8 Functional / integration** - FAIL (2m 09s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.4s)
+- **G11 Wide tables are configurable** - PASS (57ms)
+- **G12 Installable as an application** - PASS (75ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Merge with main, and the write paths - 2026-09-26 - every screen and action waits only for what it needs
+
+Merge: main's separate sign-ins (`currentStaff('owner' | 'staff')`) kept in both state routes and the owner echo, beside the stamp read; the round rig's actions scenario and the PGlite prelude (a `storage.buckets` stand-in for main's media bucket) updated to match. `20260925090000_jalsa_change_versions_review.sql` renumbered to `20260925130000` - main's `jalsa_kot_item_line_order` holds that version (main's own precedent for sub-menus); the entries below keep the old number as written. Applied remotely under its name, so nothing to re-apply.
+Found re-measuring the merged tree (real PostgREST, 100 ms per call):
+- owner console load and poll answered 500 - `listPrinters` read `print_job.printed_at`; only `kot` has it. Now `completed_at`, which the bridge stamps only on a print. Also on development: the column is absent there too;
+- floor read (every staff and owner poll) waited for the open bills to learn their ids - now filtered by the bill's status in the same round;
+- a guest's round: 20 rounds. Cart now rides in the session read; ensureOpenBill is told the table was just read (`knownAbsent`) - a racing bill is still caught by the bill_table unique index; dishes, printers, routing and print settings in one round with the sub-menu parent embedded; queuePrint reuses the printers the lines were routed on; the reply screen is built while the cart is cleared (told `cartEmptied`);
+- owner console: grants read after the staff list, print-history table names after the history, open bills read 3x and requests 2x - all now in one round, read once (`SharedReads`);
+- owner action: identity re-check then the console - now together, `me`/`grants` taken from the re-check.
+FAIL-FIRST: tests/unit/write-rounds.unit.spec.ts - against the merged tree (my src changes checked out): first round 21 rounds, later round 15, floor 2, staff screen 2, owner console 3, owner action 8; separate cart reads 2, printer reads 2, open-bill list reads 2 (staff) / 3 (owner), request reads 2, print-history name reads 1.
+FAIL-FIRST: tests/unit/print-trail-columns.db.unit.spec.ts - against the merged queries.ts: "Received: [\"printed_at\"]".
+Superseded in place (dated notes): pin-and-attribution G2 guest `ensureOpenBill` regex; queue-seat-and-closed F3 `ensureOpenBill` text; sub-menus parent select text. Each still pins the same rule.
+Real rig after (calls / rounds / ms): round 31/14/1568 (was 35/20/2264); staff poll 13/2/237 (15/3/345); staff tap 15/5/562 (17/6/668); owner poll 29/2/254 (broken, then 33/4/469); owner save 33/5/576 (37/8/876). Load 40 phones + 5 captains + 1 owner: 27.0 /s busy, 17.3 /s quiet. Screens identical to the merged build (ids and times normalised).
+Review (code-reviewer, REQUEST CHANGES) fixed: `clearCart` ignored the client's `{ error }`, so with `cartEmptied` a failed clear showed an empty cart the next poll refilled (a guest could send the round twice) - it now throws and the route rebuilds the echo from the real cart; the owner grants read ignored its error, so presets would show as grants - it now throws; a failed queue read no longer turns a no-session phone's 401 into a 500; `currentGuestSessionWithCart` answers an unreadable session as none, as `currentGuestSession` does; the round's printer read fails the round (before any KOT write) rather than routing every ticket nowhere. The fake database can now answer `{ __error }` the way the real client fails.
+FAIL-FIRST: tests/unit/write-rounds.unit.spec.ts (appended rungs) - against the pre-review code: failed clear "Expected: 2 Received: 0" (cart shown empty); no-session phone "Expected: 401 Received: 500"; grants failure "Received has value: null" (console built on presets). 3 of 11 failed; after: 11 passed.
+Not unit-tested against a real schema: the new embeds (session->cart, session->bill!inner, category->parent, kot->table, permission->staff!inner). Proven on the real PostgREST rig instead: every screen and action above answered 200 with payloads identical to the merged build.
+tests/functional/guest-journey.functional.spec.ts - steps 5 and 6 now wait for the phone's own POST /api/guest/bill before reading state back (dated note). The read and the write raced; it passed only while a state read was slower than the write. Observed failing on this tree before the change: "Expected: payment_requested Received: open" on 3 projects, with the bill correctly payment_requested in the database and the server log showing the GET (86 ms) finishing before the POST (194 ms). After: 8 passed. Assertions unchanged.
+The four gate records above this entry are this run's, newest first. The two oldest FAILs and the BLOCKED are the rig, not the app: the app was first pointed straight at PostgREST, which answers every request carrying a key with 500 "Server lacks JWT secret" (the proxy strips it). The newest is the run described here.
+Gate (npm run gate, local rig: Postgres 16 + PostgREST 12.2.3 via the header-stripping proxy at 0 ms, next dev on :3000, fresh seed): G1-G7, G9-G12 PASS; **G8 FAIL** - 1 spec, guest-total-visibility "a tap lands on the row at once, and a run of taps all count" (desktop: "Expected 3 Received 2" at a 600 ms timeout). NOT this change's: the same spec on origin/main's own code, same rig, failed 2 of 4 projects (Received "2"; Received 1). Every other functional spec passed, including the four database-bound ones main recorded as unverifiable here.
+Unit: 1194 passed. Typecheck, lint, audit:all clean.
 ## Run - 2026-09-26 - production: owner console showed "we cannot reach the till"
 
 Edge logs on `yxgxmbyilpivbmeemqkp` (00:53Z and 01:01Z): every owner load issued `print_job?select=printer_id,printed_at&...&printed_at=not.is.null&order=printed_at.desc` and PostgREST answered **400** - `print_job` has never had a `printed_at` column (that stamp is on `kot`; the job carries `completed_at`). The read is `latestPerKey` behind "Last printed" (item 12, merged in #12); it sits in the owner payload's `Promise.all`, so its throw put the unreachable screen over the whole console. Every other PostgREST call in the window returned 200, including the `guest_cart_line` embed. Fix: read `completed_at`.
@@ -548,6 +702,108 @@ Error: Timed out waiting 180000ms from config.webServer.
 - **G12 Installable as an application** - PASS (73ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Fix 4 review follow-ups - 2026-09-25 - every counter moves when its screen does, and only then
+
+Found by a fresh-context review of fix 4; each reproduced before the fix:
+- a round or item moved between bills moved only the bill it joined (the table left behind kept a stale bill);
+- a staff rename moved no counter a guest watches (guest bills name the captain);
+- a guest's cart moved 'floor', so every cart tap re-read every captain's phone in full;
+- a print PC's first contact ("Waiting" -> "Connected") and its discovered printers moved nothing;
+- two scopes bumped by one statement were locked in no fixed order (deadlock risk);
+- the staff stamp ignored who was asking (a shared tablet switching from owner to cashier was told "unchanged");
+- the guest stamp ignored the phone's own session and cart (staff freeing the table, a second tab);
+- a stamp survived a change of URL in useLiveData.
+Fixed: migration 20260925090000 (ordered bumps; old+new bill; staff name -> catalog; cart trigger dropped; first contact and printers -> floor); `staffStamp` binds the floor to staffId + provisional + grants; `guestStamp` embeds the phone's session and cart in the table read (still 2 calls, 1 round); `forgetStamp` on URL change.
+FAIL-FIRST: tests/unit/change-versions.db.unit.spec.ts - PGlite, every migration before 20260925090000: 6 of 9 failed ("detaching a table moves the bill the rounds LEFT", "an item moved between rounds of different bills", "a staff member's new name", "a guest's cart does not make every captain's phone re-read", "a first contact does", "the printers a PC reports").
+FAIL-FIRST: tests/unit/change-stamp.unit.spec.ts (appended rungs) - against the pre-review stamps: "a guest phone re-reads when its own session or cart changes elsewhere" and "a staff stamp belongs to the person..." Expected true Received false. 2 of 10 failed.
+NOT OBSERVED FAILING: "every table a screen reads is watched by a counter" - added after the fix as a standing coverage check (it asks pg_trigger, not the SQL text); the scan asserts it found > 15 tables.
+NOT OBSERVED FAILING: the useLiveData URL-change reset - no hook-level rig exists; covered by code reading and the change-check unit spec only.
+Applied to yxgxmbyilpivbmeemqkp and uxmyomxtosjlkvjxnvpy on 25-Sep; verified on both: the 4 new triggers present, guest_cart_line_bump_floor gone.
+Local rig (real PostgREST, 100 ms per call): guest quiet tick 2 / 1 / 115 ms; staff 3 / 1 / 116; owner 3 / 1 / 111. Screens byte-identical to the pre-review build. Load, 40 phones + 5 captains + 1 owner: busy 27.6 /s, quiet 16.8 /s.
+Unit: 994 passed. Typecheck and lint clean. New dev dependency: @electric-sql/pglite 0.5.8.
+
+---
+
+## Fix 5 of the latency run - 2026-09-25 - an outage reaches the designed screen in ~2 s, not 7
+
+FAIL-FIRST: tests/unit/outage.unit.spec.ts - against the pre-fix client: refused database "Expected: < 1000 Received: 7092"; hanging database "spawnSync node ETIMEDOUT" (the read never failed; the rig's 30 s cap ended it); write rung also ETIMEDOUT (the scenario never reached it). 3 of 3 failed.
+After: 3 passed. Whole app, local production build: refused 7.17 s -> 0.27 s; hanging (no deadline) -> 2.2 s, both landing on "cannot reach the till just now".
+Rig: runScenario can keep the real database client (`realDb`) and set its URL (`env`); execFileSync now has a 30 s timeout so a hung scenario fails instead of holding the suite.
+Unit: 982 passed. Typecheck and lint clean.
+
+---
+
+## Fix 4 correction - 2026-09-25 - a heartbeat that rewrites an unchanged value moves nothing
+
+Found applying 20260924120000 to development: within minutes 'floor' had moved 10 times with nothing on the floor changed. Cause: `after update of hostname, bridge_version` fires whenever those columns are in the SET list, and the bridge sync rewrites both unchanged. 20260924130000 replaces both column-list triggers (bridge_token, guest_session) with row triggers that fire only when a watched value is DISTINCT.
+Local proof (Postgres 16, same migrations): bridge_token insert -> floor 1; two unchanged syncs -> still 1; a real bridge_version change -> 2; a guest last_seen_at stamp -> still 2.
+FAIL-FIRST: observed on development itself before the correction: 'floor' 0 -> 10 in minutes with only bridge PATCH/POST/DELETE traffic in the edge logs.
+tests/unit/change-stamp.unit.spec.ts "the heartbeat columns move nothing" superseded in place (dated note): it pinned the first migration's column-list text, which was the defect.
+Both migrations applied to yxgxmbyilpivbmeemqkp and uxmyomxtosjlkvjxnvpy on 25-Sep. After the correction, development 'floor' held at 53 from 10:48:34 to 10:51:11 UTC - but no writes reached the edge logs in that window, so the bridge case is proven locally, not yet on development.
+Unit: 979 passed.
+
+---
+
+## Fix 4 of the latency run - 2026-09-24 - polling asks "changed?" instead of re-reading everything
+
+FAIL-FIRST: tests/unit/change-stamp.unit.spec.ts - against the pre-fix routes: "every full screen carries the stamp" Received: null; "when nothing moved, a tick is one round..." Expected true Received false; "another table's business does not make a guest phone re-read" Expected true Received false. 3 of 8 failed.
+FAIL-FIRST: tests/unit/change-check.unit.spec.ts - against the pre-fix tree: "Cannot find module .../src/hooks/change-check" (the hook had no notion of a stamp).
+NOT OBSERVED FAILING: change-stamp rungs "a change is never answered unchanged", "a removed person is refused", "a database the migration has not reached yet still gets full screens" - they guard the fallbacks, which the old routes (always full) satisfied trivially.
+NOT OBSERVED FAILING: change-stamp "every table a polled screen reads moves a counter" and "the heartbeat columns move nothing" - audits of the new migration, run only with it present.
+Migration 20260924120000_jalsa_change_versions applied to a local Postgres 16 twice (idempotent); triggers exercised by SQL: a guest last_seen_at stamp moved nothing; bill.version rose with bill_table, kot, kot_item, kot status; a menu edit moved catalog; closing a bill still released its tables.
+Load (local PostgREST, 40 guest phones / 5 captains / 1 owner, 60 s): busy 84.5 -> 28.5 calls/s; quiet 84.3 -> 17.3 calls/s. Screens identical before/after.
+Unit: 979 passed. Typecheck and lint clean.
+
+---
+
+## Fix 3 review follow-ups - 2026-09-24 - a late poll cannot undo an echoed write; the echo has a deadline
+
+A fresh-context review of fix 3 found: (D1) a scheduled poll that left before a write could land after the write's echoed answer and put the screen back to its pre-tap state - the double-send refresh-gate.ts exists to prevent; (D2) a HUNG screen build had no deadline, so a committed write could reach the phone as a 504 and be repeated. Fixed: the gate counts writes that answered with their screen and the hook discards a read that began before one; `withState` answers without the screen after 2.5 s.
+FAIL-FIRST: tests/unit/refresh-gate.unit.spec.ts (appended rung) - against the pre-fix tree: "SyntaxError: The requested module '../../src/hooks/refresh-gate' does not provide an export named 'superseded'" - the old gate had no notion of a write, so a late poll was always applied.
+FAIL-FIRST: tests/unit/action-echo.unit.spec.ts "a screen that will not build in time..." - against the pre-fix withState: keys "Received + 1" (state arrived, after the 6 s stall).
+NOT OBSERVED FAILING: action-echo rungs "the owner console is echoed only to someone who may open it" and "a removed person is signed out" - they guard behaviour fix 3 already had (the reviewer found them untested, not broken).
+Superseded in place (contract change, dated notes): refresh-gate "no residue" now includes `writes: 0`; action-echo owner keys now `toEqual(['done','state'])`.
+Unit: 963 passed. Typecheck and lint clean.
+
+---
+
+## Fix 2 review follow-ups - 2026-09-24 - the closed bill, a moved phone, the cold restaurant lookup
+
+A fresh-context review of fix 2 found three real regressions or gaps. Fixed:
+- every live poll downloaded the table's last CLOSED bill in full (KOTs, print jobs) and a failure there broke the live screen - now a light id+closed_at read, the full bill only for `recently_paid`, and its failure is ignored when a bill is open;
+- a phone that moved tables could be left with no session if a bill read failed after the old row was deleted - the new session is now written before any bill error propagates;
+- `currentRestaurantId` cached only the answer, so a cold instance sent one duplicate lookup per parallel read - it now caches the lookup.
+FAIL-FIRST: tests/unit/guest-rounds.unit.spec.ts (appended rungs) - against the fix-2 tree: "a closed bill is downloaded whole only for the screen that shows it" Expected false Received true; "a failed closed-bill read cannot take down a live guest screen" threw "closed-bill read failed"; "a failed bill read never leaves a moved phone without a session" Expected true Received false. 3 of 13 failed.
+NOT OBSERVED FAILING: guest-rounds rungs for the recently_paid / table_inactive / not-found / no-cookie phases and the delete-before-insert order - new coverage of behaviour that was already correct; they guard it, they did not detect a defect.
+NOT OBSERVED FAILING: the currentRestaurantId change - the fake database answers that lookup instantly, so the rig cannot see a cold instance; justified by code reading and the 952 ms first call in the 24-Sep log.
+Rig hardening: each scenario now waits for in-flight calls before collecting, so a Promise.all that bails early cannot leak its siblings into the next scenario's record. The fake still records filters without applying them; the embed syntax was checked against real PostgREST 12.2 locally, not in CI.
+Unit: 959 passed. Typecheck and lint clean. Local PostgREST: rounds unchanged, payloads identical.
+
+---
+
+## Fix 3 of the latency run - 2026-09-24 - staff/owner actions answer with the screen
+
+FAIL-FIRST: tests/unit/action-echo.unit.spec.ts - against the pre-fix tree: staff action keys "Expected [done, state] Received [done]"; owner action "Expected value: state Received array: [done]"; currentStaff "Expected: 1 Received: 2" rounds. 3 of 6 failed; the two guard scenarios (build failure keeps the write's success, refusal carries no state) passed before and after, as they should.
+Local PostgREST (100 ms per call): staff tap 2 requests (545 + 340 ms) -> 1 (552 ms); staff poll 3 -> 2 rounds; owner poll 5 -> 4 rounds. The screen returned with the action is identical to the old follow-up re-read.
+Unit: 952 passed. Typecheck and lint clean.
+
+---
+
+## Fix 2 of the latency run - 2026-09-24 - guest screen: 8 sequential rounds to 2
+
+FAIL-FIRST: tests/unit/guest-rounds.unit.spec.ts - against the pre-fix tree: "first scan (no session yet) Expected: <= 3 Received: 7"; "live poll Expected: <= 2 Received: 8"; "cart tap echo Expected: <= 2 Received: 4"; bill pointer test "Received + 1" (bill_id rewritten on every poll). 4 of 6 failed; after the fix 6 passed.
+Rig: tests/support/round-rig.ts runs the real data layer with only the database client, the cookie reader and `server-only` swapped. Real PostgREST check (local, 100 ms per call): live poll 8 → 2 rounds, 867 → 233 ms; payloads identical before/after.
+Unit: 946 passed. Typecheck and lint clean. tests/unit/combobox-migration.unit.spec.ts pins the heard-sources gate as source text; the gate is unchanged and the line keeps that text.
+
+---
+
+## Fix 1 of the latency run - 2026-09-24 - functions next to the database
+
+FAIL-FIRST: tests/unit/function-region.unit.spec.ts - "ENOENT: no such file or directory, open '.../jalsa/vercel.json'" against the pre-fix tree (functions on the iad1 default). After `vercel.json` `regions: ["syd1"]`: 2 passed.
+NOT OBSERVED FAILING: tests/unit/function-region.unit.spec.ts "no route overrides the pinned region" - no route has ever set `preferredRegion`; it guards the fix, it did not detect the cause.
 
 ---
 

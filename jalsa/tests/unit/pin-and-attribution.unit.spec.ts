@@ -56,7 +56,11 @@ test('G2: "Bill opened" names whoever opened it; staff and owner routes say who'
   expect(code('src/app/api/staff/action/route.ts')).toMatch(/ensureOpenBill\(input\.tableId, \{\s*actor,/);
   expect(code('src/app/api/owner/action/route.ts')).toContain('ensureOpenBill(input.tableId, { actor })');
   // The guest's own round still opens as the guest.
-  expect(code('src/app/api/guest/round/route.ts')).toMatch(/ensureOpenBill\(session\.tableId\)/);
+  /* SUPERSEDED 26-Sep-2026 (latency, write path): previously /ensureOpenBill\(session\.tableId\)/.
+     The route now also passes `knownAbsent` (it has just read the table), and still no actor. */
+  expect(code('src/app/api/guest/round/route.ts')).toMatch(
+    /ensureOpenBill\(session\.tableId, \{ knownAbsent: true \}\)/
+  );
 });
 
 test('G2: a captain opening an unassigned table becomes its captain; the owner does not', () => {

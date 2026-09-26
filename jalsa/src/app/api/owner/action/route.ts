@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
-import { actorFor, currentStaff } from '@/lib/db/auth';
+import { actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
+import { withState } from '@/lib/db/action-echo';
+import { buildOwnerPayload } from '@/lib/db/owner-view';
+import { publicConfig } from '@/lib/config';
 import {
   cancelItem,
   changeQty,
@@ -89,7 +92,13 @@ type Action =
   | { action: 'add-category'; name: string; printerId?: string | null }
   | ({ action: 'add-dish' } & NewDish)
   | { action: 'set-category-parent'; categoryId: string; parentId: string | null }
-  | { action: 'set-item-routing'; itemIds: string[]; all?: boolean; station?: string | null; printerId?: string | null }
+  | {
+      action: 'set-item-routing';
+      itemIds: string[];
+      all?: boolean;
+      station?: string | null;
+      printerId?: string | null;
+    }
   | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
@@ -166,8 +175,30 @@ type Action =
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
+  const result = await perform(staff, await body<Action>(req));
+  // The answer carries the console as it now stands (`action-echo.ts`). Unlike a captain, an
+  // owner can change THEIR OWN standing — a permission, a PIN, removal — so the console is built
+  // for whoever the database says is signed in now, with exactly the gate `/api/owner/state`
+  // applies. Anyone who no longer passes it gets no console here; the phone's own re-read then
+  // receives the same refusal it always would have.
+  //
+  // The check and the build run TOGETHER (requests/2026-09-24-app-feels-slow-measure-first.md):
+  // the console depends on the person only for `me` and `grants`, which are taken from the fresh
+  // check below, so a build begun with the pre-action identity is the same console. Someone who
+  // fails the check still gets none - the build is simply discarded.
+  return withState(result, async () => {
+    const [now, built] = await Promise.all([currentStaff('owner'), buildOwnerPayload(staff, publicConfig.qrOrigin)]);
+    if (!now || !now.grants.can('orders.view')) return null;
+    return {
+      ...built,
+      me: { id: now.staffId, name: now.name, role: now.role, initials: now.initials },
+      grants: now.grants.list(),
+    };
+  });
+});
+
+async function perform(staff: SignedInStaff, input: Action): Promise<NextResponse> {
   const actor = actorFor(staff);
-  const input = await body<Action>(req);
 
   switch (input.action) {
     case 'close-bill':
@@ -329,7 +360,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       );
 
     case 'upload-image':
-      return ok(await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor }));
+      return ok(
+        await uploadImage({ folder: input.folder === 'brand' ? 'brand' : 'menu', base64: input.base64, actor })
+      );
 
     case 'upsert-table':
       await upsertTable({
@@ -506,4 +539,4 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     default:
       return fail(400, { code: 'validation', message: 'That is not something this console can do.' });
   }
-});
+}

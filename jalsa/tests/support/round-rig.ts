@@ -1,0 +1,91 @@
+/**
+ * round-rig — run a scenario against the REAL data-layer code with the database swapped for
+ * `fake-supabase.ts`, and return what it printed.
+ *
+ * The data layer imports `server-only`, `next/headers` (through `@/lib/sessions`) and a live
+ * Supabase client, so it cannot be imported by a unit spec. esbuild bundles the scenario with
+ * exactly three substitutions — `server-only` → nothing, `@/lib/supabase/server` → the fake,
+ * `@/lib/sessions` → the fake — and everything else is the application's own source. The bundle
+ * runs in a child process so each scenario starts from fresh module state.
+ */
+import { build } from 'esbuild';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const APP = join(HERE, '../..');
+
+const SWAPS: Record<string, string> = {
+  '@/lib/supabase/server': join(HERE, 'fake-supabase.ts'),
+  '@/lib/sessions': join(HERE, 'fake-sessions.ts'),
+};
+
+export interface RigOptions {
+  /** Keep the REAL `@/lib/supabase/server` (for scenarios about the client itself, e.g. outages). */
+  realDb?: boolean;
+  /** Extra environment for the child process — e.g. where the database is. */
+  env?: Record<string, string>;
+}
+
+export async function runScenario<T>(scenarioFile: string, options: RigOptions = {}): Promise<T> {
+  // Inside the app, not the OS temp dir: the bundle keeps npm packages external, and Node resolves
+  // them from the bundle's own location.
+  const cache = join(APP, 'node_modules', '.cache', 'round-rig');
+  mkdirSync(cache, { recursive: true });
+  const outfile = join(mkdtempSync(join(cache, 'run-')), 'scenario.mjs');
+  await build({
+    entryPoints: [scenarioFile],
+    outfile,
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    tsconfig: join(APP, 'tsconfig.json'),
+    packages: 'external',
+    logLevel: 'silent',
+    plugins: [
+      {
+        name: 'round-rig-swaps',
+        setup(b) {
+          b.onResolve({ filter: /^server-only$/ }, () => ({ path: 'server-only', namespace: 'empty' }));
+          // `next` ships CommonJS entry files without an exports map; Node's ESM loader wants the
+          // file name. Still external — the real package, not a stand-in.
+          b.onResolve({ filter: /^next\/(server|headers)$/ }, (a) => ({ path: `${a.path}.js`, external: true }));
+          b.onLoad({ filter: /.*/, namespace: 'empty' }, () => ({ contents: '', loader: 'js' }));
+          b.onResolve({ filter: /^@\/lib\/(supabase\/server|sessions)$/ }, (a) =>
+            options.realDb && a.path === '@/lib/supabase/server'
+              ? undefined // resolved normally: the application's own client
+              : { path: SWAPS[a.path] ?? a.path }
+          );
+        },
+      },
+    ],
+  });
+  // supabase-js builds its (unused) realtime client on createClient and refuses where Node has no
+  // WebSocket - Node 20, which CI runs, keeps it behind a flag. Only `realDb` scenarios create the
+  // real client, but the flag is harmless for the rest (26-Sep-2026, first CI run of the outage spec).
+  const flags =
+    typeof (globalThis as { WebSocket?: unknown }).WebSocket === 'undefined' ? ['--experimental-websocket'] : [];
+  const out = execFileSync(process.execPath, [...flags, outfile], {
+    cwd: APP,
+    encoding: 'utf8',
+    // The call is synchronous, so the test runner's own timeout cannot interrupt it: a scenario
+    // that hangs must fail here, loudly, rather than hold the whole suite.
+    timeout: 30_000,
+    env: {
+      ...process.env,
+      APP_ENV: 'test',
+      PUBLIC_APP_URL: 'http://localhost:3000',
+      PUBLIC_API_URL: 'http://localhost:3000/api',
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:1',
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'x',
+      SUPABASE_SECRET_KEY: 'x',
+      SESSION_SECRET: 'round-rig-only-0000000000000000000000000000',
+      NEXT_PUBLIC_QR_ORIGIN: 'http://localhost:3000',
+      ...options.env,
+    },
+  });
+  return JSON.parse(out.trim().split('\n').at(-1) ?? 'null') as T;
+}

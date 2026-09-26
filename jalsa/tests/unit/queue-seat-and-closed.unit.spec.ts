@@ -95,5 +95,8 @@ test('F3: the round route refuses a NEW bill while closed, and still serves a se
   expect(route).toContain("readSettings('queue', { open: true })");
   expect(route).toContain('if (!existing && queue.open === false)');
   expect(route).toContain('message: NEW_TABLES_CLOSED');
-  expect(route).toContain('existing ?? (await ensureOpenBill(session.tableId))');
+  /* SUPERSEDED 26-Sep-2026 (latency, write path): previously
+     'existing ?? (await ensureOpenBill(session.tableId))'. The route has just read the table, so
+     it tells ensureOpenBill not to read it again. */
+  expect(route).toContain('existing ?? (await ensureOpenBill(session.tableId, { knownAbsent: true }))');
 });

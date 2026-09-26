@@ -1,4 +1,5 @@
 import 'server-only';
+import { early } from './guest';
 import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn } from '@/lib/restaurant-time';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
@@ -161,10 +162,12 @@ function shapeKot(bill: Bill, k: Bill['kots'][number]): StaffKotView {
 
 export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayload> {
   const restaurantId = await currentRestaurantId();
+  // Read once and shared with the floor, which shows the same bills and requests.
+  const shared = { bills: early(listOpenBills()), requests: early(listOpenRequests()) };
   const [floor, bills, requests, { items, categories }, settings, peopleRes] = await Promise.all([
-    listFloor(),
-    listOpenBills(),
-    listOpenRequests(),
+    listFloor(shared),
+    shared.bills,
+    shared.requests,
     listMenu(),
     readAllSettings(),
     // Names and roles only, for the waiter picker - the same predicate the server checks (G1).

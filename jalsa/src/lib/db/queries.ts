@@ -321,30 +321,42 @@ export async function getBill(billId: string): Promise<Bill | null> {
  * constraint can never disagree about which bill is live.
  */
 export async function openBillForTable(tableId: string): Promise<Bill | null> {
+  // ONE round trip, not two: the membership row embeds its bill. The filter is the same row the
+  // unique index covers, so this still cannot disagree with the constraint. It used to read the
+  // membership, then fetch the bill by id — a second trip that cost ≈250 ms while the functions
+  // ran on the far side of the world from the database (requests/2026-09-24-app-feels-slow-…).
   const { data, error } = await db()
     .from('bill_table')
-    .select('bill_id')
+    .select(`bill:bill_id (${BILL_SELECT})`)
     .eq('table_id', tableId)
     .is('released_at', null)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  return getBill(data.bill_id as string);
+  const bill = (data as { bill?: Record<string, unknown> | null } | null)?.bill;
+  return bill ? shapeBill(bill) : null;
 }
 
-/** The most recently closed bill on a table, for the rescan window ("scan again, bill closed"). */
-export async function lastClosedBillForTable(tableId: string): Promise<Bill | null> {
+/**
+ * The most recently closed bill on a table, for the rescan window ("scan again, bill closed") —
+ * as its id and closing time only.
+ *
+ * Only THAT much, because it is asked on every guest poll and needed only when the answer turns
+ * out to be "paid a few minutes ago": the caller fetches the whole bill (`getBill`) in that case
+ * alone. Fetching it whole every time downloaded the previous party's KOTs and print jobs every
+ * six seconds for a screen that never showed them (review of fix 2, 24-Sep-2026).
+ */
+export async function lastClosedOnTable(tableId: string): Promise<{ billId: string; closedAt: string | null } | null> {
   const { data, error } = await db()
     .from('bill_table')
-    .select('bill_id, released_at')
+    .select('released_at, bill:bill_id (id, closed_at)')
     .eq('table_id', tableId)
     .not('released_at', 'is', null)
     .order('released_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  return getBill(data.bill_id as string);
+  const bill = (data as { bill?: { id: string; closed_at: string | null } | null } | null)?.bill;
+  return bill ? { billId: bill.id, closedAt: bill.closed_at ?? null } : null;
 }
 
 export async function listOpenBills(): Promise<Bill[]> {
@@ -485,16 +497,26 @@ export async function listExpensesBetween(from: string, to: string): Promise<Exp
  * means `tableStateFrom` is the single definition of what "ready" means, shared with the unit
  * tests, instead of a CASE expression in SQL that no test can reach.
  */
-export async function listFloor(): Promise<FloorTable[]> {
+/**
+ * Reads a screen has already started, handed in so they are not issued a second time. The staff
+ * and owner screens show the open bills and the requests beside the floor, and used to read each
+ * of them twice (and the owner's, three times) per poll (requests/2026-09-24-app-feels-slow-…).
+ */
+export interface SharedReads {
+  bills?: Promise<Bill[]>;
+  requests?: Promise<TableRequest[]>;
+}
+
+export async function listFloor(shared: SharedReads = {}): Promise<FloorTable[]> {
   const restaurantId = await currentRestaurantId();
-  const [tablesRes, bills, requests, phonesRes, clearingRes] = await Promise.all([
+  const [tablesRes, bills, requests, phonesRes, clearingRes, onOpenRes] = await Promise.all([
     db()
       .from('dining_table')
       .select('id,name,zone,seats,active,sort')
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
-    listOpenBills(),
-    listOpenRequests(),
+    shared.bills ?? listOpenBills(),
+    shared.requests ?? listOpenRequests(),
     /* Phones still attached to a table. Not occupancy in the billing sense — a party that
        scanned, filled a cart and walked out leaves one of these and no bill — but it IS stale
        data sitting on a table the restaurant considers free, and the only thing that can see it
@@ -514,6 +536,14 @@ export async function listFloor(): Promise<FloorTable[]> {
       .select('table_id,released_at,bill:bill_id(code,guests)')
       .not('released_at', 'is', null)
       .is('cleared_at', null),
+    /* Phones on a bill still open: bounded by the open bills, which are few. Filtered by the
+       bill's own status here rather than by the ids `listOpenBills` returns, so it does not wait
+       for that read - it was a whole extra round on every staff poll (requests/2026-09-24-…). */
+    db()
+      .from('guest_session')
+      .select('id,table_id,bill_id,bill:bill_id!inner(status)')
+      .eq('restaurant_id', restaurantId)
+      .in('bill.status', ['open', 'payment_requested']),
   ]);
   if (tablesRes.error) throw tablesRes.error;
 
@@ -525,16 +555,13 @@ export async function listFloor(): Promise<FloorTable[]> {
   const carts = (phonesRes.data ?? []) as unknown as Array<{ session_id: string; session: { id: string; table_id: string; bill_id: string | null } }>;
   const withCart = new Set(carts.map((c) => c.session_id));
   const byId = new Map(carts.map((c) => [c.session.id, c.session]));
-  // Phones on a bill still open: bounded by the open bills, which are few.
+  // Phones on a bill still open. Kept to the bills `listOpenBills` returned, so a bill that
+  // changed state between the two reads is judged the way the rest of this screen judges it.
   const openIds = bills.map((b) => b.id);
-  if (openIds.length) {
-    const { data: onOpen, error: openErr } = await db()
-      .from('guest_session')
-      .select('id,table_id,bill_id')
-      .eq('restaurant_id', restaurantId)
-      .in('bill_id', openIds);
-    if (openErr) throw openErr;
-    for (const r of onOpen ?? []) byId.set(r.id as string, r as { id: string; table_id: string; bill_id: string | null });
+  if (onOpenRes.error) throw onOpenRes.error;
+  const open = new Set(openIds);
+  for (const r of (onOpenRes.data ?? []) as unknown as Array<{ id: string; table_id: string; bill_id: string | null }>) {
+    if (r.bill_id && open.has(r.bill_id)) byId.set(r.id, { id: r.id, table_id: r.table_id, bill_id: r.bill_id });
   }
   const phones = phonesHoldingTables([...byId.values()], withCart, new Set(openIds));
 
@@ -678,7 +705,7 @@ export async function listSuggestions(limit = 20): Promise<Suggestion[]> {
 
 /* ── People ────────────────────────────────────────────────────────────── */
 
-export async function listStaff(): Promise<StaffMember[]> {
+export async function listStaff(shared: SharedReads = {}): Promise<StaffMember[]> {
   const restaurantId = await currentRestaurantId();
   const [staffRes, bills] = await Promise.all([
     db()
@@ -687,7 +714,7 @@ export async function listStaff(): Promise<StaffMember[]> {
       .eq('restaurant_id', restaurantId)
       .is('removed_at', null)
       .order('name', { ascending: true }),
-    listOpenBills(),
+    shared.bills ?? listOpenBills(),
   ]);
   if (staffRes.error) throw staffRes.error;
 
@@ -850,13 +877,19 @@ export async function listAudit(limit = 200): Promise<AuditRow[]> {
 
 export async function listPrinters(): Promise<PrinterRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('printer')
-    .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at,created_at')
-    .eq('restaurant_id', restaurantId)
-    .order('machine_id', { ascending: true });
+  /* The machines and their last print need nothing from each other, so they share a round
+     (requests/2026-09-24-app-feels-slow-measure-first.md). "Last printed" is `completed_at`, which
+     the bridge stamps only when a job PRINTS (bridge-mutations.ts). This read named
+     `print_job.printed_at` - a column only `kot` has - and failed the whole owner console. */
+  const [{ data, error }, lastPrinted] = await Promise.all([
+    db()
+      .from('printer')
+      .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at,created_at')
+      .eq('restaurant_id', restaurantId)
+      .order('machine_id', { ascending: true }),
+    latestPerKey('printer_id', 'completed_at', restaurantId),
+  ]);
   if (error) throw error;
-  const lastPrinted = await latestPerKey('printer_id', 'completed_at', restaurantId);
   return (data ?? []).map((p) => ({
     id: p.id as string,
     machineId: p.machine_id as string,
@@ -929,23 +962,18 @@ export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('print_job')
-    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id),bill(code)')
+    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id,table:table_id(name)),bill(code)')
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
 
-  const tableIds = [
-    ...new Set(
-      (data ?? [])
-        .map((j) => (j.kot as unknown as { table_id: string | null } | null)?.table_id)
-        .filter((t): t is string => !!t)
-    ),
-  ];
+  // The table's name rides in the same read (`kot.table:table_id(name)`). It was a second read,
+  // by the ids this one returned - the last round of every owner poll (requests/2026-09-24-…).
   const names = new Map<string, string>();
-  if (tableIds.length) {
-    const { data: tables } = await db().from('dining_table').select('id,name').in('id', tableIds);
-    (tables ?? []).forEach((t) => names.set(t.id as string, t.name as string));
+  for (const j of data ?? []) {
+    const kot = j.kot as unknown as { table_id: string | null; table?: { name: string } | null } | null;
+    if (kot?.table_id && kot.table?.name) names.set(kot.table_id, kot.table.name);
   }
 
   return (data ?? []).map((j) => {
@@ -1160,13 +1188,16 @@ export async function listGuestReplies(tableId: string): Promise<GuestReply[]> {
  */
 export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('bridge_token')
-    .select('id,label,created_at,last_seen_at,revoked_at')
-    .eq('restaurant_id', restaurantId)
-    .order('created_at', { ascending: false });
+  // The PCs and their last ticket need nothing from each other: one round, not two.
+  const [{ data, error }, lastTicket] = await Promise.all([
+    db()
+      .from('bridge_token')
+      .select('id,label,created_at,last_seen_at,revoked_at')
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false }),
+    latestPerKey('claimed_by', 'claimed_at', restaurantId),
+  ]);
   if (error) throw error;
-  const lastTicket = await latestPerKey('claimed_by', 'claimed_at', restaurantId);
 
   return (data ?? []).map((t) => ({
     id: t.id as string,

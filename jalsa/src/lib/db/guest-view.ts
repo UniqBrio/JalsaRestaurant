@@ -11,7 +11,7 @@ import {
   readAllSettings,
 } from './queries';
 import { readCart } from './mutations';
-import { resolveGuest, type GuestContext } from './guest';
+import { resolveGuest, startGuestReads, type GuestContext, type GuestPrefetch } from './guest';
 import { resolveFeatures, type GuestFeatures } from '@/lib/guest-features';
 import type { Bill, GuestReply } from './types';
 
@@ -149,9 +149,12 @@ const timeLabel = (iso: string): string => timeLabelIn(iso);
  * CREATED, so both must go through `resolveGuest`.
  */
 export async function buildGuestPayload(tableName: string): Promise<GuestPayload | null> {
-  const ctx = await resolveGuest(tableName);
+  // The menu and the settings key on nothing, so they are in flight before the table is even
+  // looked up; `resolveGuest` adds the reads it can start once it knows the table and session.
+  const prefetch = startGuestReads();
+  const ctx = await resolveGuest(tableName, prefetch);
   if (!ctx) return null;
-  return assembleGuestPayload(ctx);
+  return assembleGuestPayload(ctx, prefetch);
 }
 
 /**
@@ -180,7 +183,7 @@ export const SEEDED_HEARD_SOURCES = [
   'Regular customer',
 ] as const;
 
-export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayload> {
+export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPrefetch = {}): Promise<GuestPayload> {
   /**
    * THE CART IS NOT DOWNSTREAM OF THE MENU.
    *
@@ -189,13 +192,18 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
    * `cartLines`) is in-memory work below. So all three are issued together, and a payload build
    * costs one wave rather than two.
    */
+  /*
+   * A read the context builder already started (see `GuestPrefetch`) is awaited, not re-issued —
+   * on the guest page and poll they are all in flight long before this line, so this `await`
+   * usually costs no round trip at all.
+   */
   const [{ items, categories }, settings, cart, replies, recordedSources] = await Promise.all([
-    listMenu(),
-    readAllSettings(),
-    ctx.sessionId ? readCart(ctx.sessionId) : Promise.resolve([]),
+    prefetch.menu ?? listMenu(),
+    prefetch.settings ?? readAllSettings(),
+    ctx.sessionId ? (prefetch.cart ?? readCart(ctx.sessionId)) : Promise.resolve([]),
     // Into the SAME wave, not after it. An answered suggestion is one more thing this screen
     // shows and nothing below depends on it, so it costs no extra round trip.
-    listGuestReplies(ctx.table.id),
+    prefetch.replies ?? listGuestReplies(ctx.table.id),
     /*
       ONLY ON THE SCREEN THAT ASKS. `/api/guest/state` is POLLED — this payload is rebuilt every
       few seconds for every phone at every table. `listHeardSources` reads every non-empty
@@ -203,7 +211,8 @@ export async function assembleGuestPayload(ctx: GuestContext): Promise<GuestPayl
       field it feeds renders on the welcome screen alone. Issued unconditionally it was an
       unbounded scan on the hottest path in the application, for data nobody was looking at.
     */
-    ctx.phase === 'welcome' ? listHeardSources() : Promise.resolve([]),
+    // `prefetch.heard` is only ever started once the phase is known to be `welcome`.
+    prefetch.heard ?? (ctx.phase === 'welcome' ? listHeardSources() : Promise.resolve([])),
   ]);
   const cartQty = new Map(cart.map((c) => [c.menuItemId, c.qty]));
 

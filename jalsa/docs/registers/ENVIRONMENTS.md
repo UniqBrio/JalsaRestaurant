@@ -12,6 +12,8 @@
 | **staging** | Pre-production verification | not provisioned | — | deploys only | no |
 | **production** | Real service at Jalsa, Hosur | not provisioned | — | **approved deploys only** | **NEVER** |
 
+**Server functions run in `syd1` (Sydney), next to both Supabase projects (24-Sep-2026, `jalsa/vercel.json`).** Before that they ran in Vercel's default `iad1` (Washington DC), and every database call paid ≈250–375 ms (requests/2026-09-24-app-feels-slow-measure-first.md). Guarded by `tests/unit/function-region.unit.spec.ts`.
+
 **There are now two Supabase projects.** `yxgxmbyilpivbmeemqkp` does development duty and will become production; `uxmyomxtosjlkvjxnvpy` exists so the suite has somewhere to write. The reset script refuses the first by ref. Staging is still not provisioned.
 
 ~~**There is currently one Supabase project and it is doing development duty.**~~ That is stated
@@ -96,10 +98,13 @@ than a link. `20260923090000` is applied to both projects (23-Sep-2026).
 | `20260916110000_jalsa_print_setup.sql` | ✅ 16-Sep | ✅ 16-Sep | printer station / connection / address / port / enabled; routes re-seeded onto menu categories |
 | `20260916120000_jalsa_hr_documents.sql` | ✅ 16-Sep | ✅ 16-Sep | the last five employment columns and `staff.paperwork` |
 | `20260917120000_jalsa_drop_ambiguous_set_staff_pin.sql` | ✅ 25-Sep (applied eight days after it was committed; `pg_proc` before: both overloads, after: `set_staff_pin(uuid,text,boolean)` only - RC-018) | ✅ (already one function on 25-Sep, verified by `pg_proc`) | drops the two-argument `set_staff_pin` that made Reissue PIN ambiguous |
+| `20260924120000_jalsa_change_versions.sql` | ✅ 25-Sep | ✅ 25-Sep | `change_version` ('floor', 'catalog'), `bill.version`, bump triggers — the polling change check (latency fix 4). Verified after apply: 32 triggers, RLS on, staff 28 / menu 57 / tables 20 / bills 12 unchanged on development |
+| `20260924130000_jalsa_change_versions_exact.sql` | ✅ 25-Sep | ✅ 25-Sep | bridge_token / guest_session bump only on a real change: the bridge sync rewrote `hostname`/`bridge_version` unchanged and moved 'floor' ten times in minutes after the first apply |
 | `20260925090000_jalsa_kot_item_line_order.sql` | ✅ 25-Sep (as `jalsa_kot_item_line_order`) | ✅ 25-Sep | `kot_item.line_seq` (identity, cart order) + index — item 3 |
 | `20260925100000_jalsa_item_routing_and_media.sql` | ✅ 25-Sep | ✅ 25-Sep | `menu_item.printer_id/station`, `kot_item.route_printer_id/route_station` + indexes, private storage bucket `media` (1 MB, png/jpeg) — items 23, 25, 26, 32 |
 | `20260925110000_jalsa_payment_notice_once.sql` | ✅ 25-Sep | ✅ 25-Sep | partial unique index: one open "Clear the table" / "Bill requested" per bill — item 37 |
 | `20260925120000_jalsa_menu_sub_categories.sql` | ✅ 25-Sep, after TEST | ✅ 25-Sep, then exercised in a rolled-back block: a sub-menu under a top-level one accepted; under a sub-menu, under itself, a parent moved under another, and deleting a parent all refused | (renumbered from `20260925090000` on 26-Sep: that version was taken by `jalsa_kot_item_line_order`; applied as `jalsa_menu_sub_categories`) `menu_category.parent_id` (one level, trigger `menu_category_one_level`), `kot_item.menu_parent_category_name` snapshot (I3) |
+| `20260925130000_jalsa_change_versions_review.sql` | ✅ 25-Sep (as `jalsa_change_versions_review`) | ✅ 25-Sep | (renumbered from `20260925090000` on 26-Sep: that version was taken by `jalsa_kot_item_line_order`) Fix-4 review: a child row moves its old AND new bill (id order); scopes bumped in a fixed order; staff rename moves 'catalog'; guest cart no longer moves 'floor'; bridge first contact and discovered printers move 'floor'. Verified after apply on both: the 4 triggers present, `guest_cart_line_bump_floor` gone |
 
 **25-Sep-2026, data (owner's request, not a migration):** on `yxgxmbyilpivbmeemqkp` only - six printers deleted, keeping `RP3160 GOLD(U) 1` (their 16 stale queued jobs marked failed with a reason first; all 58 print jobs kept, `printer_id` set null); the four revoked bridge tokens deleted, keeping `Kitchen PC`; the KOT template's `phone` / `branch` switched off. Each written to `audit_entry` as "Owner request · 25-Sep correction list". Verified after: printers 1, bridge tokens 1 (its mapping intact), queued jobs on no printer 0.
 **Applied live by other branches, not in this branch:** `jalsa_change_versions*` (festive-brown-bhheua) and `jalsa_menu_sub_categories` (gifted-thompson-lyr4de) — recorded here so the next reader of `list_migrations` is not surprised.

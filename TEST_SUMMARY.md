@@ -2,6 +2,31 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-26 - CI: the outage spec on Node 20
+
+The first CI run of jalsa/tests/unit/outage.unit.spec.ts (PR #14) failed all three rungs: CI runs Node 20, where WebSocket is behind a flag, and supabase-js builds its (unused) realtime client on createClient and throws "Node.js detected but native WebSocket not found". Only `realDb` scenarios create the real client. The round rig now starts its child with `--experimental-websocket` when the parent has no WebSocket.
+
+FAIL-FIRST: jalsa/tests/unit/outage.unit.spec.ts - reproduced locally with NODE_OPTIONS=--no-experimental-websocket: 3 failed with CI's exact error; after the rig change, same flag: 3 passed.
+
+Unit (jalsa): 1195 passed; typecheck and lint clean.
+
+---
+
+## Application run - jalsa - 2026-09-26 - Merge with main; write-path latency; the owner console 500
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Merged main (separate staff/owner sign-ins,
+sub-menus, routing, payment notices) into the latency branch; `20260925090000_jalsa_change_versions_review`
+renumbered to `20260925130000` (the version was taken by main's `jalsa_kot_item_line_order`; the
+earlier entries below keep the old number, as written). Re-measuring found main's owner console
+answering 500 (`print_job.printed_at` does not exist) and extra rounds on the staff poll, owner poll
+and the guest's round. Fixed.
+
+FAIL-FIRST: jalsa/tests/unit/write-rounds.unit.spec.ts - against the merged tree: first round 21 rounds (<= 15 expected), later round 15 (<= 10), floor 2 (1), staff screen 2 (1), owner console 3 (1), owner action 8 (<= 5); cart read separately 2x, printers 2x, open bills read 3x on the owner console.
+FAIL-FIRST: jalsa/tests/unit/print-trail-columns.db.unit.spec.ts - against the merged tree: missing print_job columns Received ["printed_at"].
+
+FAIL-FIRST: jalsa/tests/unit/write-rounds.unit.spec.ts (review rungs) - against the pre-review code: failed cart clear shown as empty (Expected 2 Received 0); no-session phone 500 not 401; grants failure built the console on presets. 3 of 11 failed.
+
+Gate run (jalsa, local rig): G1-G7, G9-G12 PASS; **G8 FAIL** on one spec, guest-total-visibility "a run of taps all count", which fails on origin/main's own code on the same rig too (2 of 4 projects). guest-journey fixed (it read state before its own write landed). Unit 1194 passed.
 ## Application run - jalsa - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
 
 `jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.
@@ -250,6 +275,131 @@ corrected screen was NOT opened against live rows. The first gate run of the day
 as FAIL: G7/G8 timed out because the dev servers had no environment; the rerun supplied
 placeholder, non-secret values. Verify on the deployment: open Reports, pick 23-Sep, expect
 1 bill (B-1044, UPI).
+
+---
+
+## Application run - jalsa - 2026-09-25 - Fix 4 review follow-ups: every counter moves when its screen does
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** A fresh-context review of fix 4 found change
+counters that did not move (a detached table's old bill, a moved item, a staff rename, a print PC's
+first contact and its printers), one that moved for nothing (a guest cart moved the staff counter),
+stamps that ignored who was asking (staff) and the phone's own session and cart (guest), a stamp
+surviving a URL change, and scopes locked in no fixed order. Migration 20260925090000 applied to
+development and test; nothing in the triggers had been executed by a test before - now PGlite runs
+every migration in-process.
+
+FAIL-FIRST: jalsa/tests/unit/change-versions.db.unit.spec.ts - against the migrations before 20260925090000: 6 of 9 failed (detach, moved item, staff rename, cart moving floor, first contact, printers).
+FAIL-FIRST: jalsa/tests/unit/change-stamp.unit.spec.ts (appended rungs) - against the pre-review stamps: "a guest phone re-reads when its own session or cart changes elsewhere" and "a staff stamp belongs to the person" both Expected true Received false. 2 of 10 failed.
+
+Gate run (jalsa): unit 994 passed, typecheck and lint clean. Load at 40 phones: busy 27.6 /s,
+quiet 16.8 /s (original 84.5 / 84.3). G8 functional NOT run here.
+
+---
+
+## Application run - jalsa - 2026-09-25 - Latency fix 5 of 5: outages fail fast
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** The Supabase client retried failed reads
+1 s + 2 s + 4 s, and reads had no deadline. Retries are off; reads give up after 2 s; writes wait.
+
+FAIL-FIRST: jalsa/tests/unit/outage.unit.spec.ts - against the pre-fix client: refused "Received: 7092" (< 1000 expected); a hanging database never failed (ETIMEDOUT at the rig's 30 s cap). 3 of 3 failed.
+
+Gate run (jalsa): unit 982 passed, typecheck and lint clean. Whole app: refused 7.17 s -> 0.27 s,
+hanging no deadline -> 2.2 s. G8 functional NOT run here.
+
+---
+
+## Application run - jalsa - 2026-09-25 - Fix 4 correction: heartbeats move nothing
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Applying the change-version migration to
+development showed the print bridge's sync (which rewrites `hostname`/`bridge_version` unchanged)
+moving the floor counter every few seconds. A second migration makes those triggers fire only on
+a real difference. Both migrations applied to development and test.
+
+FAIL-FIRST: observed on development before the correction ('floor' 0 -> 10 in minutes from bridge traffic alone); after it, locally: two unchanged syncs moved nothing, a real change moved it once.
+
+Gate run (jalsa): unit 979 passed. G8 functional NOT run here.
+
+---
+
+## Application run - jalsa - 2026-09-24 - Latency fix 4 of 5: polling asks "changed?"
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Every open screen re-read its whole world on a
+timer. Database-kept counters (migration 20260924120000) now let a tick ask "changed?" in one
+round; the screen is re-read only on a change, or on the clock for time-derived labels.
+
+FAIL-FIRST: jalsa/tests/unit/change-stamp.unit.spec.ts - against the pre-fix routes: no stamp on full screens (Received: null); a quiet tick not answered unchanged; a guest phone re-reading for another table's change. 3 of 8 failed.
+FAIL-FIRST: jalsa/tests/unit/change-check.unit.spec.ts - "Cannot find module .../src/hooks/change-check" against the pre-fix tree.
+
+Gate run (jalsa): unit 979 passed, typecheck and lint clean. Load at 40 open tables (local
+PostgREST): 84.5 -> 28.5 calls/s busy, 84.3 -> 17.3 quiet. G8 functional NOT run here.
+
+---
+
+## Application run - jalsa - 2026-09-24 - Fix 3 review follow-ups
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Review of fix 3 found a late poll could undo an
+echoed write on screen (the double-send the refresh gate exists to stop) and a hung screen build
+could turn a committed write into a 504. Both fixed.
+
+FAIL-FIRST: jalsa/tests/unit/refresh-gate.unit.spec.ts - against the pre-fix tree: "does not provide an export named 'superseded'" (the old gate never knew about writes).
+FAIL-FIRST: jalsa/tests/unit/action-echo.unit.spec.ts (deadline rung) - against the pre-fix withState the hung build's state arrived after 6 s ("Received + 1").
+
+Gate run (jalsa): unit 963 passed, typecheck and lint clean. G8 functional NOT run here.
+
+---
+
+## Application run - jalsa - 2026-09-24 - Fix 2 review follow-ups
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** Review of fix 2 found: every live poll downloaded
+the last closed bill in full and could fail on it; a moved phone could be left without a session
+on a failed bill read; a cold instance sent duplicate restaurant lookups. All three fixed.
+
+FAIL-FIRST: jalsa/tests/unit/guest-rounds.unit.spec.ts (appended rungs) - against the fix-2 tree: heavy closed-bill read "Expected false Received true"; live screen threw "closed-bill read failed"; moved phone insert "Expected true Received false". 3 of 13 failed.
+
+Gate run (jalsa): unit 959 passed, typecheck and lint clean; local PostgREST payloads identical.
+G8 functional was NOT run here (no database reachable from the container).
+
+---
+
+## Application run - jalsa - 2026-09-24 - Latency fix 3 of 5: actions answer with the screen
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`.** A captain's or owner's tap used to answer
+`{done:true}` and make the phone send a second request for the whole screen. The answer now
+carries the screen (`action-echo.ts`), and the sign-in check reads the staff row and grants together.
+
+FAIL-FIRST: jalsa/tests/unit/action-echo.unit.spec.ts - against the pre-fix tree: staff action returned [done] with no state; owner action had no state; currentStaff took 2 rounds; 3 of 6 failed.
+
+Gate run (jalsa): unit 952 passed, typecheck and lint clean; local PostgREST: staff tap 2 requests
+-> 1, staff poll 3 -> 2 rounds, owner poll 5 -> 4; echoed screens identical to the old re-read.
+G8 functional was NOT run here (no database reachable from the container).
+
+---
+
+## Application run - jalsa - 2026-09-24 - Latency fix 2 of 5: guest screen in 2 rounds, not 8
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`** and the request file. The guest page and its
+6 s poll waited for 8 database round trips in sequence; independent reads now share a round, the
+bill is fetched with its membership row, and the bill pointer is written only when wrong.
+
+FAIL-FIRST: jalsa/tests/unit/guest-rounds.unit.spec.ts - against the pre-fix tree: live poll "Expected: <= 2 Received: 8", first scan "Received: 7", cart echo "Received: 4", bill pointer rewritten every poll; 4 of 6 failed.
+
+Gate run (jalsa): unit 946 passed, typecheck and lint clean; local PostgREST check: live poll
+8 → 2 rounds (867 → 233 ms at 100 ms per call), payloads identical before/after. G8 functional
+was NOT run here (no database reachable from the container).
+
+---
+
+## Application run - jalsa - 2026-09-24 - Latency fix 1 of 5: functions next to the database
+
+**The full record lives in `jalsa/TEST_SUMMARY.md`** and `jalsa/requests/2026-09-24-app-feels-slow-measure-first.md`.
+The functions ran in Vercel's default iad1 (Washington DC); Supabase is Sydney. Measured ≈250–375 ms
+per database call, against ~1 ms of Postgres time. `jalsa/vercel.json` now pins `syd1`.
+
+FAIL-FIRST: jalsa/tests/unit/function-region.unit.spec.ts - "ENOENT: no such file or directory, open '.../jalsa/vercel.json'" against the pre-fix tree.
+
+Gate run (jalsa): unit 940 passed, typecheck and lint clean. G8 functional was NOT run on this
+runner (no database reachable from the container). The effect on real latency is measured after
+deploy from the Supabase edge logs, not here.
 
 ---
 

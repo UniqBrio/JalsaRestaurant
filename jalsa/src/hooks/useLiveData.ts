@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { handleError } from '@/lib/errors';
-import { newGate, begin, end } from './refresh-gate';
+import { newGate, begin, end, wrote, superseded } from './refresh-gate';
 import { echoedState } from '@/lib/write-echo';
 import { staleNotice } from '@/lib/stale-notice';
+import { forgetStamp, isUnchanged, newCheck, pollTarget, readInFull, type CheckState } from './change-check';
 
 /**
  * useLiveData — the ONE way this application keeps a screen current (Standard 10.4).
@@ -45,7 +46,15 @@ export interface LiveData<T> {
   send: <R>(path: string, payload: unknown) => Promise<R>;
 }
 
-export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): LiveData<T> {
+export interface LiveOptions {
+  /**
+   * Ask "has anything changed?" on each tick instead of re-reading everything, and read in full
+   * at least this often (see `change-check.ts`). Omitted: every tick is a full read, as before.
+   */
+  fullEveryMs?: number;
+}
+
+export function useLiveData<T>(url: string, initial: T, intervalMs = 6000, options: LiveOptions = {}): LiveData<T> {
   const [data, setData] = useState<T>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const [staleReason, setStaleReason] = useState<string | null>(null);
@@ -57,18 +66,38 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
    *  state at all — on the owner console that is one large tree not re-rendering every 8
    *  seconds for a screen that did not change. */
   const lastText = useRef<string | null>(null);
+  /** The change-check state, when this screen uses one (fix 4). */
+  const check = useRef<CheckState | null>(options.fullEveryMs ? newCheck(options.fullEveryMs) : null);
+  /* A stamp belongs to the URL it came from. Two idle tables can carry identical stamps, so one
+     carried across a change of URL could keep the old screen for a new table (review of fix 4). */
+  useEffect(() => {
+    if (check.current) forgetStamp(check.current);
+    lastText.current = null;
+  }, [url]);
 
   const refreshOnce = useCallback(
     async (force: boolean): Promise<boolean> => {
       if (!begin(gate.current, force)) return false;
       setRefreshing(true);
+      // A write that answers with its own screen may land while this read is out; if it does,
+      // this read is older than what is showing and must not replace it (refresh-gate `wrote`).
+      const seen = gate.current.writes;
+      const now = Date.now();
+      const target = check.current ? pollTarget(url, check.current, now, force) : { href: url, full: true };
       try {
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(target.href, { cache: 'no-store' });
         if (!res.ok) throw new Error(`${url} ${res.status}`);
         const text = await res.text();
-        if (text !== lastText.current) {
-          lastText.current = text;
-          setData(JSON.parse(text) as T);
+        if (superseded(gate.current, seen)) {
+          // Older than the screen. Drop it; the next tick reads afresh.
+        } else if (check.current && isUnchanged(text)) {
+          // Nothing this screen shows has moved since the stamp it sent. Keep everything.
+        } else {
+          if (text !== lastText.current) {
+            lastText.current = text;
+            setData(JSON.parse(text) as T);
+          }
+          if (check.current) readInFull(check.current, res.headers.get('x-change-stamp'), now);
         }
         failures.current = 0;
         setStaleReason(null);
@@ -148,6 +177,8 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000): Live
          long" was (12-Sep-2026). See src/lib/db/guest-echo.ts for the server half. */
       const echoed = echoedState<T>(parsed);
       if (echoed !== null) {
+        wrote(gate.current);
+        if (check.current) forgetStamp(check.current);
         const text = JSON.stringify(echoed);
         if (text !== lastText.current) {
           lastText.current = text;

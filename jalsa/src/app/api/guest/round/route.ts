@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { freshState } from '@/lib/db/guest-echo';
-import { attachBillToSession, currentGuestSession } from '@/lib/db/guest';
-import { clearCart, ensureOpenBill, GUEST_ACTOR, placeRound, readCart } from '@/lib/db/mutations';
+import { attachBillToSession, currentGuestSessionWithCart } from '@/lib/db/guest';
+import { clearCart, ensureOpenBill, GUEST_ACTOR, placeRound } from '@/lib/db/mutations';
 import { openBillForTable, readSettings } from '@/lib/db/queries';
 import { NEW_TABLES_CLOSED } from '@/lib/queue-closed';
 
@@ -20,8 +20,19 @@ import { NEW_TABLES_CLOSED } from '@/lib/queue-closed';
  *   at the one moment they can still order something else (Product Plan §7).
  */
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
-  const session = await currentGuestSession();
-  if (!session) {
+  // The session with its cart, and the queue switch: none needs another, so one round
+  // (requests/2026-09-24-app-feels-slow-measure-first.md). The switch is read even for a phone
+  // that turns out to have no session - a wasted read on a refusal, never on an order - and its
+  // failure is only raised once the phone is known, so a phone with no session still gets the
+  // designed "scan again" rather than an error about a setting it never needed.
+  const [mine, queueRead] = await Promise.all([
+    currentGuestSessionWithCart(),
+    readSettings('queue', { open: true }).then(
+      (value) => ({ value, error: null }),
+      (error: unknown) => ({ value: null, error })
+    ),
+  ]);
+  if (!mine) {
     return fail(401, {
       code: 'unauthenticated',
       message: 'Scan the code on your table again — this phone is not attached to a table right now.',
@@ -29,7 +40,9 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
   }
 
   const input = await body<{ note?: string }>(req);
-  const lines = await readCart(session.id);
+  const { session, cart: lines } = mine;
+  if (queueRead.error) throw queueRead.error;
+  const queue = queueRead.value ?? { open: true };
   if (lines.length === 0) {
     return fail(400, { code: 'validation', message: 'There is nothing in your order yet.' });
   }
@@ -38,14 +51,14 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
      bill - seated by staff, from the queue, or by an earlier round - keeps ordering; one nobody
      has seated is refused here as well as shown the closed screen, so a phone that loaded the
      menu before the switch flipped cannot open a bill through it. */
-  const [existing, queue] = await Promise.all([
-    openBillForTable(session.tableId),
-    readSettings('queue', { open: true }),
-  ]);
+  const existing = await openBillForTable(session.tableId);
   if (!existing && queue.open === false) {
     return fail(409, { code: 'conflict', message: NEW_TABLES_CLOSED });
   }
-  const bill = existing ?? (await ensureOpenBill(session.tableId));
+  // `knownAbsent`: the table was read a moment ago and had no bill, so ensureOpenBill need not
+  // ask again. A party opening one in between still loses nothing - the bill_table insert is
+  // guarded by its unique index and ensureOpenBill answers with the bill that won.
+  const bill = existing ?? (await ensureOpenBill(session.tableId, { knownAbsent: true }));
 
   /**
    * TWO WRITES THAT DO NOT READ EACH OTHER.
@@ -84,15 +97,22 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     });
   }
 
-  await clearCart(session.id);
   // The echo is handed the session this request already read, with the `bill_id` that
   // `attachBillToSession` has just written — so it neither re-reads the row nor re-writes the
-  // pointer. `clearCart` stays AHEAD of it deliberately: the payload reports `inCart` and the
-  // cart badge, so an echo racing the clear would show the round that was just sent still
-  // sitting in the cart.
-  return ok({
-    kotCode: result.kotCode,
-    refused: result.refused,
-    state: await freshState({ ...session, billId: bill.id }),
-  });
+  // pointer. The payload reports `inCart` and the cart badge, so the echo must not show the round
+  // just sent still sitting in the cart. It used to wait for `clearCart` for that reason; it is
+  // now TOLD the cart is empty (`cartEmptied`) and the two run together
+  // (requests/2026-09-24-app-feels-slow-measure-first.md). Told only if the clear succeeded: if
+  // it failed, the echo is rebuilt from the cart as it really is, so the phone shows the lines
+  // still there now rather than six seconds later - when a guest might take the round for unsent
+  // and send it again. The round itself is placed either way and is reported as placed.
+  const [cleared, echoed] = await Promise.all([
+    clearCart(session.id).then(
+      () => true,
+      () => false
+    ),
+    freshState({ ...session, billId: bill.id }, { cartEmptied: true }),
+  ]);
+  const state = cleared ? echoed : await freshState({ ...session, billId: bill.id });
+  return ok({ kotCode: result.kotCode, refused: result.refused, state });
 });

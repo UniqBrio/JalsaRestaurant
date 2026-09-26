@@ -25,12 +25,38 @@ import { logError } from '@/lib/logger';
  */
 let cached: SupabaseClient | null = null;
 
+/**
+ * How long a READ may wait for the database before the screen says it cannot reach the till.
+ *
+ * WHY (requests/2026-09-24-app-feels-slow-measure-first.md, fix 5)
+ *   The client library retried a failed read three times, waiting 1 s, 2 s and 4 s — so when the
+ *   database was down, a guest stared at a blank page for seven seconds (measured 7.03–7.17 s)
+ *   before the designed "unavailable" screen appeared. Next to the database a read takes a few
+ *   milliseconds; one that has not answered in two seconds is not going to, and the honest screen
+ *   is worth more than the wait. The next poll — six seconds later — tries again anyway.
+ *
+ * READS ONLY. A write that is cut off here may still commit on the server; telling the person it
+ * failed would invite them to do it twice — a second round in the kitchen. Writes wait for their
+ * answer, as before, and are no longer retried behind their back either.
+ */
+export const DB_READ_TIMEOUT_MS = 2000;
+
+function failFastFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') return fetch(input, init);
+  const deadline = AbortSignal.timeout(DB_READ_TIMEOUT_MS);
+  const signal = init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
+  return fetch(input, { ...init, signal });
+}
+
 export function db(): SupabaseClient {
   if (cached) return cached;
   const cfg = serverConfig();
   cached = createClient(cfg.supabaseUrl, cfg.supabaseSecretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { 'x-application-name': 'jalsa' } },
+    // No silent retries: a failure reaches `attempt()` at once and becomes the designed screen.
+    db: { retry: false },
+    global: { headers: { 'x-application-name': 'jalsa' }, fetch: failFastFetch },
   });
   return cached;
 }
@@ -68,18 +94,31 @@ export function configurationProblem(): string | null {
  * rather than assuming "the only row" means the day a second outlet appears, this function is
  * where the change lands instead of forty queries.
  */
-let restaurantId: string | null = null;
+let restaurantId: Promise<string> | null = null;
 
-export async function currentRestaurantId(): Promise<string> {
-  if (restaurantId) return restaurantId;
+/*
+ * The LOOKUP is what is remembered, not only its answer. A screen starts several reads at once,
+ * and each asks for this id first; caching only the finished value let every one of them, on a
+ * freshly started instance, send its own copy of the same query — a burst of duplicates in front
+ * of the first real read (requests/2026-09-24-app-feels-slow-measure-first.md). A failed lookup is
+ * forgotten, so the next request tries again rather than inheriting the failure.
+ */
+export function currentRestaurantId(): Promise<string> {
+  restaurantId ??= lookUpRestaurantId().catch((err: unknown) => {
+    restaurantId = null;
+    throw err;
+  });
+  return restaurantId;
+}
+
+async function lookUpRestaurantId(): Promise<string> {
   const { data, error } = await db().from('restaurant').select('id').eq('slug', RESTAURANT_SLUG).single();
   if (error || !data) {
     throw new Error(
       `No restaurant with slug "${RESTAURANT_SLUG}". Run the migrations in supabase/migrations against ${publicConfig.supabaseUrl}.`
     );
   }
-  restaurantId = data.id as string;
-  return restaurantId;
+  return data.id as string;
 }
 
 export const RESTAURANT_SLUG = 'jalsa-hosur';

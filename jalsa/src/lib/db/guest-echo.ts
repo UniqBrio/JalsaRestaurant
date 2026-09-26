@@ -1,5 +1,5 @@
 import 'server-only';
-import { contextForSession, currentGuestSession, type GuestSession } from './guest';
+import { contextForSession, currentGuestSession, startGuestReads, type GuestSession } from './guest';
 import { assembleGuestPayload, type GuestPayload } from './guest-view';
 
 /**
@@ -41,13 +41,19 @@ import { assembleGuestPayload, type GuestPayload } from './guest-view';
  *   Passing a stale `billId` would be correct but slower, never wrong: the corrective write is
  *   still there, and the bill itself is derived from `bill_table`, never from this field.
  */
-export async function freshState(session?: GuestSession | null): Promise<GuestPayload | null> {
+export async function freshState(
+  session?: GuestSession | null,
+  /** Set when the caller has just emptied the cart itself: the screen need not read it back. */
+  opts: { cartEmptied?: boolean } = {}
+): Promise<GuestPayload | null> {
   try {
     const known = session ?? (await currentGuestSession());
     if (!known) return null;
-    const ctx = await contextForSession(known);
+    const prefetch = startGuestReads();
+    if (opts.cartEmptied) prefetch.cart = Promise.resolve([]);
+    const ctx = await contextForSession(known, prefetch);
     if (!ctx) return null;
-    return await assembleGuestPayload(ctx);
+    return await assembleGuestPayload(ctx, prefetch);
   } catch {
     return null;
   }

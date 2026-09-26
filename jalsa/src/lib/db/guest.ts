@@ -1,7 +1,17 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { newGuestToken, readGuestToken, writeGuestToken } from '@/lib/sessions';
-import { findTableByName, getBill, lastClosedBillForTable, openBillForTable, readSettings } from './queries';
+import {
+  findTableByName,
+  getBill,
+  lastClosedOnTable,
+  listGuestReplies,
+  listHeardSources,
+  listMenu,
+  openBillForTable,
+  readAllSettings,
+} from './queries';
+import { readCart } from './mutations';
 import type { Bill } from './types';
 
 /**
@@ -54,12 +64,78 @@ export interface GuestContext {
 }
 
 /**
- * Resolve the guest context for a table, creating the session row if this phone is new.
+ * The reads a guest payload needs, started AS SOON AS THEIR KEYS ARE KNOWN rather than after the
+ * context is settled.
  *
- * Deliberately does NOT open a bill. A guest who scans and reads the menu without ordering must
- * not occupy the table on the captain's floor - the bill starts at the first round, which is
- * also the first moment anything is owed.
+ * WHY THIS EXISTS (requests/2026-09-24-app-feels-slow-measure-first.md, fix 2)
+ *   The guest page and its 6-second poll used to wait for eight database round trips in a row.
+ *   The menu and the settings need nothing; the cart needs only the session; the owner's replies
+ *   need only the table. None of them needs the bill. So whoever resolves the context starts them
+ *   the moment it can, and `assembleGuestPayload` awaits the same promises instead of issuing the
+ *   reads again. A live poll now waits for two rounds, never more than three.
+ *
+ * `heard` is filled only when the phase is known to be `welcome` — it is an unbounded scan and
+ * the one screen that shows it is the welcome screen (see `assembleGuestPayload`).
  */
+export interface GuestPrefetch {
+  menu?: ReturnType<typeof listMenu>;
+  settings?: ReturnType<typeof readAllSettings>;
+  cart?: ReturnType<typeof readCart>;
+  replies?: ReturnType<typeof listGuestReplies>;
+  heard?: ReturnType<typeof listHeardSources>;
+}
+
+/**
+ * Start a read now and await it later. The no-op catch only stops a read that is never awaited —
+ * because an earlier step returned or threw — from surfacing as an unhandled rejection; whoever
+ * awaits the promise still receives the error.
+ */
+export function early<T>(p: Promise<T>): Promise<T> {
+  p.catch(() => undefined);
+  return p;
+}
+
+/** The menu and the settings: needed on every guest screen, keyed on nothing. */
+export function startGuestReads(): GuestPrefetch {
+  return { menu: early(listMenu()), settings: early(readAllSettings()) };
+}
+
+function rescanFrom(settings: Record<string, Record<string, unknown>>): number {
+  const minutes = (settings.rescan ?? {}).minutes;
+  return typeof minutes === 'number' ? minutes : 15;
+}
+
+/** The phase a table's bills put a guest in — one rule for both ways of building the context. */
+function phaseFor(
+  open: Bill | null,
+  closed: { closedAt: string | null } | null,
+  rescanMinutes: number
+): Exclude<GuestPhase, 'table_inactive'> {
+  if (open) return 'live';
+  if (closed?.closedAt) {
+    const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
+    if (ageMinutes <= rescanMinutes) return 'recently_paid';
+  }
+  return 'welcome';
+}
+
+/**
+ * The bills a table's guest sees, from round 2's two settled reads.
+ *
+ * The last-closed lookup matters only when nothing is open, so on a live table its failure is
+ * irrelevant and is not allowed to take the guest's screen down with it — before fix 2 it was
+ * never even asked on a live table. Either failure that DOES matter is rethrown.
+ */
+function billsFrom(
+  openR: PromiseSettledResult<Bill | null>,
+  closedR: PromiseSettledResult<{ billId: string; closedAt: string | null } | null>
+): { open: Bill | null; closed: { billId: string; closedAt: string | null } | null } {
+  if (openR.status === 'rejected') throw openR.reason;
+  if (openR.value) return { open: openR.value, closed: null };
+  if (closedR.status === 'rejected') throw closedR.reason;
+  return { open: null, closed: closedR.value };
+}
+
 /**
  * Persist a freshly minted token, where the runtime allows it.
  *
@@ -77,74 +153,102 @@ async function persistGuestToken(token: string): Promise<void> {
   }
 }
 
-export async function resolveGuest(tableName: string): Promise<GuestContext | null> {
-  const table = await findTableByName(tableName);
-  if (!table) return null;
+/**
+ * Resolve the guest context for a table, creating the session row if this phone is new.
+ *
+ * Deliberately does NOT open a bill. A guest who scans and reads the menu without ordering must
+ * not occupy the table on the captain's floor - the bill starts at the first round, which is
+ * also the first moment anything is owed.
+ */
+export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = {}): Promise<GuestContext | null> {
+  // The cookie is minted by `src/middleware.ts` before this render begins, so on the guest page
+  // it is always already here. The fallback covers a direct hit on /api/guest/state, which
+  // middleware does not match. Reading it costs no round trip.
+  const carried = await readGuestToken();
+  const token = carried ?? newGuestToken();
+  const settings = (prefetch.settings ??= early(readAllSettings()));
 
-  const restaurantId = await currentRestaurantId();
-  const { minutes } = await readSettings('rescan', { minutes: 15 });
-  const rescanMinutes = typeof minutes === 'number' ? minutes : 15;
+  // ROUND 1 — the table, the settings and this phone's session need nothing from each other.
+  const [table, allSettings, { data: existing }] = await Promise.all([
+    findTableByName(tableName),
+    settings,
+    db().from('guest_session').select('id,table_id,bill_id,heard_about').eq('token', token).maybeSingle(),
+  ]);
+  if (!table) return null;
+  const rescanMinutes = rescanFrom(allSettings);
 
   if (!table.active) {
     return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '' };
   }
 
-  // The cookie is minted by `src/middleware.ts` before this render begins, so on the guest page
-  // it is always already here. The fallback covers a direct hit on /api/guest/state, which
-  // middleware does not match.
-  const carried = await readGuestToken();
-  const token = carried ?? newGuestToken();
-
-  const { data: existing } = await db()
-    .from('guest_session')
-    .select('id,table_id,bill_id,heard_about')
-    .eq('token', token)
-    .maybeSingle();
-
-  let sessionId: string;
+  const restaurantId = await currentRestaurantId();
   /* A phone that moves to another table gets a fresh session, so the answer below does not
      follow onto someone else's table. Carried only where the session is. */
-  let heardAbout = '';
-  if (existing && existing.table_id === table.id) {
-    sessionId = existing.id as string;
-    heardAbout = (existing.heard_about as string) ?? '';
-    await db().from('guest_session').update({ last_seen_at: new Date().toISOString() }).eq('id', sessionId);
-  } else {
-    // A phone that walks to a different table gets a different SESSION - reusing the row would
-    // carry the old table's cart onto the new table's bill. It keeps the same TOKEN, though:
-    // rotating the token would mean writing a cookie, and this function runs inside a server
-    // component where Next.js forbids that. Dropping the old row frees the token (it is unique)
-    // and takes its cart with it, which is the whole point of the rotation.
-    if (existing) await db().from('guest_session').delete().eq('id', existing.id);
+  const reuse = existing !== null && existing.table_id === table.id;
 
+  // Keyed on the table and the session, both known now: issued into round 2, awaited by the
+  // assembler. A brand-new session has no cart lines, so there is nothing to read.
+  prefetch.replies ??= early(listGuestReplies(table.id));
+  prefetch.cart ??= early(reuse ? readCart(existing.id as string) : Promise.resolve([]));
+
+  // ROUND 2 — the table's open bill (ONE query now, see `openBillForTable`) and when it was last
+  // paid, beside the session's own housekeeping. Settled rather than all-or-nothing: see below.
+  const [openR, closedR, housekeeping] = await Promise.allSettled([
+    openBillForTable(table.id),
+    lastClosedOnTable(table.id),
+    reuse
+      ? db().from('guest_session').update({ last_seen_at: new Date().toISOString() }).eq('id', existing.id)
+      : // A phone that walks to a different table gets a different SESSION - reusing the row would
+        // carry the old table's cart onto the new table's bill. It keeps the same TOKEN, though:
+        // rotating the token would mean writing a cookie, and this function runs inside a server
+        // component where Next.js forbids that. Dropping the old row frees the token (it is
+        // unique) and takes its cart with it, which is the whole point of the rotation.
+        existing
+        ? db().from('guest_session').delete().eq('id', existing.id)
+        : Promise.resolve(null),
+  ]);
+  if (housekeeping.status === 'rejected') throw housekeeping.reason;
+  const knownOpen = openR.status === 'fulfilled' ? openR.value : null;
+
+  // ROUND 3, only when needed — the session row is created with its bill pointer already set, and
+  // an existing one is corrected only when it is wrong (it used to be rewritten on every poll).
+  // A NEW session is created even if a bill read failed: once the old row is deleted, this phone
+  // must not be left holding a token that opens nothing. The bill error is rethrown after.
+  const sessionWrite = async (): Promise<{ sessionId: string; heardAbout: string }> => {
+    if (reuse) {
+      const sessionId = existing.id as string;
+      if (knownOpen && existing.bill_id !== knownOpen.id) {
+        await db().from('guest_session').update({ bill_id: knownOpen.id }).eq('id', sessionId);
+      }
+      return { sessionId, heardAbout: (existing.heard_about as string) ?? '' };
+    }
     const { data: created, error } = await db()
       .from('guest_session')
-      .insert({ restaurant_id: restaurantId, token, table_id: table.id })
+      .insert({ restaurant_id: restaurantId, token, table_id: table.id, bill_id: knownOpen?.id ?? null })
       .select('id')
       .single();
     if (error) throw error;
-    sessionId = created.id as string;
+    return { sessionId: created.id as string, heardAbout: '' };
+  };
+  if (openR.status === 'rejected' || (!knownOpen && closedR.status === 'rejected')) {
+    await sessionWrite();
   }
+  const { open, closed } = billsFrom(openR, closedR);
+
+  const phase = phaseFor(open, closed, rescanMinutes);
+  if (phase === 'welcome') prefetch.heard ??= early(listHeardSources());
+  // The whole closed bill is fetched only for the screen that shows it, in the same round as the
+  // session write.
+  const [bill, { sessionId, heardAbout }] = await Promise.all([
+    phase === 'live' ? open : phase === 'recently_paid' && closed ? getBill(closed.billId) : null,
+    sessionWrite(),
+  ]);
 
   // Only ever for a token this request invented, and only where writing is legal. On the page
   // `carried` is set, so nothing is attempted; in a route handler it persists the new key.
   if (!carried) await persistGuestToken(token);
 
-  const open = await openBillForTable(table.id);
-  if (open) {
-    await db().from('guest_session').update({ bill_id: open.id }).eq('id', sessionId);
-    return { phase: 'live', sessionId, table, bill: open, rescanMinutes, heardAbout };
-  }
-
-  const closed = await lastClosedBillForTable(table.id);
-  if (closed?.closedAt) {
-    const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
-    if (ageMinutes <= rescanMinutes) {
-      return { phase: 'recently_paid', sessionId, table, bill: closed, rescanMinutes, heardAbout };
-    }
-  }
-
-  return { phase: 'welcome', sessionId, table, bill: null, rescanMinutes, heardAbout };
+  return { phase, sessionId, table, bill, rescanMinutes, heardAbout };
 }
 
 /**
@@ -181,12 +285,24 @@ export async function resolveGuest(tableName: string): Promise<GuestContext | nu
  *     goes through `resolveGuest` and stamps it regardless, so session liveness is unchanged.
  *     If a consumer is ever added, this is the second place that has to stamp it.
  */
-export async function contextForSession(session: GuestSession): Promise<GuestContext | null> {
-  // The table row and the rescan window need nothing from each other.
-  const [{ data: row }, { minutes }] = await Promise.all([
+export async function contextForSession(
+  session: GuestSession,
+  prefetch: GuestPrefetch = {}
+): Promise<GuestContext | null> {
+  const settings = (prefetch.settings ??= early(readAllSettings()));
+  // Everything below is keyed on the session the caller holds, so it is all one round.
+  prefetch.cart ??= early(readCart(session.id));
+  prefetch.replies ??= early(listGuestReplies(session.tableId));
+
+  const [rowR, settingsR, openR, closedR] = await Promise.allSettled([
     db().from('dining_table').select('id,name,zone,seats,active').eq('id', session.tableId).maybeSingle(),
-    readSettings('rescan', { minutes: 15 }),
+    settings,
+    openBillForTable(session.tableId),
+    lastClosedOnTable(session.tableId),
   ]);
+  if (rowR.status === 'rejected') throw rowR.reason;
+  if (settingsR.status === 'rejected') throw settingsR.reason;
+  const row = rowR.value.data;
   if (!row) return null;
 
   const table = {
@@ -195,45 +311,25 @@ export async function contextForSession(session: GuestSession): Promise<GuestCon
     zone: row.zone as string,
     seats: row.seats as number,
   };
-  const rescanMinutes = typeof minutes === 'number' ? minutes : 15;
+  const rescanMinutes = rescanFrom(settingsR.value);
 
   if (!row.active) {
     return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '' };
   }
 
-  const open = await openBillForTable(table.id);
-  if (open) {
+  const { open, closed } = billsFrom(openR, closedR);
+  const phase = phaseFor(open, closed, rescanMinutes);
+  if (phase === 'welcome') prefetch.heard ??= early(listHeardSources());
+
+  const [bill] = await Promise.all([
+    phase === 'live' ? open : phase === 'recently_paid' && closed ? getBill(closed.billId) : null,
     // Only when it is actually wrong. After `attachBillToSession` it is already right, so the
     // common path costs nothing.
-    if (session.billId !== open.id) {
-      await db().from('guest_session').update({ bill_id: open.id }).eq('id', session.id);
-    }
-    return { phase: 'live', sessionId: session.id, table, bill: open, rescanMinutes, heardAbout: session.heardAbout };
-  }
-
-  const closed = await lastClosedBillForTable(table.id);
-  if (closed?.closedAt) {
-    const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
-    if (ageMinutes <= rescanMinutes) {
-      return {
-        phase: 'recently_paid',
-        sessionId: session.id,
-        table,
-        bill: closed,
-        rescanMinutes,
-        heardAbout: session.heardAbout,
-      };
-    }
-  }
-
-  return {
-    phase: 'welcome',
-    sessionId: session.id,
-    table,
-    bill: null,
-    rescanMinutes,
-    heardAbout: session.heardAbout,
-  };
+    open && session.billId !== open.id
+      ? db().from('guest_session').update({ bill_id: open.id }).eq('id', session.id)
+      : null,
+  ]);
+  return { phase, sessionId: session.id, table, bill, rescanMinutes, heardAbout: session.heardAbout };
 }
 
 /** The bill a guest session is allowed to act on - and no other. */
@@ -267,6 +363,37 @@ export async function currentGuestSession(): Promise<GuestSession | null> {
     tableId: data.table_id as string,
     billId: (data.bill_id as string) ?? null,
     heardAbout: (data.heard_about as string) ?? '',
+  };
+}
+
+/**
+ * This phone's session AND its cart, in one read. Placing a round needs both, and read one after
+ * the other (the cart is keyed on the session's id) they were a whole round trip before anything
+ * else on that path could start (requests/2026-09-24-app-feels-slow-measure-first.md).
+ */
+export async function currentGuestSessionWithCart(): Promise<{
+  session: GuestSession;
+  cart: Array<{ menuItemId: string; qty: number }>;
+} | null> {
+  const token = await readGuestToken();
+  if (!token) return null;
+  const { data, error } = await db()
+    .from('guest_session')
+    .select('id,table_id,bill_id,heard_about,guest_cart_line (menu_item_id,qty)')
+    .eq('token', token)
+    .maybeSingle();
+  // As `currentGuestSession` answers: a session that cannot be read is no session, and the phone
+  // is asked to scan again rather than shown an error.
+  if (error || !data) return null;
+  const lines = (data as { guest_cart_line?: Array<{ menu_item_id: string; qty: number }> }).guest_cart_line ?? [];
+  return {
+    session: {
+      id: data.id as string,
+      tableId: data.table_id as string,
+      billId: (data.bill_id as string) ?? null,
+      heardAbout: (data.heard_about as string) ?? '',
+    },
+    cart: lines.map((r) => ({ menuItemId: r.menu_item_id, qty: r.qty })),
   };
 }
 
