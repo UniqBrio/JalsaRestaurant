@@ -165,6 +165,13 @@ FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - the new case was run aga
 
 ---
 
+## Run - 2026-09-26 - the door code and every stand still carried the drawn "J"
+
+`restaurant.logo_url` is the schema default `/brand/jalsa-badge.png` on the live project (no upload; the media bucket is empty), and `restaurantLogo()` accepted `/api/media/` uploads only, so every code fell back to the drawn badge while Restaurant details showed the Jalsa logo. Fix: the bundled badge is read from `public/` and embedded like an upload; `outputFileTracingIncludes` ships the file with the two QR routes so the same holds inside a Vercel function.
+FAIL-FIRST: tests/unit/tables-qr-25sep.unit.spec.ts - the new case failed on the unfixed tree at `expect(m).toContain("'/brand/jalsa-badge.png'")`; after: tables-qr-25sep + qr-stand **20 passed**. Lint: pass. Typecheck: pass once main's new `@electric-sql/pglite` dependency was installed.
+
+---
+
 ## Run - 2026-09-26 - CI red on main and #12: `ansiView` depended on the Node build's ICU
 
 `jalsa` CI job, run 27 on #12 and run 26 on main (`1e34b87`): the same two cases in tests/unit/bridge-package.unit.spec.ts failed. Root cause: `TextDecoder('windows-1252')` returns C1 controls for 0x80-0x9F on Node 20.19 / ICU 76 (the runner) and the cp1252 glyphs on Node 22 / ICU 78 (where the spec was written), so the "old installer as PowerShell 5.1 read it" fixture differed by runtime. Fix: `ansiView` decodes by hand with the WHATWG cp1252 table for those 32 bytes.

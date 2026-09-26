@@ -400,14 +400,28 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
       >
         {editing ? (
           <div className="flex flex-col gap-3">
-            <Field label="Item name" required htmlFor="owner-item-name">
-              <Input
-                id="owner-item-name"
-                value={editing.name}
-                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                data-testid="owner-item-name"
-              />
-            </Field>
+            {/* The photo sits beside the name (owner's ask, 26-Sep-2026): the two things a guest
+                sees first on the menu are entered together, and the form is a row shorter. */}
+            <div className="flex flex-wrap items-start gap-3">
+              <Field label="Item name" required htmlFor="owner-item-name" className="min-w-[12rem] flex-1">
+                <Input
+                  id="owner-item-name"
+                  value={editing.name}
+                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  data-testid="owner-item-name"
+                />
+              </Field>
+              <Field label="Image" htmlFor="owner-item-image-file">
+                <ImagePicker
+                  testId="owner-item-image"
+                  label={`Photo of ${editing.name || 'this dish'}`}
+                  value={editing.imageUrl}
+                  onChange={(imageUrl) => setEditing({ ...editing, imageUrl })}
+                  upload={upload}
+                  disabled={!canEdit}
+                />
+              </Field>
+            </div>
 
             <div className="flex flex-wrap gap-3">
               <Field label="Price ₹" required htmlFor="owner-item-price" className="min-w-[8rem] flex-1">
@@ -497,17 +511,6 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                 ]}
                 placeholder="Search printers"
                 emptyLabel="No matching printers"
-              />
-            </Field>
-
-            <Field label="Image" htmlFor="owner-item-image-file">
-              <ImagePicker
-                testId="owner-item-image"
-                label={`Photo of ${editing.name || 'this dish'}`}
-                value={editing.imageUrl}
-                onChange={(imageUrl) => setEditing({ ...editing, imageUrl })}
-                upload={upload}
-                disabled={!canEdit}
               />
             </Field>
 
