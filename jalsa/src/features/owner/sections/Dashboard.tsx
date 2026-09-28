@@ -268,7 +268,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
               {canFree && t.freeable ? (
                 <Button
                   data-testid={`owner-free-table-${t.name}`}
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   disabled={busy}
                   className="mt-1 w-full"
@@ -281,7 +281,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
               {canClear && t.clearing ? (
                 <Button
                   data-testid={`owner-clear-table-${t.name}`}
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   disabled={busy}
                   className="mt-1 w-full"

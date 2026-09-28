@@ -30,3 +30,16 @@ test('a "Needs clearing" table on the dashboard offers "Mark it clear" to whoeve
   expect(dash).toContain('Mark it clear');
   expect(code('src/features/staff/StaffLists.tsx')).toContain('Mark it clear');
 });
+
+/*
+ * 28-Sep-2026 (later) — "the button is not appearing as a button": the ghost variant is bare
+ * text under the card, with no border and nothing to tell it from the caption above it. The
+ * two floor actions take the bordered `secondary` variant, so a control reads as a control.
+ */
+test('the floor actions under a card are bordered buttons, not bare text', () => {
+  const dash = code('src/features/owner/sections/Dashboard.tsx');
+  const clear = dash.slice(dash.indexOf('data-testid={`owner-clear-table-${t.name}`}'), dash.indexOf('Mark it clear'));
+  const free = dash.slice(dash.indexOf('data-testid={`owner-free-table-${t.name}`}'), dash.indexOf('Mark free\n'));
+  expect(clear).toContain('variant="secondary"');
+  expect(free).toContain('variant="secondary"');
+});
