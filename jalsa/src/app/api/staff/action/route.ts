@@ -20,7 +20,7 @@ import {
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { getBill } from '@/lib/db/queries';
-import { addDishWhileOrdering } from '@/lib/db/owner-mutations';
+import { FoodTypeRefused, addDishWhileOrdering } from '@/lib/db/owner-mutations';
 import { newDishProblem, type NewDish } from '@/lib/new-dish';
 import { db } from '@/lib/supabase/server';
 import type { KotStatus } from '@/lib/status';
@@ -205,15 +205,21 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       // section's own write and grant; a duplicate name comes back as the existing dish.
       const problem = newDishProblem(input);
       if (problem) return fail(400, { code: 'validation', message: problem });
-      return ok(
-        await addDishWhileOrdering({
-          name: input.name,
-          price: input.price,
-          categoryId: input.categoryId,
-          foodType: input.foodType,
-          actor,
-        })
-      );
+      try {
+        return ok(
+          await addDishWhileOrdering({
+            name: input.name,
+            price: input.price,
+            categoryId: input.categoryId,
+            foodTypeId: input.foodTypeId,
+            actor,
+          })
+        );
+      } catch (err) {
+        // A food type from another restaurant, or one removed since the screen loaded (28-Sep).
+        if (err instanceof FoodTypeRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
     }
 
     default:

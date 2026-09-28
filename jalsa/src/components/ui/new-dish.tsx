@@ -4,11 +4,9 @@ import * as React from 'react';
 import { Button } from './button';
 import { Card } from './atoms';
 import { Combobox } from './combobox';
+import { FoodTypePicker, type FoodTypeOption } from './food-type-picker';
 import { Field, Input } from './field';
-import { FOOD_TYPE, type FoodType } from '@/lib/status';
 import { dishKey, newDishProblem, type NewDish, type NewDishSaved } from '@/lib/new-dish';
-
-const FOOD_TYPES: FoodType[] = ['veg', 'non_veg', 'egg'];
 
 /**
  * Add a dish the menu does not list yet, from the ordering screen (24-Sep list, E1). One component
@@ -24,6 +22,7 @@ export function NewDishOffer({
   query,
   menu,
   categories,
+  foodTypes,
   onCreate,
   onAdded,
   disabled,
@@ -33,6 +32,8 @@ export function NewDishOffer({
   query: string;
   menu: ReadonlyArray<{ name: string }>;
   categories: ReadonlyArray<{ id: string; name: string }>;
+  /** The restaurant's Food Types (28-Sep-2026). Chosen from here; new ones are added in Menu. */
+  foodTypes: readonly FoodTypeOption[];
   /** Saves it. Resolves to the dish's id - the existing one when the name was already taken. */
   onCreate: (dish: NewDish) => Promise<NewDishSaved>;
   /** Called once the dish exists: the parent puts it in the round (unless sold out) and says so. */
@@ -44,7 +45,9 @@ export function NewDishOffer({
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
   const [categoryId, setCategoryId] = React.useState('');
-  const [foodType, setFoodType] = React.useState<FoodType>('veg');
+  // The restaurant's own first Veg type, the default a new dish always had.
+  const defaultType = (foodTypes.find((t) => t.kotClass === 'veg') ?? foodTypes[0])?.id ?? '';
+  const [foodTypeId, setFoodTypeId] = React.useState(defaultType);
   const [problem, setProblem] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
 
@@ -57,13 +60,13 @@ export function NewDishOffer({
     setName(unlisted ? typed : '');
     setPrice('');
     setCategoryId('');
-    setFoodType('veg');
+    setFoodTypeId(defaultType);
     setProblem(null);
     setOpen(true);
   };
 
   const save = async () => {
-    const dish: NewDish = { name: name.trim(), price: Number(price), categoryId, foodType };
+    const dish: NewDish = { name: name.trim(), price: Number(price), categoryId, foodTypeId };
     const refused = price.trim() === '' ? 'Give the dish a price above ₹0.' : newDishProblem(dish);
     if (refused) {
       setProblem(refused);
@@ -122,16 +125,13 @@ export function NewDishOffer({
           />
         </Field>
         <Field label="Food type" required htmlFor={`${testIdPrefix}-new-dish-type`} className="min-w-[8rem] flex-1">
-          {/* Search-and-pick, like the Menu item's own Food type (item 24): the three types are
-              the database's, so there is nothing to add. */}
-          <Combobox
+          {/* The restaurant's Food Type list, searched like Category (28-Sep-2026). */}
+          <FoodTypePicker
             id={`${testIdPrefix}-new-dish-type`}
             testId={`${testIdPrefix}-new-dish-type`}
-            value={foodType}
-            onValueChange={(v) => v && setFoodType(v as FoodType)}
-            options={FOOD_TYPES.map((t) => ({ value: t, label: FOOD_TYPE[t].label }))}
-            placeholder="Search food type"
-            emptyLabel="Veg, Non-veg or Egg"
+            value={foodTypeId}
+            onValueChange={setFoodTypeId}
+            foodTypes={foodTypes}
           />
         </Field>
       </div>

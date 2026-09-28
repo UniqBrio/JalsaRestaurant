@@ -186,12 +186,12 @@ export function GuestSheets({
       >
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <FoodMark type={item.foodType} size={16} />
+            <FoodMark type={item.foodType} name={item.foodTypeName} size={16} />
             <span className="type-body font-semibold">{item.name}</span>
           </div>
           <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">{item.description}</p>
           <p className="m-0 type-caption text-[var(--text-muted)]">
-            {FOOD_TYPE[item.foodType].label} · {item.category}
+            {item.foodTypeName || FOOD_TYPE[item.foodType].label} · {item.category}
           </p>
           <div className="flex items-center justify-between">
             <span className="type-h3 font-bold">{item.priceLabel}</span>

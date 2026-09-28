@@ -292,7 +292,20 @@ export interface TicketData {
   upiId?: string;
 }
 
-export const GROUP_LABEL: Record<FoodType, string> = { veg: 'VEG', non_veg: 'NON-VEG', egg: 'EGG' };
+export const GROUP_LABEL: Record<FoodType, string> = { veg: 'VEG', non_veg: 'NON-VEG', egg: 'EGG', other: 'OTHER' };
+
+/**
+ * The band order a KOT prints, completed with every classification the saved order leaves out.
+ *
+ * A template saved before 'other' existed lists three bands; a dessert line under a band nobody
+ * prints would simply vanish from the ticket. Missing classifications go at the end, in the
+ * canonical order, so every line is always on paper (28-Sep-2026).
+ */
+export function completeGroupOrder(order: readonly FoodType[] | undefined): FoodType[] {
+  const all: FoodType[] = ['veg', 'non_veg', 'egg', 'other'];
+  const kept = (order ?? []).filter((g, i, a) => all.includes(g) && a.indexOf(g) === i);
+  return [...kept, ...all.filter((g) => !kept.includes(g))];
+}
 
 /* ── The grid primitives ───────────────────────────────────────────────── */
 
@@ -519,7 +532,7 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
         valueRow(config, key, 'TIME', data.time, cols, push);
         break;
       case 'itemName': {
-        const groups: Array<FoodType | 'all'> = config.group ? config.groupOrder : ['all'];
+        const groups: Array<FoodType | 'all'> = config.group ? completeGroupOrder(config.groupOrder) : ['all'];
         groups.forEach((g) => {
           const items = g === 'all' ? data.items : data.items.filter((i) => i.foodType === g);
           if (!items.length && config.hideEmpty) return;

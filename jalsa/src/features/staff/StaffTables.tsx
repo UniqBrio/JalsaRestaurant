@@ -809,6 +809,7 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
           query={query}
           menu={data.menu}
           categories={data.menuCategories}
+          foodTypes={data.foodTypes}
           disabled={busy}
           testIdPrefix="staff-add"
           onCreate={(dish) => send<NewDishSaved>('/api/staff/action', { action: 'add-dish', ...dish })}

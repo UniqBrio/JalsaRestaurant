@@ -40,6 +40,8 @@ export interface GuestMenuItem {
   price: number;
   priceLabel: string;
   foodType: FoodType;
+  /** The restaurant's Food Type name ("Fish", "Dessert") - what the guest reads (28-Sep-2026). */
+  foodTypeName: string;
   category: string;
   available: boolean;
   /** The dish photo the owner uploaded (item 23) - `/api/media/...`, or '' for none. */
@@ -235,6 +237,7 @@ export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPre
     price: i.price,
     priceLabel: rupees(i.price),
     foodType: i.foodType,
+    foodTypeName: i.foodTypeName,
     category: i.category,
     available: i.available,
     imageUrl: i.imageUrl,

@@ -15,7 +15,13 @@
 
 export type KotStatus = 'new' | 'preparing' | 'ready' | 'picked_up' | 'served' | 'cancelled';
 export type BillStatus = 'open' | 'payment_requested' | 'closed' | 'void';
-export type FoodType = 'veg' | 'non_veg' | 'egg';
+/**
+ * The KOT CLASSIFICATION of a dish: how the kitchen treats it (which side of the veg/non-veg split
+ * it prints on, the band it sits under on the KOT, the guest's diet filter). NOT the Food Type a
+ * person picks - that is the restaurant's own list (`menu_food_type`: Veg, Fish, Dessert...), each
+ * entry carrying one of these. 'other' = no KOT classification (28-Sep-2026).
+ */
+export type FoodType = 'veg' | 'non_veg' | 'egg' | 'other';
 
 /** The token role a status pill paints itself with. Never a colour - a role. */
 export type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info';
@@ -354,7 +360,21 @@ export const FOOD_TYPE: Record<FoodType, { label: string; short: string }> = {
   veg: { label: 'Veg', short: 'V' },
   non_veg: { label: 'Non-veg', short: 'N' },
   egg: { label: 'Egg', short: 'E' },
+  other: { label: 'Other', short: 'O' },
 };
+
+/** Every KOT classification, in the order a picker offers them. The only fixed list: the Food Types are the restaurant's. */
+export const KOT_CLASSES: readonly FoodType[] = ['veg', 'non_veg', 'egg', 'other'];
+
+/** How a KOT classification is described where a person chooses one. */
+export const KOT_CLASS_LABEL: Record<FoodType, string> = {
+  veg: 'Veg',
+  non_veg: 'Non-veg',
+  egg: 'Egg',
+  other: 'Other (no KOT classification)',
+};
+
+export const isKotClass = (v: unknown): v is FoodType => typeof v === 'string' && (KOT_CLASSES as readonly string[]).includes(v);
 
 /**
  * Whether a round can still be changed by a captain without the owner's approval.

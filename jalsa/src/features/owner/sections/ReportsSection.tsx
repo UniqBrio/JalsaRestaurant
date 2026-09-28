@@ -92,6 +92,8 @@ interface RangeReport {
   dailyLimit?: number;
   /** `parent` is the top-level menu a sub-menu sat under when the dish sold; '' when top-level (I3). */
   categories: Array<{ category: string; parent: string; qty: number; revenue: number; dishes: number }>;
+  /** By the restaurant's own Food Type, with its KOT classification (28-Sep-2026). Absent from an older server. */
+  foodTypes?: Array<{ foodType: string; kotClass: string; kotClassLabel: string; qty: number; revenue: number; dishes: number }>;
   /** The same sales rolled up to each top-level menu, its sub-menus included. */
   menus: Array<{ menu: string; qty: number; revenue: number; dishes: number; subMenus: number }>;
   orders: Array<{
@@ -608,6 +610,46 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
           />
         )}
       </section>
+
+      {report.foodTypes && report.foodTypes.length > 0 ? (
+        <section>
+          <SectionLabel>What sold by food type · {report.foodTypes.length} types</SectionLabel>
+          <DataTable
+            rows={report.foodTypes}
+            rowKey={(t) => t.foodType}
+            defaultSort={{ key: 'revenue', direction: 'desc' }}
+            exportName="jalsa-food-types"
+            emptyTitle="Nothing sold in this range"
+            emptyNote="Closed bills fill this in."
+            searchPlaceholder="Search a food type"
+            testId="owner-food-types-table"
+            columns={[
+              {
+                key: 'foodType',
+                header: 'Food type',
+                cell: (t) => <span className="font-semibold">{t.foodType}</span>,
+                value: (t) => t.foodType,
+              },
+              {
+                key: 'kotClass',
+                header: 'KOT classification',
+                cell: (t) => t.kotClassLabel,
+                value: (t) => t.kotClassLabel,
+                filter: { kind: 'options' },
+              },
+              { key: 'dishes', header: 'Dishes', cell: (t) => t.dishes, value: (t) => t.dishes, align: 'right' },
+              { key: 'qty', header: 'Sold', cell: (t) => t.qty, value: (t) => t.qty, align: 'right' },
+              {
+                key: 'revenue',
+                header: 'Revenue',
+                cell: (t) => <span className="tabular-nums">{rupees(t.revenue)}</span>,
+                value: (t) => t.revenue,
+                align: 'right',
+              },
+            ]}
+          />
+        </section>
+      ) : null}
 
       <section>
         <SectionLabel>What sold · {report.products.length} dishes</SectionLabel>

@@ -137,7 +137,13 @@ test('the 11 static selects were left alone', () => {
   // SUPERSEDED 25-Sep-2026 (items 24, 34): still eleven, but not the same eleven. The item
   // editor's Food type became a search-only Combobox (item 24: behave like Category), and the
   // table editor's Zone - a free-text box - became a Select of AC / Non-AC / Terrace (item 34).
-  expect(remaining.length, 'eleven: Food type left, Zone joined').toBe(11);
+  /* SUPERSEDED 28-Sep-2026: asserted eleven. The Food Types panel (MenuSection) adds two Selects of
+     the four KOT classifications - a fixed list the database's enum defines, not ids of rows - so
+     a static select is the right control there, as it is for Zone. The Food Type ITSELF, a row
+     id, is picked with the combobox (FoodTypePicker). */
+  expect(remaining.length, 'thirteen: the two KOT classification selects joined').toBe(13);
+  expect(remaining.filter((f) => f.endsWith('sections/MenuSection.tsx'))).toHaveLength(2);
+  expect(read('src/features/owner/sections/MenuSection.tsx')).toContain('KOT_CLASSES.map((c) => (');
   // Merged 26-Sep-2026: the new-dish form (E1) and the sub-menu parent picker (I3) both use the
   // combobox, so neither adds a static select.
   expect(remaining.filter((f) => f.endsWith('components/ui/new-dish.tsx'))).toHaveLength(0);

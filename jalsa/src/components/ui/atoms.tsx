@@ -75,11 +75,14 @@ const MARK_CLASS: Record<FoodType, string> = {
   veg: 'border-[var(--food-type-veg)]',
   non_veg: 'border-[var(--food-type-non-veg)]',
   egg: 'border-[var(--food-type-egg)]',
+  // No KOT classification (a dessert, a juice): the neutral mark, so it is never read as veg or non-veg.
+  other: 'border-[var(--text-muted)]',
 };
 const DOT_CLASS: Record<FoodType, string> = {
   veg: 'bg-[var(--food-type-veg)]',
   non_veg: 'bg-[var(--food-type-non-veg)]',
   egg: 'bg-[var(--food-type-egg)]',
+  other: 'bg-[var(--text-muted)]',
 };
 
 /**
@@ -90,8 +93,9 @@ const DOT_CLASS: Record<FoodType, string> = {
  * therefore always carries its label to assistive technology — colour alone is not the mark,
  * because roughly one in twelve men cannot separate the green from the red.
  */
-export function FoodMark({ type, size = 13 }: { type: FoodType; size?: number }) {
-  const label = FOOD_TYPE[type].label;
+export function FoodMark({ type, size = 13, name }: { type: FoodType; size?: number; name?: string }) {
+  // The restaurant's own Food Type name when there is one ("Fish"), else the classification.
+  const label = name || FOOD_TYPE[type].label;
   return (
     <span
       role="img"

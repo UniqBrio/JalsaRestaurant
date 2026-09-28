@@ -10,7 +10,7 @@ import {
   readAllSettings,
 } from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
-import { KOT_SOURCE_LABEL } from '@/lib/status';
+import { FOOD_TYPE, KOT_SOURCE_LABEL, type FoodType } from '@/lib/status';
 import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
 import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
 
@@ -125,6 +125,12 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     string,
     { menu: string; qty: number; revenue: number; dishes: Set<string>; subMenus: Set<string> }
   >();
+  /* What sold, by the restaurant's own Food Type (28-Sep-2026) - Fish, Dessert, Juice - with the
+     KOT classification it carried. The same walk again, for the same reason. */
+  const foodTypes = new Map<
+    string,
+    { foodType: string; kotClass: string; qty: number; revenue: number; dishes: Set<string> }
+  >();
   for (const b of bills) {
     for (const k of b.kots) {
       if (k.status === 'cancelled') continue;
@@ -160,6 +166,20 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
         menu.dishes.add(i.name);
         if (parent) menu.subMenus.add(catKey);
         menus.set(menuKey, menu);
+        // A round placed before the name was snapshotted is named by its classification.
+        const typeName = i.foodTypeName || FOOD_TYPE[i.foodType]?.label || 'Other';
+        const typeKey = typeName.trim().toLowerCase();
+        const ft = foodTypes.get(typeKey) ?? {
+          foodType: typeName,
+          kotClass: i.foodType,
+          qty: 0,
+          revenue: 0,
+          dishes: new Set<string>(),
+        };
+        ft.qty += i.qty;
+        ft.revenue += line;
+        ft.dishes.add(i.name);
+        foodTypes.set(typeKey, ft);
         const seen = products.get(i.name) ?? { name: i.name, qty: 0, revenue: 0 };
         seen.qty += i.qty;
         // The price the round was PLACED at, not today's menu price. A dish repriced mid-month
@@ -202,6 +222,16 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     products: [...products.values()].sort((a, b) => b.revenue - a.revenue),
     categories: [...categories.values()]
       .map((c) => ({ category: c.category, parent: c.parent, qty: c.qty, revenue: c.revenue, dishes: c.dishes.size }))
+      .sort((a, b) => b.revenue - a.revenue),
+    foodTypes: [...foodTypes.values()]
+      .map((t) => ({
+        foodType: t.foodType,
+        kotClass: t.kotClass,
+        kotClassLabel: FOOD_TYPE[t.kotClass as FoodType]?.label ?? t.kotClass,
+        qty: t.qty,
+        revenue: t.revenue,
+        dishes: t.dishes.size,
+      }))
       .sort((a, b) => b.revenue - a.revenue),
     menus: [...menus.values()]
       .map((m) => ({

@@ -1,5 +1,3 @@
-import type { FoodType } from '@/lib/status';
-
 /**
  * new-dish - adding a dish to the menu from the ordering screen (24-Sep list, E1).
  *
@@ -21,7 +19,8 @@ export interface NewDish {
   name: string;
   price: number;
   categoryId: string;
-  foodType: FoodType;
+  /** The restaurant's Food Type (`menu_food_type.id`) - its own list, not a fixed three (28-Sep-2026). */
+  foodTypeId: string;
 }
 
 /**
@@ -76,8 +75,6 @@ export function existingDish<T extends { name: string }>(menu: readonly T[], nam
   return menu.find((m) => dishKey(m.name) === key) ?? null;
 }
 
-const FOOD_TYPES: readonly FoodType[] = ['veg', 'non_veg', 'egg'];
-
 /**
  * Why this dish cannot be saved, as the sentence the screen prints - or null when it can.
  * The bounds are the columns' own check constraints, refused here so nobody meets a
@@ -92,6 +89,6 @@ export function newDishProblem(d: Partial<NewDish>): string | null {
   }
   if (d.price > 99_999_999.99) return 'That price is too large.';
   if (!d.categoryId) return 'Choose a category.';
-  if (!d.foodType || !FOOD_TYPES.includes(d.foodType)) return 'Choose veg, non-veg or egg.';
+  if (!d.foodTypeId) return 'Choose a food type.';
   return null;
 }

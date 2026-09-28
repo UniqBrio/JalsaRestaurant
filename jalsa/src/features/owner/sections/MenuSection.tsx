@@ -8,9 +8,10 @@ import { Combobox } from '@/components/ui/combobox';
 import { Sheet } from '@/components/ui/sheet';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
-import { FOOD_TYPE, type FoodType } from '@/lib/status';
+import { FOOD_TYPE, KOT_CLASSES, KOT_CLASS_LABEL, type FoodType } from '@/lib/status';
 import { parentChoices } from '@/lib/sub-menus';
 import { ImagePicker } from '@/components/ui/image-picker';
+import { FoodTypePicker } from '@/components/ui/food-type-picker';
 import { defaultPrinter } from '@/lib/print-routing';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
@@ -27,8 +28,6 @@ import type { OwnerSectionProps } from '../OwnerConsole';
  * scrolling stops working.
  */
 
-const FOOD_TYPES: FoodType[] = ['veg', 'non_veg', 'egg'];
-
 export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const [editing, setEditing] = React.useState<{
@@ -36,7 +35,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
     name: string;
     price: string;
     categoryId: string;
-    foodType: FoodType;
+    /** The restaurant's Food Type (`menu_food_type.id`) - 28-Sep-2026. */
+    foodTypeId: string;
     description: string;
     imageUrl: string;
     /** '' = the category's printer, or the default printer (item 25). */
@@ -58,13 +58,17 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
   const canManageCategories = data.grants.includes('menu.category');
 
   const closed = data.menu.filter((m) => !m.available);
+  // The restaurant's own first Veg type: what a new dish always defaulted to.
+  const defaultFoodTypeId = (data.foodTypes.find((t) => t.kotClass === 'veg') ?? data.foodTypes[0])?.id ?? '';
+  const addFoodType = async (name: string, kotClass: FoodType): Promise<string> =>
+    (await send<{ id: string }>('/api/owner/action', { action: 'add-food-type', name, kotClass })).id;
 
   const openNew = () =>
     setEditing({
       name: '',
       price: '',
       categoryId: data.categories[0]?.id ?? '',
-      foodType: 'veg',
+      foodTypeId: defaultFoodTypeId,
       description: '',
       imageUrl: '',
       printerId: '',
@@ -137,7 +141,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
               header: 'Item',
               cell: (m) => (
                 <span className="flex items-center gap-2">
-                  <FoodMark type={m.foodType} />
+                  <FoodMark type={m.foodType} name={m.foodTypeName} />
                   <span className="font-semibold">{m.name}</span>
                 </span>
               ),
@@ -156,13 +160,17 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
             },
             {
               key: 'type',
-              header: 'Type',
-              cell: (m) => FOOD_TYPE[m.foodType].label,
-              value: (m) => FOOD_TYPE[m.foodType].label,
+              header: 'Food type',
+              // The restaurant's own name ("Fish"), with the KOT classification beside it when the
+              // two read differently, so "Fish - Non-veg" says both things at once (28-Sep-2026).
+              cell: (m) =>
+                m.foodTypeName && m.foodTypeName !== FOOD_TYPE[m.foodType].label
+                  ? `${m.foodTypeName} - ${FOOD_TYPE[m.foodType].label}`
+                  : m.foodTypeName || FOOD_TYPE[m.foodType].label,
+              value: (m) => m.foodTypeName || FOOD_TYPE[m.foodType].label,
               secondary: true,
-              // Veg · Non-veg · Egg, in the menu's own order rather than alphabetically — it is
-              // the order every other screen in this application lists them in.
-              filter: { kind: 'options', order: FOOD_TYPES.map((t) => FOOD_TYPE[t].label) },
+              // In the restaurant's own list order - Veg, Non-veg, Egg first, then its own types.
+              filter: { kind: 'options', order: data.foodTypes.map((t) => t.name) },
             },
             {
               key: 'price',
@@ -226,7 +234,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                         name: m.name,
                         price: String(m.price),
                         categoryId: m.categoryId,
-                        foodType: m.foodType,
+                        foodTypeId: m.foodTypeId,
                         description: m.description,
                         imageUrl: m.imageUrl,
                         printerId: m.printerId ?? '',
@@ -354,6 +362,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
         <SubMenusPanel data={data} send={send} runBusy={runBusy} busy={busy} />
       ) : null}
 
+      {canManageCategories ? <FoodTypesPanel data={data} send={send} runBusy={runBusy} busy={busy} /> : null}
+
       <Sheet
         open={editing !== null}
         onOpenChange={(o) => !o && setEditing(null)}
@@ -378,7 +388,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                     name: editing.name.trim(),
                     price: Number(editing.price) || 0,
                     categoryId: editing.categoryId,
-                    foodType: editing.foodType,
+                    foodTypeId: editing.foodTypeId,
                     description: editing.description,
                     imageUrl: editing.imageUrl,
                     printerId: editing.printerId || null,
@@ -469,19 +479,17 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                 required
                 htmlFor="owner-item-type"
                 className="min-w-[9rem] flex-1"
-                hint="Search like Category. The three types are fixed: they decide which kitchen ticket a dish goes on."
+                hint="The restaurant's own list - search it, or add one like Fish or Dessert. Each has a KOT classification that decides its kitchen ticket."
               >
-                {/* The same search-and-pick as Category (item 24). No Add: veg, non-veg and egg are
-                    the database's own types and they drive the veg / non-veg ticket split, so a
-                    fourth could not be routed. */}
-                <Combobox
+                {/* The restaurant's Food Type list (28-Sep-2026): search like Category, and a new
+                    name asks for its KOT classification before it is saved. */}
+                <FoodTypePicker
                   id="owner-item-type"
                   testId="owner-item-type"
-                  value={editing.foodType}
-                  onValueChange={(v) => v && setEditing({ ...editing, foodType: v as FoodType })}
-                  options={FOOD_TYPES.map((t) => ({ value: t, label: FOOD_TYPE[t].label }))}
-                  placeholder="Search food type"
-                  emptyLabel="Veg, Non-veg or Egg"
+                  value={editing.foodTypeId}
+                  onValueChange={(foodTypeId) => setEditing({ ...editing, foodTypeId })}
+                  foodTypes={data.foodTypes}
+                  {...(canManageCategories ? { onAdd: addFoodType } : {})}
                 />
               </Field>
             </div>
@@ -618,6 +626,148 @@ function SubMenusPanel({ data, send, runBusy, busy }: Pick<OwnerSectionProps, 'd
             );
           })}
         </ul>
+      </Card>
+    </section>
+  );
+}
+
+/**
+ * The restaurant's Food Type list (28-Sep-2026): each type's NAME and, separately, its KOT
+ * CLASSIFICATION - Veg, Non-veg, Egg, or Other (no KOT classification). Behind `menu.category`,
+ * like the categories. Changing a classification re-classifies every dish of that type at once;
+ * tickets already printed keep what they said.
+ */
+function FoodTypesPanel({
+  data,
+  send,
+  runBusy,
+  busy,
+}: Pick<OwnerSectionProps, 'data' | 'send' | 'runBusy' | 'busy'>) {
+  const toast = useToast();
+  const [drafts, setDrafts] = React.useState<Record<string, { name: string; kotClass: FoodType }>>({});
+  const [fresh, setFresh] = React.useState<{ name: string; kotClass: FoodType }>({ name: '', kotClass: 'veg' });
+
+  const draftOf = (t: (typeof data.foodTypes)[number]) => drafts[t.id] ?? { name: t.name, kotClass: t.kotClass };
+
+  return (
+    <section data-testid="owner-food-types">
+      <SectionLabel>Food types · {data.foodTypes.length}</SectionLabel>
+      <Card className="flex flex-col gap-3 p-3">
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+          <strong>Food type</strong> is your own list - Veg, Fish, Dessert, Juice. <strong>KOT classification</strong>{' '}
+          is how the kitchen ticket treats it: Veg and Non-veg print on their own tickets when the split is on, Egg
+          travels with Veg, and Other has no classification (it prints with the Veg side, under its own heading).
+        </p>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {data.foodTypes.map((t) => {
+            const d = draftOf(t);
+            const changed = d.name.trim() !== t.name || d.kotClass !== t.kotClass;
+            return (
+              <li key={t.id} className="flex flex-wrap items-center gap-2" data-testid={`owner-food-type-${t.id}`}>
+                <FoodMark type={d.kotClass} name={d.name} />
+                <Input
+                  aria-label={`Food type name for ${t.name}`}
+                  className="min-w-[10rem] flex-1"
+                  value={d.name}
+                  maxLength={40}
+                  onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, name: e.target.value } })}
+                  data-testid={`owner-food-type-name-${t.id}`}
+                />
+                <Select
+                  aria-label={`KOT classification for ${t.name}`}
+                  className="w-[16rem]"
+                  value={d.kotClass}
+                  onChange={(e) => setDrafts({ ...drafts, [t.id]: { ...d, kotClass: e.target.value as FoodType } })}
+                  data-testid={`owner-food-type-class-${t.id}`}
+                >
+                  {KOT_CLASSES.map((c) => (
+                    <option key={c} value={c}>
+                      KOT: {KOT_CLASS_LABEL[c]}
+                    </option>
+                  ))}
+                </Select>
+                <span className="type-caption text-[var(--text-muted)]">
+                  {t.count} {t.count === 1 ? 'dish' : 'dishes'}
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || !changed || !d.name.trim()}
+                  data-testid={`owner-food-type-save-${t.id}`}
+                  onClick={() =>
+                    runBusy(async () => {
+                      await send('/api/owner/action', {
+                        action: 'update-food-type',
+                        id: t.id,
+                        name: d.name.trim(),
+                        kotClass: d.kotClass,
+                      });
+                      const next = { ...drafts };
+                      delete next[t.id];
+                      setDrafts(next);
+                      toast.show(
+                        d.kotClass !== t.kotClass && t.count > 0
+                          ? `${d.name.trim()} saved - its ${t.count} ${t.count === 1 ? 'dish now prints' : 'dishes now print'} as ${KOT_CLASS_LABEL[d.kotClass]}`
+                          : `${d.name.trim()} saved`,
+                        { tone: 'success' }
+                      );
+                    })
+                  }
+                >
+                  Save
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+          <Input
+            aria-label="New food type name"
+            placeholder="New food type, e.g. Fish"
+            className="min-w-[10rem] flex-1"
+            value={fresh.name}
+            maxLength={40}
+            onChange={(e) => setFresh({ ...fresh, name: e.target.value })}
+            data-testid="owner-food-type-new-name"
+          />
+          <Select
+            aria-label="KOT classification for the new food type"
+            className="w-[16rem]"
+            value={fresh.kotClass}
+            onChange={(e) => setFresh({ ...fresh, kotClass: e.target.value as FoodType })}
+            data-testid="owner-food-type-new-class"
+          >
+            {KOT_CLASSES.map((c) => (
+              <option key={c} value={c}>
+                KOT: {KOT_CLASS_LABEL[c]}
+              </option>
+            ))}
+          </Select>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy || !fresh.name.trim()}
+            data-testid="owner-food-type-add"
+            onClick={() =>
+              runBusy(async () => {
+                const res = await send<{ id: string; existed: boolean }>('/api/owner/action', {
+                  action: 'add-food-type',
+                  name: fresh.name.trim(),
+                  kotClass: fresh.kotClass,
+                });
+                toast.show(
+                  res.existed
+                    ? `${fresh.name.trim()} is already on the list`
+                    : `${fresh.name.trim()} added - ${KOT_CLASS_LABEL[fresh.kotClass]}`,
+                  { tone: 'success' }
+                );
+                setFresh({ name: '', kotClass: 'veg' });
+              })
+            }
+          >
+            Add food type
+          </Button>
+        </div>
       </Card>
     </section>
   );

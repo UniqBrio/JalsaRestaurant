@@ -75,11 +75,17 @@ test('item 23: the photo is chosen in Add Item, shown on the menu and in the gue
 /* ── Item 24: food type like category ──────────────────────────────────── */
 
 test('item 24: food type is a searchable picker like Category, over the three types the kitchen splits on', () => {
+  /* SUPERSEDED 28-Sep-2026 (owner's decision): this asserted a Combobox over the fixed three
+     (`FOOD_TYPES.map(...)`) with NO allowCreate. Food Type is now the restaurant's own list with a
+     separate KOT classification; search AND add behave like Category, and adding asks for the
+     classification first. The three still exist as seeded rows - see food-type-master.db. */
   const s = code('src/features/owner/sections/MenuSection.tsx');
-  const block = s.slice(s.indexOf('id="owner-item-type"') - 200, s.indexOf('placeholder="Search food type"'));
-  expect(block).toContain('<Combobox');
-  expect(block).toContain('options={FOOD_TYPES.map((t) => ({ value: t, label: FOOD_TYPE[t].label }))}');
-  expect(block).not.toContain('allowCreate');
+  expect(s).toContain('<FoodTypePicker');
+  expect(s).toContain('foodTypes={data.foodTypes}');
+  expect(s).toContain('onAdd: addFoodType');
+  expect(s).not.toContain("const FOOD_TYPES: FoodType[] = ['veg', 'non_veg', 'egg'];");
+  const picker = code('src/components/ui/food-type-picker.tsx');
+  expect(picker).toContain('allowCreate={onAdd !== undefined}');
 });
 
 /* ── Items 25, 26: a dish's own printer and station ───────────────────── */

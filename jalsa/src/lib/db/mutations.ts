@@ -297,7 +297,7 @@ export async function placeRound(input: {
       // parent (I3), snapshotted so a report reads what the dish sold UNDER even after the menu
       // is reorganised - embedded here rather than read afterwards, which was another round.
       .select(
-        'id,name,price,food_type,available,closed_until,printer_id,station,menu_category!inner(name,parent_id,parent:parent_id(name))'
+        'id,name,price,food_type,available,closed_until,printer_id,station,food_type_ref:food_type_id(name),menu_category!inner(name,parent_id,parent:parent_id(name))'
       )
       .eq('restaurant_id', restaurantId)
       .in('id', ids),
@@ -382,6 +382,9 @@ export async function placeRound(input: {
         name: item.name as string,
         unit_price: item.price as number,
         food_type: item.food_type as string,
+        // The restaurant's Food Type NAME ("Fish") beside the classification, for reports: a type
+        // renamed next month must not rewrite what this round sold (28-Sep-2026).
+        food_type_name: (item.food_type_ref as unknown as { name: string } | null)?.name ?? '',
         // Snapshot, for the same reason the name and the price are snapshots: this is what a
         // REPRINT routes on, hours later, after the category may have been renamed or the dish
         // taken off the menu. Joined instead, a reprint would resolve differently from the

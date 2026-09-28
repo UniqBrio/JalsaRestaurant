@@ -12,7 +12,10 @@ import { afterDishSaved, canAddDish, dishKey, existingDish, newDishProblem } fro
  */
 
 const MENU = [{ name: 'Mutton Biryani' }, { name: 'Sweet Lassi' }];
-const GOOD = { name: 'Paneer Tikka', price: 280, categoryId: 'starters', foodType: 'veg' as const };
+/* SUPERSEDED 28-Sep-2026: GOOD carried `foodType: 'veg'` and the rule refused anything outside
+   veg / non-veg / egg ("Choose veg, non-veg or egg."). Food Types are now the restaurant's own list
+   (menu_food_type), so a new dish names one by id; the server checks it belongs to the restaurant. */
+const GOOD = { name: 'Paneer Tikka', price: 280, categoryId: 'starters', foodTypeId: 'ft-veg' };
 
 test('only a holder of menu.item_edit AND menu.price_edit is offered the "+"', () => {
   /* SUPERSEDED 25-Sep-2026 (review): previously menu.item_edit alone was enough. A new dish IS a
@@ -51,7 +54,7 @@ test('the dish is refused with a sentence, never a constraint violation', () => 
   expect(newDishProblem({ ...GOOD, price: 0 })).toContain('above ₹0');
   expect(newDishProblem({ ...GOOD, price: Number.NaN })).toContain('above ₹0');
   expect(newDishProblem({ ...GOOD, categoryId: '' })).toBe('Choose a category.');
-  expect(newDishProblem({ ...GOOD, foodType: 'vegan' as never })).toBe('Choose veg, non-veg or egg.');
+  expect(newDishProblem({ ...GOOD, foodTypeId: '' })).toBe('Choose a food type.');
 });
 
 const code = (path: string): string =>

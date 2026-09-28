@@ -15,7 +15,11 @@ export interface MenuItem {
   name: string;
   description: string;
   price: number;
+  /** The KOT classification - derived from the Food Type, what routing and the diet filter read. */
   foodType: FoodType;
+  /** The restaurant's Food Type (`menu_food_type`), and its name as a person sees it ("Fish"). */
+  foodTypeId: string;
+  foodTypeName: string;
   category: string;
   categoryId: string;
   imageUrl: string;
@@ -28,6 +32,18 @@ export interface MenuItem {
   closedReason: string;
   closedUntil: string | null;
   sort: number;
+}
+
+/** One entry of the restaurant's Food Type list (28-Sep-2026). */
+export interface MenuFoodType {
+  id: string;
+  /** What a person picks and reads: Veg, Fish, Dessert, Juice... */
+  name: string;
+  /** How the kitchen treats it: veg / non_veg / egg, or other (no KOT classification). */
+  kotClass: FoodType;
+  sort: number;
+  /** Dishes of this type on the menu now. */
+  count: number;
 }
 
 export interface MenuCategory {
@@ -45,6 +61,8 @@ export interface KotItem {
   unitPrice: number;
   qty: number;
   foodType: FoodType;
+  /** The Food Type's NAME when the round was placed ("Fish"), snapshotted like the category. */
+  foodTypeName: string;
   qtyBefore: number | null;
   cancelledAt: string | null;
   cancelReason: string;
