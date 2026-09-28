@@ -28,6 +28,9 @@ import {
   addDishWhileOrdering,
   setCategoryParent,
   SubMenuRefused,
+  FoodTypeRefused,
+  addFoodType,
+  updateFoodType,
   setItemRouting,
   uploadImage,
   deleteExpense,
@@ -52,6 +55,7 @@ import {
   revokeBridgeToken,
   upsertStaff,
   upsertTable,
+  deleteTable,
   writeEmployment,
   writeIdentity,
   writeSetting,
@@ -86,12 +90,14 @@ type Action =
       name: string;
       price: number;
       categoryId: string;
-      foodType: 'veg' | 'non_veg' | 'egg';
+      foodTypeId: string;
       description?: string;
       imageUrl?: string;
       printerId?: string | null;
     }
   | { action: 'add-category'; name: string; printerId?: string | null }
+  | { action: 'add-food-type'; name: string; kotClass: string }
+  | { action: 'update-food-type'; id: string; name: string; kotClass: string }
   | ({ action: 'add-dish' } & NewDish)
   | { action: 'set-category-parent'; categoryId: string; parentId: string | null }
   | {
@@ -103,6 +109,7 @@ type Action =
     }
   | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
+  | { action: 'delete-table'; id: string }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
   | { action: 'set-permissions'; staffId: string; granted: string[] }
@@ -305,35 +312,64 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       });
       return ok({ done: true });
 
+    case 'add-food-type':
+      // The restaurant's own Food Type - a name and, separately, its KOT classification (28-Sep).
+      try {
+        return ok(await addFoodType({ name: input.name, kotClass: input.kotClass, actor }));
+      } catch (err) {
+        if (err instanceof FoodTypeRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
+
+    case 'update-food-type':
+      try {
+        await updateFoodType({ id: input.id, name: input.name, kotClass: input.kotClass, actor });
+        return ok({ done: true });
+      } catch (err) {
+        if (err instanceof FoodTypeRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
+
     case 'upsert-item':
-      return ok(
-        await upsertMenuItem({
-          ...(input.id ? { id: input.id } : {}),
-          name: input.name,
-          price: input.price,
-          categoryId: input.categoryId,
-          foodType: input.foodType,
-          ...(input.description !== undefined ? { description: input.description } : {}),
-          ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
-          ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
-          actor,
-        })
-      );
+      try {
+        return ok(
+          await upsertMenuItem({
+            ...(input.id ? { id: input.id } : {}),
+            name: input.name,
+            price: input.price,
+            categoryId: input.categoryId,
+            foodTypeId: input.foodTypeId,
+            ...(input.description !== undefined ? { description: input.description } : {}),
+            ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
+            ...(input.printerId !== undefined ? { printerId: input.printerId } : {}),
+            actor,
+          })
+        );
+      } catch (err) {
+        if (err instanceof FoodTypeRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
 
     case 'add-dish': {
       // A dish the menu does not list yet, added from the ordering screen (E1): the Menu
       // section's own write and grant; a duplicate name comes back as the existing dish.
       const problem = newDishProblem(input);
       if (problem) return fail(400, { code: 'validation', message: problem });
-      return ok(
-        await addDishWhileOrdering({
-          name: input.name,
-          price: input.price,
-          categoryId: input.categoryId,
-          foodType: input.foodType,
-          actor,
-        })
-      );
+      try {
+        return ok(
+          await addDishWhileOrdering({
+            name: input.name,
+            price: input.price,
+            categoryId: input.categoryId,
+            foodTypeId: input.foodTypeId,
+            actor,
+          })
+        );
+      } catch (err) {
+        // A food type from another restaurant, or one removed since the screen loaded (28-Sep).
+        if (err instanceof FoodTypeRefused) return fail(400, { code: 'validation', message: err.message });
+        throw err;
+      }
     }
 
     case 'set-category-parent':
@@ -383,6 +419,9 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
         actor,
       });
       return ok({ done: true });
+
+    case 'delete-table':
+      return ok(await deleteTable({ id: input.id, actor }));
 
     case 'upsert-staff':
       return ok(

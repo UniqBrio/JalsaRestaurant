@@ -1,7 +1,7 @@
 import 'server-only';
 import { dayWindow, todayWindow } from '@/lib/restaurant-time';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
-import { phonesHoldingTables, tableStateFrom, type KotStatus } from '@/lib/status';
+import { FOOD_TYPE, phonesHoldingTables, tableStateFrom, type KotStatus } from '@/lib/status';
 import { isCounterNotice } from '@/lib/payment-notice';
 import { totalBill } from '@/lib/money';
 import type {
@@ -12,6 +12,7 @@ import type {
   Kot,
   KotPrintJob,
   MenuCategory,
+  MenuFoodType,
   GuestReply,
   MenuItem,
   QueueSelfView,
@@ -47,7 +48,7 @@ const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now()
 
 /* ── Menu ──────────────────────────────────────────────────────────────── */
 
-export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuCategory[] }> {
+export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuCategory[]; foodTypes: MenuFoodType[] }> {
   const restaurantId = await currentRestaurantId();
 
   /**
@@ -63,11 +64,12 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
   const [
     { data, error },
     { data: cats },
+    { data: types, error: typesError },
   ] = await Promise.all([
     db()
       .from('menu_item')
       .select(
-        'id,name,description,price,food_type,image_url,printer_id,station,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+        'id,name,description,price,food_type,food_type_id,image_url,printer_id,station,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
       )
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
@@ -76,8 +78,17 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
       .select('id,name,sort,parent_id')
       .eq('restaurant_id', restaurantId)
       .order('sort', { ascending: true }),
+    // The restaurant's Food Type list (28-Sep-2026). Read beside the menu, not embedded in it: the
+    // names are joined here by id, so one list serves every dish and every picker.
+    db()
+      .from('menu_food_type')
+      .select('id,name,kot_class,sort')
+      .eq('restaurant_id', restaurantId)
+      .order('sort', { ascending: true }),
   ]);
   if (error) throw error;
+  if (typesError) throw typesError;
+  const typeName = new Map((types ?? []).map((t) => [t.id as string, t.name as string]));
 
   const now = Date.now();
   const items: MenuItem[] = (data ?? []).map((row) => {
@@ -93,6 +104,8 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
       description: (row.description as string) ?? '',
       price: Number(row.price),
       foodType: row.food_type as MenuItem['foodType'],
+      foodTypeId: (row.food_type_id as string | null) ?? '',
+      foodTypeName: typeName.get(row.food_type_id as string) ?? FOOD_TYPE[row.food_type as MenuItem['foodType']]?.label ?? '',
       category: cat.name,
       categoryId: cat.id,
       imageUrl: (row.image_url as string) ?? '',
@@ -119,7 +132,15 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
     parentId: (c.parent_id as string | null) ?? null,
   }));
 
-  return { items, categories };
+  const foodTypes: MenuFoodType[] = (types ?? []).map((t) => ({
+    id: t.id as string,
+    name: t.name as string,
+    kotClass: t.kot_class as MenuFoodType['kotClass'],
+    sort: (t.sort as number) ?? 0,
+    count: items.filter((i) => i.foodTypeId === t.id).length,
+  }));
+
+  return { items, categories, foodTypes };
 }
 
 /* ── Bills ─────────────────────────────────────────────────────────────── */
@@ -139,7 +160,7 @@ const BILL_SELECT = `
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, qty_before, cancelled_at, cancel_reason, menu_category_name, menu_parent_category_name, line_seq ),
+    kot_item ( id, name, unit_price, qty, food_type, food_type_name, qty_before, cancelled_at, cancel_reason, menu_category_name, menu_parent_category_name, line_seq ),
     print_job (
       id, status, attempts, is_reprint, last_error,
       printer_id, printer_name, station, routing_rule, redirected_from_job_id
@@ -240,6 +261,7 @@ function shapeBill(row: Record<string, unknown>): Bill {
           unitPrice: Number(i.unit_price),
           qty: i.qty as number,
           foodType: i.food_type as KotItemFoodType,
+          foodTypeName: (i.food_type_name as string | null) ?? '',
           qtyBefore: (i.qty_before as number) ?? null,
           cancelledAt: (i.cancelled_at as string) ?? null,
           cancelReason: (i.cancel_reason as string) ?? '',

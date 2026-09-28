@@ -4,6 +4,22 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Table delete - 2026-09-28 - only a table that has never carried a bill
+
+FAIL-FIRST: tests/unit/table-delete.unit.spec.ts - with the src change stashed (origin tree): 4 failed (no delete-table verb, no deleteTable, no Delete in the table sheet); with it: 4 passed.
+Unit tier: 1220 passed. Typecheck and ESLint clean.
+
+---
+
+## Food Type list - 2026-09-28 - restaurant-defined types with a separate KOT classification
+
+New specs: tests/unit/food-type-master.db.unit.spec.ts (8, PGlite over every migration) and tests/unit/food-type-master.unit.spec.ts (8). Superseded in place with dated notes: new-dish, change-stamp, combobox-migration, menu-routing-25sep item 24.
+FAIL-FIRST: tests/unit/food-type-master.db.unit.spec.ts - without migration 20260928090000: 1 failed (relation "menu_food_type" does not exist, the rest serial-skipped); with it: 8 passed.
+FAIL-FIRST: tests/unit/food-type-master.unit.spec.ts - against origin/main the file failed to collect (status.ts has no export KOT_CLASSES); with completeGroupOrder returning the saved order unchanged: 2 failed, 6 passed; reverted: 8 passed.
+Unit tier: 1216 passed. Typecheck and ESLint clean.
+
+---
+
 ## CI fix - 2026-09-26 - the outage spec's real client on Node 20
 
 CI (Node 20) failed tests/unit/outage.unit.spec.ts 3 of 3: "Node.js detected but native WebSocket not found" - supabase-js builds its realtime client on createClient, and Node 20 keeps WebSocket behind a flag. tests/support/round-rig.ts now passes `--experimental-websocket` to the scenario process when the parent has no WebSocket. The application is untouched: it never opens realtime (guardrail 3), and the live deployment has been answering, so its runtime has WebSocket.

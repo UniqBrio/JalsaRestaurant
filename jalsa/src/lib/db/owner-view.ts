@@ -4,7 +4,7 @@ import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
-import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type Tone, tableIsFreeable } from '@/lib/status';
+import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
   billTotals,
@@ -33,6 +33,7 @@ import { currentRestaurantId, db } from '@/lib/supabase/server';
 import { currentBridgeDownload } from '@/lib/print-bridge-artifact';
 import type {
   AuditRow, Bill, BridgeTokenRow, ExpenseRow, PrintComputerRow, PrinterMappingRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
+  MenuFoodType,
 } from './types';
 
 /**
@@ -118,7 +119,7 @@ export interface OwnerBillView {
       id: string;
       name: string;
       qty: number;
-      foodType: 'veg' | 'non_veg' | 'egg';
+      foodType: FoodType;
       lineLabel: string;
       cancelled: boolean;
     }>;
@@ -190,7 +191,9 @@ export interface OwnerPayload {
     categoryId: string;
     price: number;
     priceLabel: string;
-    foodType: 'veg' | 'non_veg' | 'egg';
+    foodType: FoodType;
+    foodTypeId: string;
+    foodTypeName: string;
     available: boolean;
     closedReason: string;
     description: string;
@@ -201,6 +204,8 @@ export interface OwnerPayload {
   }>;
   /** `parentId`: the top-level category this one is a sub-menu of, or null (I3). */
   categories: Array<{ id: string; name: string; count: number; parentId: string | null }>;
+  /** The restaurant's Food Type list: name, KOT classification, dishes using it (28-Sep-2026). */
+  foodTypes: MenuFoodType[];
   staff: StaffMember[];
   /** Each person's ACTUAL grants, so the access panel edits what is true rather than a preset. */
   staffGrants: Record<string, string[]>;
@@ -338,7 +343,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     closed,
     requests,
     suggestions,
-    { items, categories },
+    { items, categories, foodTypes },
     people,
     tips,
     expenses,
@@ -507,6 +512,8 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       price: i.price,
       priceLabel: rupees(i.price),
       foodType: i.foodType,
+      foodTypeId: i.foodTypeId,
+      foodTypeName: i.foodTypeName,
       available: i.available,
       closedReason: i.closedReason,
       description: i.description,
@@ -515,6 +522,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       station: i.station,
     })),
     categories: categories.map((c) => ({ id: c.id, name: c.name, count: c.count, parentId: c.parentId })),
+    foodTypes,
 
     staff: people,
     staffGrants,

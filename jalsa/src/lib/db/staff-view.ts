@@ -8,6 +8,7 @@ import {
   TABLE_STATE,
   canHoldBillRole,
   captainMayAssignWaiter,
+  type FoodType,
   type KotStatus,
   type Tone,
 } from '@/lib/status';
@@ -55,7 +56,7 @@ export interface StaffKotView {
     name: string;
     qty: number;
     qtyBefore: number | null;
-    foodType: 'veg' | 'non_veg' | 'egg';
+    foodType: FoodType;
     cancelled: boolean;
     cancelReason: string;
   }>;
@@ -114,12 +115,16 @@ export interface StaffPayload {
     category: string;
     price: number;
     priceLabel: string;
-    foodType: 'veg' | 'non_veg' | 'egg';
+    foodType: FoodType;
+    /** The restaurant's Food Type name ("Fish"), beside the classification the mark shows. */
+    foodTypeName: string;
     available: boolean;
   }>;
   categories: string[];
   /** Every category with its id, for a dish added from the ordering screen (E1). */
   menuCategories: Array<{ id: string; name: string }>;
+  /** The restaurant's Food Types, for a dish added from the ordering screen (28-Sep-2026). */
+  foodTypes: Array<{ id: string; name: string; kotClass: FoodType }>;
   /** What this person may do tonight, as the design's own list of sentences. */
   myTables: string[];
 }
@@ -164,7 +169,7 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
   const restaurantId = await currentRestaurantId();
   // Read once and shared with the floor, which shows the same bills and requests.
   const shared = { bills: early(listOpenBills()), requests: early(listOpenRequests()) };
-  const [floor, bills, requests, { items, categories }, settings, peopleRes] = await Promise.all([
+  const [floor, bills, requests, { items, categories, foodTypes }, settings, peopleRes] = await Promise.all([
     listFloor(shared),
     shared.bills,
     shared.requests,
@@ -277,10 +282,12 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       price: i.price,
       priceLabel: rupees(i.price),
       foodType: i.foodType,
+      foodTypeName: i.foodTypeName,
       available: i.available,
     })),
     categories: categories.filter((c) => c.count > 0).map((c) => c.name),
     menuCategories: categories.map((c) => ({ id: c.id, name: c.name })),
+    foodTypes: foodTypes.map((t) => ({ id: t.id, name: t.name, kotClass: t.kotClass })),
     myTables: [...mine].sort(),
   };
 }

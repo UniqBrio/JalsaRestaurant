@@ -196,7 +196,8 @@ export function MenuScreen({
     const q = query.trim().toLowerCase();
     return dietPool.filter((m) => {
       if (category !== 'All' && m.category !== category) return false;
-      if (q && !`${m.name} ${m.category}`.toLowerCase().includes(q)) return false;
+      // The Food Type name is searchable too: "fish" or "dessert" finds its dishes (28-Sep-2026).
+      if (q && !`${m.name} ${m.category} ${m.foodTypeName}`.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [dietPool, category, query]);
@@ -451,11 +452,11 @@ function MenuRow({
 
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <FoodMark type={item.foodType} />
+            <FoodMark type={item.foodType} name={item.foodTypeName} />
             <span className="min-w-0 truncate type-body font-semibold">{item.name}</span>
           </span>
           <span className="mt-0.5 block type-caption text-[var(--text-muted)]">
-            {FOOD_TYPE[item.foodType].label} · {item.category}
+            {item.foodTypeName || FOOD_TYPE[item.foodType].label} · {item.category}
           </span>
           <span className="mt-1 block type-body font-bold">{item.priceLabel}</span>
         </span>

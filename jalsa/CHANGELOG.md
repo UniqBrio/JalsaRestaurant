@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added — 28-Sep-2026 — Delete a table
+
+- **Settings → Tables & QR → Edit** now has **Delete**, with a confirmation. A table that has never had a bill (added by mistake, never used) is deleted and its code stops working. A table that has had a bill is refused with "switch it off instead", so old bills and reports keep their table. On 28-Sep that is A1, A4, A5, A7, N3, N4 and N5; the other 13 can be deleted.
+
+### Added — 28-Sep-2026 — Food Types of your own, each with a KOT classification
+
+- **Menu → Food types.** Add Fish, Dessert, Juice, Seafood or anything else. Each type has a **name** (what you and guests see) and a **KOT classification**: Veg, Non-veg, Egg, or Other (no KOT classification). The classification decides which ticket a dish prints on when the veg/non-veg split is on, and the band it sits under on the KOT. Non-veg prints on the non-veg ticket; Veg, Egg and Other print on the veg-side ticket, under their own band (Other prints under **OTHER**).
+- **Add item** and **add a dish while ordering** pick the Food Type the way Category is picked: search, or type a new name and choose its classification before it is saved. Renaming or re-classifying a type (Menu → Food types) applies to every dish of that type; tickets already printed are not changed.
+- Guests' search finds dishes by their Food Type name, and the menu shows it. The Veg / Non-veg / Egg diet chips keep working by classification.
+- Reports gain **What sold by food type**.
+- Existing dishes keep exactly what they were: every restaurant starts with Veg, Non-veg and Egg, and each dish is linked to the matching one.
+
+**Technical.** Migration `20260928090000_jalsa_food_type_master.sql`: enum `food_type` gains `other`; new table `menu_food_type` (name, `kot_class`); `menu_item.food_type_id`, with triggers that derive `menu_item.food_type` from it and propagate a re-classification; `kot_item.food_type_name` snapshot. Must be applied before this code is deployed.
+
 ### Added — 28-Sep-2026 — "Mark it clear" on the owner console
 
 - A table showing **Needs clearing** on the owner dashboard now offers **Mark it clear** to anyone holding `tables.clear` (the owner, captains, waiters). It is the same verb the captain's To clear list has always sent, through a new `clear-table` action on the owner route, guarded in `clearTable` like everything else. Until now the console showed the state and offered nothing; Mark free is a different operation (`tables.free`, for a table holding an empty bill or a phone's cart) and is not offered on a released table.

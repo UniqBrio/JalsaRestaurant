@@ -4,6 +4,7 @@ import { PermissionDenied, ROLE_PRESETS } from '@/lib/permissions';
 import { rupees } from '@/lib/money';
 import { NEW_DISH_GRANTS, existingDish, type NewDish } from '@/lib/new-dish';
 import { subMenuProblem } from '@/lib/sub-menus';
+import { KOT_CLASS_LABEL, isKotClass, type FoodType } from '@/lib/status';
 import { testPrintBlocker } from '@/lib/test-print';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
@@ -37,7 +38,8 @@ export async function upsertMenuItem(input: {
   name: string;
   price: number;
   categoryId: string;
-  foodType: 'veg' | 'non_veg' | 'egg';
+  /** The restaurant's Food Type (`menu_food_type.id`). Its KOT classification follows it (trigger). */
+  foodTypeId: string;
   description?: string;
   /** `/api/media/menu/...` from `uploadImage`, or '' to remove the photo (item 23). Absent: unchanged. */
   imageUrl?: string;
@@ -47,6 +49,7 @@ export async function upsertMenuItem(input: {
 }): Promise<{ id: string }> {
   demand(input.actor, input.id ? 'menu.item_edit' : 'menu.item_edit');
   const restaurantId = await currentRestaurantId();
+  await ownFoodType(input.foodTypeId, restaurantId);
 
   // Only an image this app stored, and only a printer of this restaurant - a crafted request
   // cannot point a dish at somebody else's file or machine.
@@ -81,7 +84,9 @@ export async function upsertMenuItem(input: {
         name: input.name,
         price: input.price,
         category_id: input.categoryId,
-        food_type: input.foodType,
+        // Only the Food Type is written: the database derives the KOT classification from it
+        // (menu_item_food_type_sync), so the two can never disagree.
+        food_type_id: input.foodTypeId,
         description: input.description ?? '',
         ...extras,
       })
@@ -107,7 +112,7 @@ export async function upsertMenuItem(input: {
       name: input.name,
       price: input.price,
       category_id: input.categoryId,
-      food_type: input.foodType,
+      food_type_id: input.foodTypeId,
       description: input.description ?? '',
       ...extras,
     })
@@ -173,6 +178,108 @@ export async function setCategoryParent(input: {
 /** A refusal the owner can act on, carried to the route as a 400 with this sentence. */
 export class SubMenuRefused extends Error {}
 
+/* ── Food Types (28-Sep-2026) ──────────────────────────────────────────── */
+
+/** A refusal about a Food Type the owner can act on, carried to the route as a 400. */
+export class FoodTypeRefused extends Error {}
+
+/** A Food Type of THIS restaurant, or a sentence. A crafted id cannot borrow another's list. */
+async function ownFoodType(id: string, restaurantId: string): Promise<void> {
+  if (!id) throw new FoodTypeRefused('Choose a food type.');
+  const { data, error } = await db()
+    .from('menu_food_type')
+    .select('id')
+    .eq('id', id)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new FoodTypeRefused('That food type is not on this menu any more. Choose it again.');
+}
+
+/**
+ * Add a Food Type - its NAME and, separately, its KOT CLASSIFICATION - or hand back the one that
+ * already has this name (the Add-item picker selects what it gets back, as `addCategory` does).
+ *
+ * The name is the restaurant's own (Fish, Dessert, Juice); the classification is how the kitchen
+ * treats it: which side of the veg/non-veg split it prints on, the band on the KOT, the guest's
+ * diet filter. 'other' is "no KOT classification". Behind `menu.category`, the grant that already
+ * decides who may shape the menu's structure.
+ */
+export async function addFoodType(input: { name: string; kotClass: string; actor: Actor }): Promise<{ id: string; existed: boolean }> {
+  demand(input.actor, 'menu.category');
+  const name = input.name.trim().replace(/\s+/g, ' ');
+  if (!name || name.length > 40) throw new FoodTypeRefused('A food type name is 1 to 40 characters.');
+  if (!isKotClass(input.kotClass)) throw new FoodTypeRefused('Choose how the kitchen treats it: Veg, Non-veg, Egg or Other.');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: last } = await db()
+    .from('menu_food_type')
+    .select('sort')
+    .eq('restaurant_id', restaurantId)
+    .order('sort', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data, error } = await db()
+    .from('menu_food_type')
+    .insert({ restaurant_id: restaurantId, name, kot_class: input.kotClass, sort: ((last?.sort as number) ?? 0) + 1 })
+    .select('id')
+    .single();
+  if (error) {
+    if ((error as { code?: string }).code !== '23505') throw error;
+    const { data: rows } = await db().from('menu_food_type').select('id,name').eq('restaurant_id', restaurantId);
+    const found = (rows ?? []).find((r) => (r.name as string).trim().toLowerCase() === name.toLowerCase());
+    if (!found) throw error;
+    return { id: found.id as string, existed: true };
+  }
+  await audit({
+    action: 'Menu item',
+    detail: `Food type "${name}" added - KOT classification ${KOT_CLASS_LABEL[input.kotClass]}`,
+    actor: input.actor,
+  });
+  return { id: data.id as string, existed: false };
+}
+
+/**
+ * Rename a Food Type or change its KOT classification. A new classification reaches every dish of
+ * that type at once (menu_food_type_reclassify); tickets already placed keep what they printed.
+ */
+export async function updateFoodType(input: {
+  id: string;
+  name: string;
+  kotClass: string;
+  actor: Actor;
+}): Promise<void> {
+  demand(input.actor, 'menu.category');
+  const name = input.name.trim().replace(/\s+/g, ' ');
+  if (!name || name.length > 40) throw new FoodTypeRefused('A food type name is 1 to 40 characters.');
+  if (!isKotClass(input.kotClass)) throw new FoodTypeRefused('Choose how the kitchen treats it: Veg, Non-veg, Egg or Other.');
+  const restaurantId = await currentRestaurantId();
+  const { data: before } = await db()
+    .from('menu_food_type')
+    .select('name,kot_class')
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (!before) throw new FoodTypeRefused('That food type is not on this menu any more.');
+
+  const { error } = await db()
+    .from('menu_food_type')
+    .update({ name, kot_class: input.kotClass })
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId);
+  if (error) {
+    if ((error as { code?: string }).code === '23505') throw new FoodTypeRefused(`There is already a food type called ${name}.`);
+    throw error;
+  }
+  const changes = [
+    before.name !== name ? `renamed "${before.name as string}" -> "${name}"` : '',
+    before.kot_class !== input.kotClass
+      ? `KOT classification ${KOT_CLASS_LABEL[before.kot_class as FoodType]} -> ${KOT_CLASS_LABEL[input.kotClass]}`
+      : '',
+  ].filter(Boolean);
+  if (changes.length) await audit({ action: 'Menu item', detail: `Food type ${name}: ${changes.join('; ')}`, actor: input.actor });
+}
+
 /**
  * Add a dish from the ordering screen, or hand back the one that already means this (E1).
  *
@@ -195,7 +302,7 @@ export async function addDishWhileOrdering(input: NewDish & { actor: Actor }): P
       name,
       price: input.price,
       categoryId: input.categoryId,
-      foodType: input.foodType,
+      foodTypeId: input.foodTypeId,
       actor: input.actor,
     });
     return { id, existed: false, available: true };
@@ -318,6 +425,53 @@ export async function upsertTable(input: {
   });
   if (error) throw error;
   await audit({ action: 'Table', detail: `${input.name} added in ${input.zone}`, actor: input.actor });
+}
+
+/**
+ * Delete a table - ONLY one that has never carried a bill (28-Sep-2026).
+ *
+ * A table that has served guests is part of their bills: `bill_table` would cascade away with it
+ * (the bill forgets where it was served) and its KOTs refuse the delete outright. So a used table
+ * is refused with the way out that keeps its history - switch it off. An unused one (added by
+ * mistake, or never put into service) goes, with its stale scans and requests.
+ */
+export async function deleteTable(input: { id: string; actor: Actor }): Promise<{ name: string }> {
+  demand(input.actor, 'set.tables');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: table, error: readErr } = await db()
+    .from('dining_table')
+    .select('id,name')
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!table) throw new Error('That table is no longer on the floor plan. Reload the page.');
+  const name = table.name as string;
+
+  const [bills, kots] = await Promise.all([
+    db().from('bill_table').select('bill_id', { count: 'exact', head: true }).eq('table_id', input.id),
+    db().from('kot').select('id', { count: 'exact', head: true }).eq('table_id', input.id),
+  ]);
+  if (bills.error) throw bills.error;
+  if (kots.error) throw kots.error;
+  if ((bills.count ?? 0) > 0 || (kots.count ?? 0) > 0) {
+    throw new Error(
+      `${name} has bills on record, so it cannot be deleted. Switch it off instead (Edit, then On the floor) - it leaves the floor and its history stays.`
+    );
+  }
+
+  const { data: gone, error } = await db()
+    .from('dining_table')
+    .delete()
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  if ((gone ?? []).length !== 1) throw new Error('That table is no longer on the floor plan. Reload the page.');
+
+  await audit({ action: 'Table', detail: `${name} deleted`, actor: input.actor });
+  return { name };
 }
 
 /* ── People ────────────────────────────────────────────────────────────── */

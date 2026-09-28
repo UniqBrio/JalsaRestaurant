@@ -222,6 +222,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         onClose={() => setSeating(null)}
         menu={data.menu}
         categories={data.categories}
+        foodTypes={data.foodTypes}
         grants={data.grants}
         welcomeDrinks={readWelcomeDrinks(data.settings.welcomeDrinks)}
         send={send}
@@ -476,6 +477,7 @@ function NewRoundSheet({
   onClose,
   menu,
   categories,
+  foodTypes,
   grants,
   welcomeDrinks,
   send,
@@ -487,6 +489,7 @@ function NewRoundSheet({
   onClose: () => void;
   menu: OwnerPayload['menu'];
   categories: OwnerPayload['categories'];
+  foodTypes: OwnerPayload['foodTypes'];
   grants: OwnerPayload['grants'];
   welcomeDrinks: WelcomeDrinksConfig;
   send: OwnerSectionProps['send'];
@@ -561,6 +564,7 @@ function NewRoundSheet({
             query={query}
             menu={menu}
             categories={categories}
+            foodTypes={foodTypes}
             disabled={busy}
             testIdPrefix="owner-new-round"
             onCreate={(dish) => send<NewDishSaved>('/api/owner/action', { action: 'add-dish', ...dish })}

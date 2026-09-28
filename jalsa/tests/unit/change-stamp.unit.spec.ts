@@ -8,7 +8,7 @@
  * FAIL-FIRST: see TEST_SUMMARY.md.
  */
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { runScenario } from '../support/round-rig';
 
@@ -99,9 +99,22 @@ test('every table a polled screen reads moves a counter, or is excluded on purpo
     sources.flatMap((src) => [...src.matchAll(/\.from\('([a-z_]+)'\)/g)].map((m) => m[1] ?? ''))
   );
   expect(readTables.size, 'the scan found the data layer').toBeGreaterThan(15);
+  /* SUPERSEDED 28-Sep-2026: `covered` was read from 20260924120000 alone. A table born later
+     (menu_food_type, the restaurant's Food Type list) adds its own bump trigger in its own
+     migration, so every migration that attaches `bump_change_version` now counts, and for those
+     later files only the tables a trigger is actually created on. */
+  const LATER = readdirSync(`${APP}/supabase/migrations`)
+    .filter((f) => f.endsWith('.sql') && f > '20260924120000_jalsa_change_versions.sql')
+    .map((f) => read(`supabase/migrations/${f}`))
+    .filter((sql) => sql.includes('bump_change_version('));
   const covered = new Set([
     ...[...MIGRATION.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? ''),
     ...[...MIGRATION.matchAll(/on public\.([a-z_]+)/g)].map((m) => m[1] ?? ''),
+    ...LATER.flatMap((sql) =>
+      [...sql.matchAll(/create trigger \w+\s+after [^;]*? on public\.([a-z_]+)[^;]*?bump_change_version\(/g)].map(
+        (m) => m[1] ?? ''
+      )
+    ),
   ]);
   const missing = [...readTables].filter((t) => !covered.has(t) && !(t in EXCLUDED));
   expect(missing, 'a table no counter watches is a screen that never updates').toEqual([]);
