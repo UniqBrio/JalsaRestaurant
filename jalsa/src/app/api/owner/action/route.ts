@@ -11,6 +11,7 @@ import {
   completeRequest,
   detachTableFromBill,
   freeTable,
+  clearTable,
   ensureOpenBill,
   placeRound,
   reassignBillStaff,
@@ -75,6 +76,7 @@ type Action =
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'add-round'; tableId: string; lines: Array<{ menuItemId: string; qty: number }> }
   | { action: 'free-table'; tableId: string }
+  | { action: 'clear-table'; tableId: string }
   | { action: 'reassign-bill-staff'; billId: string; role: 'captain' | 'waiter'; staffId: string | null }
   | { action: 'reply-suggestion'; suggestionId: string; reply: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
@@ -281,6 +283,13 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       // are properties of the operation, and a second copy at a second entry point is how the
       // two eventually disagree.
       await freeTable({ tableId: input.tableId, actor });
+      return ok({ done: true });
+
+    case 'clear-table':
+      /* The same verb the captain's To clear list sends (28-Sep-2026): until now the console
+         showed "Needs clearing" and offered nothing, while the owner held `tables.clear` with
+         nowhere to use it. Guarded in clearTable, like free-table above. */
+      await clearTable({ tableId: input.tableId, actor });
       return ok({ done: true });
 
     case 'reply-suggestion':
