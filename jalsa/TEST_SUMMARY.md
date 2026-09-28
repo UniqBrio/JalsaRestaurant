@@ -165,6 +165,13 @@ FAIL-FIRST: tests/unit/printers-activity.unit.spec.ts - the new case was run aga
 
 ---
 
+## Run - 2026-09-28 - "Mark it clear" did not look like a button
+
+Owner's screenshot after #18: the ghost variant under a floor card is bare text, indistinguishable from the caption above it. Both floor actions (Mark it clear, Mark free) now take the bordered `secondary` variant.
+FAIL-FIRST: tests/unit/owner-clear-table.unit.spec.ts - the new case failed on the unchanged dashboard (`variant="ghost"` on both); after: **3 passed**. Typecheck, lint: pass.
+
+---
+
 ## Run - 2026-09-28 - "Needs clearing" on the owner console had no way out
 
 Owner asked why "Needs clearing" / Mark free was "not implemented". Clearing (`clear-table`, `tables.clear`) existed only in the captain's To clear list; the owner dashboard showed the state and offered nothing, and the owner action route had no such verb. Mark free is `tables.free` for a table holding an empty bill or a cart, and is correctly not offered on a released table. Fix: the verb on the owner route, and "Mark it clear" (the captain's string) on every Needs-clearing card for a holder of `tables.clear`.
