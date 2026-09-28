@@ -55,6 +55,7 @@ import {
   revokeBridgeToken,
   upsertStaff,
   upsertTable,
+  deleteTable,
   writeEmployment,
   writeIdentity,
   writeSetting,
@@ -108,6 +109,7 @@ type Action =
     }
   | { action: 'upload-image'; folder: 'menu' | 'brand'; base64: string }
   | { action: 'upsert-table'; id?: string; name: string; zone: string; seats: number; active: boolean }
+  | { action: 'delete-table'; id: string }
   | { action: 'upsert-staff'; id?: string; name: string; role: string; mobile?: string }
   | { action: 'issue-pin'; staffId: string }
   | { action: 'set-permissions'; staffId: string; granted: string[] }
@@ -417,6 +419,9 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
         actor,
       });
       return ok({ done: true });
+
+    case 'delete-table':
+      return ok(await deleteTable({ id: input.id, actor }));
 
     case 'upsert-staff':
       return ok(

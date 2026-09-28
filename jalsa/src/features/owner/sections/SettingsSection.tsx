@@ -7,7 +7,7 @@ import { CHIP_NAV_WRAP, CHIP_NAV_STICKY_MD } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
-import { Sheet } from '@/components/ui/sheet';
+import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { rupees } from '@/lib/money';
 import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
@@ -777,6 +777,9 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
     active: boolean;
   } | null>(null);
   const [qrFor, setQrFor] = React.useState<string | null>(null);
+  /* Delete asks first, and the server decides: a table that has carried a bill is refused with
+     the way out (switch it off), so its history is never lost (28-Sep-2026). */
+  const [deleting, setDeleting] = React.useState<{ id: string; name: string } | null>(null);
   /* The printable stand: both faces, from the same code the QR sheet shows. Its own
      selection rather than a mode on `qrFor`, because the two sheets are different objects
      - one is an image to save, the other is a print with two pages. */
@@ -866,6 +869,21 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-table-sheet"
         footer={
           <>
+            {editing?.id ? (
+              <Button
+                data-testid="owner-table-delete"
+                variant="secondary"
+                className="mr-auto text-[var(--error)]"
+                disabled={busy}
+                onClick={() => {
+                  if (!editing.id) return;
+                  setDeleting({ id: editing.id, name: editing.name });
+                  setEditing(null);
+                }}
+              >
+                Delete
+              </Button>
+            ) : null}
             <Button data-testid="owner-table-cancel" variant="ghost" onClick={() => setEditing(null)}>
               Cancel
             </Button>
@@ -943,6 +961,30 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </div>
         ) : null}
       </Sheet>
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={deleting ? `Delete table ${deleting.name}?` : 'Delete table'}
+        consequence={
+          <>
+            <strong>{deleting?.name}</strong> is removed from the floor plan and its code stops working. Only a table
+            that has never had a bill can be deleted; one that has is switched off instead, so its bills keep their
+            table.
+          </>
+        }
+        confirmLabel="Delete the table"
+        onConfirm={() =>
+          deleting &&
+          runBusy(async () => {
+            await send('/api/owner/action', { action: 'delete-table', id: deleting.id });
+            toast.show(`Table ${deleting.name} deleted`, { tone: 'success' });
+            setDeleting(null);
+          })
+        }
+        testId="owner-table-delete-confirm"
+        busy={busy}
+      />
 
       <Sheet
         open={qrFor !== null}

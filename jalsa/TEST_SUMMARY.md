@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Table delete - 2026-09-28 - only a table that has never carried a bill
+
+FAIL-FIRST: tests/unit/table-delete.unit.spec.ts - with the src change stashed (origin tree): 4 failed (no delete-table verb, no deleteTable, no Delete in the table sheet); with it: 4 passed.
+Unit tier: 1220 passed. Typecheck and ESLint clean.
+
+---
+
 ## Food Type list - 2026-09-28 - restaurant-defined types with a separate KOT classification
 
 New specs: tests/unit/food-type-master.db.unit.spec.ts (8, PGlite over every migration) and tests/unit/food-type-master.unit.spec.ts (8). Superseded in place with dated notes: new-dish, change-stamp, combobox-migration, menu-routing-25sep item 24.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added — 28-Sep-2026 — Delete a table
+
+- **Settings → Tables & QR → Edit** now has **Delete**, with a confirmation. A table that has never had a bill (added by mistake, never used) is deleted and its code stops working. A table that has had a bill is refused with "switch it off instead", so old bills and reports keep their table. On 28-Sep that is A1, A4, A5, A7, N3, N4 and N5; the other 13 can be deleted.
+
 ### Added — 28-Sep-2026 — Food Types of your own, each with a KOT classification
 
 - **Menu → Food types.** Add Fish, Dessert, Juice, Seafood or anything else. Each type has a **name** (what you and guests see) and a **KOT classification**: Veg, Non-veg, Egg, or Other (no KOT classification). The classification decides which ticket a dish prints on when the veg/non-veg split is on, and the band it sits under on the KOT. Non-veg prints on the non-veg ticket; Veg, Egg and Other print on the veg-side ticket, under their own band (Other prints under **OTHER**).

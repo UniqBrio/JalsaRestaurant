@@ -427,6 +427,53 @@ export async function upsertTable(input: {
   await audit({ action: 'Table', detail: `${input.name} added in ${input.zone}`, actor: input.actor });
 }
 
+/**
+ * Delete a table - ONLY one that has never carried a bill (28-Sep-2026).
+ *
+ * A table that has served guests is part of their bills: `bill_table` would cascade away with it
+ * (the bill forgets where it was served) and its KOTs refuse the delete outright. So a used table
+ * is refused with the way out that keeps its history - switch it off. An unused one (added by
+ * mistake, or never put into service) goes, with its stale scans and requests.
+ */
+export async function deleteTable(input: { id: string; actor: Actor }): Promise<{ name: string }> {
+  demand(input.actor, 'set.tables');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: table, error: readErr } = await db()
+    .from('dining_table')
+    .select('id,name')
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!table) throw new Error('That table is no longer on the floor plan. Reload the page.');
+  const name = table.name as string;
+
+  const [bills, kots] = await Promise.all([
+    db().from('bill_table').select('bill_id', { count: 'exact', head: true }).eq('table_id', input.id),
+    db().from('kot').select('id', { count: 'exact', head: true }).eq('table_id', input.id),
+  ]);
+  if (bills.error) throw bills.error;
+  if (kots.error) throw kots.error;
+  if ((bills.count ?? 0) > 0 || (kots.count ?? 0) > 0) {
+    throw new Error(
+      `${name} has bills on record, so it cannot be deleted. Switch it off instead (Edit, then On the floor) - it leaves the floor and its history stays.`
+    );
+  }
+
+  const { data: gone, error } = await db()
+    .from('dining_table')
+    .delete()
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
+    .select('id');
+  if (error) throw error;
+  if ((gone ?? []).length !== 1) throw new Error('That table is no longer on the floor plan. Reload the page.');
+
+  await audit({ action: 'Table', detail: `${name} deleted`, actor: input.actor });
+  return { name };
+}
+
 /* ── People ────────────────────────────────────────────────────────────── */
 
 export async function upsertStaff(input: {
