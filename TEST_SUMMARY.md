@@ -12,6 +12,14 @@ Unit (jalsa): 1195 passed; typecheck and lint clean.
 
 ---
 
+## Food Type list - 2026-09-28 - restaurant-defined types with a separate KOT classification
+
+FAIL-FIRST: jalsa/tests/unit/food-type-master.db.unit.spec.ts - without migration 20260928090000: 1 failed (relation "menu_food_type" does not exist, the rest serial-skipped); with it: 8 passed.
+FAIL-FIRST: jalsa/tests/unit/food-type-master.unit.spec.ts - against origin/main the file failed to collect (status.ts has no export KOT_CLASSES); with completeGroupOrder returning the saved order unchanged: 2 failed, 6 passed; reverted: 8 passed.
+Unit tier: 1216 passed. Typecheck and ESLint clean.
+
+---
+
 ## Application run - jalsa - 2026-09-26 - Merge with main; write-path latency; the owner console 500
 
 **The full record lives in `jalsa/TEST_SUMMARY.md`.** Merged main (separate staff/owner sign-ins,
