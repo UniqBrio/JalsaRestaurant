@@ -138,9 +138,11 @@ export async function blockTablePosterSvg(target: string, restaurantName: string
 export function svgHeaders(filename: string): Record<string, string> {
   return {
     'content-type': 'image/svg+xml; charset=utf-8',
-    // Immutable for a day: the content is a pure function of its inputs, and a captain flicking
-    // through twenty tables should not re-render twenty images.
-    'cache-control': 'private, max-age=86400',
+    // An hour, under a URL that already carries the logo it is drawn with (src/lib/qr-url.ts). A
+    // captain flicking through twenty tables still does not re-render twenty images; a change to
+    // how a code is DRAWN reaches every screen within the hour rather than the day it took on
+    // 26-Sep-2026, when a fixed badge sat unseen behind a day-long cache.
+    'cache-control': 'private, max-age=3600',
     'content-disposition': `inline; filename="${filename}.svg"`,
   };
 }

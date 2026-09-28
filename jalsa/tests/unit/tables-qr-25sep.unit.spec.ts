@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { BLOCK_TABLE_HEADING, blockTablePosterSvg, brandedQrSvg } from '../../src/lib/qr-svg';
+import { BLOCK_TABLE_HEADING, blockTablePosterSvg, brandedQrSvg, svgHeaders } from '../../src/lib/qr-svg';
+import { qrImageUrl } from '../../src/lib/qr-url';
 import { JALSA_BADGE_PNG_BASE64 } from '../../src/lib/brand-badge.generated';
 
 /**
@@ -90,7 +91,9 @@ test('item 33: "Scan to Block Your Table" is its own poster, of the door code, a
   expect(nested.match(/ width=/g)).toHaveLength(1);
   const route = code('src/app/api/owner/qr/route.ts');
   expect(route).toContain("if (!table && poster === 'block')");
-  expect(code('src/features/owner/sections/SettingsSection.tsx')).toContain('src="/api/owner/qr?poster=block"');
+  /* SUPERSEDED 26-Sep-2026: asserted the bare `src="/api/owner/qr?poster=block"`; the URL now carries
+     the logo version (src/lib/qr-url.ts). */
+  expect(code('src/features/owner/sections/SettingsSection.tsx')).toContain("src={qrImageUrl('/api/owner/qr', data.restaurant, { poster: 'block' })}");
 });
 
 test('item 34: Add Table offers AC, Non-AC and Terrace, and keeps a zone a table already has', () => {
@@ -123,4 +126,27 @@ test('item 31: the bundled Jalsa badge counts as a logo for the centre of every 
   const png = readFileSync('public/brand/jalsa-badge.png');
   expect(Buffer.from(JALSA_BADGE_PNG_BASE64, 'base64').equals(png), 'the constant IS the file the pages show').toBe(true);
   expect(existsSync('src/lib/brand-badge.generated.ts')).toBe(true);
+});
+
+/*
+ * 26-Sep-2026 — after the badge fixes went live the owner still saw the drawn "J": the browser
+ * had cached every code for a day (`max-age=86400`) under a URL that never changes, so nothing
+ * new was ever fetched. The logo is an INPUT to the picture, so it belongs in the URL: every
+ * QR image URL now carries `v=<hash of logo_url>`, which is a new URL the moment the logo
+ * changes (and once, on this deploy), and the cache is an hour, not a day.
+ */
+test('the QR image URL is versioned by the logo it is drawn with, and cached for an hour', () => {
+  const plain = qrImageUrl('/api/owner/qr', { logo_url: '/brand/jalsa-badge.png' }, { table: 'A5' });
+  const other = qrImageUrl('/api/owner/qr', { logo_url: '/api/media/brand/0f0f0f0f-0000-4000-8000-000000000000.png' }, { table: 'A5' });
+  expect(plain).toMatch(/^\/api\/owner\/qr\?table=A5&v=[0-9a-f]{8}$/);
+  expect(other).not.toBe(plain);
+  expect(qrImageUrl('/api/owner/review-qr', { logo_url: '/brand/jalsa-badge.png' })).toMatch(/^\/api\/owner\/review-qr\?v=[0-9a-f]{8}$/);
+  expect(qrImageUrl('/api/owner/qr', {}, { poster: 'block' })).toMatch(/^\/api\/owner\/qr\?poster=block&v=[0-9a-f]{8}$/);
+  // No screen builds a code URL by hand any more: a bare path would sidestep the version.
+  for (const f of ['src/features/owner/sections/SettingsSection.tsx', 'src/features/owner/TableStandSheet.tsx']) {
+    const s = code(f);
+    expect(s, `${f} imports the one URL builder`).toContain("from '@/lib/qr-url'");
+    expect(s, `${f} has no bare code URL`).not.toMatch(/(src|href)=\{?[`"']\/api\/owner\/(qr|review-qr)/);
+  }
+  expect(svgHeaders('x')['cache-control']).toBe('private, max-age=3600');
 });

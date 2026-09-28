@@ -20,6 +20,7 @@ import { readWelcomeDrinks } from '@/lib/welcome-drinks';
 import { ImagePicker } from '@/components/ui/image-picker';
 import { checkReviewLink } from '@/lib/review-link';
 import { whatsAppShareUrl } from '@/lib/bill-share';
+import { qrImageUrl } from '@/lib/qr-url';
 
 /** The zones a table can be in (item 34, 25-Sep-2026). */
 const TABLE_ZONES = ['AC', 'Non-AC', 'Terrace'] as const;
@@ -708,7 +709,7 @@ function IndoorQueueCard({
                 carried both since it was written. */}
             <a
               data-testid="owner-entrance-qr-print-link"
-              href="/api/owner/qr"
+              href={qrImageUrl('/api/owner/qr', data.restaurant)}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -721,7 +722,7 @@ function IndoorQueueCard({
           {/* Unoptimised for the same reason the table codes are: generated per request, already
               the size it prints at, and must never be served from a stale cache. */}
           <Image
-            src="/api/owner/qr"
+            src={qrImageUrl('/api/owner/qr', data.restaurant)}
             alt="QR code for the entrance queue"
             width={260}
             height={260}
@@ -744,7 +745,7 @@ function IndoorQueueCard({
         testId="owner-block-table-sheet"
         footer={
           <Button data-testid="owner-block-table-print" asChild>
-            <a data-testid="owner-block-table-print-link" href="/api/owner/qr?poster=block" target="_blank" rel="noopener noreferrer">
+            <a data-testid="owner-block-table-print-link" href={qrImageUrl('/api/owner/qr', data.restaurant, { poster: 'block' })} target="_blank" rel="noopener noreferrer">
               Open the poster to print
             </a>
           </Button>
@@ -752,7 +753,7 @@ function IndoorQueueCard({
       >
         <div className="flex flex-col items-center gap-3">
           <Image
-            src="/api/owner/qr?poster=block"
+            src={qrImageUrl('/api/owner/qr', data.restaurant, { poster: 'block' })}
             alt="Scan to Block Your Table poster"
             width={290}
             height={400}
@@ -954,7 +955,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           <Button data-testid="owner-qr-open" asChild>
             <a
               data-testid="owner-qr-open-link"
-              href={`/api/owner/qr?table=${encodeURIComponent(qrFor ?? '')}`}
+              href={qrImageUrl('/api/owner/qr', data.restaurant, { table: qrFor ?? '' })}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -969,7 +970,7 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 exact size it is printed at. Running it through the image pipeline would cache a
                 second copy of something that must never go stale. */}
             <Image
-              src={`/api/owner/qr?table=${encodeURIComponent(qrFor)}`}
+              src={qrImageUrl('/api/owner/qr', data.restaurant, { table: qrFor })}
               alt={`QR code for table ${qrFor}`}
               width={260}
               height={260}
@@ -1492,7 +1493,7 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </Button>
           {savedReview === review.url ? (
             <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-qr">
-              <a data-testid="owner-engage-review-qr-link" href="/api/owner/review-qr" target="_blank" rel="noopener noreferrer">
+              <a data-testid="owner-engage-review-qr-link" href={qrImageUrl('/api/owner/review-qr', data.restaurant)} target="_blank" rel="noopener noreferrer">
                 Review QR code
               </a>
             </Button>

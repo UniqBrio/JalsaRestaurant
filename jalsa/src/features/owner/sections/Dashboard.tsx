@@ -39,6 +39,10 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
      with it, which is the whole of what was asked for. */
   const [freeing, setFreeing] = React.useState<(typeof data.floor)[number] | null>(null);
   const canFree = data.grants.includes('tables.free');
+  /* "Needs clearing" is the other way a table leaves the floor's attention, and it was shown
+     here with no way out (28-Sep-2026): clearing lived only in the captain's To clear list.
+     Same verb, same grant, same words as there. */
+  const canClear = data.grants.includes('tables.clear');
 
   /* Starting a round from here is for the walk-in nobody is on the floor for. Offered only
      where the grant is held, for the same reason Mark free is: a control that is offered and
@@ -271,6 +275,24 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                   onClick={() => setFreeing(t)}
                 >
                   Mark free
+                </Button>
+              ) : null}
+
+              {canClear && t.clearing ? (
+                <Button
+                  data-testid={`owner-clear-table-${t.name}`}
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  className="mt-1 w-full"
+                  onClick={() =>
+                    runBusy(async () => {
+                      await send('/api/owner/action', { action: 'clear-table', tableId: t.id });
+                      toast.show(`Table ${t.name} ready for the next party`, { tone: 'success' });
+                    })
+                  }
+                >
+                  Mark it clear
                 </Button>
               ) : null}
             </li>

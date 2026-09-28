@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added — 28-Sep-2026 — "Mark it clear" on the owner console
+
+- A table showing **Needs clearing** on the owner dashboard now offers **Mark it clear** to anyone holding `tables.clear` (the owner, captains, waiters). It is the same verb the captain's To clear list has always sent, through a new `clear-table` action on the owner route, guarded in `clearTable` like everything else. Until now the console showed the state and offered nothing; Mark free is a different operation (`tables.free`, for a table holding an empty bill or a phone's cart) and is not offered on a released table.
+
 ### Changed — 25-Sep-2026 — the rest of the correction list
 
 **For Javeed.**
