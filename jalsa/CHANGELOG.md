@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed — 30-Sep-2026 — Switching a printer off and saving
+
+- **Settings → Printers → Configure**: a kitchen printer set to Ethernet or Wi-Fi with no IP address typed in can now be switched off with **Use this machine** and saved. **Save changes** stayed grey before, without saying why. The IP address is asked for only while the machine is in use, so switching it back on still needs one.
+
 ### Added — 28-Sep-2026 — Delete a table
 
 - **Settings → Tables & QR → Edit** now has **Delete**, with a confirmation. A table that has never had a bill (added by mistake, never used) is deleted and its code stops working. A table that has had a bill is refused with "switch it off instead", so old bills and reports keep their table. On 28-Sep that is A1, A4, A5, A7, N3, N4 and N5; the other 13 can be deleted.

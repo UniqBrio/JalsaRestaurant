@@ -513,7 +513,10 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               disabled={
                 busy ||
                 !form?.name.trim() ||
-                (form.connection !== 'USB' && !form.address.trim() && !(form.id && throughComputer.has(form.id)))
+                /* An address is what reaches a machine in use; one being switched off needs none. */
+                (form.enabled &&
+                  form.connection !== 'USB' &&
+                  !form.address.trim() && !(form.id && throughComputer.has(form.id)))
               }
               onClick={() => form && save(form)}
             >
@@ -582,7 +585,12 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               </Field>
               {form.connection !== 'USB' ? (
                 <>
-                  <Field label="IP address" required htmlFor="owner-print-address" className="min-w-[9rem] flex-1">
+                  <Field
+                    label="IP address"
+                    required={form.enabled}
+                    htmlFor="owner-print-address"
+                    className="min-w-[9rem] flex-1"
+                  >
                     <Input
                       id="owner-print-address"
                       value={form.address}

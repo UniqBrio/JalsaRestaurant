@@ -1093,7 +1093,10 @@ export async function upsertPrinter(input: {
   /* A printer reached THROUGH A PRINTING COMPUTER has no address of its own - the computer is
      how it is reached (24-Sep list, B1). `savePrinterMapping` creates those with no address, so
      this rule refused every save on them: switching one off and pressing Save did nothing. The
-     same exemption `testPrintBlocker` already makes for them. */
+     same exemption `testPrintBlocker` already makes for them.
+     A machine SWITCHED OFF needs no address either (30-Sep): nothing reaches it, and an
+     unaddressed network printer could not otherwise be switched off at all. Switching it back on
+     asks for one. `printer_address_when_networked` already allows it (`online = false`). */
   const { data: mapping, error: mappingErr } = input.id
     ? await db()
         .from('bridge_printer')
@@ -1103,7 +1106,9 @@ export async function upsertPrinter(input: {
         .maybeSingle()
     : { data: null, error: null };
   if (mappingErr) throw mappingErr;
-  if (input.connection !== 'USB' && !input.address.trim() && !mapping) {
+  // `!== false`, not truthiness: a request with no `enabled` at all inserts an ENABLED printer
+  // (the column defaults to true), so it must meet the rule an enabled one meets.
+  if (input.enabled !== false && input.connection !== 'USB' && !input.address.trim() && !mapping) {
     throw new Error('A network machine needs an address, or nothing can reach it.');
   }
 

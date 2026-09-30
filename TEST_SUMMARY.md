@@ -2,6 +2,15 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-09-30 - printer switch-off: a network printer with no address can be switched off
+
+"After disabling the device, save changes is not working." The 24-Sep fix (B1) exempted only printers reached through a printing computer. A network printer (Ethernet / Wi-Fi) with no IP address and no computer behind it - every printer the seed creates - still greyed out Save changes once switched off. The address is now required only of a machine in use, in the form and in upsertPrinter; `printer_address_when_networked` already allows it (nothing sets `online` true).
+
+FAIL-FIRST: jalsa/tests/unit/printer-switch-off.unit.spec.ts - with the src change stashed: 3 failed; with it: 3 passed. printer-management.unit.spec.ts B1 pins unchanged and passing.
+NOT OBSERVED FAILING: jalsa/tests/unit/printer-switch-off.db.unit.spec.ts (3, PGlite over every migration) - it pins the database assumption the fix rests on (`printer_address_when_networked` accepts a switched-off, unaddressed network printer while `online` is false, and still refuses one marked online); no migration changed, so there is no pre-fix tree for it to fail against. Code review: upsertPrinter tests `enabled !== false`, so a request omitting `enabled` (column default true) still needs an address.
+
+Unit (jalsa): 1226 passed; typecheck and ESLint clean; audit:all 10/10.
+
 ## Application run - jalsa - 2026-09-26 - CI: the outage spec on Node 20
 
 The first CI run of jalsa/tests/unit/outage.unit.spec.ts (PR #14) failed all three rungs: CI runs Node 20, where WebSocket is behind a flag, and supabase-js builds its (unused) realtime client on createClient and throws "Node.js detected but native WebSocket not found". Only `realDb` scenarios create the real client. The round rig now starts its child with `--experimental-websocket` when the parent has no WebSocket.

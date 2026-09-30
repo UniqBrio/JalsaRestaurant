@@ -4,6 +4,16 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Printer switch-off - 2026-09-30 - a network printer with no address can be switched off
+
+"After disabling the device, save changes is not working." The 24-Sep fix (B1) exempted only printers reached through a printing computer. A network printer (Ethernet / Wi-Fi) with no IP address and no computer behind it - every printer the seed creates - still greyed out Save changes once switched off. The address is now required only of a machine in use, in the form and in upsertPrinter; `printer_address_when_networked` already allows it (nothing sets `online` true).
+
+FAIL-FIRST: tests/unit/printer-switch-off.unit.spec.ts - with the src change stashed: 3 failed; with it: 3 passed. printer-management.unit.spec.ts B1 pins unchanged and passing.
+NOT OBSERVED FAILING: tests/unit/printer-switch-off.db.unit.spec.ts (3, PGlite over every migration) - it pins the database assumption the fix rests on (`printer_address_when_networked` accepts a switched-off, unaddressed network printer while `online` is false, and still refuses one marked online); no migration changed, so there is no pre-fix tree for it to fail against. Code review: upsertPrinter tests `enabled !== false`, so a request omitting `enabled` (column default true) still needs an address.
+Unit tier: 1226 passed. Typecheck and ESLint clean. audit:all 10/10.
+
+---
+
 ## Table delete - 2026-09-28 - only a table that has never carried a bill
 
 FAIL-FIRST: tests/unit/table-delete.unit.spec.ts - with the src change stashed (origin tree): 4 failed (no delete-table verb, no deleteTable, no Delete in the table sheet); with it: 4 passed.
