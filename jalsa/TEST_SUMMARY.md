@@ -4,6 +4,15 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Printer row delete - 2026-09-30 - Delete against each printer
+
+"Add delete button against a printer." Settings -> Printers -> Printers had Delete only inside the Configure sheet. Each row now has Delete beside Configure (same `canEdit` gate), opening the existing confirmation; `delete-printer` is still sent from one place.
+
+FAIL-FIRST: tests/unit/printer-row-delete.unit.spec.ts - against the pre-change tree: 2 failed; with it: 2 passed.
+Unit tier: 1228 passed. Typecheck and ESLint clean. audit:all 10/10.
+
+---
+
 ## Printer switch-off - 2026-09-30 - a network printer with no address can be switched off
 
 "After disabling the device, save changes is not working." The 24-Sep fix (B1) exempted only printers reached through a printing computer. A network printer (Ethernet / Wi-Fi) with no IP address and no computer behind it - every printer the seed creates - still greyed out Save changes once switched off. The address is now required only of a machine in use, in the form and in upsertPrinter; `printer_address_when_networked` already allows it (nothing sets `online` true).

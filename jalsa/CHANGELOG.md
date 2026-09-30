@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added — 30-Sep-2026 — Delete beside each printer
+
+- **Settings → Printers → Printers**: every printer row now has **Delete** next to **Configure**. It asks first, as the Delete inside Configure does.
+
 ### Fixed — 30-Sep-2026 — Switching a printer off and saving
 
 - **Settings → Printers → Configure**: a kitchen printer set to Ethernet or Wi-Fi with no IP address typed in can now be switched off with **Use this machine** and saved. **Save changes** stayed grey before, without saying why. The IP address is asked for only while the machine is in use, so switching it back on still needs one.

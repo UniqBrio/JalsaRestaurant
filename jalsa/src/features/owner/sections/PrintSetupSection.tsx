@@ -449,6 +449,20 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       Configure
                     </Button>
                   ) : null}
+                  {/* Against the printer, as the Printers screen has it (30-Sep). The same
+                      confirmation as the sheet's Delete, so there is one delete path. */}
+                  {canEdit ? (
+                    <Button
+                      data-testid={`owner-print-row-delete-${p.id}`}
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      className="text-[var(--error)]"
+                      onClick={() => setDeleting({ ...p })}
+                    >
+                      Delete
+                    </Button>
+                  ) : null}
                 </div>
 
                 <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
