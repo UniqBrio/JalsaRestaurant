@@ -51,6 +51,114 @@ Unit tier: 1226 passed. Typecheck and ESLint clean. audit:all 10/10.
 
 ---
 
+## Gate run - 2026-09-30 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 15s total - slowest G8 Functional / integration (2m 05s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (53ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (52ms)
+- **G3 Theme assets present per theme** - PASS (48ms)
+- **G4 No hard-coded colours** - PASS (75ms)
+- **G5 Types** - PASS (2.4s)
+- **G6 Lint** - PASS (13.8s)
+- **G7 Unit + pure specs** - PASS (49.9s)
+- **G8 Functional / integration** - FAIL (2m 05s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (58ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.4s)
+- **G11 Wide tables are configurable** - PASS (60ms)
+- **G12 Installable as an application** - PASS (84ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Four screenshots, review round - 2026-09-30 - the + keeps what was typed
+
+Review (code-reviewer REQUEST CHANGES, copy-gate) found, and this round fixed:
+- H1, OBSERVED in a browser before the fix: type "Coming due to my favorite menu", tap + -> box empty, nothing added. The box, + and chevron sit in the popover Anchor, which Radix treats as outside the list; pointer-down dismissed it and close() dropped the query. Same root cause, pre-existing: tapping the box mid-typing emptied it, and the chevron could never close the list. Fixed once: `onInteractOutside` exempts the Anchor; the chevron closes through close(); + with something new typed adds it.
+- M1: the in-list Add row keeps the design's ⊕ (Owner Admin.dc.html draws ⊕ on add rows, + on buttons); only the new box button is +.
+- M2/L3 + copy: the invite is a hint paragraph that describes the input (aria-describedby), not a fake button; default "Not listed? Type the name to add it.", guest "Not listed? Type your own answer." (an answer, not a list entry).
+- M3: measured - the owner's Category box sits at its 160px minimum on a 390px phone; a permanent + left 68px for a choice ("Main course" needs 81). The + now shows only while the box is empty or the list is open; a closed box holding a choice keeps the 104px it had before.
+- L1: no hint while the list is loading. M4: the spec now asserts element by element (enclosing condition, whole-element role, both preventDefaults, empty-label rule).
+FAIL-FIRST: tests/unit/combobox-add-plus.unit.spec.ts (rewritten, still uncommitted) against HEAD's combobox.tsx + GuestOrdering.tsx: 11 failed of 11; with the fix: 11 passed.
+BROWSER CHECK (esbuild-bundled real component on the dev server's stylesheet, 390px, dark and light): + shows on the empty add-able box, not on search-only; + opens with focus in the box and the hint read via aria-describedby; tapping the hint keeps list and focus; typed text -> `⊕ Add "Coming due to my favorite menu"`; + with that text typed adds and selects it; tapping the box mid-typing keeps "Insta"; chevron closes an open list; outside click and Escape close; picking an option works; narrow 160px box with a choice: no +, 104px text room.
+Unit tier: 1231 passed. Typecheck, ESLint, audit:all 10/10 clean.
+G8 functional: the four database-backed journeys (guest-journey, closure-upsell-tip, guest-total-visibility, reachability) render "We cannot reach the till just now" - this container has no database (CI literals point at 127.0.0.1:1, and *.supabase.co is refused by the proxy). Not caused by this change; recorded as FAIL by the runner, as on earlier runs here.
+
+---
+
+## Gate run - 2026-09-30 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 29s total - slowest G8 Functional / integration (2m 10s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (52ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (57ms)
+- **G3 Theme assets present per theme** - PASS (50ms)
+- **G4 No hard-coded colours** - PASS (79ms)
+- **G5 Types** - PASS (12.1s)
+- **G6 Lint** - PASS (13.7s)
+- **G7 Unit + pure specs** - PASS (49.4s)
+- **G8 Functional / integration** - FAIL (2m 10s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (69ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.9s)
+- **G11 Wide tables are configurable** - PASS (59ms)
+- **G12 Installable as an application** - PASS (68ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Four screenshots - 2026-09-30 - a + on every picker that can add
+
+Request: requests/2026-09-30-four-screenshots.md. Items 2-4 (Reissue PIN, seat a called party, closed-queue scan) were already fixed on 24-Sep (F1/F2/F3); the screenshots date from 19-Sep by the live data. Their specs re-run here: pin-and-attribution, function-overloads, queue-seat-and-closed, indoor-queue - all pass.
+FAIL-FIRST: tests/unit/combobox-add-plus.unit.spec.ts - against the pre-fix combobox.tsx (HEAD copy): 6 failed (no comboboxAddRow export x4, no `-add` button, no invite row), 1 passed (the guard that the guest field is still add-able - true before and after, by design); with the fix: 7 passed.
+BROWSER CHECK (not a committed rung - the unit tier cannot mount React, and the functional tier needs the test database): the real Combobox bundled with esbuild and mounted on the dev server's own stylesheet at 390px, dark and light. Both themes: the + shows on the add-able box and not on a search-only one; + opens the list with focus in the box and the invite row showing; tapping the invite row keeps the list open and the focus in the box; typing "Coming due to my favorite menu" replaces the invite with `+ Add "Coming due to my favorite menu"`; Add selects it; + (298-334) and chevron (334-370) sit inside the 16-374 box without overlapping.
+Unit (combobox x3, queue, PIN, overloads): 79 passed. Typecheck and ESLint clean. audit:all 10/10.
+
+---
+
 ## Table delete - 2026-09-28 - only a table that has never carried a bill
 
 FAIL-FIRST: tests/unit/table-delete.unit.spec.ts - with the src change stashed (origin tree): 4 failed (no delete-table verb, no deleteTable, no Delete in the table sheet); with it: 4 passed.

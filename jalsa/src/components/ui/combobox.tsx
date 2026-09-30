@@ -78,6 +78,33 @@ export function comboboxExactMatch(options: readonly ComboboxOption[], query: st
   return options.find((o) => o.label.trim().toLowerCase() === q) ?? null;
 }
 
+/**
+ * What the foot of the list offers for ADDING, given what has been typed (30-Sep list, item 1).
+ *
+ * WHY THERE IS AN `invite` AT ALL
+ *   Before it, the only way to add was to type first: the Add row appeared once the query named
+ *   something new, and not before. Nothing on the closed box or the open list said that typing
+ *   could add anything, so a guest who wanted to say "Coming due to my favourite menu" saw four
+ *   fixed answers and no way to give their own. The `+` on the box and the invite row are the
+ *   same promise made visibly: type it, and it can be added.
+ *
+ *   - `null`    nothing to offer: not a data-entry field, or the query already names an option.
+ *   - `invite`  nothing typed yet: say that a new one can be typed and added.
+ *   - `add`     something new typed: the Add row, carrying the trimmed name.
+ */
+export type ComboboxAddRow = { kind: 'invite' } | { kind: 'add'; name: string } | null;
+
+export function comboboxAddRow(
+  options: readonly ComboboxOption[],
+  query: string,
+  allowCreate: boolean
+): ComboboxAddRow {
+  if (!allowCreate) return null;
+  const name = query.trim();
+  if (!name) return { kind: 'invite' };
+  return comboboxExactMatch(options, name) ? null : { kind: 'add', name };
+}
+
 export function Combobox({
   value,
   onValueChange,
@@ -90,6 +117,7 @@ export function Combobox({
   loading = false,
   invalid = false,
   emptyLabel = 'Nothing matches',
+  addHint = 'Not listed? Type the name to add it.',
   id,
   ariaLabel,
 }: {
@@ -106,6 +134,8 @@ export function Combobox({
   loading?: boolean;
   invalid?: boolean;
   emptyLabel?: string;
+  /** The line under the list, before anything is typed, on a field that can add. */
+  addHint?: string;
   id?: string;
   ariaLabel?: string;
 }) {
@@ -115,14 +145,22 @@ export function Combobox({
   const [creating, setCreating] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const anchorRef = React.useRef<HTMLDivElement>(null);
   const listId = React.useId();
+  const hintId = `${listId}-add-hint`;
 
   const selected = options.find((o) => o.value === value) ?? null;
   const filtered = React.useMemo(() => options.filter((o) => comboboxMatches(o, query)), [options, query]);
-  const exact = comboboxExactMatch(options, query);
+  const creatable = allowCreate && onCreate !== undefined;
   /* The Add row appears only when there is something to add that is not already there — the
      rule the requester stated, and the reason `comboboxExactMatch` is its own function. */
-  const canCreate = allowCreate && onCreate !== undefined && query.trim().length > 0 && exact === null;
+  const addRow = comboboxAddRow(options, query, creatable);
+  const canCreate = addRow?.kind === 'add';
+  const inviting = open && !loading && addRow?.kind === 'invite';
+  /* The `+` shows while there is something to add INTO: an empty box, or an open list. A closed
+     box holding a choice gives its width back to the choice — on a 390px phone the owner's
+     Category box sits at its 160px minimum, where a permanent `+` clipped "Main course". */
+  const showPlus = creatable && (open || !selected);
   const rows = canCreate ? filtered.length + 1 : filtered.length;
 
   /* The box shows the SELECTION when closed and the QUERY when open. A closed box showing a
@@ -205,7 +243,7 @@ export function Combobox({
       }}
     >
       <PopoverPrimitive.Anchor asChild>
-        <div className="relative">
+        <div ref={anchorRef} className="relative">
           <input
             ref={inputRef}
             id={id}
@@ -218,6 +256,7 @@ export function Combobox({
             {...(open && rows > 0 ? { 'aria-activedescendant': `${listId}-${active}` } : {})}
             {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
             {...(invalid ? { 'aria-invalid': true } : {})}
+            {...(inviting ? { 'aria-describedby': hintId } : {})}
             autoComplete="off"
             disabled={disabled}
             value={shown}
@@ -242,12 +281,33 @@ export function Combobox({
             */
             onClick={() => !disabled && setOpen(true)}
             onKeyDown={onKeyDown}
-            className={cn(
-              controlClass,
-              'pr-10',
-              invalid && 'border-[var(--error)]'
-            )}
+            className={cn(controlClass, showPlus ? 'pr-[4.75rem]' : 'pr-10', invalid && 'border-[var(--error)]')}
           />
+          {/* THE `+` SAYS "YOU CAN ADD YOUR OWN" BEFORE ANYTHING IS TYPED (30-Sep list, item 1).
+              With something new typed it adds it — the same as the Add row. With nothing typed
+              it opens the list with the cursor in the box, ready to type. Only on a data-entry
+              field: a search-only picker has nothing to add, and a `+` there would promise
+              something it cannot do (`showPlus`, above, says when). A button, not a list row,
+              so it is `+` as the design draws "+ Add printer"; rows in the list keep its ⊕. */}
+          {showPlus ? (
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="Add a new one"
+              data-testid={`${testId}-add`}
+              disabled={disabled || creating}
+              onClick={() => {
+                if (open && canCreate) return void create();
+                setOpen(true);
+                inputRef.current?.focus();
+              }}
+              className="absolute right-10 top-1/2 flex h-9 w-8 -translate-y-1/2 items-center justify-center rounded-[var(--radius-sm)] text-[var(--primary)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-45"
+            >
+              <span aria-hidden className="type-body font-semibold leading-none">
+                +
+              </span>
+            </button>
+          ) : null}
           {/* The chevron is the affordance that says "there is a list behind this", and it is a
               real button so a pointer user who wants the list without typing has a target. */}
           <button
@@ -257,7 +317,8 @@ export function Combobox({
             data-testid={`${testId}-toggle`}
             disabled={disabled}
             onClick={() => {
-              setOpen((o) => !o);
+              if (open) return close();
+              setOpen(true);
               inputRef.current?.focus();
             }}
             className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-body)] disabled:opacity-45"
@@ -274,6 +335,15 @@ export function Combobox({
           /* Focus stays in the input: this is one control, not a dialog. Without this the
              popover steals focus on open and the first keystroke is lost. */
           onOpenAutoFocus={(e) => e.preventDefault()}
+          /* THE BOX, THE `+` AND THE CHEVRON ARE NOT "OUTSIDE" (review of item 1). They sit in
+             the Anchor, and Radix exempts only a Trigger — which this component has none of —
+             so a press on any of them dismissed the list on pointer-down, and `close()` threw
+             the typed text away before the click landed: typing "Coming due to my favorite
+             menu" and tapping `+` added nothing and emptied the box. Each of them now decides
+             for itself what a press means. */
+          onInteractOutside={(e) => {
+            if (anchorRef.current?.contains(e.target as Node)) e.preventDefault();
+          }}
           data-testid={`${testId}-list`}
           className="z-[60] max-h-[18rem] overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)] p-1 shadow-[var(--shadow-raised)]"
           style={{ width: 'var(--radix-popover-trigger-width)' }}
@@ -343,7 +413,7 @@ export function Combobox({
                 </li>
               ) : null}
 
-              {rows === 0 ? (
+              {rows === 0 && addRow?.kind !== 'invite' ? (
                 <li role="presentation">
                   <p
                     data-testid={`${testId}-empty`}
@@ -355,6 +425,27 @@ export function Combobox({
               ) : null}
             </ul>
           )}
+
+          {/* Nothing typed yet on a data-entry field: say that a new one can be added
+              (30-Sep list, item 1). A hint, not a row: choosing it would select nothing, so it
+              is not an option, not a button, and not in the listbox — the input is described
+              by it instead, so a screen reader hears it too. Pressing it keeps the cursor in
+              the box (`preventDefault` on pointer-down), so the list stays open to type into. */}
+          {inviting ? (
+            <p
+              id={hintId}
+              data-testid={`${testId}-add-hint`}
+              onPointerDown={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => inputRef.current?.focus()}
+              className="m-0 flex items-start gap-2 px-3 py-2 type-caption leading-relaxed text-[var(--text-muted)]"
+            >
+              <span aria-hidden className="text-[var(--primary)]">
+                ⊕
+              </span>
+              <span>{addHint}</span>
+            </p>
+          ) : null}
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>

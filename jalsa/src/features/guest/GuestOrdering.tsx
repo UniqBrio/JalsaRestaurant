@@ -129,6 +129,7 @@ export function WelcomeScreen({ data, go, openSheet, send }: GuestScreenProps) {
           options={data.heardSources.map((v) => ({ value: v, label: v }))}
           placeholder="Search or add a source"
           emptyLabel="No matching sources"
+          addHint="Not listed? Type your own answer."
           allowCreate
           onCreate={async (source) => {
             await save(source);
