@@ -46,6 +46,11 @@ export interface GuestScreenProps {
   /** Whether this phone is currently showing the order total. See TotalReveal. */
   showTotal: boolean;
   setShowTotal: (v: boolean) => void;
+  /** Catch Your Craving: rounds it was dismissed on, and plays this visit (see GuestApp). */
+  cravingDismissed: readonly string[];
+  dismissCraving: (roundCode: string) => void;
+  cravingPlays: number;
+  setCravingPlays: (n: number) => void;
   /** What to show for one row right now — the phone's own intention until the server confirms. */
   qtyOf: (item: { id: string; inCart: number }) => number;
   /** Change a quantity. Returns immediately; the write follows. */
@@ -84,6 +89,17 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
    * not silently re-hide a total the guest switched on.
    */
   const [showTotal, setShowTotal] = React.useState(() => initial.features.orderTotal);
+
+  /* Catch Your Craving: the rounds this guest waved it away on, and how often it has played this
+     visit. Held here, like showTotal, so neither resets on a trip to the menu. The phase itself
+     is NOT held here - see phaseForRound: a phase that outlived its screen restarted a game
+     nobody tapped for. */
+  const [cravingDismissed, setCravingDismissed] = React.useState<readonly string[]>([]);
+  const dismissCraving = React.useCallback(
+    (code: string) => setCravingDismissed((cur) => (cur.includes(code) ? cur : [...cur, code])),
+    []
+  );
+  const [cravingPlays, setCravingPlays] = React.useState(0);
 
   /**
    * WHAT THE PHONE BELIEVES IS IN THE CART, before the server has confirmed it.
@@ -226,6 +242,10 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     runBusy,
     showTotal,
     setShowTotal,
+    cravingDismissed,
+    dismissCraving,
+    cravingPlays,
+    setCravingPlays,
     qtyOf,
     setCartQty,
     cartCount: draftedCount(draft, data.menu),

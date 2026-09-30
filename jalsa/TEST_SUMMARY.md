@@ -4,6 +4,53 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Catch Your Craving review fixes - 2026-09-30 - per-round phase, stable timers, honest copy
+
+Code and copy review of the first wiring (84474ef), all taken except where noted:
+- The phase was held above the screens: leaving mid-game and coming back mounted straight into 'playing' (a game nobody tapped, uncounted against the cap), and a finished card carried score 0 onto the next round. Now `phaseForRound`: only a dismissal is kept, per round; the game is keyed by its round.
+- The 24 s stop depended on the pool derived from `data.menu`, which every live refresh replaces: the stop restarted during exactly the wait it fills. The pool is read through a ref; the setter passed down is stable.
+- Two spawn ticks before one render could share a drop key (one landing removed both). Key decided before the update.
+- Other: fair on every route but Veg (it says nothing about being vegetarian). Mixed pinned three types - superseded in place, dated.
+- Keyframe: ended 4 px above the plate, exactly the render test's tolerance. Now `11.75rem - 100%`; tolerance 1 px.
+- Copy: offer lines in the menu's Veg / Non-veg / Egg words ("going vegetarian" and "from the grill" claimed what nobody checked); "Nice catch!" only when something was caught; "You caught N dishes"; Add says "nothing sent to the kitchen yet" and is labelled per dish; live score labelled; owner row says what the guest gets. No offer when nothing on the menu can fall. `useReducedMotion` subscribes once.
+- Left as requested strings, for the requester: "Maybe later" (now per round, so it does come back), "Skip" (ends the game and shows the result), the row's place under "While they eat".
+
+FAIL-FIRST: tests/unit/craving.unit.spec.ts, 10 appended cases - against 84474ef the file fails to collect (no export phaseForRound); after: 53 passed.
+FAIL-FIRST: tests/render/craving.render.spec.ts, the fall case at 1 px (superseded from 4 px, dated) - the 84474ef keyframe ends 4 px short; after: 31 passed, three runs.
+NOT RUN: tests/functional/guest-journey and closure-upsell-tip (they write to the test database, unreachable from this container). Read instead: every selector is a `guest-` test id, none matches a `craving-` one, and their taps are all in the action bar below the game.
+Unit tier: 1281 passed. Typecheck, ESLint (React Compiler rules included), audit:all 10/10.
+
+---
+
+## Catch Your Craving - 2026-09-30 - recovered, wired, and routed for Other
+
+"Catch Your Craving" was built on 18-Sep and never committed. Its five own files were recovered byte-identical from origin/claude/catch-your-craving-recovery (fb5718e). The wiring that mounted it lived in uncommitted shared files mixed with other work and was not recovered; it was rebuilt here against the spec's source pins: the `craving` guest feature (default on) and its row under "While they eat", the `j-craving-fall` keyframe, phase/plays held in GuestApp, and the mount after the rounds list on the guest status screen. One engine change: cravingRoute now ignores the `other` KOT classification (added 28-Sep, after the game) - an order of only a juice routed to EGG and a veg order with a dessert to MIXED.
+
+FAIL-FIRST: tests/unit/craving.unit.spec.ts - the recovered spec against the recovered files with no wiring: 5 failed (17c, CSS motion, 13+14, 13b, owner switch), 36 passed; wired: 41 passed. The two appended `other` cases against the recovered engine: 2 failed (Received "mixed", "egg"); fixed: 2 passed.
+FAIL-FIRST: tests/render/craving.render.spec.ts "a falling dish ends its fall level with the plate" (appended, 2 widths) - with the keyframe stashed: 2 failed (the dish never finishes falling, so no catch is ever decided); with it: 2 passed. Whole render spec: 31 passed, three runs in a row (dev server, /opt/pw-browsers/chromium).
+Unit tier: 1271 passed. Typecheck, ESLint, audit:all 10/10.
+
+---
+
+## Printer row delete - 2026-09-30 - Delete against each printer
+
+"Add delete button against a printer." Settings -> Printers -> Printers had Delete only inside the Configure sheet. Each row now has Delete beside Configure (same `canEdit` gate), opening the existing confirmation; `delete-printer` is still sent from one place.
+
+FAIL-FIRST: tests/unit/printer-row-delete.unit.spec.ts - against the pre-change tree: 2 failed; with it: 2 passed.
+Unit tier: 1228 passed. Typecheck and ESLint clean. audit:all 10/10.
+
+---
+
+## Printer switch-off - 2026-09-30 - a network printer with no address can be switched off
+
+"After disabling the device, save changes is not working." The 24-Sep fix (B1) exempted only printers reached through a printing computer. A network printer (Ethernet / Wi-Fi) with no IP address and no computer behind it - every printer the seed creates - still greyed out Save changes once switched off. The address is now required only of a machine in use, in the form and in upsertPrinter; `printer_address_when_networked` already allows it (nothing sets `online` true).
+
+FAIL-FIRST: tests/unit/printer-switch-off.unit.spec.ts - with the src change stashed: 3 failed; with it: 3 passed. printer-management.unit.spec.ts B1 pins unchanged and passing.
+NOT OBSERVED FAILING: tests/unit/printer-switch-off.db.unit.spec.ts (3, PGlite over every migration) - it pins the database assumption the fix rests on (`printer_address_when_networked` accepts a switched-off, unaddressed network printer while `online` is false, and still refuses one marked online); no migration changed, so there is no pre-fix tree for it to fail against. Code review: upsertPrinter tests `enabled !== false`, so a request omitting `enabled` (column default true) still needs an address.
+Unit tier: 1226 passed. Typecheck and ESLint clean. audit:all 10/10.
+
+---
+
 ## Gate run - 2026-09-30 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.

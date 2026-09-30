@@ -7,6 +7,15 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { guestSteps, type Tone } from '@/lib/status';
 import type { GuestRound } from '@/lib/db/guest-view';
+import {
+  activeCravingRound,
+  cravingPool,
+  cravingRoute as routeOf,
+  phaseForRound,
+  shouldOfferCraving,
+  type CravingPhase,
+} from '@/lib/craving';
+import { CravingGame } from './CravingGame';
 import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /**
@@ -159,10 +168,53 @@ export function StatusScreen({
   busy,
   showTotal,
   setShowTotal,
+  cravingDismissed,
+  dismissCraving,
+  cravingPlays,
+  setCravingPlays,
+  qtyOf,
+  setCartQty,
 }: GuestScreenProps) {
   const toast = useToast();
   const [loved, setLoved] = React.useState<Record<string, boolean>>({});
   const anyServed = data.rounds.some((r) => r.status === 'served');
+
+  /* Catch Your Craving: ONE game, on the one round still being waited for, themed by what that
+     round holds. Gone the moment nothing is waiting (activeCravingRound returns null). */
+  const cravingRound = activeCravingRound(data.rounds);
+  const cravingRoute = cravingRound ? routeOf(cravingRound.items.map((i) => i.foodType)) : null;
+  /* This screen's own phase, for one round. Local, so leaving mid-game and coming back lands on
+     the offer rather than in a game that started itself; only a dismissal is kept above. */
+  const [cravingLocal, setCravingLocal] = React.useState<{ code: string; phase: CravingPhase } | null>(null);
+  const cravingPhase = cravingRound ? phaseForRound(cravingRound.code, cravingDismissed, cravingLocal) : 'offer';
+  /* STABLE across live-data refreshes, because the game's timer effect depends on it - a new
+     function per poll would restart the 24 s stop. The round's code is read through a ref; the
+     game is keyed by that code, so it only ever calls this while the ref names its round. */
+  const cravingCodeRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    cravingCodeRef.current = cravingRound ? cravingRound.code : null;
+  });
+  const setCravingPhase = React.useCallback(
+    (phase: CravingPhase) => {
+      const code = cravingCodeRef.current;
+      if (!code) return;
+      if (phase === 'dismissed') dismissCraving(code);
+      setCravingLocal({ code, phase });
+    },
+    [dismissCraving]
+  );
+  // Round lines carry the KOT line's id, not the dish's, so "already ordered" is matched by name.
+  const orderedNames = new Set(data.rounds.flatMap((r) => r.items.map((i) => i.name)));
+  const orderedIds = data.menu.filter((m) => orderedNames.has(m.name)).map((m) => m.id);
+  const addSuggestion = (itemId: string) => {
+    const item = data.menu.find((m) => m.id === itemId);
+    if (!item) return;
+    // The ordinary cart path - the same one the menu's + button takes.
+    setCartQty(itemId, qtyOf(item) + 1);
+    // Said, because nothing else on this screen shows a cart: without it the tap looked like
+    // nothing, or like an order. The menu's own words, and the cart's.
+    toast.show(`${item.name} added · nothing sent to the kitchen yet`);
+  };
 
   const requestPayment = () =>
     runBusy(async () => {
@@ -287,6 +339,27 @@ export function StatusScreen({
           </li>
         ))}
       </ul>
+
+      {/* After the rounds and before the bar: status comes first, and the game is never in
+          front of it. Always skippable; the owner can switch it off (features.craving). */}
+      {cravingRound && cravingRoute && shouldOfferCraving({
+        enabled: data.features.craving,
+        hasWaitingRound: true,
+        plays: cravingPlays,
+        phase: cravingPhase,
+      }) && cravingPool(cravingRoute, data.menu).length > 0 ? (
+        <CravingGame
+          key={cravingRound.code}
+          route={cravingRoute}
+          menu={data.menu}
+          orderedIds={orderedIds}
+          phase={cravingPhase}
+          setPhase={setCravingPhase}
+          plays={cravingPlays}
+          setPlays={setCravingPlays}
+          onAdd={addSuggestion}
+        />
+      ) : null}
 
       {/* "So far" moved into the bar behind the same tick box the ordering screens use. One
           control for the total, in one place, on every screen that has one — a guest who

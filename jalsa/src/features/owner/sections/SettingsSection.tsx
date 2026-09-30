@@ -1084,6 +1084,11 @@ const FEATURE_GROUPS: Array<{ name: string; items: Array<[string, string, string
     name: 'While they eat',
     items: [
       ['heart', 'Loved-it heart once the food is served', ''],
+      [
+        'craving',
+        'Catch Your Craving game while they wait for their food',
+        'A short, skippable game while a round is cooked, then up to two dishes suggested from your menu.',
+      ],
       ['occasion', 'Ask if they are celebrating', 'Nothing is added to the bill.'],
       ['hoursBtn', 'Hours and holidays button', ''],
     ],

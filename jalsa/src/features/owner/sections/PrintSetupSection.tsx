@@ -449,6 +449,20 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       Configure
                     </Button>
                   ) : null}
+                  {/* Against the printer, as the Printers screen has it (30-Sep). The same
+                      confirmation as the sheet's Delete, so there is one delete path. */}
+                  {canEdit ? (
+                    <Button
+                      data-testid={`owner-print-row-delete-${p.id}`}
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      className="text-[var(--error)]"
+                      onClick={() => setDeleting({ ...p })}
+                    >
+                      Delete
+                    </Button>
+                  ) : null}
                 </div>
 
                 <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
@@ -513,7 +527,10 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               disabled={
                 busy ||
                 !form?.name.trim() ||
-                (form.connection !== 'USB' && !form.address.trim() && !(form.id && throughComputer.has(form.id)))
+                /* An address is what reaches a machine in use; one being switched off needs none. */
+                (form.enabled &&
+                  form.connection !== 'USB' &&
+                  !form.address.trim() && !(form.id && throughComputer.has(form.id)))
               }
               onClick={() => form && save(form)}
             >
@@ -582,7 +599,12 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               </Field>
               {form.connection !== 'USB' ? (
                 <>
-                  <Field label="IP address" required htmlFor="owner-print-address" className="min-w-[9rem] flex-1">
+                  <Field
+                    label="IP address"
+                    required={form.enabled}
+                    htmlFor="owner-print-address"
+                    className="min-w-[9rem] flex-1"
+                  >
                     <Input
                       id="owner-print-address"
                       value={form.address}

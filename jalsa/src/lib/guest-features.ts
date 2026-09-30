@@ -37,6 +37,8 @@ export interface GuestFeatures {
   whatsapp: boolean;
   suggestion: boolean;
   review: boolean;
+  /** Catch Your Craving - the optional game while a round is waited for (18-Sep request). */
+  craving: boolean;
   /**
    * Whether the running order total is revealed on the guest's phone WITHOUT them asking.
    *
@@ -71,6 +73,7 @@ export const DEFAULT_FEATURES: GuestFeatures = {
   whatsapp: true,
   suggestion: true,
   review: true,
+  craving: true,
   orderTotal: false,
 };
 

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added — 30-Sep-2026 — Catch Your Craving
+
+- **While a round is being cooked**, the guest's order screen offers a short, optional game: dishes from your own menu fall, and the guest catches them on a plate. It lasts about 24 seconds, can be played twice, and "Maybe later" puts it away. It ends with at most two suggestions from your menu (a dessert or a drink first), which go into the guest's cart like any other dish. It disappears the moment the round is Ready.
+- A Veg order only ever sees Veg dishes. Dishes with the KOT classification **Other** (a juice, a dessert) do not change which dishes a table sees; they fall, and are suggested, for Non-veg, Egg and mixed tables.
+- **Add** puts the dish in the guest's cart and says "nothing sent to the kitchen yet"; the guest sends it the usual way. **Maybe later** or **Close** puts the game away for that round; the next round offers it again.
+- **Settings → What the customer sees → While they eat → Catch Your Craving game while they wait for their food** switches it off. It is on by default.
+
+### Added — 30-Sep-2026 — Delete beside each printer
+
+- **Settings → Printers → Printers**: every printer row now has **Delete** next to **Configure**. It asks first, as the Delete inside Configure does.
+
+### Fixed — 30-Sep-2026 — Switching a printer off and saving
+
+- **Settings → Printers → Configure**: a kitchen printer set to Ethernet or Wi-Fi with no IP address typed in can now be switched off with **Use this machine** and saved. **Save changes** stayed grey before, without saying why. The IP address is asked for only while the machine is in use, so switching it back on still needs one.
+
 ### Changed — 30-Sep-2026 — a + on every box where you can add your own
 
 - **How did you hear about us?** (the guest's welcome screen) now shows a **+** in the box. Tapping it opens the list with the cursor ready, and the list ends with **Not listed? Type your own answer.** Whatever the guest types — "Coming due to my favourite menu" — is offered as **⊕ Add "…"**, and tapping **+** again adds it too.
