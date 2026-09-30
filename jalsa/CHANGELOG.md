@@ -5,8 +5,9 @@
 ### Added — 30-Sep-2026 — Catch Your Craving
 
 - **While a round is being cooked**, the guest's order screen offers a short, optional game: dishes from your own menu fall, and the guest catches them on a plate. It lasts about 24 seconds, can be played twice, and "Maybe later" puts it away. It ends with at most two suggestions from your menu (a dessert or a drink first), which go into the guest's cart like any other dish. It disappears the moment the round is Ready.
-- A vegetarian order only ever sees vegetarian dishes; a dessert or drink with no KOT classification does not change that.
-- **Settings → What the customer sees → While they eat → Catch Your Craving while the food is made** switches it off. It is on by default.
+- A Veg order only ever sees Veg dishes. Dishes with the KOT classification **Other** (a juice, a dessert) do not change which dishes a table sees; they fall, and are suggested, for Non-veg, Egg and mixed tables.
+- **Add** puts the dish in the guest's cart and says "nothing sent to the kitchen yet"; the guest sends it the usual way. **Maybe later** or **Close** puts the game away for that round; the next round offers it again.
+- **Settings → What the customer sees → While they eat → Catch Your Craving game while they wait for their food** switches it off. It is on by default.
 
 ### Added — 30-Sep-2026 — Delete beside each printer
 

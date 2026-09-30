@@ -54,15 +54,20 @@ interface Falling {
   left: number;
 }
 
+/* At module scope, so it is one function for the page's life: an inline closure is a new
+   `subscribe` every render, and useSyncExternalStore re-subscribes on each one - every spawn
+   and every landing, mid-game (30-Sep review). */
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
 function useReducedMotion(): boolean {
   // `useSyncExternalStore` rather than an effect: the preference is external state, and reading
   // it into React state in an effect would schedule a second render on every mount.
   return React.useSyncExternalStore(
-    (onChange) => {
-      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-      mq.addEventListener('change', onChange);
-      return () => mq.removeEventListener('change', onChange);
-    },
+    subscribeReducedMotion,
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     // On the server nobody has a preference and nothing is animating yet.
     () => false
@@ -106,6 +111,14 @@ export function CravingGame({
   const [plate, setPlate] = React.useState(50);
   const areaRef = React.useRef<HTMLDivElement | null>(null);
   const dropSeq = React.useRef(0);
+  /* The pool through a ref, so the timers below do not depend on it. `menu` is replaced on
+     every live-data refresh - a round going to Preparing, a reply, a dish selling out - which is
+     to say during exactly the wait this game fills; as a dependency it restarted the 24 s stop
+     each time (30-Sep review). */
+  const poolRef = React.useRef(pool);
+  React.useEffect(() => {
+    poolRef.current = pool;
+  }, [pool]);
 
   const playing = phase === 'playing';
 
@@ -120,24 +133,25 @@ export function CravingGame({
     if (!playing) return;
 
     const stop = setTimeout(() => setPhase('done'), CRAVING_SECONDS * 1000);
-    if (reduced || pool.length === 0) return () => clearTimeout(stop);
+    if (reduced) return () => clearTimeout(stop);
 
     const spawn = setInterval(() => {
+      const pool = poolRef.current;
       const item = pool[Math.floor(Math.random() * pool.length)];
       if (!item) return;
-      dropSeq.current += 1;
-      setFalling((cur) => [
-        // 10-90% keeps a whole item inside the area at 320px, where it is narrowest.
-        ...cur,
-        { key: dropSeq.current, item, left: 10 + Math.random() * 80 },
-      ]);
+      /* Key and position decided HERE, not inside the updater: an updater reading the ref late
+         gave two ticks before one render the same key, and one landing removed both. */
+      const key = ++dropSeq.current;
+      // 10-90% keeps a whole item inside the area at 320px, where it is narrowest.
+      const left = 10 + Math.random() * 80;
+      setFalling((cur) => [...cur, { key, item, left }]);
     }, CRAVING_SPAWN_MS);
 
     return () => {
       clearInterval(spawn);
       clearTimeout(stop);
     };
-  }, [playing, reduced, pool, setPhase]);
+  }, [playing, reduced, setPhase]);
 
   const begin = () => {
     setScore(0);
@@ -191,10 +205,20 @@ export function CravingGame({
     return (
       <Card className="flex flex-col gap-3" data-testid="craving-done">
         <div>
-          <p className="m-0 type-h3">Nice catch! 🍽️</p>
-          <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]" data-testid="craving-score">
-            {score === 0 ? 'The kitchen is still working — your food is the real prize.' : `You caught ${score}.`}
-          </p>
+          {/* "Nice catch!" only for a catch: after a Skip or an empty plate it sat above "the
+              kitchen is still working", contradicting it (30-Sep review). */}
+          {score > 0 ? (
+            <>
+              <p className="m-0 type-h3">Nice catch! 🍽️</p>
+              <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]" data-testid="craving-score">
+                {`You caught ${score} ${score === 1 ? 'dish' : 'dishes'}.`}
+              </p>
+            </>
+          ) : (
+            <p className="m-0 type-body font-semibold" data-testid="craving-score">
+              The kitchen is still working — your food is the real prize.
+            </p>
+          )}
         </div>
 
         {suggestions.length > 0 ? (
@@ -210,6 +234,7 @@ export function CravingGame({
                     data-testid={`craving-add-${s.id}`}
                     size="sm"
                     variant="secondary"
+                    aria-label={`Add ${s.name}`}
                     onClick={() => onAdd(s.id)}
                   >
                     Add
@@ -240,7 +265,11 @@ export function CravingGame({
     <Card className="flex flex-col gap-2" data-testid="craving-playing">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>Catch Your Craving</SectionLabel>
-        <span className="type-caption tabular-nums text-[var(--text-muted)]" data-testid="craving-live-score">
+        <span
+          className="type-caption tabular-nums text-[var(--text-muted)]"
+          data-testid="craving-live-score"
+          aria-label={`${score} caught`}
+        >
           {score}
         </span>
       </div>

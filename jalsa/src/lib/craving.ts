@@ -43,19 +43,25 @@ export function cravingRoute(types: readonly FoodType[]): CravingRoute | null {
   return 'egg';
 }
 
-/** The food types a route is allowed to show. Veg-only means veg-only — no chicken, no egg. */
+/** The food types a route is allowed to show. Veg-only means veg-only — no chicken, no egg.
+ *  'other' (a juice, a dessert with no KOT classification, 28-Sep) is fair on every route but
+ *  veg: nothing says it is vegetarian, and the veg route promises exactly that. */
 export const ROUTE_TYPES: Record<CravingRoute, readonly FoodType[]> = {
   veg: ['veg'],
-  nonVeg: ['non_veg'],
-  egg: ['egg'],
-  mixed: ['veg', 'non_veg', 'egg'],
+  nonVeg: ['non_veg', 'other'],
+  egg: ['egg', 'other'],
+  mixed: ['veg', 'non_veg', 'egg', 'other'],
 };
 
-/** What the offer calls itself, per route. One line, in Jalsa's voice, never a cartoon. */
+/** What the offer calls itself, per route. One line, in Jalsa's voice, never a cartoon.
+ *
+ * 30-Sep: in the menu's own Veg / Non-veg / Egg words. The first lines claimed what nobody
+ * checked ("from the grill"), and "going vegetarian" was false for a table whose earlier round
+ * was chicken, or whose only order was a juice. */
 export const ROUTE_LINE: Record<CravingRoute, string> = {
-  veg: 'Your table is going vegetarian tonight.',
-  nonVeg: 'Something from the grill is on its way.',
-  egg: 'Egg is on the menu tonight.',
+  veg: 'A few Veg favourites from tonight’s menu.',
+  nonVeg: 'A few Non-veg favourites from tonight’s menu.',
+  egg: 'A few Egg dishes from tonight’s menu.',
   mixed: 'A bit of everything is on its way.',
 };
 
@@ -227,6 +233,24 @@ export function isCaught(itemPct: number, platePct: number): boolean {
 }
 
 export type CravingPhase = 'offer' | 'playing' | 'done' | 'dismissed';
+
+/**
+ * Where one round's game is.
+ *
+ * Only a DISMISSAL outlives the screen, and only for the round it was made on ("once per
+ * waiting round"). Everything else belongs to the mount that is showing it: a guest who walks to
+ * the menu mid-game comes back to the offer, never to a game that restarted itself, and a
+ * finished card never carries its score onto the next round. The replay cap is counted
+ * separately, for the whole visit.
+ */
+export function phaseForRound(
+  code: string,
+  dismissed: readonly string[],
+  local: { code: string; phase: CravingPhase } | null
+): CravingPhase {
+  if (dismissed.includes(code)) return 'dismissed';
+  return local && local.code === code ? local.phase : 'offer';
+}
 
 /**
  * Whether the offer should be on the screen at all.

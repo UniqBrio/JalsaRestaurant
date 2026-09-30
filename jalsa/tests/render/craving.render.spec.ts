@@ -182,7 +182,10 @@ for (const width of [320, 390] as const) {
       { area: AREA, food: FOOD, plate: PLATE }
     );
     // Level with the plate: the dish's bottom edge within a few px of the plate's top edge.
-    expect(Math.abs(at.dishBottom - at.plateTop)).toBeLessThanOrEqual(4);
+    // Superseded 30-Sep-2026 (code review): this allowed 4 px, and the first keyframe landed
+    // exactly 4 px above the plate - a pass with no margin. The fall now ends at the plate for
+    // any dish height, so it is held to 1 px.
+    expect(Math.abs(at.dishBottom - at.plateTop)).toBeLessThanOrEqual(1);
     // And still inside the play area, so it is seen landing rather than clipped.
     expect(at.dishBottom).toBeLessThanOrEqual(at.areaBottom);
   });

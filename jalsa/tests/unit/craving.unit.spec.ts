@@ -28,6 +28,8 @@ import {
   PLATE_REACH_PCT,
   ROUTE_TYPES,
   shouldOfferCraving,
+  phaseForRound,
+  ROUTE_LINE,
 } from '../../src/lib/craving';
 import type { FoodType, KotStatus } from '../../src/lib/status';
 
@@ -115,7 +117,10 @@ test('3b. the veg route can never show chicken or egg — the requester was expl
 });
 
 test('the mixed route may show all three, which is the point of it', () => {
-  expect([...ROUTE_TYPES.mixed].sort()).toEqual(['egg', 'non_veg', 'veg']);
+  // Superseded 30-Sep-2026: previously asserted exactly ['egg', 'non_veg', 'veg']. The KOT
+  // classification Other (28-Sep) came after this spec; a table that already mixed may see a
+  // juice or a dessert too. The three it was written for are all still there.
+  expect([...ROUTE_TYPES.mixed].sort()).toEqual(['egg', 'non_veg', 'other', 'veg']);
 });
 
 test('nothing unavailable ever falls', () => {
@@ -404,4 +409,77 @@ test('Other says nothing about the diet: a veg order with a dessert stays veg', 
 test('an order of only Other dishes takes the veg route - never egg, never meat', () => {
   expect(cravingRoute(['other'])).toBe('veg');
   expect(cravingRoute(['other', 'other'])).toBe('veg');
+});
+
+/* ── 30-Sep-2026: code review of the recovered wiring ─────────────────────────────────────────
+ *
+ * The first wiring held the game's PHASE above the screens. A guest who left mid-game came back
+ * to a component mounted straight into 'playing' - a fresh 24 s game nobody tapped for, and not
+ * counted against the cap - and a finished card outlived its score onto the next round. Only a
+ * dismissal is remembered now, per round; everything else belongs to the mount. */
+
+test('a game left mid-play never resumes by itself: a fresh mount starts at the offer', () => {
+  expect(phaseForRound('K1', [], null)).toBe('offer');
+  // What the screen holds while it is mounted still counts, for the same round only.
+  expect(phaseForRound('K1', [], { code: 'K1', phase: 'playing' })).toBe('playing');
+});
+
+test('a finished or dismissed card belongs to its round, not to the next one', () => {
+  expect(phaseForRound('K2', [], { code: 'K1', phase: 'done' })).toBe('offer');
+  expect(phaseForRound('K1', ['K1'], null)).toBe('dismissed');
+  expect(phaseForRound('K2', ['K1'], null), 'once per waiting round').toBe('offer');
+});
+
+test('the status screen keys the game by its round and remembers only dismissals above it', () => {
+  const src = read(PROGRESS);
+  expect(src).toContain('key={cravingRound.code}');
+  expect(src).toContain('phaseForRound(cravingRound.code, cravingDismissed, cravingLocal)');
+  expect(read('src/features/guest/GuestApp.tsx')).not.toContain('useState<CravingPhase>');
+});
+
+test('the 24 s stop is not restarted by a live-data refresh', () => {
+  // The menu is replaced on every payload change during exactly the wait this game fills, so the
+  // timers must not depend on the pool derived from it.
+  const src = codeOnly(GAME);
+  expect(src).toContain('}, [playing, reduced, setPhase]);');
+  expect(src).toContain('poolRef.current');
+});
+
+test('each drop takes its key before the state update, so two ticks never share one', () => {
+  const src = codeOnly(GAME);
+  expect(src).toContain('const key = ++dropSeq.current;');
+  expect(src).not.toContain('key: dropSeq.current');
+});
+
+test('Other dishes can fall and be suggested wherever the table is not vegetarian-only', () => {
+  const withOther = [...MENU, item('o1', 'Rose Milk', 'other', 'Drinks'), item('o2', 'Falooda', 'other', 'Desserts')];
+  expect(cravingPool('mixed', withOther).map((p) => p.id)).toContain('o1');
+  expect(cravingPool('nonVeg', withOther).map((p) => p.id)).toContain('o2');
+  expect(cravingPool('veg', withOther).map((p) => p.id), 'Veg stays Veg').not.toContain('o1');
+  // With the Veg dessert and drink already ordered, the finishers left are the Other ones.
+  expect(cravingSuggestions('mixed', withOther, ['d1', 'd2']).map((p) => p.foodType)).toEqual(['other', 'other']);
+});
+
+test('the offer lines use the menu\'s own Veg / Non-veg / Egg words and claim nothing unchecked', () => {
+  for (const line of Object.values(ROUTE_LINE)) {
+    expect(line).not.toMatch(/vegetarian|grill/i);
+  }
+  expect(ROUTE_LINE.veg).toContain('Veg');
+  expect(ROUTE_LINE.nonVeg).toContain('Non-veg');
+  expect(ROUTE_LINE.egg).toContain('Egg');
+});
+
+test('the ending does not say "Nice catch!" when nothing was caught, and says what was caught', () => {
+  const src = read(GAME);
+  expect(src).toContain('{score > 0 ? (');
+  expect(src).toContain("`You caught ${score} ${score === 1 ? 'dish' : 'dishes'}.`");
+});
+
+test('Add says what it did, and that nothing went to the kitchen', () => {
+  expect(read(GAME)).toContain('aria-label={`Add ${s.name}`}');
+  expect(read(PROGRESS)).toContain('`${item.name} added · nothing sent to the kitchen yet`');
+});
+
+test('no game is offered when nothing on the menu can fall for this table', () => {
+  expect(read(PROGRESS)).toContain('cravingPool(cravingRoute, data.menu).length > 0');
 });
