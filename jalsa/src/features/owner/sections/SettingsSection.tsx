@@ -1084,6 +1084,7 @@ const FEATURE_GROUPS: Array<{ name: string; items: Array<[string, string, string
     name: 'While they eat',
     items: [
       ['heart', 'Loved-it heart once the food is served', ''],
+      ['craving', 'Catch Your Craving while the food is made', 'A short game on the order screen. Always skippable.'],
       ['occasion', 'Ask if they are celebrating', 'Nothing is added to the bill.'],
       ['hoursBtn', 'Hours and holidays button', ''],
     ],

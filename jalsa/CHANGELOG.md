@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added — 30-Sep-2026 — Catch Your Craving
+
+- **While a round is being cooked**, the guest's order screen offers a short, optional game: dishes from your own menu fall, and the guest catches them on a plate. It lasts about 24 seconds, can be played twice, and "Maybe later" puts it away. It ends with at most two suggestions from your menu (a dessert or a drink first), which go into the guest's cart like any other dish. It disappears the moment the round is Ready.
+- A vegetarian order only ever sees vegetarian dishes; a dessert or drink with no KOT classification does not change that.
+- **Settings → What the customer sees → While they eat → Catch Your Craving while the food is made** switches it off. It is on by default.
+
 ### Added — 30-Sep-2026 — Delete beside each printer
 
 - **Settings → Printers → Printers**: every printer row now has **Delete** next to **Configure**. It asks first, as the Delete inside Configure does.

@@ -7,6 +7,8 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { guestSteps, type Tone } from '@/lib/status';
 import type { GuestRound } from '@/lib/db/guest-view';
+import { activeCravingRound, cravingRoute as routeOf, shouldOfferCraving } from '@/lib/craving';
+import { CravingGame } from './CravingGame';
 import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /**
@@ -159,10 +161,29 @@ export function StatusScreen({
   busy,
   showTotal,
   setShowTotal,
+  cravingPhase,
+  setCravingPhase,
+  cravingPlays,
+  setCravingPlays,
+  qtyOf,
+  setCartQty,
 }: GuestScreenProps) {
   const toast = useToast();
   const [loved, setLoved] = React.useState<Record<string, boolean>>({});
   const anyServed = data.rounds.some((r) => r.status === 'served');
+
+  /* Catch Your Craving: ONE game, on the one round still being waited for, themed by what that
+     round holds. Gone the moment nothing is waiting (activeCravingRound returns null). */
+  const cravingRound = activeCravingRound(data.rounds);
+  const cravingRoute = cravingRound ? routeOf(cravingRound.items.map((i) => i.foodType)) : null;
+  // Round lines carry the KOT line's id, not the dish's, so "already ordered" is matched by name.
+  const orderedNames = new Set(data.rounds.flatMap((r) => r.items.map((i) => i.name)));
+  const orderedIds = data.menu.filter((m) => orderedNames.has(m.name)).map((m) => m.id);
+  const addSuggestion = (itemId: string) => {
+    const item = data.menu.find((m) => m.id === itemId);
+    // The ordinary cart path - the same one the menu's + button takes.
+    if (item) setCartQty(itemId, qtyOf(item) + 1);
+  };
 
   const requestPayment = () =>
     runBusy(async () => {
@@ -287,6 +308,26 @@ export function StatusScreen({
           </li>
         ))}
       </ul>
+
+      {/* After the rounds and before the bar: status comes first, and the game is never in
+          front of it. Always skippable; the owner can switch it off (features.craving). */}
+      {cravingRound && cravingRoute && shouldOfferCraving({
+        enabled: data.features.craving,
+        hasWaitingRound: true,
+        plays: cravingPlays,
+        phase: cravingPhase,
+      }) ? (
+        <CravingGame
+          route={cravingRoute}
+          menu={data.menu}
+          orderedIds={orderedIds}
+          phase={cravingPhase}
+          setPhase={setCravingPhase}
+          plays={cravingPlays}
+          setPlays={setCravingPlays}
+          onAdd={addSuggestion}
+        />
+      ) : null}
 
       {/* "So far" moved into the bar behind the same tick box the ordering screens use. One
           control for the total, in one place, on every screen that has one — a guest who

@@ -4,6 +4,16 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Catch Your Craving - 2026-09-30 - recovered, wired, and routed for Other
+
+"Catch Your Craving" was built on 18-Sep and never committed. Its five own files were recovered byte-identical from origin/claude/catch-your-craving-recovery (fb5718e). The wiring that mounted it lived in uncommitted shared files mixed with other work and was not recovered; it was rebuilt here against the spec's source pins: the `craving` guest feature (default on) and its row under "While they eat", the `j-craving-fall` keyframe, phase/plays held in GuestApp, and the mount after the rounds list on the guest status screen. One engine change: cravingRoute now ignores the `other` KOT classification (added 28-Sep, after the game) - an order of only a juice routed to EGG and a veg order with a dessert to MIXED.
+
+FAIL-FIRST: tests/unit/craving.unit.spec.ts - the recovered spec against the recovered files with no wiring: 5 failed (17c, CSS motion, 13+14, 13b, owner switch), 36 passed; wired: 41 passed. The two appended `other` cases against the recovered engine: 2 failed (Received "mixed", "egg"); fixed: 2 passed.
+FAIL-FIRST: tests/render/craving.render.spec.ts "a falling dish ends its fall level with the plate" (appended, 2 widths) - with the keyframe stashed: 2 failed (the dish never finishes falling, so no catch is ever decided); with it: 2 passed. Whole render spec: 31 passed, three runs in a row (dev server, /opt/pw-browsers/chromium).
+Unit tier: 1271 passed. Typecheck, ESLint, audit:all 10/10.
+
+---
+
 ## Printer row delete - 2026-09-30 - Delete against each printer
 
 "Add delete button against a printer." Settings -> Printers -> Printers had Delete only inside the Configure sheet. Each row now has Delete beside Configure (same `canEdit` gate), opening the existing confirmation; `delete-printer` is still sent from one place.

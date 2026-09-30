@@ -16,6 +16,7 @@ import { UpsellScreen, TipScreen, PayingScreen, FailedScreen, PaidScreen, Invoic
 import { GuestSheets, type SheetKind } from './GuestSheets';
 import { factsOf, reconcilePhase, startingPhase, type Phase } from './phase';
 import { NEW_TABLES_CLOSED } from '@/lib/queue-closed';
+import type { CravingPhase } from '@/lib/craving';
 
 /**
  * GuestApp — the eleven screens of the guest journey, and the seven sheets behind them.
@@ -46,6 +47,11 @@ export interface GuestScreenProps {
   /** Whether this phone is currently showing the order total. See TotalReveal. */
   showTotal: boolean;
   setShowTotal: (v: boolean) => void;
+  /** Catch Your Craving's phase and play count, held above the screens (see GuestApp). */
+  cravingPhase: CravingPhase;
+  setCravingPhase: (p: CravingPhase) => void;
+  cravingPlays: number;
+  setCravingPlays: (n: number) => void;
   /** What to show for one row right now — the phone's own intention until the server confirms. */
   qtyOf: (item: { id: string; inCart: number }) => number;
   /** Change a quantity. Returns immediately; the write follows. */
@@ -84,6 +90,11 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
    * not silently re-hide a total the guest switched on.
    */
   const [showTotal, setShowTotal] = React.useState(() => initial.features.orderTotal);
+
+  /* Catch Your Craving: where this phone is in it, and how often it has played. Held here, like
+     showTotal, so a guest who waved it away is not asked again after visiting the menu. */
+  const [cravingPhase, setCravingPhase] = React.useState<CravingPhase>('offer');
+  const [cravingPlays, setCravingPlays] = React.useState(0);
 
   /**
    * WHAT THE PHONE BELIEVES IS IN THE CART, before the server has confirmed it.
@@ -226,6 +237,10 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     runBusy,
     showTotal,
     setShowTotal,
+    cravingPhase,
+    setCravingPhase,
+    cravingPlays,
+    setCravingPlays,
     qtyOf,
     setCartQty,
     cartCount: draftedCount(draft, data.menu),

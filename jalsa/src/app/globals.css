@@ -290,6 +290,26 @@ h6 {
   }
 }
 
+/* Catch Your Craving: a dish falls from above the play area (h-52, 13rem) to level with the
+ * plate (bottom-2 + h-3 = 1.25rem up, the dish ~1.75rem tall), where animationend decides the
+ * catch. `transform` only, so it composes with the -translate-x-1/2 centring (Tailwind's
+ * `translate` property) and stays on the compositor. The component never renders this under
+ * prefers-reduced-motion - it offers the tap variant instead. */
+@keyframes j-craving-fall {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(10rem);
+  }
+}
+
+.j-craving-fall {
+  animation-name: j-craving-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 .j-skeleton {
   background: var(--skeleton);
   border-radius: var(--radius-sm);
