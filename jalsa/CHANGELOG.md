@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed — 30-Sep-2026 — a + on every box where you can add your own
+
+- **How did you hear about us?** (the guest's welcome screen) now shows a **+** in the box. Tapping it opens the list with the cursor ready, and the list ends with **Not listed? Type your own answer.** Whatever the guest types — "Coming due to my favourite menu" — is offered as **⊕ Add "…"**, and tapping **+** again adds it too.
+- The same **+** and hint ("Not listed? Type the name to add it.") appear on every box that can take a new value: menu category, food type, expense category, printer station, default station. Search-only boxes (printer route, reassign staff) have none. Once a box holds a choice and is closed, the **+** steps aside so the choice keeps its full width.
+- Fixed while doing it: tapping inside one of these boxes while typing used to empty it, and the **˅** could not close an open list. Both now behave.
+- The three other screenshots in the same message (Reissue PIN failing, a seated queue party not taking the table, a closed-queue scan) were taken on 19-Sep and were fixed on 24-Sep; see `requests/2026-09-30-four-screenshots.md` for the evidence.
+
 ### Added — 28-Sep-2026 — Delete a table
 
 - **Settings → Tables & QR → Edit** now has **Delete**, with a confirmation. A table that has never had a bill (added by mistake, never used) is deleted and its code stops working. A table that has had a bill is refused with "switch it off instead", so old bills and reports keep their table. On 28-Sep that is A1, A4, A5, A7, N3, N4 and N5; the other 13 can be deleted.
