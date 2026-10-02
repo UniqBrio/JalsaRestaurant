@@ -24,26 +24,33 @@ test('with no packaging charge every total is exactly what it was - dine-in is u
   expect(totalsRows(before, { taxRate: 5 }).map((r) => r.label)).not.toContain('Packaging charges');
 });
 
-test('packaging with no GST on it: added after tax, never discounted, inside income', () => {
-  const t = totalBill({ lines: food, taxRate: 5, packaging: 25, packagingTaxable: false, discountAmount: 40 });
+test('packaging is added after tax, never discounted, inside income', () => {
+  // Revised 02-Oct-2026 (final GST rule): previously passed `packagingTaxable: false` and expected
+  // `packagingTaxed: false`; packaging is never taxed now, so neither field exists.
+  const t = totalBill({ lines: food, taxRate: 5, packaging: 25, discountAmount: 40 });
   // Discount comes off the FOOD only: 340 - 40 = 300; GST 15; +25 packaging = 340.
-  expect(t).toMatchObject({ subtotal: 340, discount: 40, taxable: 300, tax: 15, packaging: 25, packagingTaxed: false });
+  expect(t).toMatchObject({ subtotal: 340, discount: 40, taxable: 300, tax: 15, packaging: 25 });
+  expect(t).not.toHaveProperty('packagingTaxed');
   expect(t.payable).toBe(340);
   expect(t.restaurantIncome).toBe(340);
 });
 
-test('packaging with GST on it: taxed once, with the food - never a second tax line', () => {
-  const t = totalBill({ lines: food, taxRate: 5, packaging: 25, packagingTaxable: true });
-  expect(t).toMatchObject({ taxable: 365, tax: 18, packagingTaxed: true });
-  expect(t.payable).toBe(340 + 25 + 18);
+/* Superseded 02-Oct-2026 (final GST rule): a test here asserted that, when the owner chose GST on
+   packaging, the charge was taxed with the food (taxable 365, GST 18, payable 383). That choice
+   no longer exists: the GST is the food's whatever the packaging charge. */
+test('packaging never enters the taxable figure - the GST is the same with or without it', () => {
+  const t = totalBill({ lines: food, taxRate: 5, packaging: 25 });
+  expect(t).toMatchObject({ taxable: 340, tax: 17 });
+  expect(t.payable).toBe(340 + 17 + 25);
 });
 
-test('the screen totals place packaging where the paper does: above GST only when GST covers it', () => {
-  const untaxed = totalsRows(totalBill({ lines: food, taxRate: 5, packaging: 25, packagingTaxable: false }), { taxRate: 5 });
-  const taxed = totalsRows(totalBill({ lines: food, taxRate: 5, packaging: 25, packagingTaxable: true }), { taxRate: 5 });
-  const at = (rows: typeof untaxed, label: string): number => rows.findIndex((r) => r.label.startsWith(label));
-  expect(at(untaxed, 'Packaging')).toBeGreaterThan(at(untaxed, 'GST'));
-  expect(at(taxed, 'Packaging')).toBeLessThan(at(taxed, 'GST'));
+test('the screen totals put packaging after GST, as the paper does', () => {
+  // Revised 02-Oct-2026 (final GST rule): this previously also asserted a "taxed" placement ABOVE
+  // GST; packaging is never taxed, so it is always after GST.
+  const rows = totalsRows(totalBill({ lines: food, taxRate: 5, packaging: 25 }), { taxRate: 5 });
+  const at = (label: string): number => rows.findIndex((r) => r.label.startsWith(label));
+  expect(at('Packaging')).toBeGreaterThan(at('GST'));
+  expect(rows.filter((r) => r.label.startsWith('Packaging'))).toHaveLength(1);
 });
 
 /* ── The typed amount ─────────────────────────────────────────────────────────────────────── */
@@ -77,7 +84,6 @@ const takeawayBill: InvoiceBill = {
   tip: 0,
   orderType: 'takeaway',
   packagingCharge: 25,
-  packagingTaxable: false,
   kots: [
     {
       status: 'served',
@@ -93,8 +99,10 @@ const who = { name: 'Jalsa', address: 'Hosur', phone: '', gstin: '33ABCDE1234F1Z
 test('the takeaway bill says TAKEAWAY, names no table, and totals with its packaging charge', () => {
   const data = invoiceTicketData(takeawayBill, who);
   expect(data.orderType).toBe('takeaway');
-  // 380 food, GST 19, packaging 25 = 424.
-  expect(data.totals).toMatchObject({ subtotal: 380, tax: 19, packaging: 25, packagingTaxable: false, payable: 424 });
+  // 380 food, GST 19, packaging 25 = 424. (Revised 02-Oct-2026: previously also expected
+  // `packagingTaxable: false` on the ticket; the field no longer exists.)
+  expect(data.totals).toMatchObject({ subtotal: 380, tax: 19, packaging: 25, payable: 424 });
+  expect(data.totals).not.toHaveProperty('packagingTaxable');
   const text = buildBill(data, defaultTemplate('bill', '80')).map((l) => l.text.trim());
   expect(text.slice(0, 3).join('\n')).toContain('TAKEAWAY');
   expect(text.some((l) => /^TABLE\b/.test(l))).toBe(false);

@@ -46,7 +46,6 @@ export interface InvoiceBill {
   /** 'takeaway': no table, a TAKEAWAY band, and a packaging charge (02-Oct-2026). */
   orderType?: 'dine_in' | 'takeaway';
   packagingCharge?: number;
-  packagingTaxable?: boolean | null;
   kots: ReadonlyArray<{
     status: string;
     items: ReadonlyArray<{
@@ -102,7 +101,6 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
     taxRate: bill.taxRate,
     tip: bill.tip ?? 0,
     packaging: bill.packagingCharge ?? 0,
-    packagingTaxable: bill.packagingTaxable ?? null,
   });
   const at = bill.closedAt ?? now.toISOString();
   const takeaway = bill.orderType === 'takeaway';
@@ -132,7 +130,7 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
       paymentMode: bill.paymentMode ?? '',
       taxRate: bill.taxRate,
       tip: t.tip,
-      ...(t.packaging > 0 ? { packaging: t.packaging, packagingTaxable: t.packagingTaxed } : {}),
+      ...(t.packaging > 0 ? { packaging: t.packaging } : {}),
     },
     ...(who.upiId ? { upiId: who.upiId } : {}),
   };

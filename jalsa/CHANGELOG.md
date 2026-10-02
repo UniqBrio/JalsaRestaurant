@@ -12,10 +12,11 @@
 ### Added — 02-Oct-2026 — Takeaway
 
 - **Dashboard** and **Live orders** have a **Takeaway** button. It opens the same menu sheet as a table's new round, with no table to choose. The order is a real takeaway order with no table attached; no dummy table is used.
-- **Packaging Charges**: an amount typed in whole rupees, 0 or more. It is a separate line on the bill, not a dish. It is never discounted, and it is never counted as item sales in Reports. It can be changed while the takeaway is open, but not once the guest has asked to pay.
+- **Packaging Charges**: typed for each takeaway, in whole rupees, 0 or more. There is no fixed price, rate or default: one order can carry ₹20, the next ₹100, another nothing. It is stored with that order's bill. It is a separate line on the bill, not a dish. It is never discounted, and it is never counted as item sales in Reports. It can be changed while the takeaway is open, but not once the guest has asked to pay.
 - Kitchen tickets and bills for a takeaway print **TAKEAWAY** at the top and name no table. Live orders, Dashboard, Payments and the bill say **TAKEAWAY** where a table name would be.
 - **Reports → Sales** gains **Dine-in and takeaway**: orders, income and packaging for each, adding back to total sales. **All orders** can be filtered by order type. A takeaway is not counted as a cover.
-- **Settings → Tax & GST → GST on packaging**: **Not decided** (the starting value), **Charge GST on packaging**, or **No GST on packaging**. Until the owner decides, a non-zero packaging charge cannot be saved. Jalsa does not make this decision for the restaurant.
+- **GST is charged on the food only.** The packaging charge is added after GST and is never taxed: ₹1,000 of food, ₹50 GST and ₹75 packaging come to ₹1,125. Settings → Tax & GST says so; there is nothing to configure.
+- **Reports → GST and non-GST**: **Net** is the food GST was charged on. Packaging charges are shown separately as not taxed, so gross is net plus GST plus packaging.
 
 ### Changed — 02-Oct-2026 — How did you hear about us? answers are kept
 
@@ -32,7 +33,7 @@
 
 **Technical.** Four migrations, which must be applied in this order before this code is deployed:
 - `20261002090000_jalsa_printer_roles` (`printer.roles`, `printer.default_roles`)
-- `20261002100000_jalsa_takeaway` (`bill.order_type`, `bill.packaging_charge`, `bill.packaging_taxable`; `kot.table_id` nullable for takeaway only)
+- `20261002100000_jalsa_takeaway` (`bill.order_type`, `bill.packaging_charge`; `kot.table_id` nullable for takeaway only)
 - `20261002110000_jalsa_guest_attribution` (`guest_attribution`, with backfill; `guest_session.heard_dismissed_at`)
 - `20261002120000_jalsa_print_redirect` (`print_status` gains `cancelled`; function `redirect_print_job`)
 

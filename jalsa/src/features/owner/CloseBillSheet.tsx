@@ -107,7 +107,6 @@ export function CloseBillSheet({
     tip: bill.tip,
     discount,
     packaging: bill.packagingCharge,
-    packagingTaxable: bill.packagingTaxable,
   });
   const tenderProblem = mode === 'Cash' ? cashProblem(payableNow, tendered) : null;
   const discountPreview = payload
@@ -248,7 +247,7 @@ export function CloseBillSheet({
             base={bill.subtotal}
             taxRate={bill.taxRate}
             tip={bill.tip}
-            packaging={{ amount: bill.packagingCharge, taxable: bill.packagingTaxable }}
+            packaging={bill.packagingCharge}
             entry={discount}
             onChange={setDiscount}
             disabled={busy}

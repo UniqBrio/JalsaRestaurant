@@ -56,9 +56,11 @@ test.beforeAll(async () => {
 });
 
 test('every existing bill is dine-in with no packaging charge, and every existing round keeps its table', async () => {
+  // Revised 02-Oct-2026 (final GST rule - packaging is never taxable): this previously also
+  // required `packaging_taxable is null`; that column no longer exists.
   const bills = await one<{ n: number; dine: number; zero: number }>(
     `select count(*)::int n, count(*) filter (where order_type = 'dine_in')::int dine,
-            count(*) filter (where packaging_charge = 0 and packaging_taxable is null)::int zero from bill`
+            count(*) filter (where packaging_charge = 0)::int zero from bill`
   );
   expect(bills.n).toBeGreaterThan(0);
   expect(bills.dine).toBe(bills.n);
@@ -70,8 +72,8 @@ let takeawayId = '';
 
 test('a takeaway bill has no table, and its round has no table', async () => {
   const b = await one<{ id: string }>(`
-    insert into bill (restaurant_id, code, order_type, host_table_id, guests, tax_rate, packaging_charge, packaging_taxable)
-      select id, 'TK-1', 'takeaway', null, 1, 5, 40, false from restaurant limit 1
+    insert into bill (restaurant_id, code, order_type, host_table_id, guests, tax_rate, packaging_charge)
+      select id, 'TK-1', 'takeaway', null, 1, 5, 40 from restaurant limit 1
     returning id`);
   takeawayId = b.id;
   await db.exec(`
@@ -107,15 +109,22 @@ test('a bill never changes order type', async () => {
   );
 });
 
-test('a packaging charge cannot be negative, nor stored with its GST treatment undecided', async () => {
+test('a packaging charge cannot be negative, and any non-negative amount is this order\'s own', async () => {
+  // Superseded 02-Oct-2026 (final GST rule): this previously also asserted that a charge could not
+  // be stored with its GST treatment undecided (`bill_packaging_tax_decided`). Packaging is never
+  // taxable now, so there is no treatment to decide and no column or constraint for one.
   await expect(db.exec(`update bill set packaging_charge = -50 where id = '${takeawayId}'`)).rejects.toThrow(
     /bill_packaging_non_negative/
   );
-  await expect(
-    db.exec(`update bill set packaging_charge = 40, packaging_taxable = null where id = '${takeawayId}'`)
-  ).rejects.toThrow(/bill_packaging_tax_decided/);
-  // Zero needs no decision.
-  await db.exec(`update bill set packaging_charge = 0, packaging_taxable = null where id = '${takeawayId}'`);
+  for (const amount of [0, 10, 25, 50, 100, 500]) {
+    await db.exec(`update bill set packaging_charge = ${amount} where id = '${takeawayId}'`);
+    expect((await one<{ p: string }>(`select packaging_charge::text p from bill where id = '${takeawayId}'`)).p).toBe(`${amount}.00`);
+  }
+  const cols = await rows<{ column_name: string }>(
+    `select column_name from information_schema.columns where table_name = 'bill' and column_name like 'packaging%' order by 1`
+  );
+  expect(cols.map((c) => c.column_name)).toEqual(['packaging_charge']);
+  await db.exec(`update bill set packaging_charge = 0 where id = '${takeawayId}'`);
 });
 
 test('closing a takeaway works like any bill - there are no tables to release', async () => {
@@ -123,4 +132,41 @@ test('closing a takeaway works like any bill - there are no tables to release', 
   await db.exec(`update bill set status = 'closed', closed_at = now(), closed_by_staff_id = '${s!.id}', payment_mode = 'Cash'
                   where id = '${takeawayId}'`);
   expect((await one<{ status: string }>(`select status from bill where id = '${takeawayId}'`)).status).toBe('closed');
+});
+
+test('the application and the migrations agree: every bill column the code selects exists, and no packaging tax column does', async () => {
+  // 02-Oct-2026 (final GST rule). `BILL_SELECT` is what every bill read sends to PostgREST; a column
+  // it names that the migrations do not create is a 400 on every screen that shows a bill.
+  const source = readFileSync('src/lib/db/queries.ts', 'utf8');
+  const select = /const BILL_SELECT = `([\s\S]*?)`;/.exec(source)?.[1] ?? '';
+  // Only the bill's OWN columns: tokens at nesting depth 0. Embedded relations - `kot (...)`,
+  // `print_job (...)` - name other tables' columns.
+  let depth = 0;
+  let top = '';
+  for (const ch of select) {
+    if (ch === '(') {
+      // The name in front of a bracket is a relation, not a column: drop it.
+      if (depth === 0) top = top.replace(/[a-z_:]+\s*$/, '');
+      depth += 1;
+    }
+    else if (ch === ')') depth -= 1;
+    else if (depth === 0) top += ch;
+  }
+  const own = top
+    .split(',')
+    .map((c) => c.trim())
+    .filter((c) => /^[a-z_]+$/.test(c));
+  expect(own.length, 'the select was parsed').toBeGreaterThan(10);
+  expect(own).toContain('packaging_charge');
+  expect(own).toContain('order_type');
+  const cols = new Set(
+    (await rows<{ column_name: string }>(`select column_name from information_schema.columns where table_name = 'bill'`)).map(
+      (c) => c.column_name
+    )
+  );
+  expect(own.filter((c) => !cols.has(c)), 'selected but not in the schema').toEqual([]);
+  expect(cols.has('packaging_taxable')).toBe(false);
+  expect(
+    (await one<{ n: number }>(`select count(*)::int n from pg_constraint where conname = 'bill_packaging_tax_decided'`)).n
+  ).toBe(0);
 });

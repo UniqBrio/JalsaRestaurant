@@ -2,6 +2,18 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-02 - Final GST rule: food only; packaging is per order and never taxed
+
+The owner fixed the rule that Phase 3 had left open: GST is charged on food only, and the packaging charge is never taxed.
+- The unapplied migration 20261002100000_jalsa_takeaway no longer creates bill.packaging_taxable or the bill_packaging_tax_decided constraint. bill.packaging_charge (>= 0, typed per order) is the only packaging column. Applied to no database: test and production were verified unchanged before the edit, and nothing has been applied since.
+- Removed: BillInput.packagingTaxable, BillTotals.packagingTaxed, PACKAGING_TAX_UNDECIDED, packagingTaxableFrom and currentTaxSettings (placeTakeaway now uses the existing currentTaxRate); the Settings chooser (Not decided / Charge / No GST); the packaging_taxable column from BILL_SELECT, the Bill / OwnerBillView / StaffBillView / InvoiceBill types, and the close and discount previews.
+- totalBill: taxable = food after discount; payable = food after discount + GST + packaging + tip. Packaging is shown and printed once, after GST.
+- GST report: net is now the food GST is charged on (income - GST - packaging). Each side carries its packaging, shown as 'Packaging charges (no GST)', so gross = net + GST + packaging.
+FAIL-FIRST: jalsa/tests/unit/packaging-final-rule.unit.spec.ts, with src and supabase stashed (the 532c303 tree): 3 failed (the report net, the report labels, the removed-column scan, which found 18 files), 8 passed. NOT OBSERVED FAILING, the 8: the food-only GST, total and print rungs pass on the old tree too, because with no decision made the old code already left packaging out of the taxable figure; they pin the rule now that the switch is gone. The new takeaway.db rung (every column BILL_SELECT names exists after the full migration chain, and packaging_taxable does not) failed against the old queries.ts ('packaging_taxable' selected but not in the schema) and passes now.
+Superseded in place, dated: takeaway-flow (the GST-decision refusal, the decision snapshot, the taxed close at 383); takeaway-money (taxed totals, taxed row placement, packagingTaxable on the ticket); takeaway.db (the column and the decided constraint); review-fixes N4 (taxed fixture) and S3 (the Not decided save). Registers: RBAC_MATRIX row for deciding GST on packaging marked SUPERSEDED, with a new row appended. CHANGELOG (unreleased) corrected.
+Local migration chain from scratch (PGlite): the four DB specs pass, 35/35.
+Unit tier: 1415 passed, 0 failed. Render tier: 277 passed, 0 failed. Typecheck, ESLint and audit:all pass, 10/10. NOT RUN: the functional tier (needs a reachable test database, KL-1). No Supabase write and no migration apply was made in this change.
+
 ## Application run - jalsa - 2026-10-02 - Phase 6, second review: old redirects, the takeaway clean-up, and the reprint wording
 
 A second code review of the fixes found more problems. Fixed:

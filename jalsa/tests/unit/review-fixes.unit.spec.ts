@@ -61,21 +61,25 @@ test('B1: ticking Bills on the main kitchen printer does not send unrouted dishe
 
 /* ── Paper: the TOTAL never includes a charge the paper does not show ─────────────────────── */
 
-test('N4: a taxed packaging charge still prints when the GST lines are switched off', () => {
+test('N4: the packaging charge still prints when the GST lines are switched off', () => {
+  // Revised 02-Oct-2026 (final GST rule): this fixture was a TAXED packaging charge (GST 18 on
+  // 340 + 25, payable 383) printing above the GST lines. Packaging is never taxed now: GST 17 on
+  // the food, payable 382, and the charge prints once, after the GST lines.
   const data: TicketData = {
     restaurant: 'JALSA', branch: '', phone: '', gstin: '', kotCode: '', station: '', roundCode: '', billCode: 'TK-1',
     table: '', customer: '', captain: '', date: '02 Oct', time: '13:00', source: '', note: '', orderType: 'takeaway',
     items: [{ name: 'Chicken Fried Rice', qty: 2, foodType: 'non_veg', rate: 170, category: 'Rice', instruction: '' }],
-    totals: { subtotal: 340, discount: 0, tax: 18, payable: 383, paymentMode: 'Cash', packaging: 25, packagingTaxable: true },
+    totals: { subtotal: 340, discount: 0, tax: 17, payable: 382, paymentMode: 'Cash', packaging: 25 },
   };
   const base = defaultTemplate('bill', '80');
   const noTax = { ...base, modes: { ...(base.modes ?? {}), tax: 'off' as const } };
   const lines = buildBill(data, noTax).map((l) => l.text.trim());
   expect(lines.some((l) => l.startsWith('CGST'))).toBe(false);
   expect(lines.filter((l) => l.startsWith('PACKAGING CHARGES'))).toHaveLength(1);
-  // With the GST lines on, it prints once, above them - unchanged.
+  // With the GST lines on, it prints once, after them.
   const withTax = buildBill(data, base).map((l) => l.text.trim());
   expect(withTax.filter((l) => l.startsWith('PACKAGING CHARGES'))).toHaveLength(1);
+  expect(withTax.findIndex((l) => l.startsWith('PACKAGING CHARGES'))).toBeGreaterThan(withTax.findIndex((l) => l.startsWith('SGST')));
 });
 
 /* ── Takeaway ─────────────────────────────────────────────────────────────────────────────── */
@@ -125,10 +129,15 @@ test('N2: print history says TAKEAWAY for a takeaway ticket, not "table —"', (
 
 /* ── Settings ─────────────────────────────────────────────────────────────────────────────── */
 
-test('S3: "Not decided" for GST on packaging is saved as not decided - it used to keep the earlier decision', () => {
+test('S3: Settings → Tax offers no GST-on-packaging choice - the rule is fixed, and saving writes none', () => {
+  // Superseded 02-Oct-2026 (final GST rule): this previously asserted that choosing "Not decided"
+  // saved `packagingTaxable: null` instead of keeping an earlier decision. The choice is gone:
+  // packaging is never taxed, so there is nothing to decide, save or keep.
   const s = readFileSync('src/features/owner/sections/SettingsSection.tsx', 'utf8');
-  expect(s).toContain("packagingTaxable: packaging === 'undecided' ? null : packaging === 'taxed',");
-  expect(s).not.toContain("...(packaging === 'undecided' ? {} :");
+  expect(s).not.toContain('packagingTaxable');
+  expect(s).not.toMatch(/owner-gst-packaging-(undecided|taxed|untaxed|\$\{key\})/);
+  expect(s).not.toContain('Charge GST on packaging');
+  expect(s).toContain('GST is charged on food only.');
 });
 
 test('S7: Live orders offers Change on the packaging charge only while the takeaway is open', () => {

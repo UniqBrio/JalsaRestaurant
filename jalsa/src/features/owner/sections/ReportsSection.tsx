@@ -330,9 +330,12 @@ interface GstPanelSide {
   gross: number;
   net: number;
   tax: number;
+  /** Takeaway packaging charges: income, never taxed, so never inside Net (02-Oct-2026). */
+  packaging: number;
   grossLabel: string;
   netLabel: string;
   taxLabel: string;
+  packagingLabel: string;
 }
 
 /**
@@ -347,8 +350,10 @@ interface GstPanelSide {
  *
  * GROSS, NET AND THE TAX BETWEEN THEM
  *   Gross is what the customer paid less any tip, which was never the restaurant's. Net is
- *   the base before GST. Gross minus net IS the tax, by construction rather than by a third
- *   sum that could drift from the other two.
+ *   the food GST is charged on. Gross minus net IS the tax, by construction rather than by a
+ *   third sum that could drift from the other two - plus, since 02-Oct-2026, any takeaway
+ *   packaging charges, which are never taxed and are shown on their own line rather than
+ *   inflating the taxable base.
  */
 function GstPanel({ report }: { report: RangeReport }) {
   const { gst, nonGst } = report.summary.gstSplit;
@@ -388,12 +393,18 @@ function GstPanel({ report }: { report: RangeReport }) {
                 </dd>
               </div>
             </dl>
+            {side.packaging > 0 ? (
+              <p className="m-0 type-caption text-[var(--text-muted)]" data-testid={`${testId}-packaging`}>
+                Packaging charges (no GST): <span className="tabular-nums">{side.packagingLabel}</span>
+              </p>
+            ) : null}
           </Card>
         ))}
       </div>
       <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
         A bill counts as GST when tax was charged on it. Gross is what the customer paid less any tip; net is the
-        base before GST, so the difference between them is the GST column.
+        food GST is charged on. Takeaway packaging charges are not taxed and are shown on their own, so gross is net
+        plus GST plus packaging.
       </p>
     </section>
   );

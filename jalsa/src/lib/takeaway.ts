@@ -10,20 +10,8 @@
 /** What a ticket, a card or a report says in place of a table for a takeaway. */
 export const TAKEAWAY_LABEL = 'TAKEAWAY';
 
-/** Said wherever a packaging charge is refused because GST on it has not been decided. */
-export const PACKAGING_TAX_UNDECIDED =
-  'Packaging charges need a decision first: whether GST applies to them. The owner sets it in Settings → Tax & GST. Until then, leave the packaging charge empty.';
-
 /** The words for where an order is: its tables, or TAKEAWAY. */
 export function placeLabel(bill: { orderType?: string | null; tables: readonly string[] }, joiner = ', '): string {
   return bill.orderType === 'takeaway' ? TAKEAWAY_LABEL : bill.tables.join(joiner);
 }
 
-/**
- * The owner's answer to "is GST charged on packaging?", read from the `tax` setting. Null means
- * nobody has answered - and a non-zero packaging charge is refused until somebody does.
- */
-export function packagingTaxableFrom(tax: Record<string, unknown> | undefined | null): boolean | null {
-  const v = tax?.packagingTaxable;
-  return typeof v === 'boolean' ? v : null;
-}

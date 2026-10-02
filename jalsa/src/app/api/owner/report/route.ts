@@ -16,8 +16,13 @@ import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense 
 import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
 
 /** Money formatted once, on the server, like every other figure this route sends. */
-function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxLabel: string } {
-  return { grossLabel: rupees(side.gross), netLabel: rupees(side.net), taxLabel: rupees(side.tax) };
+function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxLabel: string; packagingLabel: string } {
+  return {
+    grossLabel: rupees(side.gross),
+    netLabel: rupees(side.net),
+    taxLabel: rupees(side.tax),
+    packagingLabel: rupees(side.packaging),
+  };
 }
 
 /* The same three words the console and the printed KOT use - `KOT_SOURCE_LABEL`, one map. A

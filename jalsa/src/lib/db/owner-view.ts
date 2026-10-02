@@ -65,9 +65,8 @@ export interface OwnerBillView {
   orderType: OrderType;
   /** Where the order is, in words: its tables, or TAKEAWAY. What every card shows. */
   place: string;
-  /** A takeaway's packaging charge, rupees; and whether GST applies to it (null: undecided). */
+  /** A takeaway's packaging charge, rupees. Never taxed. */
   packagingCharge: number;
-  packagingTaxable: boolean | null;
   groupCode: string | null;
   guests: number;
   openedAt: string;
@@ -278,7 +277,6 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     orderType: b.orderType,
     place: placeLabel(b),
     packagingCharge: b.packagingCharge,
-    packagingTaxable: b.packagingTaxable,
     groupCode: b.groupCode,
     guests: b.guests,
     openedAt: timeLabel(b.openedAt),
@@ -310,7 +308,6 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       tip: b.tip,
       orderType: b.orderType,
       packagingCharge: b.packagingCharge,
-      packagingTaxable: b.packagingTaxable,
       kots: b.kots.map((k) => ({
         status: k.status,
         items: k.items.map((i) => ({

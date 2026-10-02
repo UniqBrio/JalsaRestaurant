@@ -71,8 +71,8 @@ export function DiscountFields({
   /** Enough to recompute the payable with `totalBill`. See the after-discount row below. */
   taxRate: number;
   tip: number;
-  /** A takeaway's packaging charge and its GST decision (02-Oct-2026). Absent: none. */
-  packaging?: { amount: number; taxable: boolean | null } | undefined;
+  /** A takeaway's packaging charge (02-Oct-2026), never taxed. Absent: none. */
+  packaging?: number | undefined;
   entry: DiscountEntry;
   onChange: (next: DiscountEntry) => void;
   disabled?: boolean;
@@ -113,8 +113,7 @@ export function DiscountFields({
         lines: [{ name: 'Food', unitPrice: base, qty: 1 }],
         taxRate,
         tip,
-        packaging: packaging?.amount ?? 0,
-        packagingTaxable: packaging?.taxable ?? null,
+        packaging: packaging ?? 0,
         ...(payload.discountType === 'percentage' ? { discountPct: both.pct } : { discountAmount: both.amount }),
       })
     : null;

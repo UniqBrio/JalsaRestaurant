@@ -9,7 +9,7 @@ import { FirstRunState } from '@/components/ui/states';
 import { Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { packagingProblem, parsePackaging, rupees, totalBill, totalsRows } from '@/lib/money';
-import { PACKAGING_TAX_UNDECIDED, TAKEAWAY_LABEL, packagingTaxableFrom } from '@/lib/takeaway';
+import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
@@ -524,10 +524,10 @@ export type RoundTarget =
   | { kind: 'takeaway' }
   | { kind: 'takeaway-more'; billId: string; code: string };
 
-/** The rate and the packaging decision the takeaway review totals with, from the `tax` setting. */
-export const taxFor = (tax: Record<string, unknown> | undefined): { rate: number; packagingTaxable: boolean | null } => ({
+/** The GST rate the takeaway review totals with, from the `tax` setting. Food only: packaging is
+ *  never taxed. */
+export const taxFor = (tax: Record<string, unknown> | undefined): { rate: number } => ({
   rate: typeof tax?.rate === 'number' ? tax.rate : 5,
-  packagingTaxable: packagingTaxableFrom(tax),
 });
 
 export const targetKey = (t: RoundTarget | null): string =>
@@ -558,8 +558,8 @@ export function NewRoundSheet({
   runBusy: OwnerSectionProps['runBusy'];
   busy: boolean;
   go: OwnerSectionProps['go'];
-  /** The bill's tax rate and the owner's packaging decision - what the takeaway review totals with. */
-  tax: { rate: number; packagingTaxable: boolean | null };
+  /** The GST rate the takeaway review totals the food with. */
+  tax: { rate: number };
 }) {
   const toast = useToast();
   const [query, setQuery] = React.useState('');
@@ -582,15 +582,12 @@ export function NewRoundSheet({
 
   /* THE TAKEAWAY REVIEW: the bill as it will be charged, from `totalBill` - the one function
      every bill is totalled with - never a second sum here. */
-  const packagingIssue =
-    packagingProblem(packagingText) ??
-    ((parsePackaging(packagingText) ?? 0) > 0 && tax.packagingTaxable === null ? PACKAGING_TAX_UNDECIDED : null);
+  const packagingIssue = packagingProblem(packagingText);
   const packaging = parsePackaging(packagingText) ?? 0;
   const review = totalBill({
     lines: lines.map(([id, qty]) => ({ name: id, unitPrice: menu.find((m) => m.id === id)?.price ?? 0, qty })),
     taxRate: tax.rate,
     packaging: packagingIssue ? 0 : packaging,
-    packagingTaxable: tax.packagingTaxable,
   });
   const reviewRows = totalsRows(review, { taxRate: tax.rate }).filter((r) => !r.label.startsWith('Tip'));
 
@@ -768,9 +765,9 @@ export function NewRoundSheet({
                 </div>
               ))}
             </dl>
-            {packaging > 0 && tax.packagingTaxable !== null ? (
-              <p className="m-0 type-caption text-[var(--text-muted)]">
-                {tax.packagingTaxable ? 'GST is charged on the packaging charge.' : 'No GST is charged on the packaging charge.'}
+            {packaging > 0 ? (
+              <p className="m-0 type-caption text-[var(--text-muted)]" data-testid="owner-takeaway-packaging-note">
+                GST is charged on the food only, not on the packaging charge.
               </p>
             ) : null}
           </Card>

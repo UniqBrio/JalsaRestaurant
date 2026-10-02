@@ -11,8 +11,9 @@ import { runScenario } from '../support/round-rig';
  *   - the bill is `order_type: 'takeaway'` with no host table, and no `bill_table` row is written
  *     (no dummy table);
  *   - the round's KOT has `table_id: null`;
- *   - the packaging charge is stored as entered, with the owner's GST decision snapshot beside it;
- *   - a refusal (no permission, an undecided GST treatment, a bad amount) writes NOTHING;
+ *   - the packaging charge is stored as entered, per order - and never taxed (revised 02-Oct-2026:
+ *     this previously said "with the owner's GST decision snapshot beside it");
+ *   - a refusal (no permission, a bad amount) writes NOTHING;
  *   - an order whose every dish is sold out leaves no empty takeaway behind;
  *   - the KOT routes through the ordinary printers - including one printer used for both kinds.
  */
@@ -48,7 +49,9 @@ test('a takeaway is a bill at no table, and its round is at no table - no dummy 
   expect(r.threw).toBeNull();
   expect(r.out?.billId).toBe('b-take');
   const [bill] = rows(r, 'bill');
-  expect(bill).toMatchObject({ order_type: 'takeaway', host_table_id: null, packaging_charge: 0, packaging_taxable: null });
+  // Revised 02-Oct-2026 (final GST rule): previously also `packaging_taxable: null`; the column is gone.
+  expect(bill).toMatchObject({ order_type: 'takeaway', host_table_id: null, packaging_charge: 0 });
+  expect(bill).not.toHaveProperty('packaging_taxable');
   expect(rows(r, 'bill_table')).toEqual([]);
   const [kot] = rows(r, 'kot');
   expect(kot).toMatchObject({ table_id: null, source: 'owner', bill_id: 'b-take' });
@@ -66,15 +69,18 @@ test('one printer used for both kinds takes the takeaway KOT', () => {
   expect(jobs[0]).toMatchObject({ kind: 'KOT', printer_id: 'p-both', status: 'queued' });
 });
 
-test('a packaging charge is refused - and nothing written - until GST on it is decided', () => {
-  const r = by('packaging, GST decision not made');
-  expect(r.threw).toMatch(/whether GST applies to them/);
-  expect(r.writes).toEqual([]);
-});
-
-test('a packaging charge is stored as entered, with the GST decision snapshot beside it', () => {
-  expect(rows(by('packaging, no GST on it'), 'bill')[0]).toMatchObject({ packaging_charge: 40, packaging_taxable: false });
-  expect(rows(by('packaging, GST on it'), 'bill')[0]).toMatchObject({ packaging_charge: 25, packaging_taxable: true });
+/* Superseded 02-Oct-2026 (the owner's final rule: GST on food only, packaging never taxed). The
+   two tests here previously asserted that a packaging charge was REFUSED until the owner decided
+   whether GST applied to it, and that the decision was snapshot as `packaging_taxable` beside the
+   charge. There is no decision any more, and no column: every typed amount is stored as entered. */
+test('any packaging charge is stored exactly as typed, per order - no decision is asked for', () => {
+  for (const amount of [10, 20, 25, 40, 50, 100, 500]) {
+    const r = by(`packaging ${amount}`);
+    expect(r.threw, `₹${amount}`).toBeNull();
+    const [bill] = rows(r, 'bill');
+    expect(bill, `₹${amount}`).toMatchObject({ order_type: 'takeaway', packaging_charge: amount });
+    expect(bill, `₹${amount}`).not.toHaveProperty('packaging_taxable');
+  }
 });
 
 test('only someone who may place an order may place a takeaway - and a refusal writes nothing', () => {
@@ -139,20 +145,28 @@ test('a takeaway is never joined to a table', () => {
 
 /* ── Phase 3: closing a takeaway - packaging, GST, the bill print ───────────────────────────── */
 
-test('closing a takeaway charges the packaging - after GST when GST does not apply to it', () => {
-  const r = by('close, packaging untaxed, one printer for both');
+test('closing a takeaway charges the packaging once, after GST, and GST on the food only', () => {
+  const r = by('close, packaging 25, one printer for both');
   expect(r.threw).toBeNull();
   // 340 food + 17 GST (5% of 340) + 25 packaging = 382. Packaging is not an item and not taxed.
   expect(r.out).toEqual({ payable: 382 });
 });
 
-test('closing a takeaway charges GST on the packaging when the owner decided it applies', () => {
-  // (340 + 25) x 5% = 18.25 -> 18; 340 + 25 + 18 = 383.
-  expect(by('close, packaging taxed').out).toEqual({ payable: 383 });
+test('the packaging charge never moves the GST - 0, 25 or 100, the GST is 5% of the food', () => {
+  // Superseded 02-Oct-2026 (final GST rule): this previously asserted that a bill whose owner had
+  // chosen "GST on packaging" closed at 383 - GST on (340 + 25). That choice no longer exists.
+  // 340 + 17 = 357; + 25 = 382; + 100 = 457. The GST is 17 in all three.
+  expect(by('close, packaging 0').out).toEqual({ payable: 357 });
+  expect(by('close, packaging 100').out).toEqual({ payable: 457 });
+  // Payable less food less the one GST figure leaves exactly the packaging - included once.
+  for (const [name, packaging] of [['close, packaging 0', 0], ['close, packaging 25, one printer for both', 25], ['close, packaging 100', 100]] as const) {
+    const payable = (by(name).out as unknown as { payable: number }).payable;
+    expect(payable - 340 - 17, name).toBe(packaging);
+  }
 });
 
 test('one printer used for both kinds prints the takeaway\'s bill too', () => {
-  const jobs = rows(by('close, packaging untaxed, one printer for both'), 'print_job');
+  const jobs = rows(by('close, packaging 25, one printer for both'), 'print_job');
   expect(jobs).toHaveLength(1);
   expect(jobs[0]).toMatchObject({ kind: 'Invoice', printer_id: 'p-both', status: 'queued' });
 });

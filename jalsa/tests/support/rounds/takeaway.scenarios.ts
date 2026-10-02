@@ -13,14 +13,12 @@ const iso = new Date().toISOString();
 
 interface World {
   grants: string[];
-  /** The `tax` setting's `packagingTaxable`: undefined means the owner has not decided. */
-  packagingTaxable?: boolean;
   /** Every dish is sold out. */
   soldOut?: boolean;
   /** The printers, as `printer` rows. */
   printers?: Array<Record<string, unknown>>;
   /** For a CLOSE: the open takeaway's packaging charge and its GST decision. */
-  open?: { packaging: number; taxable: boolean | null; status?: 'open' | 'payment_requested' | 'closed' };
+  open?: { packaging: number; status?: 'open' | 'payment_requested' | 'closed' };
   /** The round fails AFTER its lines were written (its print jobs cannot be saved). */
   printFails?: boolean;
   /** The round fails BEFORE its lines were written (an empty KOT is left). */
@@ -28,7 +26,7 @@ interface World {
 }
 
 /** An open takeaway as `BILL_SELECT` returns it: two plates of fried rice at ₹170, no table. */
-const takeawayRow = (open: { packaging: number; taxable: boolean | null; status?: string }) => ({
+const takeawayRow = (open: { packaging: number; status?: string }) => ({
   id: 'b-take',
   code: 'TK-1',
   status: open.status ?? 'open',
@@ -47,7 +45,6 @@ const takeawayRow = (open: { packaging: number; taxable: boolean | null; status?
   opened_at: iso,
   order_type: 'takeaway',
   packaging_charge: open.packaging,
-  packaging_taxable: open.taxable,
   host_table: null,
   captain: null,
   waiter: null,
@@ -94,7 +91,7 @@ function responder(world: World, writes: Array<{ table: string; op: string; body
     switch (q.table) {
       case 'setting':
         if (q.filters.some(([k, c, v]) => k === 'eq' && c === 'key' && v === 'tax'))
-          return [{ value: { rate: 5, ...(world.packagingTaxable === undefined ? {} : { packagingTaxable: world.packagingTaxable }) } }];
+          return [{ value: { rate: 5 } }];
         return [];
       case 'menu_item':
         return [
@@ -199,28 +196,33 @@ async function guarded(name: string, world: World, call: (actor: ReturnType<type
 }
 
 const BOTH = ['orders.create', 'orders.add_items'];
+// Every takeaway carries its own typed packaging charge - no default, no global rate, no decision.
+// One after another: the fake database is one shared object.
+const perOrder: Array<Awaited<ReturnType<typeof run>>> = [];
+for (const amount of [10, 20, 25, 40, 50, 100, 500]) {
+  perOrder.push(await run(`packaging ${amount}`, { grants: BOTH }, { packagingCharge: amount }));
+}
 const results = [
   await run('placed with no packaging', { grants: BOTH }, { packagingCharge: 0 }),
-  await run('packaging, GST decision not made', { grants: BOTH }, { packagingCharge: 40 }),
-  await run('packaging, no GST on it', { grants: BOTH, packagingTaxable: false }, { packagingCharge: 40 }),
-  await run('packaging, GST on it', { grants: BOTH, packagingTaxable: true }, { packagingCharge: 25 }),
+  ...perOrder,
   await run('no orders.create', { grants: ['orders.add_items'] }, { packagingCharge: 0 }),
-  await run('a negative packaging charge', { grants: BOTH, packagingTaxable: true }, { packagingCharge: -50 }),
+  await run('a negative packaging charge', { grants: BOTH }, { packagingCharge: -50 }),
   await run('everything sold out', { grants: BOTH, soldOut: true }, { packagingCharge: 0 }),
   await run('one printer for both', { grants: BOTH, printers: ONE_FOR_BOTH }, { packagingCharge: 0 }),
-  // CLOSING a takeaway: 2 x Rs.170 = 340 of food, Rs.25 packaging, 5% GST.
-  await close('close, packaging untaxed, one printer for both', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: false } }),
-  await close('close, packaging taxed', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: true } }),
-  await close('close, only a kitchen printer', { grants: [], printers: KITCHEN_ONLY, open: { packaging: 0, taxable: null } }),
+  // CLOSING a takeaway: 2 x Rs.170 = 340 of food, 5% GST on the food = 17, whatever the packaging.
+  await close('close, packaging 25, one printer for both', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25 } }),
+  await close('close, packaging 0', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 0 } }),
+  await close('close, packaging 100', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 100 } }),
+  await close('close, only a kitchen printer', { grants: [], printers: KITCHEN_ONLY, open: { packaging: 0 } }),
   await run('round fails after its lines', { grants: BOTH, printFails: true }, { packagingCharge: 0 }),
   await run('round fails before its lines', { grants: BOTH, itemsFail: true }, { packagingCharge: 0 }),
-  await guarded('packaging, guest asked to pay', { grants: BOTH, packagingTaxable: false, open: { packaging: 40, taxable: false, status: 'payment_requested' } }, (actor) =>
+  await guarded('packaging, guest asked to pay', { grants: BOTH, open: { packaging: 40, status: 'payment_requested' } }, (actor) =>
     setPackagingCharge({ billId: 'b-take', packagingCharge: 0, actor })
   ),
-  await guarded('packaging, still open', { grants: BOTH, packagingTaxable: false, open: { packaging: 40, taxable: false } }, (actor) =>
+  await guarded('packaging, still open', { grants: BOTH, open: { packaging: 40 } }, (actor) =>
     setPackagingCharge({ billId: 'b-take', packagingCharge: 30, actor })
   ),
-  await guarded('more items, no grant', { grants: ['orders.create'], open: { packaging: 0, taxable: null } }, (actor) =>
+  await guarded('more items, no grant', { grants: ['orders.create'], open: { packaging: 0 } }, (actor) =>
     openTakeawayFor({ billId: 'b-take', actor })
   ),
 ];

@@ -36,17 +36,11 @@ export interface BillInput {
   /** Sum of the tip ledger rows against this bill. */
   tip?: number;
   /**
-   * Packaging charge in rupees - a takeaway's parcel cost, typed by a person (02-Oct-2026). NOT an
-   * item: it is not in `subtotal`, is never discounted, and is not item sales in any report.
+   * Packaging charge in rupees - a takeaway's parcel cost, typed by a person for THIS order
+   * (02-Oct-2026). NOT an item: it is not in `subtotal`, is never discounted, is not item sales in
+   * any report, and is NEVER TAXED - GST is charged on the food only (the owner's rule).
    */
   packaging?: number;
-  /**
-   * Whether GST is charged on the packaging charge - the owner's decision, snapshot on the bill
-   * (`bill.packaging_taxable`). `true` adds it to the taxable figure; `false` adds it after tax.
-   * Null/absent with a non-zero charge cannot be stored (`bill_packaging_tax_decided`), so it
-   * never reaches here; with a zero charge the answer is irrelevant.
-   */
-  packagingTaxable?: boolean | null;
 }
 
 export interface BillTotals {
@@ -54,13 +48,10 @@ export interface BillTotals {
   subtotal: number;
   /** What the discount actually removed, in rupees - not the percentage that was typed. */
   discount: number;
-  /** Subtotal minus discount, plus the packaging charge when GST applies to it. The figure tax is
-   *  charged on. Equal to subtotal minus discount on every bill with no packaging charge. */
+  /** Subtotal minus discount: the FOOD the tax is charged on. Never includes packaging. */
   taxable: number;
-  /** The packaging charge, in whole rupees. Zero on every dine-in bill. */
+  /** The packaging charge, in whole rupees. Zero on every dine-in bill. Never taxed. */
   packaging: number;
-  /** True when GST was charged on the packaging charge (it is inside `taxable`). */
-  packagingTaxed: boolean;
   tax: number;
   tip: number;
   /** What the guest owes. Includes the tip. */
@@ -87,9 +78,10 @@ export function totalBill(input: BillInput): BillTotals {
   const discount = Math.min(subtotal, fromPct + flat);
 
   const afterDiscount = subtotal - discount;
-  // The packaging charge is never discounted (it is not food) and is taxed only by decision.
+  // GST on the food only. The packaging charge is never discounted and never taxed: it is added
+  // once, after the tax (02-Oct-2026, the owner's rule).
   const packaging = Math.max(0, asInt(input.packaging ?? 0));
-  const taxable = afterDiscount + (input.packagingTaxable === true ? packaging : 0);
+  const taxable = afterDiscount;
   const tax = asInt((taxable * clamp(input.taxRate, 0, 100)) / 100);
   const tip = Math.max(0, asInt(input.tip ?? 0));
 
@@ -98,7 +90,6 @@ export function totalBill(input: BillInput): BillTotals {
     discount,
     taxable,
     packaging,
-    packagingTaxed: packaging > 0 && input.packagingTaxable === true,
     tax,
     tip,
     payable: afterDiscount + packaging + tax + tip,
@@ -166,12 +157,10 @@ export interface TotalsRow {
 export function totalsRows(t: BillTotals, opts: { taxRate: number; tipTo?: string }): TotalsRow[] {
   const rows: TotalsRow[] = [{ label: 'Food', value: rupees(t.subtotal) }];
   if (t.discount > 0) rows.push({ label: 'Discount', value: `− ${rupees(t.discount)}` });
-  // A separate line, never an item (02-Oct-2026). Absent when there is no charge. Above GST when
-  // GST is charged on it, after GST when it is not - the same places the printed bill uses.
-  const packagingRow = { label: 'Packaging charges', value: rupees(t.packaging) };
-  if (t.packaging > 0 && t.packagingTaxed) rows.push(packagingRow);
   rows.push({ label: `GST ${opts.taxRate}%`, value: rupees(t.tax) });
-  if (t.packaging > 0 && !t.packagingTaxed) rows.push(packagingRow);
+  // A separate line, never an item, after GST because GST is not charged on it (02-Oct-2026) -
+  // where the printed bill puts it too. Absent when there is no charge.
+  if (t.packaging > 0) rows.push({ label: 'Packaging charges', value: rupees(t.packaging) });
   rows.push({
     label: opts.tipTo ? `Tip for ${opts.tipTo}` : 'Tip for the team',
     value: t.tip > 0 ? rupees(t.tip) : '—',

@@ -6,7 +6,6 @@ import { cn } from '@/lib/cn';
 import { CHIP_NAV_WRAP, CHIP_NAV_STICKY_MD } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
-import { packagingTaxableFrom } from '@/lib/takeaway';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
@@ -448,12 +447,6 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const [rate, setRate] = React.useState(String(tax.rate ?? 5));
   const [gstin, setGstin] = React.useState(tax.gstin ?? '');
   const [inclusive, setInclusive] = React.useState(Boolean(tax.inclusive));
-  /* GST on a takeaway's packaging charge (02-Oct-2026). A business decision, so it starts
-     UNDECIDED and stays so until the owner picks - and a packaging charge is refused until then. */
-  const [packaging, setPackaging] = React.useState<'undecided' | 'taxed' | 'untaxed'>(() => {
-    const v = packagingTaxableFrom(data.settings.tax);
-    return v === null ? 'undecided' : v ? 'taxed' : 'untaxed';
-  });
 
   const example = 1000;
   const rateNum = Number(rate) || 0;
@@ -494,27 +487,10 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-gst-inclusive"
       />
 
-      <div className="flex flex-col gap-1.5" role="group" aria-label="GST on takeaway packaging charges">
-        <span className="type-caption font-semibold">GST on takeaway packaging charges</span>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['undecided', 'Not decided'],
-              ['taxed', 'Charge GST on packaging'],
-              ['untaxed', 'No GST on packaging'],
-            ] as const
-          ).map(([key, label]) => (
-            <Chip key={key} on={packaging === key} onClick={() => setPackaging(key)} data-testid={`owner-gst-packaging-${key}`}>
-              {label}
-            </Chip>
-          ))}
-        </div>
-        <span className="type-caption leading-relaxed text-[var(--text-muted)]">
-          {packaging === 'undecided'
-            ? 'Until this is decided, a takeaway can be placed but not with a packaging charge. Confirm with your accountant.'
-            : 'Applies to packaging charges set from now on, including a change to a takeaway that is already open. A charge already set keeps the GST treatment it was set with.'}
-        </span>
-      </div>
+      {/* The owner's rule (02-Oct-2026), stated, not configurable: there is nothing to choose. */}
+      <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="owner-gst-packaging-rule">
+        GST is charged on food only. A takeaway&rsquo;s packaging charge is added after GST and is never taxed.
+      </p>
 
       {/* The worked example under the field (Standard 2.3): a rate nobody can picture is a rate
           that gets typed wrong. */}
@@ -537,9 +513,6 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 rate: rateNum,
                 gstin,
                 inclusive,
-                // null IS "not decided" (packagingTaxableFrom). Sent, never left out: the save merges
-                // with what is stored, so leaving it out kept an earlier decision (review, 02-Oct-2026).
-                packagingTaxable: packaging === 'undecided' ? null : packaging === 'taxed',
               },
             });
             toast.show(`GST set to ${rateNum}% — recorded in the audit log`, { tone: 'success' });

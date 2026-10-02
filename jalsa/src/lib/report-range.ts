@@ -194,10 +194,15 @@ export interface GstSide {
   orders: number;
   /** With GST. The customer's total, less any tip, which is never the restaurant's. */
   gross: number;
-  /** Before GST: the taxable base. `gross - net` is the tax, by construction. */
+  /** The FOOD after discount: the taxable base GST is charged on. Never includes packaging. */
   net: number;
   /** GST collected. Zero on the non-GST side, by definition of the split. */
   tax: number;
+  /**
+   * Takeaway packaging charges - income, never taxed, never food (02-Oct-2026). Shown apart so the
+   * taxable base is not overstated: `gross = net + tax + packaging`, by construction.
+   */
+  packaging: number;
 }
 
 export function summarise(input: { bills: readonly RangeBill[]; expenses: readonly RangeExpense[] }): RangeSummary {
@@ -216,11 +221,13 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
   const side = (bills: readonly RangeBill[]): GstSide => ({
     orders: bills.length,
     gross: bills.reduce((a, b) => a + b.restaurantIncome, 0),
-    /* Before GST: what was paid less the GST on it - derived rather than carried, so the two
-       can never be passed in disagreeing. (02-Oct-2026: with an untaxed packaging charge this is
-       taxable value PLUS that charge - gross less GST, as the screen says, not the taxable base.) */
-    net: bills.reduce((a, b) => a + (b.restaurantIncome - b.tax), 0),
+    /* The food GST is charged on: what was paid less the GST and less the packaging charge, which
+       is never taxed - derived rather than carried, so the parts can never be passed in
+       disagreeing with the whole. On a dine-in bill packaging is 0 and this is gross less GST,
+       exactly as before (02-Oct-2026). */
+    net: bills.reduce((a, b) => a + (b.restaurantIncome - b.tax - (b.packaging ?? 0)), 0),
     tax: bills.reduce((a, b) => a + b.tax, 0),
+    packaging: bills.reduce((a, b) => a + (b.packaging ?? 0), 0),
   });
   const gstBills = input.bills.filter((b) => b.tax > 0);
   const nonGstBills = input.bills.filter((b) => b.tax <= 0);

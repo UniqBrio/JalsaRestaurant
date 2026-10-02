@@ -9,14 +9,13 @@
 --
 -- WHAT
 --   bill.order_type          'dine_in' (every existing bill, by default) or 'takeaway'.
---   bill.packaging_charge    rupees, entered by a person, >= 0. Stored, never re-derived, like
---                            every other money component on the bill (Standard 7.2). Zero on
---                            every existing bill, so no total changes.
---   bill.packaging_taxable   whether GST is charged on that packaging charge, SNAPSHOT from the
---                            owner's tax setting when the charge is set - so a later change to the
---                            setting never rewrites a closed bill. NULL means nobody has decided;
---                            the application refuses a non-zero charge until somebody does. This
---                            is a business decision and is deliberately not defaulted here.
+--   bill.packaging_charge    rupees, typed by a person for THIS order, >= 0. No default rate, no
+--                            global amount: every takeaway carries its own. Stored, never
+--                            re-derived, like every other money component on the bill (Standard
+--                            7.2). Zero on every existing bill, so no total changes.
+--                            NOT TAXABLE, by the owner's decision of 02-Oct-2026: GST is charged
+--                            on the food only, so there is no column for a packaging tax
+--                            treatment - there is nothing to decide per bill.
 --   kot.table_id             nullable - but ONLY for a round on a takeaway bill (trigger).
 --
 -- RULES, ENFORCED HERE RATHER THAN TRUSTED
@@ -32,8 +31,7 @@ begin;
 
 alter table public.bill
   add column if not exists order_type        text          not null default 'dine_in',
-  add column if not exists packaging_charge  numeric(12, 2) not null default 0,
-  add column if not exists packaging_taxable boolean;
+  add column if not exists packaging_charge  numeric(12, 2) not null default 0;
 
 do $$
 begin
@@ -49,11 +47,6 @@ begin
   if not exists (select 1 from pg_constraint where conname = 'bill_takeaway_has_no_table') then
     alter table public.bill
       add constraint bill_takeaway_has_no_table check (order_type <> 'takeaway' or host_table_id is null);
-  end if;
-  -- A charge with an undecided tax treatment cannot be stored: the total would be a guess.
-  if not exists (select 1 from pg_constraint where conname = 'bill_packaging_tax_decided') then
-    alter table public.bill
-      add constraint bill_packaging_tax_decided check (packaging_charge = 0 or packaging_taxable is not null);
   end if;
 end $$;
 

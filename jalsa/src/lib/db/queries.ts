@@ -150,7 +150,7 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
 const BILL_SELECT = `
   id, code, status, group_code, guests, occasion_type, occasion_name, occasion_source,
   discount_pct, discount_amount, tax_rate, payment_mode, payment_reference,
-  payment_requested_at, closed_at, opened_at, order_type, packaging_charge, packaging_taxable,
+  payment_requested_at, closed_at, opened_at, order_type, packaging_charge,
   host_table:host_table_id (name),
   captain:captain_staff_id (id, name),
   waiter:waiter_staff_id (id, name),
@@ -312,7 +312,6 @@ function shapeBill(row: Record<string, unknown>): Bill {
     // with nothing for packaging.
     orderType: row.order_type === 'takeaway' ? 'takeaway' : 'dine_in',
     packagingCharge: Number(row.packaging_charge ?? 0),
-    packagingTaxable: (row.packaging_taxable as boolean | null | undefined) ?? null,
     kots,
   };
 }
@@ -334,10 +333,9 @@ export function billTotals(bill: Bill) {
     discountAmount: bill.discountAmount,
     taxRate: bill.taxRate,
     tip: bill.tip,
-    // A takeaway's packaging charge - a separate line, never an item (02-Oct-2026). Zero, and
-    // therefore no change at all, on every dine-in bill.
+    // A takeaway's packaging charge - a separate line, never an item, never taxed (02-Oct-2026).
+    // Zero, and therefore no change at all, on every dine-in bill.
     packaging: bill.packagingCharge,
-    packagingTaxable: bill.packagingTaxable,
   });
 }
 

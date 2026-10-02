@@ -294,10 +294,8 @@ export interface TicketData {
     taxRate?: number;
     /** The tip, printed on its own line; `payable` includes it. Optional: older callers omit it. */
     tip?: number;
-    /** A takeaway's packaging charge, its own line - never an item (02-Oct-2026). */
+    /** A takeaway's packaging charge, its own line - never an item, never taxed (02-Oct-2026). */
     packaging?: number;
-    /** Whether the GST lines include tax on the packaging charge: then it prints above them. */
-    packagingTaxable?: boolean;
   };
   upiId?: string;
 }
@@ -730,8 +728,6 @@ export function buildBill(data: TicketData, config: TemplateConfig, opts?: { rep
         if (t.discount > 0 || always) push(leftRight('DISCOUNT', t.discount > 0 ? `-${money(t.discount)}` : '0', cols));
         break;
       case 'tax': {
-        // A packaging charge GST applies to prints ABOVE the GST lines that include its tax.
-        if ((t.packaging ?? 0) > 0 && t.packagingTaxable) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
         // GST is levied as one rate and PRINTED as two halves, because that is what the
         // return asks for. Splitting an odd number gives the paise to CGST, so the two
         // printed halves always add back to the tax `money.ts` computed.
@@ -745,10 +741,10 @@ export function buildBill(data: TicketData, config: TemplateConfig, opts?: { rep
       case 'total':
         // A tip is part of what the guest pays, so it is its own line above the total and the
         // total is the screen's To pay, tip included (review, 25-Sep-2026).
-        // A packaging charge with no GST on it prints after the GST lines (02-Oct-2026) - and so
-        // does a taxed one when the GST lines are switched off, or the paper's TOTAL would include
-        // a charge the paper never shows (review, 02-Oct-2026).
-        if ((t.packaging ?? 0) > 0 && (!t.packagingTaxable || !isOn(config, 'tax'))) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
+        // The packaging charge prints after the GST lines, because GST is not charged on it
+        // (02-Oct-2026) - always on its own line, so the paper's TOTAL never includes a charge
+        // the paper does not show, whichever rows the template switches off.
+        if ((t.packaging ?? 0) > 0) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
         if ((t.tip ?? 0) > 0) push(leftRight('TIP', money(t.tip ?? 0), cols));
         push(separatorLine(config, cols));
         push(totalLine(money(t.payable), big, cols).text, totalLine(money(t.payable), big, cols).weight);

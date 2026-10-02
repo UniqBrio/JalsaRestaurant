@@ -13,7 +13,6 @@ import {
   type KotStatus,
 } from '@/lib/status';
 import { discountBothWays, packagingProblem, parsePackaging, rupees } from '@/lib/money';
-import { PACKAGING_TAX_UNDECIDED } from '@/lib/takeaway';
 import { HEARD_CORRECTION_HOURS } from '@/lib/heard-about';
 import { PermissionDenied } from '@/lib/permissions';
 import { captainMayAssignWaiter } from '@/lib/status';
@@ -298,9 +297,9 @@ export async function openTakeawayFor(input: { billId: string; actor: Actor }): 
  * before anything is written, so a refusal leaves nothing behind. The packaging charge is part
  * of placing the order: whoever may place it may set it.
  *
- * GST ON PACKAGING IS NOT DECIDED HERE. The owner's tax setting says whether GST applies to it
- * and the answer is snapshot on the bill. Until the owner has answered, a non-zero charge is
- * refused with a sentence saying where to answer - never charged one way or the other by guess.
+ * THE PACKAGING CHARGE is this order's own: typed by a person, any whole-rupee amount from 0, no
+ * default and no global rate. It is never taxed - GST is charged on the food only (the owner's
+ * rule, 02-Oct-2026) - so it is stored as an amount and nothing else.
  */
 export async function placeTakeaway(input: {
   lines: readonly RoundLine[];
@@ -316,8 +315,7 @@ export async function placeTakeaway(input: {
   if (packaging === null) throw new Error(packagingProblem(String(input.packagingCharge)) ?? 'That packaging charge cannot be read.');
 
   const restaurantId = await currentRestaurantId();
-  const [tax, code] = await Promise.all([currentTaxSettings(), nextNumber('bill')]);
-  if (packaging > 0 && tax.packagingTaxable === null) throw new Error(PACKAGING_TAX_UNDECIDED);
+  const [taxRate, code] = await Promise.all([currentTaxRate(), nextNumber('bill')]);
 
   const { data: billRow, error: billErr } = await db()
     .from('bill')
@@ -327,10 +325,8 @@ export async function placeTakeaway(input: {
       order_type: 'takeaway',
       host_table_id: null,
       guests: 1,
-      tax_rate: tax.rate,
+      tax_rate: taxRate,
       packaging_charge: packaging,
-      // Snapshot only when there is a charge: a zero charge has no tax treatment to remember.
-      packaging_taxable: packaging > 0 ? tax.packagingTaxable : null,
       // A captain who takes a parcel order is its captain, as on a walk-in table (G2).
       captain_staff_id: input.source === 'captain' ? input.actor.staffId : null,
     })
@@ -373,8 +369,8 @@ export async function placeTakeaway(input: {
 
 /**
  * Change the packaging charge on a takeaway that is still open - the counter forgot to add it, or
- * added it twice. Same grant as placing the order (`orders.create`); the GST treatment is taken
- * from the owner's setting at this moment and snapshot, exactly as `placeTakeaway` does.
+ * added it twice. Same grant as placing the order (`orders.create`). Any whole-rupee amount from
+ * 0; never taxed, so changing it never changes the GST.
  */
 export async function setPackagingCharge(input: {
   billId: string;
@@ -386,7 +382,7 @@ export async function setPackagingCharge(input: {
   const packaging = parsePackaging(text);
   if (packaging === null) throw new Error(packagingProblem(text) ?? 'That packaging charge cannot be read.');
   const restaurantId = await currentRestaurantId();
-  const [bill, tax] = await Promise.all([getBill(input.billId), currentTaxSettings()]);
+  const bill = await getBill(input.billId);
   if (!bill || bill.orderType !== 'takeaway') throw new Error('Only a takeaway carries a packaging charge.');
   // Open only (review, 02-Oct-2026): once the guest has asked to pay, the amount they were told
   // is the amount owed - lowering it then would be a discount without a discount grant, and
@@ -395,11 +391,10 @@ export async function setPackagingCharge(input: {
   if (bill.status === 'payment_requested')
     throw new Error(`${bill.code} has asked to pay. Its packaging charge can no longer change.`);
   if (bill.status !== 'open') throw new Error(`${bill.code} is no longer open. Its packaging charge can no longer change.`);
-  if (packaging > 0 && tax.packagingTaxable === null) throw new Error(PACKAGING_TAX_UNDECIDED);
 
   const { data, error } = await db()
     .from('bill')
-    .update({ packaging_charge: packaging, packaging_taxable: packaging > 0 ? tax.packagingTaxable : null })
+    .update({ packaging_charge: packaging })
     .eq('id', input.billId)
     .eq('restaurant_id', restaurantId)
     // The same rule as the check above, held at the write: a guest asking to pay in between wins.
@@ -415,28 +410,6 @@ export async function setPackagingCharge(input: {
     billId: input.billId,
   });
   return { packagingCharge: packaging };
-}
-
-/** Re-exported from the pure module, where the screens read it too. */
-export { PACKAGING_TAX_UNDECIDED };
-
-/**
- * The tax rate and the owner's packaging decision, read together. `packagingTaxable` is null until
- * the owner has chosen - deliberately not defaulted (see `placeTakeaway`).
- */
-export async function currentTaxSettings(): Promise<{ rate: number; packagingTaxable: boolean | null }> {
-  const restaurantId = await currentRestaurantId();
-  const { data } = await db()
-    .from('setting')
-    .select('value')
-    .eq('restaurant_id', restaurantId)
-    .eq('key', 'tax')
-    .maybeSingle();
-  const value = (data?.value ?? {}) as { rate?: number; packagingTaxable?: unknown };
-  return {
-    rate: typeof value.rate === 'number' ? value.rate : 5,
-    packagingTaxable: typeof value.packagingTaxable === 'boolean' ? value.packagingTaxable : null,
-  };
 }
 
 async function currentTaxRate(): Promise<number> {
