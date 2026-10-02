@@ -117,6 +117,9 @@ class Builder {
   in(c: string, v: unknown) {
     return this.f('in', c, v);
   }
+  contains(c: string, v: unknown) {
+    return this.f('cs', c, v);
+  }
   ilike(c: string, v: unknown) {
     return this.f('ilike', c, v);
   }

@@ -4,6 +4,17 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-02 - Phase 1: one printer can print kitchen tickets and bills
+
+printer.purpose held ONE kind, so a single physical printer could print KOTs or bills, never both; mapping the same Windows printer as a bill printer silently unmapped the kitchen printer. Migration 20261002090000_jalsa_printer_roles adds printer.roles (KOT / Invoice / both, backfilled from purpose) and printer.default_roles (one default per kind per restaurant, partial unique indexes), with a trigger keeping purpose and roles in step for code from before the change. Routing reads 'prints this kind' (roles @> {kind}); the owner's chosen default wins, then a machine dedicated to the kind, then the old rule. A bill never falls to a KOT-only machine and a KOT never to a bill-only one. Mapping a new printer on an already-used Windows queue merges its roles into that printer; only Change replaces a mapping.
+
+FAIL-FIRST: tests/unit/printer-roles.unit.spec.ts - with src and the migration stashed: fails to collect (no src/lib/printer-roles); after: 15 passed.
+FAIL-FIRST: tests/unit/printer-roles.db.unit.spec.ts (PGlite over every migration, the seed's four printers) - stashed: 1 failed (column "roles" does not exist), 6 did not run; after: 7 passed.
+Superseded in place, dated: printer-management B3 (the queue-wide mapping delete), combobox-migration static Select count 13 -> 12 (the What it prints Select became the Use for toggles).
+Unit tier: 1314 passed. Typecheck, ESLint, audit:all 10/10.
+
+---
+
 ## Catch Your Craving review fixes - 2026-09-30 - per-round phase, stable timers, honest copy
 
 Code and copy review of the first wiring (84474ef), all taken except where noted:

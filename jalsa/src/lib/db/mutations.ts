@@ -18,6 +18,7 @@ import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import { PAYMENT_NOTICE, PAYMENT_NOTICE_KINDS, noticesToRaise, paymentNoticeNote } from '@/lib/payment-notice';
 import {
+  printsKind,
   resolvePrinter,
   routeItem,
   splitRound,
@@ -688,9 +689,10 @@ async function routablePrinters(
 ): Promise<RoutablePrinter[]> {
   const { data: rows, error } = await db()
     .from('printer')
-    .select('id,machine_id,name,purpose,station,routes,online,enabled')
+    .select('id,machine_id,name,purpose,roles,default_roles,station,routes,online,enabled')
     .eq('restaurant_id', restaurantId)
-    .eq('purpose', purpose)
+    // Every machine that PRINTS this kind - a "KOT and Bills" machine answers both (02-Oct-2026).
+    .contains('roles', [purpose])
     .order('machine_id', { ascending: true });
   if (error && opts.strict) throw error;
 
@@ -699,6 +701,8 @@ async function routablePrinters(
     machineId: p.machine_id as string,
     name: p.name as string,
     purpose: p.purpose as string,
+    roles: (p.roles as string[] | null) ?? [p.purpose as string],
+    defaultFor: (p.default_roles as string[] | null) ?? [],
     station: (p.station as string) ?? 'Main Kitchen',
     routes: (p.routes as string[]) ?? [],
     online: p.online as boolean,
@@ -1003,15 +1007,16 @@ export async function printElsewhere(input: {
 
   const { data: printer, error: printerErr } = await db()
     .from('printer')
-    .select('id,name,purpose,station,enabled')
+    .select('id,name,purpose,roles,station,enabled')
     .eq('id', input.printerId)
     .eq('restaurant_id', restaurantId)
     .single();
   if (printerErr) throw printerErr;
 
-  if (printer.purpose !== job.kind) {
+  if (!printsKind({ purpose: printer.purpose as string, roles: printer.roles as string[] | undefined }, job.kind as string)) {
     // A bill on a kitchen machine is the guest's total in the kitchen, and a KOT at the counter
-    // is a round nobody is cooking. The purposes are not interchangeable.
+    // is a round nobody is cooking. The kinds are not interchangeable - unless the owner set the
+    // machine to print both (02-Oct-2026), in which case it is the counter's own printer.
     throw new Error(
       `${printer.name as string} prints ${printer.purpose as string} tickets, and this is a ${job.kind as string}.`
     );

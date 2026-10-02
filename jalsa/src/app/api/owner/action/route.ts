@@ -139,6 +139,9 @@ type Action =
       machineId: string;
       name: string;
       purpose: string;
+      /** What it prints, and what it is the default for (02-Oct-2026). Optional for older clients. */
+      roles?: string[];
+      defaultFor?: string[];
       station: string;
       paperMm: number;
       connection: string;
@@ -163,6 +166,9 @@ type Action =
       station?: string;
       paperMm?: number;
       purpose?: string;
+      roles?: string[];
+      /** The printer this queue printed as, when the owner pressed Change on it. */
+      replacePrinterId?: string;
     }
   | { action: 'remove-printer-mapping'; printerId: string }
   | { action: 'delete-printer'; printerId: string }
@@ -525,6 +531,8 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           machineId: input.machineId,
           name: input.name,
           purpose: input.purpose,
+          ...(Array.isArray(input.roles) ? { roles: input.roles } : {}),
+          ...(Array.isArray(input.defaultFor) ? { defaultFor: input.defaultFor } : {}),
           station: input.station,
           paperMm: input.paperMm,
           connection: input.connection,
@@ -554,13 +562,15 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           computerId: input.computerId,
           queueName: input.queueName,
           target: input.printerId
-            ? { printerId: input.printerId }
+            ? { printerId: input.printerId, ...(Array.isArray(input.roles) ? { roles: input.roles } : {}) }
             : {
                 name: input.name ?? '',
                 station: input.station ?? '',
                 paperMm: input.paperMm ?? 80,
                 purpose: input.purpose ?? 'KOT',
+                ...(Array.isArray(input.roles) ? { roles: input.roles } : {}),
               },
+          ...(input.replacePrinterId ? { replacePrinterId: input.replacePrinterId } : {}),
           actor,
         })
       );

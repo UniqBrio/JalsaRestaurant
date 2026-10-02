@@ -50,8 +50,16 @@ export interface RoutablePrinter {
   /** Unique per restaurant, and therefore the tie-break. Never a display value. */
   machineId: string;
   name: string;
-  /** 'KOT' or 'Invoice'. A bill never goes to a kitchen machine, whatever its routes say. */
+  /** 'KOT' or 'Invoice'. A bill never goes to a kitchen machine, whatever its routes say.
+   *  Since 02-Oct-2026 the machine's PRIMARY kind; what it can print is `roles`. */
   purpose: string;
+  /**
+   * The kinds of ticket this machine prints: ['KOT'], ['Invoice'] or both (`printer.roles`).
+   * Absent means `[purpose]` - a machine described before roles existed prints what it always did.
+   */
+  roles?: string[];
+  /** The kinds the owner chose this machine as the DEFAULT for (`printer.default_roles`). */
+  defaultFor?: string[];
   /** The place in the building. What a fallback ticket is stamped with. */
   station: string;
   /** Menu category names this machine prints. Empty means "whatever falls back to me". */
@@ -91,6 +99,14 @@ export interface RoutingDecision {
 /** The owner has not switched it off. The whole of what routing asks about a machine. */
 const assignable = (p: RoutablePrinter): boolean => p.enabled;
 
+/** The kinds of ticket a machine prints (02-Oct-2026). Never empty: no roles means its purpose. */
+export const rolesOf = (p: { purpose: string; roles?: readonly string[] | null | undefined }): string[] =>
+  p.roles && p.roles.length > 0 ? [...p.roles] : [p.purpose];
+
+/** Whether a machine may be handed this kind of ticket. A bill never goes to a KOT-only machine. */
+export const printsKind = (p: { purpose: string; roles?: readonly string[] | null | undefined }, kind: string): boolean =>
+  rolesOf(p).includes(kind);
+
 /**
  * Every machine of one purpose, in the one order this module ever considers them in.
  *
@@ -98,7 +114,7 @@ const assignable = (p: RoutablePrinter): boolean => p.enabled;
  * `machineId` is unique by constraint. A tie-break that can tie is not a tie-break.
  */
 const inOrder = (purpose: string, printers: readonly RoutablePrinter[]): RoutablePrinter[] =>
-  printers.filter((p) => p.purpose === purpose).sort((a, b) => a.machineId.localeCompare(b.machineId));
+  printers.filter((p) => printsKind(p, purpose)).sort((a, b) => a.machineId.localeCompare(b.machineId));
 
 /**
  * The machine everything falls back to: the first enabled machine with no category of its own,
@@ -110,7 +126,18 @@ const inOrder = (purpose: string, printers: readonly RoutablePrinter[]): Routabl
  */
 export function mainPrinter(purpose: string, printers: readonly RoutablePrinter[]): RoutablePrinter | null {
   const kind = inOrder(purpose, printers);
-  return kind.find((p) => assignable(p) && p.routes.length === 0) ?? kind.find(assignable) ?? null;
+  /* 02-Oct-2026, TWO ADDITIONS IN FRONT OF THE OLD RULE, which is otherwise unchanged:
+     1. The machine the OWNER chose as the default for this kind wins while it is switched on.
+     2. A machine that prints only this kind is preferred to one that also prints the other. A
+        counter printer set to "KOT and Bills" must not quietly become where the kitchen's
+        unrouted tickets go just because its machine id sorts first; it takes them only when no
+        dedicated machine can. With one machine, or with every machine single-kind (every
+        restaurant before this change), the result is exactly what it was. */
+  const chosen = kind.find((p) => assignable(p) && (p.defaultFor ?? []).includes(purpose));
+  if (chosen) return chosen;
+  const pick = (list: RoutablePrinter[]): RoutablePrinter | null =>
+    list.find((p) => assignable(p) && p.routes.length === 0) ?? list.find(assignable) ?? null;
+  return pick(kind.filter((p) => rolesOf(p).length === 1)) ?? pick(kind);
 }
 
 /**

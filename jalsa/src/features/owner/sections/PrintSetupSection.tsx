@@ -36,7 +36,17 @@ import {
   type TicketData,
   type TicketKind,
 } from '@/lib/print-template';
-import { mainPrinter, printerShortName, resolvePrinter, routeItem, stationOptions, type RoutablePrinter } from '@/lib/print-routing';
+import {
+  mainPrinter,
+  printerShortName,
+  printsKind,
+  resolvePrinter,
+  routeItem,
+  stationOptions,
+  type RoutablePrinter,
+} from '@/lib/print-routing';
+import { rolesLabel, type PrinterRole } from '@/lib/printer-roles';
+import { DefaultRolesField, PrinterRolesField } from '@/components/ui/printer-roles-field';
 import type { PrintJobRow, PrinterRow } from '@/lib/db/types';
 import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
@@ -84,6 +94,8 @@ const toRoutable = (p: OwnerSectionProps['data']['printers'][number]): RoutableP
   machineId: p.machineId,
   name: p.name,
   purpose: p.purpose,
+  roles: p.roles,
+  defaultFor: p.defaultFor,
   station: p.station,
   routes: p.routes,
   online: p.online,
@@ -94,8 +106,9 @@ export function PrintSetupSection(props: OwnerSectionProps) {
   const { data } = props;
   const [tab, setTab] = React.useState<Tab>('overview');
 
-  const kot = data.printers.filter((p) => p.purpose === 'KOT');
-  const bills = data.printers.filter((p) => p.purpose !== 'KOT');
+  // A "kitchen tickets and bills" machine is in both lists (02-Oct-2026).
+  const kot = data.printers.filter((p) => printsKind(p, 'KOT'));
+  const bills = data.printers.filter((p) => printsKind(p, 'Invoice'));
   const failedToday = data.printJobs.filter((j) => j.status === 'failed').length;
   // Assigned and undelivered. Without it the tile below reads "Nothing outstanding" over a
   // history in which nothing has printed at all.
@@ -206,7 +219,7 @@ function OverviewPanel({
                 <span className="min-w-0 flex-1">
                   <span className="block type-body font-semibold">{p.name}</span>
                   <span className="block type-caption text-[var(--text-muted)]">
-                    {p.purpose} · {p.station} · {p.paperMm} mm · {p.connection}
+                    {rolesLabel(p.roles)} · {p.station} · {p.paperMm} mm · {p.connection}
                   </span>
                 </span>
                 <Pill tone={!p.enabled ? 'neutral' : p.online ? 'success' : 'error'}>
@@ -268,6 +281,9 @@ interface PrinterForm {
   machineId: string;
   name: string;
   purpose: string;
+  /** What it prints and what it is the default for (02-Oct-2026). */
+  roles: string[];
+  defaultFor: string[];
   station: string;
   paperMm: number;
   connection: string;
@@ -281,6 +297,8 @@ const blankPrinter = (): PrinterForm => ({
   machineId: '',
   name: '',
   purpose: 'KOT',
+  roles: ['KOT'],
+  defaultFor: [],
   station: 'Main Kitchen',
   paperMm: 80,
   connection: 'Ethernet',
@@ -340,7 +358,9 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         ...(f.id ? { id: f.id } : {}),
         machineId: f.machineId || f.name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, 20),
         name: f.name,
-        purpose: f.purpose,
+        purpose: f.roles.includes('KOT') ? 'KOT' : 'Invoice',
+        roles: f.roles,
+        defaultFor: f.defaultFor,
         station: f.station,
         paperMm: f.paperMm,
         connection: f.connection,
@@ -350,7 +370,7 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         enabled: f.enabled,
       });
       setForm(null);
-      toast.show(`${f.name} saved · ${f.paperMm} mm · ${f.purpose} template`, { tone: 'success' });
+      toast.show(`${f.name} saved · ${f.paperMm} mm · ${rolesLabel(f.roles).toLowerCase()}`, { tone: 'success' });
     });
   };
 
@@ -411,8 +431,13 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                       {addedOnLabel(p.createdAt)}
                     </span>
                     <span className="block type-caption text-[var(--text-muted)]">
-                      {p.purpose} template · {p.station}
+                      {rolesLabel(p.roles)} · {p.station}
                     </span>
+                    {p.defaultFor.length > 0 ? (
+                      <span className="block type-caption font-semibold" data-testid={`owner-print-default-${p.id}`}>
+                        Default for {rolesLabel(p.defaultFor).toLowerCase()}
+                      </span>
+                    ) : null}
                   </span>
                   <Pill tone={!p.enabled ? 'neutral' : p.online ? 'success' : 'error'}>
                     {!p.enabled ? 'Switched off' : p.online ? 'Answering' : 'Not answering'}
@@ -551,18 +576,23 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
               />
             </Field>
 
+            {/* What it prints: kitchen tickets, bills, or both (02-Oct-2026). Replaces the single
+                "What it prints" select, which could not say "both". */}
+            <PrinterRolesField
+              roles={form.roles}
+              onChange={(roles) =>
+                setForm({ ...form, roles, defaultFor: form.defaultFor.filter((r) => roles.includes(r as PrinterRole)) })
+              }
+              testIdPrefix="owner-print"
+            />
+            <DefaultRolesField
+              roles={form.roles}
+              defaultFor={form.defaultFor}
+              onChange={(defaultFor) => setForm({ ...form, defaultFor })}
+              testIdPrefix="owner-print"
+            />
+
             <div className="flex flex-wrap gap-3">
-              <Field label="What it prints" htmlFor="owner-print-purpose" className="min-w-[8rem] flex-1">
-                <Select
-                  id="owner-print-purpose"
-                  value={form.purpose}
-                  onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-                  data-testid="owner-print-purpose"
-                >
-                  <option value="KOT">Kitchen tickets</option>
-                  <option value="Invoice">Bills</option>
-                </Select>
-              </Field>
               <Field label="Station" htmlFor="owner-print-station" className="min-w-[8rem] flex-1">
                 <Input
                   id="owner-print-station"
@@ -1170,7 +1200,7 @@ function TemplatesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
 function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const toast = useToast();
   const printers = data.printers.map(toRoutable);
-  const kotPrinters = data.printers.filter((p) => p.purpose === 'KOT');
+  const kotPrinters = data.printers.filter((p) => printsKind(p, 'KOT'));
   const canEdit = data.grants.includes('set.printer');
   const fallback = mainPrinter('KOT', printers);
   const printCfg = (data.settings.print ?? {}) as { splitByFoodType?: boolean };
@@ -1198,6 +1228,10 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           machineId: from.machineId,
           name: from.name,
           purpose: from.purpose,
+          // Its kinds and defaults go with it: a save without them is read as [purpose], and
+          // would quietly take "Bills" off a printer that prints both (02-Oct-2026).
+          roles: from.roles,
+          defaultFor: from.defaultFor,
           station: from.station,
           paperMm: from.paperMm,
           connection: from.connection,
@@ -1215,6 +1249,10 @@ function RoutingPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           machineId: to.machineId,
           name: to.name,
           purpose: to.purpose,
+          // Its kinds and defaults go with it: a save without them is read as [purpose], and
+          // would quietly take "Bills" off a printer that prints both (02-Oct-2026).
+          roles: to.roles,
+          defaultFor: to.defaultFor,
           station: to.station,
           paperMm: to.paperMm,
           connection: to.connection,
@@ -1362,7 +1400,7 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const [redirectTo, setRedirectTo] = React.useState('');
 
   const alternatives = data.printers.filter(
-    (p) => p.purpose === redirecting?.kind && p.enabled && p.id !== redirecting?.printerId
+    (p) => !!redirecting && printsKind(p, redirecting.kind) && p.enabled && p.id !== redirecting.printerId
   );
 
   const jobs = data.printJobs.filter(
@@ -1575,7 +1613,7 @@ function ItemRoutingTable({
   const [allTo, setAllTo] = React.useState<string | null>(null);
   const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
   const printers = data.printers.map(toRoutable);
-  const kotPrinters = data.printers.filter((p) => p.purpose === 'KOT');
+  const kotPrinters = data.printers.filter((p) => printsKind(p, 'KOT'));
   const stations = stationOptions(data.printers, routing.defaultStation);
   const defaultStationLabel = routing.defaultStation ? `Default (${routing.defaultStation})` : 'Default';
 

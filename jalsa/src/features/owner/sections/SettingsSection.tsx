@@ -13,7 +13,7 @@ import { rupees } from '@/lib/money';
 import { DEFAULT_FEATURES, resolveFeatures } from '@/lib/guest-features';
 import { PrintSetupSection } from './PrintSetupSection';
 import { Combobox } from '@/components/ui/combobox';
-import { stationOptions } from '@/lib/print-routing';
+import { printsKind, stationOptions } from '@/lib/print-routing';
 import { TableStandSheet } from '../TableStandSheet';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { readWelcomeDrinks } from '@/lib/welcome-drinks';
@@ -1618,7 +1618,7 @@ function DefaultStationPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
   const stored = ((data.settings.routing ?? {}) as { defaultStation?: string }).defaultStation ?? '';
   const [station, setStation] = React.useState(stored);
   const stations = stationOptions(data.printers, stored);
-  const at = data.printers.find((p) => p.purpose === 'KOT' && p.enabled && p.station.trim().toLowerCase() === station.trim().toLowerCase());
+  const at = data.printers.find((p) => printsKind(p, 'KOT') && p.enabled && p.station.trim().toLowerCase() === station.trim().toLowerCase());
 
   return (
     <Card className="flex flex-col gap-3" data-testid="owner-default-station">

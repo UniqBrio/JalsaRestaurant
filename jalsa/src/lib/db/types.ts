@@ -271,7 +271,12 @@ export interface PrinterRow {
   id: string;
   machineId: string;
   name: string;
+  /** The primary kind, kept for older readers. What the machine prints is `roles`. */
   purpose: string;
+  /** The kinds of ticket it prints: ['KOT'], ['Invoice'] or both (02-Oct-2026). */
+  roles: string[];
+  /** The kinds the owner chose it as the default printer for. */
+  defaultFor: string[];
   /** Where in the building. What a fallback ticket is stamped with. */
   station: string;
   paperMm: number;

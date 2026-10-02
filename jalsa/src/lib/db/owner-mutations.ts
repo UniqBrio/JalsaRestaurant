@@ -6,6 +6,8 @@ import { NEW_DISH_GRANTS, existingDish, type NewDish } from '@/lib/new-dish';
 import { subMenuProblem } from '@/lib/sub-menus';
 import { KOT_CLASS_LABEL, isKotClass, type FoodType } from '@/lib/status';
 import { testPrintBlocker } from '@/lib/test-print';
+import { printsKind } from '@/lib/print-routing';
+import { normalizeRoles, rolesLabel } from '@/lib/printer-roles';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -1077,6 +1079,10 @@ export async function upsertPrinter(input: {
   machineId: string;
   name: string;
   purpose: string;
+  /** What it prints (02-Oct-2026). Absent: `[purpose]`, as every caller before roles sent. */
+  roles?: string[];
+  /** The kinds it is the default printer for. Absent: unchanged on an update, none on an insert. */
+  defaultFor?: string[];
   station: string;
   paperMm: number;
   connection: string;
@@ -1088,6 +1094,11 @@ export async function upsertPrinter(input: {
 }): Promise<{ id: string }> {
   demand(input.actor, 'set.printer');
   const restaurantId = await currentRestaurantId();
+  const { roles, defaultFor, problem } = normalizeRoles({
+    roles: input.roles ?? [input.purpose],
+    defaultFor: input.defaultFor,
+  });
+  if (problem) throw new Error(problem);
 
   if (!input.name.trim()) throw new Error('Give the machine a name first — somebody has to find it in a kitchen.');
   /* A printer reached THROUGH A PRINTING COMPUTER has no address of its own - the computer is
@@ -1115,7 +1126,11 @@ export async function upsertPrinter(input: {
   const patch = {
     machine_id: input.machineId.trim(),
     name: input.name.trim(),
-    purpose: input.purpose,
+    // `purpose` follows the roles (the database trigger enforces the same rule).
+    purpose: roles.includes('KOT') ? 'KOT' : 'Invoice',
+    roles,
+    // On an update this is replaced below by what the machine keeps; on an insert it is the choice.
+    default_roles: (defaultFor ?? []) as string[],
     station: input.station.trim() || 'Main Kitchen',
     paper_mm: input.paperMm,
     connection: input.connection,
@@ -1128,9 +1143,17 @@ export async function upsertPrinter(input: {
   if (input.id) {
     const { data: before } = await db()
       .from('printer')
-      .select('name,station,routes,enabled')
+      .select('name,station,routes,enabled,default_roles')
       .eq('id', input.id)
       .maybeSingle();
+
+    /* A default it no longer prints is dropped with the role (`printer_default_roles_held`). A
+       caller that sent no defaults - the Routing screen, older clients - keeps the ones it had. */
+    const keptDefaults = (defaultFor ?? ((before?.default_roles as string[] | null) ?? [])).filter((r) =>
+      (roles as string[]).includes(r)
+    );
+    await releaseDefaults(restaurantId, input.id, keptDefaults);
+    patch.default_roles = keptDefaults;
 
     // Scoped to this restaurant, and it must actually change one row: a save that touched
     // nothing is not reported as saved (B1).
@@ -1159,6 +1182,7 @@ export async function upsertPrinter(input: {
     return { id: input.id };
   }
 
+  await releaseDefaults(restaurantId, null, defaultFor ?? []);
   const { data, error } = await db()
     .from('printer')
     .insert({ restaurant_id: restaurantId, online: false, ...patch })
@@ -1168,10 +1192,35 @@ export async function upsertPrinter(input: {
 
   await audit({
     action: 'Settings',
-    detail: `${input.name} added — ${input.paperMm} mm, ${input.station}, ${input.purpose} template`,
+    detail: `${input.name} added — ${input.paperMm} mm, ${input.station}, ${rolesLabel(roles)}`,
     actor: input.actor,
   });
   return { id: data.id as string };
+}
+
+/**
+ * Take each of `kinds` away from whichever OTHER machine is its default, before `printerId`
+ * claims it. The database allows one default per kind per restaurant (`printer_one_default_*`);
+ * clearing first is what lets "make this the default" move the default rather than fail.
+ */
+async function releaseDefaults(restaurantId: string, printerId: string | null, kinds: readonly string[]): Promise<void> {
+  for (const kind of kinds) {
+    const { data, error } = await db()
+      .from('printer')
+      .select('id,default_roles')
+      .eq('restaurant_id', restaurantId)
+      .contains('default_roles', [kind]);
+    if (error) throw error;
+    for (const other of data ?? []) {
+      if (other.id === printerId) continue;
+      const { error: clearErr } = await db()
+        .from('printer')
+        .update({ default_roles: ((other.default_roles as string[]) ?? []).filter((r) => r !== kind) })
+        .eq('id', other.id as string)
+        .eq('restaurant_id', restaurantId);
+      if (clearErr) throw clearErr;
+    }
+  }
 }
 
 /* ── The employment record ─────────────────────────────────────────────── */
@@ -1647,7 +1696,14 @@ function machineIdFor(name: string, taken: ReadonlySet<string>): string {
 export async function savePrinterMapping(input: {
   computerId: string;
   queueName: string;
-  target: { printerId: string } | { name: string; station: string; paperMm: number; purpose: string };
+  target:
+    | { printerId: string; roles?: string[] }
+    | { name: string; station: string; paperMm: number; purpose: string; roles?: string[] };
+  /**
+   * The Jalsa printer this queue printed as BEFORE, when the owner pressed Change on that row
+   * (02-Oct-2026). Only then is an existing mapping on the queue replaced; otherwise nothing is.
+   */
+  replacePrinterId?: string;
   actor: Actor;
 }): Promise<{ printerId: string }> {
   demand(input.actor, 'set.printer');
@@ -1675,6 +1731,47 @@ export async function savePrinterMapping(input: {
   let printerId: string;
   let printerName: string;
 
+  /* What this Windows printer already prints as, on this computer. Read BEFORE anything is
+     written: a "new printer" on a queue that already has one is the SAME physical machine taking
+     another kind of ticket, so it becomes another role on that printer - never a second printer
+     and never a silent replacement (02-Oct-2026). */
+  const { data: onQueue, error: onQueueErr } = await db()
+    .from('bridge_printer')
+    .select('printer_id')
+    .eq('bridge_token_id', input.computerId)
+    .eq('restaurant_id', restaurantId)
+    .eq('queue_name', input.queueName);
+  if (onQueueErr) throw onQueueErr;
+  const sharing = (onQueue ?? []).map((m) => m.printer_id as string).filter((id) => id !== input.replacePrinterId);
+
+  if (!('printerId' in input.target) && sharing.length > 0) {
+    const requested = normalizeRoles({ roles: input.target.roles ?? [input.target.purpose] });
+    if (requested.problem) throw new Error(requested.problem);
+    const { data: same, error: sameErr } = await db()
+      .from('printer')
+      .select('id,name,purpose,roles')
+      .eq('id', sharing[0]!)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle();
+    if (sameErr) throw sameErr;
+    if (same) {
+      const had = (same.roles as string[] | null) ?? [same.purpose as string];
+      const merged = normalizeRoles({ roles: [...had, ...requested.roles] }).roles;
+      const { error: mergeErr } = await db()
+        .from('printer')
+        .update({ roles: merged, purpose: merged.includes('KOT') ? 'KOT' : 'Invoice' })
+        .eq('id', same.id as string)
+        .eq('restaurant_id', restaurantId);
+      if (mergeErr) throw mergeErr;
+      await audit({
+        action: 'Printer',
+        detail: `${same.name as string} (${input.queueName}) now prints ${rolesLabel(merged).toLowerCase()}`,
+        actor: input.actor,
+      });
+      return { printerId: same.id as string };
+    }
+  }
+
   if ('printerId' in input.target) {
     const { data: printer } = await db()
       .from('printer')
@@ -1685,6 +1782,23 @@ export async function savePrinterMapping(input: {
     if (!printer) throw new Error('That printer is no longer configured. Reload the page.');
     printerId = printer.id as string;
     printerName = printer.name as string;
+    // What it prints, when the owner changed it while connecting it (02-Oct-2026). A default for a
+    // kind it no longer prints goes with the kind.
+    if (input.target.roles) {
+      const { roles, problem } = normalizeRoles({ roles: input.target.roles });
+      if (problem) throw new Error(problem);
+      const { data: held } = await db().from('printer').select('default_roles').eq('id', printerId).maybeSingle();
+      const { error: rolesErr } = await db()
+        .from('printer')
+        .update({
+          roles,
+          purpose: roles.includes('KOT') ? 'KOT' : 'Invoice',
+          default_roles: ((held?.default_roles as string[] | null) ?? []).filter((r) => (roles as string[]).includes(r)),
+        })
+        .eq('id', printerId)
+        .eq('restaurant_id', restaurantId);
+      if (rolesErr) throw rolesErr;
+    }
     // Its routes, station and paper stay exactly as the owner configured them. Only how it is
     // reached changes, and only when Windows says it is on USB.
     if (viaUsb) {
@@ -1700,13 +1814,16 @@ export async function savePrinterMapping(input: {
     if (!name) throw new Error('Give the printer a name first — somebody has to find it in a kitchen.');
     const { data: existing } = await db().from('printer').select('machine_id').eq('restaurant_id', restaurantId);
     const taken = new Set((existing ?? []).map((p) => p.machine_id as string));
+    const { roles, problem } = normalizeRoles({ roles: input.target.roles ?? [input.target.purpose] });
+    if (problem) throw new Error(problem);
     const { data: created, error } = await db()
       .from('printer')
       .insert({
         restaurant_id: restaurantId,
         machine_id: machineIdFor(name, taken),
         name,
-        purpose: input.target.purpose === 'Invoice' ? 'Invoice' : 'KOT',
+        purpose: roles.includes('KOT') ? 'KOT' : 'Invoice',
+        roles,
         station: input.target.station.trim() || 'Main Kitchen',
         paper_mm: input.target.paperMm === 58 ? 58 : 80,
         // Reached through this computer, whatever the cable: no address of its own, and no
@@ -1725,17 +1842,22 @@ export async function savePrinterMapping(input: {
     printerName = name;
   }
 
-  /* ONE JALSA PRINTER PER WINDOWS PRINTER (B3). Changing what this queue prints as replaces
-     whatever it printed as before; two Jalsa printers on one paper roll would print every
-     ticket twice. */
-  const { error: clearErr } = await db()
-    .from('bridge_printer')
-    .delete()
-    .eq('bridge_token_id', input.computerId)
-    .eq('restaurant_id', restaurantId)
-    .eq('queue_name', input.queueName)
-    .neq('printer_id', printerId);
-  if (clearErr) throw clearErr;
+  /* CHANGE REPLACES; NOTHING ELSE DOES (02-Oct-2026, superseding B3's "one Jalsa printer per
+     Windows printer"). B3 removed every other mapping on this queue so that two Jalsa printers
+     would not "print every ticket twice" - but every print job names ONE printer, so two Jalsa
+     printers on one paper roll never print the same ticket twice. What the deletion did do was
+     silently unmap the kitchen printer the moment the same machine was set up for bills. Now the
+     only mapping removed is the one the owner pressed Change on. */
+  if (input.replacePrinterId && input.replacePrinterId !== printerId) {
+    const { error: clearErr } = await db()
+      .from('bridge_printer')
+      .delete()
+      .eq('bridge_token_id', input.computerId)
+      .eq('restaurant_id', restaurantId)
+      .eq('queue_name', input.queueName)
+      .eq('printer_id', input.replacePrinterId);
+    if (clearErr) throw clearErr;
+  }
 
   // ONE COMPUTER PER PRINTER. Moving it to this computer replaces the old mapping.
   const { error: mapErr } = await db()
@@ -1785,7 +1907,7 @@ export async function removePrinterMapping(input: { printerId: string; actor: Ac
 async function ownPrinter(printerId: string, restaurantId: string): Promise<{ id: string; name: string; routes: string[] }> {
   const { data, error } = await db()
     .from('printer')
-    .select('id,name,routes,purpose')
+    .select('id,name,routes,purpose,roles')
     .eq('id', printerId)
     .eq('restaurant_id', restaurantId)
     .maybeSingle();
@@ -1793,7 +1915,9 @@ async function ownPrinter(printerId: string, restaurantId: string): Promise<{ id
   if (!data) throw new Error('That printer is no longer configured. Reload the page.');
   // Dishes print kitchen tickets: a bill printer is never a routing target (routeItem would not
   // find it and the dish would fall back silently).
-  if ((data.purpose as string) !== 'KOT') throw new Error(`${data.name as string} prints bills, not kitchen tickets. Choose a kitchen printer.`);
+  // A machine that prints kitchen tickets AND bills is a kitchen printer too (02-Oct-2026).
+  if (!printsKind({ purpose: data.purpose as string, roles: data.roles as string[] | undefined }, 'KOT'))
+    throw new Error(`${data.name as string} prints bills, not kitchen tickets. Choose a kitchen printer.`);
   return { id: data.id as string, name: data.name as string, routes: (data.routes as string[]) ?? [] };
 }
 

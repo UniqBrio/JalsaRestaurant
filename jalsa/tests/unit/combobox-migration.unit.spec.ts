@@ -141,7 +141,10 @@ test('the 11 static selects were left alone', () => {
      the four KOT classifications - a fixed list the database's enum defines, not ids of rows - so
      a static select is the right control there, as it is for Zone. The Food Type ITSELF, a row
      id, is picked with the combobox (FoodTypePicker). */
-  expect(remaining.length, 'thirteen: the two KOT classification selects joined').toBe(13);
+  /* SUPERSEDED 02-Oct-2026: asserted thirteen. The printer form's "What it prints" Select
+     (Kitchen tickets | Bills) could not say "both"; it became the two "Use for" toggles
+     (PrinterRolesField), so twelve remain. */
+  expect(remaining.length, 'twelve: the printer kind became the Use for toggles').toBe(12);
   expect(remaining.filter((f) => f.endsWith('sections/MenuSection.tsx'))).toHaveLength(2);
   expect(read('src/features/owner/sections/MenuSection.tsx')).toContain('KOT_CLASSES.map((c) => (');
   // Merged 26-Sep-2026: the new-dish form (E1) and the sub-menu parent picker (I3) both use the

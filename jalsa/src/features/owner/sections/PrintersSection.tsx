@@ -24,6 +24,8 @@ import { PrintSetupSection } from './PrintSetupSection';
 import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
 import type { TicketKind } from '@/lib/print-template';
 import { stationOptions } from '@/lib/print-routing';
+import { rolesLabel, type PrinterRole } from '@/lib/printer-roles';
+import { PrinterRolesField } from '@/components/ui/printer-roles-field';
 
 /**
  * Printers — the owner's own entry point to printing (23-Sep-2026).
@@ -61,7 +63,7 @@ function useNow(intervalMs: number): Date {
 /** A Windows queue name, tidied into what a person would call the printer. */
 const suggestedName = (queueName: string): string => queueName.replace(/\s*\((copy|redirected)[^)]*\)\s*$/i, '').trim();
 
-type Target = { kind: 'existing'; printerId: string } | { kind: 'new'; name: string; station: string; paperMm: number; purpose: string };
+type Target = { kind: 'existing'; printerId: string; roles: PrinterRole[] } | { kind: 'new'; name: string; station: string; paperMm: number; roles: PrinterRole[] };
 
 export function PrintersSection(props: OwnerSectionProps) {
   const { data, send, runBusy, busy } = props;
@@ -350,8 +352,13 @@ export function PrintersSection(props: OwnerSectionProps) {
                       ) : (
                         <ul className="m-0 flex list-none flex-col gap-1 p-0">
                           {[...real, ...software].map((d) => {
-                            const mapped = data.printerMappings.find((m) => m.computerId === c.id && m.queueName === d.queueName);
-                            const jalsaPrinter = mapped ? printerById.get(mapped.printerId) : undefined;
+                            // Every Jalsa printer this Windows printer serves - since 02-Oct-2026 there can be
+                            // more than one, and listing only the first hid the others' Change and Stop.
+                            const onQueue = data.printerMappings
+                              .filter((m) => m.computerId === c.id && m.queueName === d.queueName)
+                              .map((m) => printerById.get(m.printerId))
+                              .filter((p): p is PrinterRow => !!p);
+                            const jalsaPrinter = onQueue[0];
                             const word =
                               d.status === 'ready' ? 'Available' : d.status === 'offline' ? 'Offline' : d.status === 'error' ? 'Needs attention' : 'Unknown';
                             return (
@@ -363,9 +370,11 @@ export function PrintersSection(props: OwnerSectionProps) {
                                   </span>
                                 </span>
                                 <Pill tone={d.status === 'ready' ? 'success' : d.status === 'unknown' ? 'neutral' : 'error'}>{word}</Pill>
-                                {jalsaPrinter ? (
-                                  <>
-                                    <span className="type-caption font-semibold">→ {jalsaPrinter.station} · {jalsaPrinter.name}</span>
+                                {jalsaPrinter ? onQueue.map((jalsaPrinter) => (
+                                  <span key={jalsaPrinter.id} className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+                                    <span className="type-caption font-semibold" data-testid={`owner-printers-mapped-${jalsaPrinter.id}`}>
+                                      → {jalsaPrinter.station} · {jalsaPrinter.name} · {rolesLabel(jalsaPrinter.roles)}
+                                    </span>
                                     {/* Change what it prints as, or stop using it, from right here (B3):
                                         a mapped printer used to show no control at all. */}
                                     {canEdit ? (
@@ -390,8 +399,8 @@ export function PrintersSection(props: OwnerSectionProps) {
                                         </Button>
                                       </>
                                     ) : null}
-                                  </>
-                                ) : canEdit ? (
+                                  </span>
+                                )) : canEdit ? (
                                   <Button
                                     data-testid={`owner-printers-select-${c.id}-${d.queueName.replace(/[^A-Za-z0-9]+/g, '-')}`}
                                     size="sm"
@@ -650,7 +659,7 @@ function ChoosePrinterSheet({
   const toast = useToast();
   // A new printer starts at the default station (item 30), else Main Kitchen as before.
   const firstStation = ((data.settings.routing ?? {}) as { defaultStation?: string }).defaultStation?.trim() || 'Main Kitchen';
-  const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: firstStation, paperMm: 80, purpose: 'KOT' });
+  const [target, setTarget] = React.useState<Target>({ kind: 'new', name: '', station: firstStation, paperMm: 80, roles: ['KOT'] });
 
   // Reset the form for each printer chosen. The suggested name comes from Windows' own name.
   const key = choosing ? `${choosing.computer.id}/${choosing.printer.queueName}` : '';
@@ -659,12 +668,17 @@ function ChoosePrinterSheet({
     setFormKey(key);
     setTarget(
       choosing?.currentPrinterId
-        ? { kind: 'existing', printerId: choosing.currentPrinterId }
-        : { kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: firstStation, paperMm: 80, purpose: 'KOT' }
+        ? { kind: 'existing', printerId: choosing.currentPrinterId, roles: rolesFor(choosing.currentPrinterId) }
+        : { kind: 'new', name: choosing ? suggestedName(choosing.printer.queueName) : '', station: firstStation, paperMm: 80, roles: ['KOT'] }
     );
   }
 
   const stations = stationOptions(existing, firstStation);
+
+  function rolesFor(printerId: string): PrinterRole[] {
+    const roles = existing.find((p) => p.id === printerId)?.roles ?? ['KOT'];
+    return (['KOT', 'Invoice'] as const).filter((r) => roles.includes(r));
+  }
 
   const save = (): void => {
     if (!choosing) return;
@@ -674,8 +688,16 @@ function ChoosePrinterSheet({
         computerId: choosing.computer.id,
         queueName: choosing.printer.queueName,
         ...(target.kind === 'existing'
-          ? { printerId: target.printerId }
-          : { name: target.name, station: target.station, paperMm: target.paperMm, purpose: target.purpose }),
+          ? { printerId: target.printerId, roles: target.roles }
+          : {
+              name: target.name,
+              station: target.station,
+              paperMm: target.paperMm,
+              purpose: target.roles.includes('KOT') ? 'KOT' : 'Invoice',
+              roles: target.roles,
+            }),
+        // Change on a row replaces THAT mapping; Select never replaces anything (02-Oct-2026).
+        ...(choosing.currentPrinterId ? { replacePrinterId: choosing.currentPrinterId } : {}),
       });
       onClose();
       toast.show('Printer saved. Press Test Print to check it.', { tone: 'success' });
@@ -716,8 +738,8 @@ function ChoosePrinterSheet({
               onValueChange={(v) =>
                 setTarget(
                   v === 'new'
-                    ? { kind: 'new', name: suggestedName(choosing.printer.queueName), station: firstStation, paperMm: 80, purpose: 'KOT' }
-                    : { kind: 'existing', printerId: v }
+                    ? { kind: 'new', name: suggestedName(choosing.printer.queueName), station: firstStation, paperMm: 80, roles: ['KOT'] }
+                    : { kind: 'existing', printerId: v, roles: rolesFor(v) }
                 )
               }
               options={[
@@ -761,17 +783,11 @@ function ChoosePrinterSheet({
                 />
               </Field>
               <div className="flex flex-wrap gap-6">
-                <div className="flex flex-col gap-1.5">
-                  <span className="type-caption font-semibold">What it prints</span>
-                  <div className="flex gap-2">
-                    <Chip on={target.purpose === 'KOT'} onClick={() => setTarget({ ...target, purpose: 'KOT' })} data-testid="owner-printers-purpose-kot">
-                      Kitchen tickets
-                    </Chip>
-                    <Chip on={target.purpose === 'Invoice'} onClick={() => setTarget({ ...target, purpose: 'Invoice' })} data-testid="owner-printers-purpose-bill">
-                      Bills
-                    </Chip>
-                  </div>
-                </div>
+                <PrinterRolesField
+                  roles={target.roles}
+                  onChange={(roles) => setTarget({ ...target, roles })}
+                  testIdPrefix="owner-printers"
+                />
                 <div className="flex flex-col gap-1.5">
                   <span className="type-caption font-semibold">Paper</span>
                   <div className="flex gap-2">
@@ -786,9 +802,16 @@ function ChoosePrinterSheet({
               </div>
             </>
           ) : (
-            <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
-              Its station, paper width and routing stay exactly as they are. Only how Jalsa reaches it changes.
-            </p>
+            <>
+              <PrinterRolesField
+                roles={target.roles}
+                onChange={(roles) => setTarget({ ...target, roles })}
+                testIdPrefix="owner-printers-existing"
+              />
+              <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+                Its station, paper width and routing stay exactly as they are. Only how Jalsa reaches it changes.
+              </p>
+            </>
           )}
         </div>
       ) : null}

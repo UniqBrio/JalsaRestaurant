@@ -95,11 +95,17 @@ test('B3: the chooser offers every printer, and says when choosing one moves it'
 });
 
 test('B3: one Windows printer prints as one Jalsa printer', () => {
+  // Superseded 02-Oct-2026 (printer roles). This previously asserted that saving a mapping
+  // DELETED every other mapping on the same Windows queue (`.neq('printer_id', printerId)`)
+  // before the upsert. That deletion silently unmapped the kitchen printer whenever the same
+  // machine was set up for bills. Now one Windows printer is ONE Jalsa printer with several
+  // roles: a "new printer" on an already-used queue merges its roles into that printer, and the
+  // only mapping ever removed is the one the owner pressed Change on (`replacePrinterId`).
   const fn = bodyOf(OWNER, 'export async function savePrinterMapping');
-  expect(fn).toMatch(
-    /\.delete\(\)\s*\.eq\('bridge_token_id', input\.computerId\)[\s\S]*\.eq\('queue_name', input\.queueName\)\s*\.neq\('printer_id', printerId\)/
-  );
-  expect(fn.indexOf(".neq('printer_id', printerId)")).toBeLessThan(fn.indexOf('.upsert('));
+  expect(fn).not.toContain(".neq('printer_id', printerId)");
+  expect(fn).toMatch(/if \(input\.replacePrinterId && input\.replacePrinterId !== printerId\)/);
+  expect(fn).toMatch(/\.eq\('queue_name', input\.queueName\)\s*\.eq\('printer_id', input\.replacePrinterId\)/);
+  expect(fn.indexOf("eq('printer_id', input.replacePrinterId)")).toBeLessThan(fn.indexOf('.upsert('));
 });
 
 test('B3: disconnecting a computer takes its printers off it', () => {

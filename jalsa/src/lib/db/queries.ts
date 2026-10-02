@@ -906,7 +906,9 @@ export async function listPrinters(): Promise<PrinterRow[]> {
   const [{ data, error }, lastPrinted] = await Promise.all([
     db()
       .from('printer')
-      .select('id,machine_id,name,purpose,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at,created_at')
+      .select(
+        'id,machine_id,name,purpose,roles,default_roles,station,paper_mm,routes,chefs,connection,address,port,online,enabled,last_seen_at,created_at'
+      )
       .eq('restaurant_id', restaurantId)
       .order('machine_id', { ascending: true }),
     latestPerKey('printer_id', 'completed_at', restaurantId),
@@ -917,6 +919,8 @@ export async function listPrinters(): Promise<PrinterRow[]> {
     machineId: p.machine_id as string,
     name: p.name as string,
     purpose: p.purpose as string,
+    roles: (p.roles as string[] | null) ?? [p.purpose as string],
+    defaultFor: (p.default_roles as string[] | null) ?? [],
     station: (p.station as string) ?? 'Main Kitchen',
     paperMm: p.paper_mm as number,
     routes: (p.routes as string[]) ?? [],

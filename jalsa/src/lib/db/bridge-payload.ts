@@ -67,9 +67,9 @@ const TEST_BILL_KIND = 'TestBill';
 async function routableFor(restaurantId: string, purpose: string): Promise<RoutablePrinter[]> {
   const { data } = await db()
     .from('printer')
-    .select('id,machine_id,name,purpose,station,routes,online,enabled')
+    .select('id,machine_id,name,purpose,roles,default_roles,station,routes,online,enabled')
     .eq('restaurant_id', restaurantId)
-    .eq('purpose', purpose)
+    .contains('roles', [purpose])
     .order('machine_id', { ascending: true });
 
   return (data ?? []).map((p) => ({
@@ -77,6 +77,8 @@ async function routableFor(restaurantId: string, purpose: string): Promise<Routa
     machineId: p.machine_id as string,
     name: p.name as string,
     purpose: p.purpose as string,
+    roles: (p.roles as string[] | null) ?? [p.purpose as string],
+    defaultFor: (p.default_roles as string[] | null) ?? [],
     station: (p.station as string) ?? 'Main Kitchen',
     routes: (p.routes as string[]) ?? [],
     online: p.online as boolean,
