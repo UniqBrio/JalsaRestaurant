@@ -35,6 +35,18 @@ export interface BillInput {
   taxRate: number;
   /** Sum of the tip ledger rows against this bill. */
   tip?: number;
+  /**
+   * Packaging charge in rupees - a takeaway's parcel cost, typed by a person (02-Oct-2026). NOT an
+   * item: it is not in `subtotal`, is never discounted, and is not item sales in any report.
+   */
+  packaging?: number;
+  /**
+   * Whether GST is charged on the packaging charge - the owner's decision, snapshot on the bill
+   * (`bill.packaging_taxable`). `true` adds it to the taxable figure; `false` adds it after tax.
+   * Null/absent with a non-zero charge cannot be stored (`bill_packaging_tax_decided`), so it
+   * never reaches here; with a zero charge the answer is irrelevant.
+   */
+  packagingTaxable?: boolean | null;
 }
 
 export interface BillTotals {
@@ -42,8 +54,11 @@ export interface BillTotals {
   subtotal: number;
   /** What the discount actually removed, in rupees - not the percentage that was typed. */
   discount: number;
-  /** Subtotal minus discount. The figure tax is charged on. */
+  /** Subtotal minus discount, plus the packaging charge when GST applies to it. The figure tax is
+   *  charged on. Equal to subtotal minus discount on every bill with no packaging charge. */
   taxable: number;
+  /** The packaging charge, in whole rupees. Zero on every dine-in bill. */
+  packaging: number;
   tax: number;
   tip: number;
   /** What the guest owes. Includes the tip. */
@@ -69,7 +84,10 @@ export function totalBill(input: BillInput): BillTotals {
   const flat = Math.max(0, asInt(input.discountAmount ?? 0));
   const discount = Math.min(subtotal, fromPct + flat);
 
-  const taxable = subtotal - discount;
+  const afterDiscount = subtotal - discount;
+  // The packaging charge is never discounted (it is not food) and is taxed only by decision.
+  const packaging = Math.max(0, asInt(input.packaging ?? 0));
+  const taxable = afterDiscount + (input.packagingTaxable === true ? packaging : 0);
   const tax = asInt((taxable * clamp(input.taxRate, 0, 100)) / 100);
   const tip = Math.max(0, asInt(input.tip ?? 0));
 
@@ -77,11 +95,36 @@ export function totalBill(input: BillInput): BillTotals {
     subtotal,
     discount,
     taxable,
+    packaging,
     tax,
     tip,
-    payable: taxable + tax + tip,
-    restaurantIncome: taxable + tax,
+    payable: afterDiscount + packaging + tax + tip,
+    // The restaurant charged for the packaging, so it is income - but never item sales.
+    restaurantIncome: afterDiscount + packaging + tax,
   };
+}
+
+/**
+ * The problem with a typed packaging charge, in a sentence, or null when it can be stored.
+ *
+ * Whole rupees, as every price in Jalsa is (see "WHY MONEY IS AN INTEGER OF RUPEES" above): a
+ * charge typed as 12.50 would print as ₹13 and the bill would disagree with what was typed.
+ * Empty is zero - most parcels carry no charge.
+ */
+export function packagingProblem(text: string): string | null {
+  const t = text.trim();
+  if (t === '') return null;
+  if (/^-/.test(t)) return 'A packaging charge cannot be negative.';
+  if (!/^\d+$/.test(t)) return 'Whole rupees only - digits, no letters or decimals.';
+  if (Number(t) > 100000) return 'That is more than any packaging charge. Check the amount.';
+  return null;
+}
+
+/** The typed packaging charge as rupees, or null when `packagingProblem` objects. Empty is 0. */
+export function parsePackaging(text: string | number | null | undefined): number | null {
+  const t = typeof text === 'number' ? String(text) : (text ?? '');
+  if (packagingProblem(t)) return null;
+  return t.trim() === '' ? 0 : Number(t.trim());
 }
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -120,6 +163,8 @@ export interface TotalsRow {
 export function totalsRows(t: BillTotals, opts: { taxRate: number; tipTo?: string }): TotalsRow[] {
   const rows: TotalsRow[] = [{ label: 'Food', value: rupees(t.subtotal) }];
   if (t.discount > 0) rows.push({ label: 'Discount', value: `− ${rupees(t.discount)}` });
+  // A separate line, never an item (02-Oct-2026). Absent when there is no charge.
+  if (t.packaging > 0) rows.push({ label: 'Packaging charges', value: rupees(t.packaging) });
   rows.push({ label: `GST ${opts.taxRate}%`, value: rupees(t.tax) });
   rows.push({
     label: opts.tipTo ? `Tip for ${opts.tipTo}` : 'Tip for the team',

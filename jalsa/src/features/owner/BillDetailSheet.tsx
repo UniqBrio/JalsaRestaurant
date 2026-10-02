@@ -77,7 +77,7 @@ export function BillDetailSheet({
       open={open}
       onOpenChange={onOpenChange}
       posture="modal"
-      title={`${bill.code} · ${bill.tables.join(', ')}`}
+      title={`${bill.code} · ${bill.place}`}
       description={`${bill.guests} ${bill.guests === 1 ? 'guest' : 'guests'} · opened ${bill.openedAt}${
         bill.closedAt ? ` · closed ${bill.closedAt}` : ''
       }`}

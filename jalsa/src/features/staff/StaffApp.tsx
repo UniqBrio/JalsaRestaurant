@@ -248,10 +248,10 @@ function titleFor(tab: StaffTab, data: StaffPayload, billId: string | null, tabl
       return 'My tables';
     case 'table':
       return bill
-        ? `${bill.groupCode ? `Group ${bill.groupCode}` : `Table ${bill.tables.join(', ')}`} · ${bill.code}`
+        ? `${bill.groupCode ? `Group ${bill.groupCode}` : bill.orderType === 'takeaway' ? bill.place : `Table ${bill.place}`} · ${bill.code}`
         : 'Table';
     case 'menu':
-      if (bill) return `Add items · ${bill.tables.join(', ')}`;
+      if (bill) return `Add items · ${bill.place}`;
       // A walk-in: the table is named before it has a bill to name it by.
       return freeTable ? `New round · ${freeTable.name}` : 'Add items';
     case 'ready':

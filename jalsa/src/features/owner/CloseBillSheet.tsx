@@ -113,7 +113,7 @@ export function CloseBillSheet({
       onOpenChange={onOpenChange}
       posture="modal"
       title={`Record payment · ${bill.code}`}
-      description={`${bill.tables.join(', ')} · ${bill.guests} guests · opened ${bill.openedAt}`}
+      description={`${bill.place} · ${bill.orderType === 'takeaway' ? 'no table' : `${bill.guests} guests`} · opened ${bill.openedAt}`}
       testId="owner-close-sheet"
       footer={
         <>
@@ -135,8 +135,12 @@ export function CloseBillSheet({
                   ...(payload ?? {}),
                 });
                 toast.show(
-                  `${bill.code} closed as ${mode.toLowerCase()} — ${rupees(res.payable)}. ${
-                    bill.tables.length > 1 ? `${bill.tables.length} tables freed.` : `Table ${bill.tables[0]} freed.`
+                  `${bill.code} closed as ${mode.toLowerCase()} — ${rupees(res.payable)}.${
+                    bill.orderType === 'takeaway'
+                      ? ''
+                      : bill.tables.length > 1
+                        ? ` ${bill.tables.length} tables freed.`
+                        : ` Table ${bill.tables[0]} freed.`
                   }`,
                   { tone: 'success' }
                 );

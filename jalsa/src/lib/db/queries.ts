@@ -4,6 +4,7 @@ import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { FOOD_TYPE, phonesHoldingTables, tableStateFrom, type KotStatus } from '@/lib/status';
 import { isCounterNotice } from '@/lib/payment-notice';
 import { totalBill } from '@/lib/money';
+import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import type {
   AuditRow,
   Bill,
@@ -148,7 +149,7 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
 const BILL_SELECT = `
   id, code, status, group_code, guests, occasion_type, occasion_name, occasion_source,
   discount_pct, discount_amount, tax_rate, payment_mode, payment_reference,
-  payment_requested_at, closed_at, opened_at,
+  payment_requested_at, closed_at, opened_at, order_type, packaging_charge, packaging_taxable,
   host_table:host_table_id (name),
   captain:captain_staff_id (id, name),
   waiter:waiter_staff_id (id, name),
@@ -241,7 +242,8 @@ function shapeBill(row: Record<string, unknown>): Bill {
         status: k.status as KotStatus,
         source: k.source as Kot['source'],
         placedBy: (k.placed_by_label as string) ?? '',
-        tableName: t?.name ?? '',
+        // A takeaway round is at no table: it says so, everywhere a round's place is shown.
+        tableName: t?.name ?? (row.order_type === 'takeaway' ? TAKEAWAY_LABEL : ''),
         note: (k.note as string) ?? '',
         printStatus: k.print_status as Kot['printStatus'],
         printAttempts: (k.print_attempts as number) ?? 0,
@@ -305,6 +307,11 @@ function shapeBill(row: Record<string, unknown>): Bill {
     closedAt: (row.closed_at as string) ?? null,
     closedBy: closedBy?.name ?? null,
     openedAt: row.opened_at as string,
+    // 02-Oct-2026. A bill read before the takeaway migration has none of these: it is dine-in,
+    // with nothing for packaging.
+    orderType: row.order_type === 'takeaway' ? 'takeaway' : 'dine_in',
+    packagingCharge: Number(row.packaging_charge ?? 0),
+    packagingTaxable: (row.packaging_taxable as boolean | null | undefined) ?? null,
     kots,
   };
 }
@@ -326,6 +333,10 @@ export function billTotals(bill: Bill) {
     discountAmount: bill.discountAmount,
     taxRate: bill.taxRate,
     tip: bill.tip,
+    // A takeaway's packaging charge - a separate line, never an item (02-Oct-2026). Zero, and
+    // therefore no change at all, on every dine-in bill.
+    packaging: bill.packagingCharge,
+    packagingTaxable: bill.packagingTaxable,
   });
 }
 

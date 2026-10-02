@@ -17,7 +17,8 @@ import { actorFor, type SignedInStaff } from './auth';
 import { readWelcomeDrinks, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
 import type { SpineFields } from '@/components/ui/bill';
 import { billTotals, listFloor, listMenu, listOpenBills, listOpenRequests, readAllSettings } from './queries';
-import type { Bill, FloorTable, KotPrintJob, PrintJobStatus } from './types';
+import type { Bill, FloorTable, KotPrintJob, OrderType, PrintJobStatus } from './types';
+import { placeLabel } from '@/lib/takeaway';
 
 /**
  * staff-view — what a captain's or waiter's phone is given.
@@ -68,6 +69,9 @@ export interface StaffBillView {
   status: Bill['status'];
   spine: SpineFields;
   tables: string[];
+  /** Its tables, or TAKEAWAY for an order at no table (02-Oct-2026). */
+  place: string;
+  orderType: OrderType;
   groupCode: string | null;
   hostTable: string;
   guests: number;
@@ -210,12 +214,14 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       status: b.status,
       spine: {
         captain: b.captain,
-        table: b.tables.join(' · '),
+        table: placeLabel(b, ' · '),
         bill: b.code,
         waiter: b.waiter,
         kot: lastKot ? lastKot.code : '—',
       },
       tables: b.tables,
+      place: placeLabel(b),
+      orderType: b.orderType,
       groupCode: b.groupCode,
       hostTable: b.hostTable,
       guests: b.guests,

@@ -14,6 +14,8 @@ import {
   clearTable,
   ensureOpenBill,
   placeRound,
+  placeTakeaway,
+  setPackagingCharge,
   reassignBillStaff,
   joinTableToBill,
   replyToSuggestion,
@@ -23,6 +25,7 @@ import {
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { newDishProblem, type NewDish } from '@/lib/new-dish';
+import { getBill } from '@/lib/db/queries';
 import {
   addCategory,
   addDishWhileOrdering,
@@ -79,6 +82,16 @@ type Action =
   | { action: 'complete-request'; requestId: string }
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'add-round'; tableId: string; lines: Array<{ menuItemId: string; qty: number }> }
+  /* Takeaway (02-Oct-2026): an order at no table. `packagingCharge` is whole rupees, typed. */
+  | {
+      action: 'takeaway';
+      lines: Array<{ menuItemId: string; qty: number }>;
+      packagingCharge?: number | string;
+      note?: string;
+    }
+  /* More items for a takeaway already open - the parcel customer who adds a drink. */
+  | { action: 'takeaway-round'; billId: string; lines: Array<{ menuItemId: string; qty: number }> }
+  | { action: 'set-packaging'; billId: string; packagingCharge: number | string }
   | { action: 'free-table'; tableId: string }
   | { action: 'clear-table'; tableId: string }
   | { action: 'reassign-bill-staff'; billId: string; role: 'captain' | 'waiter'; staffId: string | null }
@@ -297,6 +310,44 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       // two eventually disagree.
       await freeTable({ tableId: input.tableId, actor });
       return ok({ done: true });
+
+    case 'takeaway': {
+      /* The same round the floor places - `placeRound` - on a bill at no table. Permissions are
+         the operation's (`placeTakeaway` demands orders.create and orders.add_items), not this
+         door's, for the reason add-round gives above. */
+      const placed = await placeTakeaway({
+        lines: input.lines,
+        packagingCharge: Number(typeof input.packagingCharge === 'string' ? input.packagingCharge.trim() || 0 : input.packagingCharge ?? 0),
+        source: 'owner',
+        actor,
+        ...(input.note ? { note: input.note } : {}),
+      });
+      if (!placed.billId) {
+        return fail(409, {
+          code: 'conflict',
+          message: `Nothing was sent — ${placed.refused.join(', ')} ${placed.refused.length === 1 ? 'is' : 'are'} off the menu.`,
+        });
+      }
+      return ok(placed);
+    }
+
+    case 'takeaway-round': {
+      const bill = await getBill(input.billId);
+      if (!bill || bill.orderType !== 'takeaway' || bill.status !== 'open') {
+        return fail(409, { code: 'conflict', message: 'That takeaway is no longer open.' });
+      }
+      const placed = await placeRound({ billId: bill.id, tableId: null, lines: input.lines, source: 'owner', actor });
+      if (!placed.kotId) {
+        return fail(409, {
+          code: 'conflict',
+          message: `Nothing was sent — ${placed.refused.join(', ')} ${placed.refused.length === 1 ? 'is' : 'are'} off the menu.`,
+        });
+      }
+      return ok({ kotCode: placed.kotCode, refused: placed.refused, billId: bill.id });
+    }
+
+    case 'set-packaging':
+      return ok(await setPackagingCharge({ billId: input.billId, packagingCharge: input.packagingCharge, actor }));
 
     case 'clear-table':
       /* The same verb the captain's To clear list sends (28-Sep-2026): until now the console

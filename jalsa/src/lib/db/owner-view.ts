@@ -4,6 +4,7 @@ import { isCounterNotice } from '@/lib/payment-notice';
 import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
+import { placeLabel } from '@/lib/takeaway';
 import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
@@ -33,7 +34,7 @@ import { currentRestaurantId, db } from '@/lib/supabase/server';
 import { currentBridgeDownload } from '@/lib/print-bridge-artifact';
 import type {
   AuditRow, Bill, BridgeTokenRow, ExpenseRow, PrintComputerRow, PrinterMappingRow, KotPrintJob, PrinterRow, PrintJobRow, PrintJobStatus, StaffMember, Suggestion, TipRow, WaitlistRow,
-  MenuFoodType,
+  MenuFoodType, OrderType,
 } from './types';
 
 /**
@@ -60,6 +61,13 @@ export interface OwnerBillView {
   tone: Tone;
   spine: SpineFields;
   tables: string[];
+  /** 'takeaway' is at no table: `tables` is empty and `place` reads TAKEAWAY (02-Oct-2026). */
+  orderType: OrderType;
+  /** Where the order is, in words: its tables, or TAKEAWAY. What every card shows. */
+  place: string;
+  /** A takeaway's packaging charge, rupees; and whether GST applies to it (null: undecided). */
+  packagingCharge: number;
+  packagingTaxable: boolean | null;
   groupCode: string | null;
   guests: number;
   openedAt: string;
@@ -261,12 +269,16 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     tone: b.status === 'payment_requested' ? 'primary' : b.status === 'closed' ? 'success' : 'neutral',
     spine: {
       captain: b.captain,
-      table: b.tables.join(' · '),
+      table: placeLabel(b, ' · '),
       bill: b.code,
       waiter: b.waiter,
       kot: lastKot ? lastKot.code : '—',
     },
     tables: b.tables,
+    orderType: b.orderType,
+    place: placeLabel(b),
+    packagingCharge: b.packagingCharge,
+    packagingTaxable: b.packagingTaxable,
     groupCode: b.groupCode,
     guests: b.guests,
     openedAt: timeLabel(b.openedAt),

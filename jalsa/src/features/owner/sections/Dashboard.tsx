@@ -4,11 +4,12 @@ import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, Pill, SectionLabel } from '@/components/ui/atoms';
-import { Input, Textarea } from '@/components/ui/field';
+import { Field, Input, Textarea } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { Sheet } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
-import { rupees } from '@/lib/money';
+import { packagingProblem, parsePackaging, rupees, totalBill, totalsRows } from '@/lib/money';
+import { PACKAGING_TAX_UNDECIDED, TAKEAWAY_LABEL, packagingTaxableFrom } from '@/lib/takeaway';
 import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
@@ -48,8 +49,11 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
      where the grant is held, for the same reason Mark free is: a control that is offered and
      then refused is worse than one that was never there (Standard 5.6). The server checks it
      again inside `placeRound`, which is where the rule actually lives. */
-  const [seating, setSeating] = React.useState<(typeof data.floor)[number] | null>(null);
+  const [target, setTarget] = React.useState<RoundTarget | null>(null);
   const canOrder = data.grants.includes('orders.add_items');
+  // A takeaway CREATES an order: both grants, as `placeTakeaway` demands (02-Oct-2026).
+  const canTakeaway = canOrder && data.grants.includes('orders.create');
+  const takeaways = data.openBills.filter((b) => b.orderType === 'takeaway');
 
   const replies = ((data.settings.replies ?? {}) as { items?: Array<{ name: string; text: string }> }).items ?? [];
   const unanswered = data.suggestions.filter((s) => !s.repliedAt);
@@ -217,9 +221,9 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           empty. A cart left over from a table the owner decided against would otherwise be sent
           to the next one — and resetting it in an effect is a render that fixes a render. */}
       <NewRoundSheet
-        key={seating?.id ?? 'none'}
-        table={seating}
-        onClose={() => setSeating(null)}
+        key={targetKey(target)}
+        target={target}
+        onClose={() => setTarget(null)}
         menu={data.menu}
         categories={data.categories}
         foodTypes={data.foodTypes}
@@ -229,7 +233,45 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         runBusy={runBusy}
         busy={busy}
         go={go}
+        tax={taxFor(data.settings.tax)}
       />
+
+      {/* TAKEAWAY (02-Oct-2026): an order at no table. A button and the takeaways still open -
+          never tiles on the floor grid, because they are not tables and must not read as one. */}
+      {canTakeaway || takeaways.length > 0 ? (
+        <section data-testid="owner-takeaway">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <SectionLabel className="mb-0">
+              Takeaway{takeaways.length ? ` · ${takeaways.length} open` : ''}
+            </SectionLabel>
+            {canTakeaway ? (
+              <Button data-testid="owner-takeaway-start" size="sm" variant="secondary" onClick={() => setTarget({ kind: 'takeaway' })}>
+                Takeaway
+              </Button>
+            ) : null}
+          </div>
+          {takeaways.length ? (
+            <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+              {takeaways.map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    data-testid={`owner-takeaway-open-${b.code}`}
+                    onClick={() => go('orders', b.id)}
+                    className="rounded-[var(--radius-md)] bg-[var(--surface)] p-3 text-left shadow-[var(--shadow-card)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+                  >
+                    <span className="block type-caption font-bold tracking-[0.08em]">{TAKEAWAY_LABEL}</span>
+                    <span className="block type-body font-semibold">Order {b.code}</span>
+                    <span className="block type-caption text-[var(--text-muted)]">
+                      {b.statusLabel} · {b.payableLabel}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
 
       <section>
         <SectionLabel>Floor right now</SectionLabel>
@@ -242,7 +284,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                 /* Seated: open its bill. Free and orderable: start a round on it. Otherwise
                    inert, which is what an off-duty table should be. */
                 disabled={!t.billId && !(canOrder && t.active && t.clearing === null)}
-                onClick={() => (t.billId ? go('orders', t.billId) : setSeating(t))}
+                onClick={() => (t.billId ? go('orders', t.billId) : setTarget({ kind: 'table', table: t }))}
 
                 className={cn(
                   'w-full rounded-[var(--radius-md)] p-3 text-left shadow-[var(--shadow-card)] transition-colors',
@@ -472,8 +514,27 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
  *   The same choice the captain's screen makes. An owner looking for a dish needs to learn that
  *   it is off tonight; a dish that silently vanishes reads as a bug in the menu.
  */
-function NewRoundSheet({
-  table,
+/**
+ * Who a new round is for (02-Oct-2026): a free table, as before; a new TAKEAWAY, at no table; or
+ * more items on a takeaway already open. One sheet and one menu for all three - a second menu for
+ * parcels would be the "two ways to do one thing" this console treats as a defect.
+ */
+export type RoundTarget =
+  | { kind: 'table'; table: OwnerPayload['floor'][number] }
+  | { kind: 'takeaway' }
+  | { kind: 'takeaway-more'; billId: string; code: string };
+
+/** The rate and the packaging decision the takeaway review totals with, from the `tax` setting. */
+export const taxFor = (tax: Record<string, unknown> | undefined): { rate: number; packagingTaxable: boolean | null } => ({
+  rate: typeof tax?.rate === 'number' ? tax.rate : 5,
+  packagingTaxable: packagingTaxableFrom(tax),
+});
+
+export const targetKey = (t: RoundTarget | null): string =>
+  !t ? 'none' : t.kind === 'table' ? t.table.id : t.kind === 'takeaway' ? 'takeaway' : `more-${t.billId}`;
+
+export function NewRoundSheet({
+  target,
   onClose,
   menu,
   categories,
@@ -484,8 +545,9 @@ function NewRoundSheet({
   runBusy,
   busy,
   go,
+  tax,
 }: {
-  table: OwnerPayload['floor'][number] | null;
+  target: RoundTarget | null;
   onClose: () => void;
   menu: OwnerPayload['menu'];
   categories: OwnerPayload['categories'];
@@ -496,55 +558,108 @@ function NewRoundSheet({
   runBusy: OwnerSectionProps['runBusy'];
   busy: boolean;
   go: OwnerSectionProps['go'];
+  /** The bill's tax rate and the owner's packaging decision - what the takeaway review totals with. */
+  tax: { rate: number; packagingTaxable: boolean | null };
 }) {
   const toast = useToast();
   const [query, setQuery] = React.useState('');
   const [cart, setCart] = React.useState<Record<string, number>>({});
+  // Typed exactly as entered; validated by the same function the server uses.
+  const [packagingText, setPackagingText] = React.useState('');
+  const table = target?.kind === 'table' ? target.table : null;
+  const takeaway = target?.kind === 'takeaway';
 
   const filtered = menu.filter((m) => {
     const q = query.trim().toLowerCase();
     return !q || `${m.name} ${m.category}`.toLowerCase().includes(q);
   });
 
-  // This sheet only ever opens a free table, so every round from it is a first order (D1).
-  const welcome = welcomeDrinksToOffer(welcomeDrinks, true, menu);
+  // A free table's round is always a first order (D1). Welcome drinks are a table's, not a parcel's.
+  const welcome = table ? welcomeDrinksToOffer(welcomeDrinks, true, menu) : [];
   const lines = Object.entries(cart).filter(([, n]) => n > 0);
   const count = lines.reduce((a, [, n]) => a + n, 0);
   const value = lines.reduce((a, [id, n]) => a + (menu.find((m) => m.id === id)?.price ?? 0) * n, 0);
 
+  /* THE TAKEAWAY REVIEW: the bill as it will be charged, from `totalBill` - the one function
+     every bill is totalled with - never a second sum here. */
+  const packagingIssue =
+    packagingProblem(packagingText) ??
+    ((parsePackaging(packagingText) ?? 0) > 0 && tax.packagingTaxable === null ? PACKAGING_TAX_UNDECIDED : null);
+  const packaging = parsePackaging(packagingText) ?? 0;
+  const review = totalBill({
+    lines: lines.map(([id, qty]) => ({ name: id, unitPrice: menu.find((m) => m.id === id)?.price ?? 0, qty })),
+    taxRate: tax.rate,
+    packaging: packagingIssue ? 0 : packaging,
+    packagingTaxable: tax.packagingTaxable,
+  });
+  const reviewRows = totalsRows(review, { taxRate: tax.rate }).filter((r) => !r.label.startsWith('Tip'));
+
+  const title = table
+    ? `New round · ${table.name}`
+    : takeaway
+      ? 'Takeaway'
+      : target?.kind === 'takeaway-more'
+        ? `More for takeaway ${target.code}`
+        : 'New round';
+  const description = table
+    ? `Seats ${table.seats} · the bill opens when this round is sent, and the round goes to the kitchen.`
+    : takeaway
+      ? 'No table. Choose the items, add any packaging charge, and the order goes to the kitchen marked TAKEAWAY.'
+      : target?.kind === 'takeaway-more'
+        ? 'These go to the kitchen as another round on the same takeaway bill.'
+        : '';
+
+  const sendRound = (): void =>
+    runBusy(async () => {
+      if (!target) return;
+      const payloadLines = lines.map(([menuItemId, qty]) => ({ menuItemId, qty }));
+      if (target.kind === 'table') {
+        const res = await send<{ kotCode: string; refused: string[]; billId: string }>('/api/owner/action', {
+          action: 'add-round',
+          tableId: target.table.id,
+          lines: payloadLines,
+        });
+        onClose();
+        toast.show(`${res.kotCode} sent to the kitchen · ${target.table.name}`, { tone: 'success' });
+        // Straight to the bill this just opened, so the next thing the owner does — a
+        // second round, the closure — is one tap away rather than a hunt on the floor.
+        go('orders', res.billId);
+        return;
+      }
+      const res =
+        target.kind === 'takeaway'
+          ? await send<{ kotCode: string; billCode: string; billId: string }>('/api/owner/action', {
+              action: 'takeaway',
+              lines: payloadLines,
+              packagingCharge: packaging,
+            })
+          : await send<{ kotCode: string; billId: string }>('/api/owner/action', {
+              action: 'takeaway-round',
+              billId: target.billId,
+              lines: payloadLines,
+            });
+      onClose();
+      toast.show(`${res.kotCode} sent to the kitchen · ${TAKEAWAY_LABEL}`, { tone: 'success' });
+      go('orders', res.billId);
+    });
+
   return (
     <Sheet
-      open={table !== null}
+      open={target !== null}
       onOpenChange={(open) => !open && onClose()}
-      title={table ? `New round · ${table.name}` : 'New round'}
-      description={
-        table
-          ? `Seats ${table.seats} · the bill opens when this round is sent, and the round goes to the kitchen.`
-          : ''
-      }
+      title={title}
+      description={description}
       testId="owner-new-round"
       footer={
         <Button
           data-testid="owner-new-round-send"
           size="lg"
-          disabled={busy || count === 0 || !table}
-          onClick={() =>
-            runBusy(async () => {
-              if (!table) return;
-              const res = await send<{ kotCode: string; refused: string[]; billId: string }>('/api/owner/action', {
-                action: 'add-round',
-                tableId: table.id,
-                lines: lines.map(([menuItemId, qty]) => ({ menuItemId, qty })),
-              });
-              onClose();
-              toast.show(`${res.kotCode} sent to the kitchen · ${table.name}`, { tone: 'success' });
-              // Straight to the bill this just opened, so the next thing the owner does — a
-              // second round, the closure — is one tap away rather than a hunt on the floor.
-              go('orders', res.billId);
-            })
-          }
+          disabled={busy || count === 0 || !target || (takeaway && !!packagingIssue)}
+          onClick={sendRound}
         >
-          {count === 0 ? 'Pick something first' : `Send · ${count === 1 ? '1 item' : `${count} items`} · ${rupees(value)}`}
+          {count === 0
+            ? 'Pick something first'
+            : `Send · ${count === 1 ? '1 item' : `${count} items`} · ${rupees(takeaway ? review.payable : value)}`}
         </Button>
       }
     >
@@ -623,6 +738,42 @@ function NewRoundSheet({
           <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
             Nothing on the menu matches that.
           </p>
+        ) : null}
+
+        {/* Review: items, packaging, GST and the final total - before anything is sent. */}
+        {takeaway && count > 0 ? (
+          <Card className="flex flex-col gap-3" data-testid="owner-takeaway-review">
+            <SectionLabel className="mb-0">Review the takeaway</SectionLabel>
+            <Field
+              label="Packaging Charges"
+              htmlFor="owner-takeaway-packaging"
+              error={packagingIssue}
+              hint="In rupees. Leave empty for none."
+            >
+              <Input
+                id="owner-takeaway-packaging"
+                data-testid="owner-takeaway-packaging"
+                inputMode="numeric"
+                value={packagingText}
+                placeholder="₹ 0"
+                onChange={(e) => setPackagingText(e.target.value)}
+                aria-invalid={!!packagingIssue}
+              />
+            </Field>
+            <dl className="m-0 flex flex-col gap-1" data-testid="owner-takeaway-totals">
+              {reviewRows.map((r) => (
+                <div key={r.label} className={cn('flex justify-between gap-3', r.emphasis ? 'type-body font-bold' : 'type-caption')}>
+                  <dt className="m-0">{r.emphasis ? 'Final total' : r.label}</dt>
+                  <dd className="m-0 tabular-nums">{r.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {packaging > 0 && tax.packagingTaxable !== null ? (
+              <p className="m-0 type-caption text-[var(--text-muted)]">
+                {tax.packagingTaxable ? 'GST is charged on the packaging charge.' : 'No GST is charged on the packaging charge.'}
+              </p>
+            ) : null}
+          </Card>
         ) : null}
       </div>
     </Sheet>

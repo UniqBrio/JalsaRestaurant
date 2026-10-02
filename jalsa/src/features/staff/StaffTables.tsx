@@ -633,7 +633,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
         open={closing}
         onOpenChange={setClosing}
         title={bill.groupCode ? `Close group ${bill.groupCode}` : `Close ${bill.code}`}
-        description={`${bill.tables.join(', ')} · recorded against your name`}
+        description={`${bill.place} · recorded against your name`}
         testId="staff-close-sheet"
         footer={
           <>
@@ -664,7 +664,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                     ...(discountPayload(discount) ?? {}),
                   });
                   toast.show(
-                    `${bill.code} closed · ${rupees(res.payable)} ${mode.toLowerCase()} · ${bill.tables.length > 1 ? `${bill.tables.length} tables` : `Table ${bill.tables[0]}`} to be cleared`,
+                    `${bill.code} closed · ${rupees(res.payable)} ${mode.toLowerCase()}${bill.orderType === 'takeaway' ? '' : ` · ${bill.tables.length > 1 ? `${bill.tables.length} tables` : `Table ${bill.tables[0]}`} to be cleared`}`,
                     { tone: 'success' }
                   );
                   setClosing(false);

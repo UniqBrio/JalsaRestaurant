@@ -91,7 +91,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
                 <Card className="flex flex-wrap items-center gap-3">
                   <span className="min-w-0 flex-1">
                     <span className="block type-body font-bold">
-                      {b.tables.join(', ')} <Pill tone="primary">Payment requested</Pill>
+                      {b.place} <Pill tone="primary">Payment requested</Pill>
                     </span>
                     <span className="block type-caption text-[var(--text-muted)]">
                       {b.code} · {b.spine.captain} · {b.guests} guests · opened {b.openedAt}
@@ -117,7 +117,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
               {others.map((b) => (
                 <li key={b.id} className="flex flex-wrap items-baseline gap-x-3 type-caption">
-                  <span className="font-semibold">{b.tables.join(', ')}</span>
+                  <span className="font-semibold">{b.place}</span>
                   <span className="text-[var(--text-muted)]">
                     {b.code} · {b.spine.captain} · {b.kots.length === 1 ? '1 round' : `${b.kots.length} rounds`}
                   </span>
@@ -159,7 +159,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
               ),
               value: (b) => b.code,
             },
-            { key: 'table', header: 'Table', cell: (b) => b.tables.join(', '), value: (b) => b.tables.join(', ') },
+            { key: 'table', header: 'Table', cell: (b) => b.place, value: (b) => b.place },
             {
               key: 'captain',
               header: 'Captain',

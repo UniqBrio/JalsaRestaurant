@@ -4,6 +4,16 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-02 - Phase 2: a takeaway is an order at no table
+
+Every order needed a dining_table. Migration 20261002100000_jalsa_takeaway adds bill.order_type ('dine_in' default / 'takeaway'), bill.packaging_charge (>= 0) and bill.packaging_taxable (snapshot; NULL = undecided), makes kot.table_id nullable ONLY for a takeaway round (trigger), refuses a takeaway host table or bill_table row, and fixes the order type once set. placeTakeaway (orders.create + orders.add_items, checked before any write) opens the bill and places the round through the ordinary placeRound; an all-sold-out order leaves no bill. Owner verbs takeaway / takeaway-round / set-packaging. Dashboard and Live Orders gain Takeaway (the Dashboard's NewRoundSheet, generalised to a table, a new takeaway or more items for one), and every place a bill's tables were joined reads placeLabel - TAKEAWAY for a takeaway.
+
+FAIL-FIRST: tests/unit/takeaway-flow.unit.spec.ts (real placeTakeaway on the round rig) and tests/unit/takeaway.db.unit.spec.ts (PGlite; a pre-existing dine-in bill, table, round and line inserted BEFORE the takeaway migration runs) - with src and the migration stashed: 2 failed (the scenario cannot build: no export placeTakeaway; the DB spec's first case), 17 did not run; after: 12 + 7 passed.
+Superseded in place, dated: owner-new-round (setSeating -> setTarget; tableId: target.table.id; key per target).
+Unit tier: 1333 passed, 0 failed (the first run had 1 failed - owner-new-round "no second mode" - because the takeaway cases sat inside the add-round slice of the route; they were moved after free-table). Typecheck, ESLint, audit:all 10/10.
+
+---
+
 ## 2026-10-02 - Phase 1: one printer can print kitchen tickets and bills
 
 printer.purpose held ONE kind, so a single physical printer could print KOTs or bills, never both; mapping the same Windows printer as a bill printer silently unmapped the kitchen printer. Migration 20261002090000_jalsa_printer_roles adds printer.roles (KOT / Invoice / both, backfilled from purpose) and printer.default_roles (one default per kind per restaurant, partial unique indexes), with a trigger keeping purpose and roles in step for code from before the change. Routing reads 'prints this kind' (roles @> {kind}); the owner's chosen default wins, then a machine dedicated to the kind, then the old rule. A bill never falls to a KOT-only machine and a KOT never to a bill-only one. Mapping a new printer on an already-used Windows queue merges its roles into that printer; only Change replaces a mapping.

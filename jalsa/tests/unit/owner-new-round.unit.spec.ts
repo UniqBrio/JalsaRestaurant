@@ -62,8 +62,11 @@ test('the response carries the bill it may have just created', () => {
 });
 
 test('a free table on the owner floor is a way in, and an off-duty one is not', () => {
+  /* SUPERSEDED 02-Oct-2026 (takeaway): previously asserted `: setSeating(t))}`. The sheet's target
+     became a RoundTarget so the same sheet can start a takeaway; a free table is still exactly
+     the target it was. */
   expect(DASH, 'seated opens its bill, free starts a round').toContain(
-    "onClick={() => (t.billId ? go('orders', t.billId) : setSeating(t))}"
+    "onClick={() => (t.billId ? go('orders', t.billId) : setTarget({ kind: 'table', table: t }))}"
   );
   // `active` is the day-setup switch. A table that is off tonight stays inert even for someone
   // holding the grant, which is what turning it off meant.
@@ -87,15 +90,24 @@ test('the round is one request, so an empty bill can never be left behind', () =
   expect(start).toBeGreaterThan(-1);
   const call = DASH.slice(start - 500, start + 300);
   expect(call).toContain("'/api/owner/action'");
-  expect(call, 'the table is named and nothing else is invented').toContain('tableId: table.id');
+  /* SUPERSEDED 02-Oct-2026 (takeaway): previously `tableId: table.id`; the table now arrives as the
+     sheet's target. Still the table, and nothing else invented. */
+  expect(call, 'the table is named and nothing else is invented').toContain('tableId: target.table.id');
   expect(DASH, 'there is no separate open-bill call').not.toContain("action: 'open-bill'");
 });
 
 test('the sheet cannot send a cart belonging to another table', () => {
   // Remounted per table rather than reset in an effect, which would be a render that fixes a
   // render — and the lint rule that forbids it is right.
-  expect(DASH).toContain("key={seating?.id ?? 'none'}");
-  expect(DASH, 'and nothing is sent until something is picked').toContain('disabled={busy || count === 0 || !table}');
+  /* SUPERSEDED 02-Oct-2026 (takeaway): previously `key={seating?.id ?? 'none'}` and
+     `disabled={busy || count === 0 || !table}`. The key is now per TARGET (a table's id, as
+     before; 'takeaway'; or the takeaway bill being added to), and a takeaway with a packaging
+     charge that cannot be stored cannot be sent either. */
+  expect(DASH).toContain('key={targetKey(target)}');
+  expect(DASH).toContain("!t ? 'none' : t.kind === 'table' ? t.table.id");
+  expect(DASH, 'and nothing is sent until something is picked').toContain(
+    'disabled={busy || count === 0 || !target || (takeaway && !!packagingIssue)}'
+  );
 });
 
 test('sold-out dishes are shown as sold out, not hidden', () => {

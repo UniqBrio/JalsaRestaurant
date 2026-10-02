@@ -12,7 +12,8 @@ import {
   type FoodType,
   type KotStatus,
 } from '@/lib/status';
-import { discountBothWays, rupees } from '@/lib/money';
+import { discountBothWays, packagingProblem, parsePackaging, rupees } from '@/lib/money';
+import { PACKAGING_TAX_UNDECIDED } from '@/lib/takeaway';
 import { PermissionDenied } from '@/lib/permissions';
 import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
@@ -242,6 +243,148 @@ export async function ensureOpenBill(
   return bill;
 }
 
+/**
+ * A takeaway order: a bill at NO table, and its first round, in one operation (02-Oct-2026).
+ *
+ * NOT A DUMMY TABLE. The bill is `order_type = 'takeaway'` with no host table and no `bill_table`
+ * row, and the round's `kot.table_id` is null - the database refuses anything else
+ * (`20261002100000_jalsa_takeaway.sql`). Every later step - adding a round, closing, printing,
+ * reporting - is the ordinary one, reading the order type where it matters.
+ *
+ * PERMISSIONS. `orders.create` ("Place an order") because this creates an order, and
+ * `orders.add_items`, which `placeRound` demands of every non-guest round. Both are checked
+ * before anything is written, so a refusal leaves nothing behind. The packaging charge is part
+ * of placing the order: whoever may place it may set it.
+ *
+ * GST ON PACKAGING IS NOT DECIDED HERE. The owner's tax setting says whether GST applies to it
+ * and the answer is snapshot on the bill. Until the owner has answered, a non-zero charge is
+ * refused with a sentence saying where to answer - never charged one way or the other by guess.
+ */
+export async function placeTakeaway(input: {
+  lines: readonly RoundLine[];
+  packagingCharge: number;
+  source: 'captain' | 'owner';
+  actor: Actor;
+  note?: string;
+}): Promise<{ billId: string; billCode: string; kotCode: string; refused: string[] }> {
+  demand(input.actor, 'orders.create');
+  demand(input.actor, 'orders.add_items');
+  if (input.lines.length === 0) throw new Error('Choose at least one item for the takeaway.');
+  const packaging = parsePackaging(input.packagingCharge);
+  if (packaging === null) throw new Error(packagingProblem(String(input.packagingCharge)) ?? 'That packaging charge cannot be read.');
+
+  const restaurantId = await currentRestaurantId();
+  const [tax, code] = await Promise.all([currentTaxSettings(), nextNumber('bill')]);
+  if (packaging > 0 && tax.packagingTaxable === null) throw new Error(PACKAGING_TAX_UNDECIDED);
+
+  const { data: billRow, error: billErr } = await db()
+    .from('bill')
+    .insert({
+      restaurant_id: restaurantId,
+      code,
+      order_type: 'takeaway',
+      host_table_id: null,
+      guests: 1,
+      tax_rate: tax.rate,
+      packaging_charge: packaging,
+      // Snapshot only when there is a charge: a zero charge has no tax treatment to remember.
+      packaging_taxable: packaging > 0 ? tax.packagingTaxable : null,
+      // A captain who takes a parcel order is its captain, as on a walk-in table (G2).
+      captain_staff_id: input.source === 'captain' ? input.actor.staffId : null,
+    })
+    .select('id')
+    .single();
+  if (billErr) throw billErr;
+  const billId = billRow.id as string;
+
+  const placed = await placeRound({
+    billId,
+    tableId: null,
+    lines: input.lines,
+    source: input.source,
+    actor: input.actor,
+    ...(input.note ? { note: input.note } : {}),
+  }).catch(async (err: unknown) => {
+    // Nothing reached the kitchen: the bill goes with it, so no empty takeaway is left open.
+    await db().from('bill').delete().eq('id', billId).eq('restaurant_id', restaurantId);
+    throw err;
+  });
+  if (!placed.kotId) {
+    await db().from('bill').delete().eq('id', billId).eq('restaurant_id', restaurantId);
+    return { billId: '', billCode: '', kotCode: '', refused: placed.refused };
+  }
+
+  await audit({
+    action: 'Bill opened',
+    detail: `${code} opened as a takeaway${packaging > 0 ? ` — packaging ${rupees(packaging)}` : ''}`,
+    actor: input.actor,
+    billId,
+  });
+  return { billId, billCode: code, kotCode: placed.kotCode, refused: placed.refused };
+}
+
+/**
+ * Change the packaging charge on a takeaway that is still open - the counter forgot to add it, or
+ * added it twice. Same grant as placing the order (`orders.create`); the GST treatment is taken
+ * from the owner's setting at this moment and snapshot, exactly as `placeTakeaway` does.
+ */
+export async function setPackagingCharge(input: {
+  billId: string;
+  packagingCharge: number | string;
+  actor: Actor;
+}): Promise<{ packagingCharge: number }> {
+  demand(input.actor, 'orders.create');
+  const text = String(input.packagingCharge ?? '');
+  const packaging = parsePackaging(text);
+  if (packaging === null) throw new Error(packagingProblem(text) ?? 'That packaging charge cannot be read.');
+  const restaurantId = await currentRestaurantId();
+  const [bill, tax] = await Promise.all([getBill(input.billId), currentTaxSettings()]);
+  if (!bill || bill.orderType !== 'takeaway') throw new Error('Only a takeaway carries a packaging charge.');
+  if (bill.status !== 'open' && bill.status !== 'payment_requested')
+    throw new Error(`${bill.code} is already ${bill.status === 'closed' ? 'paid' : bill.status}. Its charges cannot change.`);
+  if (packaging > 0 && tax.packagingTaxable === null) throw new Error(PACKAGING_TAX_UNDECIDED);
+
+  const { data, error } = await db()
+    .from('bill')
+    .update({ packaging_charge: packaging, packaging_taxable: packaging > 0 ? tax.packagingTaxable : null })
+    .eq('id', input.billId)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['open', 'payment_requested'])
+    .select('id');
+  if (error) throw error;
+  if ((data ?? []).length !== 1) throw new Error(`${bill.code} changed while you were editing it. Reload and try again.`);
+
+  await audit({
+    action: 'Bill',
+    detail: `${bill.code} packaging charge ${rupees(bill.packagingCharge)} → ${rupees(packaging)}`,
+    actor: input.actor,
+    billId: input.billId,
+  });
+  return { packagingCharge: packaging };
+}
+
+/** Re-exported from the pure module, where the screens read it too. */
+export { PACKAGING_TAX_UNDECIDED };
+
+/**
+ * The tax rate and the owner's packaging decision, read together. `packagingTaxable` is null until
+ * the owner has chosen - deliberately not defaulted (see `placeTakeaway`).
+ */
+export async function currentTaxSettings(): Promise<{ rate: number; packagingTaxable: boolean | null }> {
+  const restaurantId = await currentRestaurantId();
+  const { data } = await db()
+    .from('setting')
+    .select('value')
+    .eq('restaurant_id', restaurantId)
+    .eq('key', 'tax')
+    .maybeSingle();
+  const value = (data?.value ?? {}) as { rate?: number; packagingTaxable?: unknown };
+  return {
+    rate: typeof value.rate === 'number' ? value.rate : 5,
+    packagingTaxable: typeof value.packagingTaxable === 'boolean' ? value.packagingTaxable : null,
+  };
+}
+
 async function currentTaxRate(): Promise<number> {
   const restaurantId = await currentRestaurantId();
   const { data } = await db()
@@ -274,7 +417,8 @@ export interface RoundLine {
  */
 export async function placeRound(input: {
   billId: string;
-  tableId: string;
+  /** Null only for a takeaway bill, which is at no table (02-Oct-2026; the database checks it). */
+  tableId: string | null;
   lines: readonly RoundLine[];
   source: 'guest' | 'captain' | 'owner';
   actor: Actor;
@@ -1268,6 +1412,8 @@ export async function joinTableToBill(input: { billId: string; tableId: string; 
   demand(input.actor, 'tables.assign');
   const bill = await getBill(input.billId);
   if (!bill) throw new Error('No such bill.');
+  // Said in words; the database refuses it anyway (`bill_table_not_takeaway`).
+  if (bill.orderType === 'takeaway') throw new Error(`${bill.code} is a takeaway — it is not at a table.`);
 
   const occupied = await openBillForTable(input.tableId);
   if (occupied && occupied.id !== input.billId) {

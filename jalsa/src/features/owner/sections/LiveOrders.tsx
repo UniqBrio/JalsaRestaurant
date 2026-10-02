@@ -15,6 +15,9 @@ import { rupees } from '@/lib/money';
 import { billSeparability, eligibleForBillRole } from '@/lib/status';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { CloseBillSheet } from '../CloseBillSheet';
+import { NewRoundSheet, targetKey, taxFor, type RoundTarget } from './Dashboard';
+import { readWelcomeDrinks } from '@/lib/welcome-drinks';
+import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 
 /**
  * Screen 23 — the live orders board, and the bill detail behind it.
@@ -43,8 +46,34 @@ const CANCEL_REASONS = [
   'Wrong item',
 ] as const;
 
-export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps) {
+export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionProps) {
   const toast = useToast();
+  /* Takeaway (02-Oct-2026): a new one, or more items for one already open. The Dashboard's sheet
+     and menu, not a second ordering screen. Both grants, as the server demands. */
+  const [roundTarget, setRoundTarget] = React.useState<RoundTarget | null>(null);
+  const canTakeaway = data.grants.includes('orders.add_items') && data.grants.includes('orders.create');
+  const roundSheet = (
+    <NewRoundSheet
+      key={targetKey(roundTarget)}
+      target={roundTarget}
+      onClose={() => setRoundTarget(null)}
+      menu={data.menu}
+      categories={data.categories}
+      foodTypes={data.foodTypes}
+      grants={data.grants}
+      welcomeDrinks={readWelcomeDrinks(data.settings.welcomeDrinks)}
+      send={send}
+      runBusy={runBusy}
+      busy={busy}
+      go={go}
+      tax={taxFor(data.settings.tax)}
+    />
+  );
+  const takeawayButton = canTakeaway ? (
+    <Button data-testid="owner-orders-takeaway" size="sm" variant="secondary" onClick={() => setRoundTarget({ kind: 'takeaway' })}>
+      Takeaway
+    </Button>
+  ) : null;
   const [filter, setFilter] = React.useState<'all' | 'payment_requested' | 'new'>('all');
   const [selectedId, setSelectedId] = React.useState<string | null>(arg);
   const [closing, setClosing] = React.useState(false);
@@ -77,11 +106,15 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
 
   if (data.openBills.length === 0) {
     return (
-      <FirstRunState
-        title="No bills are open"
-        note="A bill opens the moment a table sends its first round. Until then the floor is free, and there is nothing here to watch."
-        testId="owner-orders-empty"
-      />
+      <div className="flex flex-col gap-3">
+        {takeawayButton ? <div>{takeawayButton}</div> : null}
+        <FirstRunState
+          title="No bills are open"
+          note="A bill opens the moment a table sends its first round. Until then the floor is free, and there is nothing here to watch."
+          testId="owner-orders-empty"
+        />
+        {roundSheet}
+      </div>
     );
   }
 
@@ -105,7 +138,9 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
               {label}
             </Chip>
           ))}
+          {takeawayButton}
         </div>
+        {roundSheet}
 
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {bills.map((b) => (
@@ -124,7 +159,10 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
                 )}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="type-body font-bold">{b.tables.join(', ')}</span>
+                  {/* TAKEAWAY in place of a table - never an empty title, never a fake table. */}
+                  <span className="type-body font-bold" data-testid={b.orderType === 'takeaway' ? `owner-bill-takeaway-${b.code}` : undefined}>
+                    {b.place}
+                  </span>
                   <span className="type-body font-bold tabular-nums">{b.payableLabel}</span>
                 </span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-1.5 type-caption text-[var(--text-muted)]">
@@ -141,6 +179,23 @@ export function LiveOrders({ data, arg, send, runBusy, busy }: OwnerSectionProps
       {selected ? (
         <div className="flex flex-col gap-3">
           <IdentitySpine fields={selected.spine} />
+
+          {selected.orderType === 'takeaway' ? (
+            <div className="flex flex-wrap items-center gap-2" data-testid="owner-takeaway-actions">
+              <Pill tone="primary">{TAKEAWAY_LABEL}</Pill>
+              {canTakeaway && selected.status === 'open' ? (
+                <Button
+                  data-testid="owner-takeaway-more"
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => setRoundTarget({ kind: 'takeaway-more', billId: selected.id, code: selected.code })}
+                >
+                  Add items
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
 
           {canReassign ? (
             <div className="flex flex-wrap gap-2">

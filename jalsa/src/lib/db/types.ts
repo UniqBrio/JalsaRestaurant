@@ -146,8 +146,16 @@ export interface Bill {
   closedAt: string | null;
   closedBy: string | null;
   openedAt: string;
+  /** 'takeaway' has no table: `tables` is empty and the bill is never at one (02-Oct-2026). */
+  orderType: OrderType;
+  /** Rupees, entered by a person. A separate line on the bill, never an item. */
+  packagingCharge: number;
+  /** Whether GST is charged on the packaging charge, snapshot when it was set. Null: undecided. */
+  packagingTaxable: boolean | null;
   kots: Kot[];
 }
+
+export type OrderType = 'dine_in' | 'takeaway';
 
 export interface FloorTable {
   id: string;
