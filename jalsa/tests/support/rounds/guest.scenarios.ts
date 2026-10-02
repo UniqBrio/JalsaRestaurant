@@ -61,6 +61,10 @@ function responder(world: World) {
               { key: 'tax', value: { rate: 5 } },
             ]
           : [{ value: { minutes: 15 } }];
+      // Since 02-Oct-2026 the recorded answers are read from the attribution that survives a
+      // released table (the source list's scan), not from the sessions.
+      case 'guest_attribution':
+        return q.op === 'select' ? [{ source: 'Walked past' }] : [];
       case 'guest_session':
         if (q.op === 'insert') return [{ id: 's-new' }];
         if (q.op !== 'select') return [];
@@ -125,8 +129,13 @@ async function scenario(name: string, world: World, token: string | null, run: (
     writes: calls
       .filter((c) => c.op !== 'select')
       .map((c) => `${c.op} ${c.table}${c.wrote.length ? ` ${[...c.wrote].sort().join('+')}` : ''}`),
-    /** The heard-sources scan: a guest_session read of that one column, restaurant-wide. */
-    heardScan: calls.some((c) => c.table === 'guest_session' && c.op === 'select' && !c.cols.includes('table_id')),
+    /** The heard-sources scan: the restaurant-wide read of recorded answers (`guest_attribution`
+     *  since 02-Oct-2026; a guest_session read of that one column before). */
+    heardScan: calls.some(
+      (c) =>
+        (c.table === 'guest_attribution' && c.op === 'select') ||
+        (c.table === 'guest_session' && c.op === 'select' && !c.cols.includes('table_id'))
+    ),
     /** Did any read fetch a closed bill's KOTs? */
     heavyClosedRead: calls.some((c) => c.filters.includes('not.is:released_at') && c.cols.includes('kot')),
     fullBillReads: calls.filter((c) => c.table === 'bill').length,

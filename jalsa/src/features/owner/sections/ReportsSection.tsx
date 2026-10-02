@@ -23,6 +23,7 @@ import {
   type RangePreset,
 } from '@/lib/report-range';
 import { nowForRangeCheck } from '@/lib/restaurant-time';
+import { HeardAboutCard } from './UpliftSection';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -267,6 +268,14 @@ export function ReportsSection({ data }: OwnerSectionProps) {
           {tab === 'final' ? <FinalPanel report={report} /> : null}
         </>
       )}
+
+      {/* "How did you hear about us?" over THIS range (02-Oct-2026) - the same card and the same
+          endpoint as Uplift, which keeps its fixed 30 days. Outside the bills block: a range can
+          hold guest responses without a closed bill. Its endpoint needs rep.sales, so it is only
+          offered to someone who holds it - the Reports tab itself needs only rep.products. */}
+      {tab === 'sales' && data.grants.includes('rep.sales') ? (
+        <HeardAboutCard key={`${range.from}/${range.to}`} range={range} testId="owner-rep-heard" />
+      ) : null}
     </div>
   );
 }

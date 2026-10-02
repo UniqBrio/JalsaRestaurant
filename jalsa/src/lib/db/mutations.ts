@@ -14,6 +14,7 @@ import {
 } from '@/lib/status';
 import { discountBothWays, packagingProblem, parsePackaging, rupees } from '@/lib/money';
 import { PACKAGING_TAX_UNDECIDED } from '@/lib/takeaway';
+import { HEARD_CORRECTION_HOURS } from '@/lib/heard-about';
 import { PermissionDenied } from '@/lib/permissions';
 import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
@@ -1621,12 +1622,70 @@ export async function reassignBillStaff(input: {
  * would rather not say" looks like.
  */
 export async function recordHeardAbout(input: { sessionId: string; source: string }): Promise<void> {
-  const { error } = await db()
+  const source = input.source.trim().slice(0, 60);
+  const { data: session, error } = await db()
     .from('guest_session')
-    .update({ heard_about: input.source.trim().slice(0, 60) })
-    .eq('id', input.sessionId);
+    .update({ heard_about: source })
+    .eq('id', input.sessionId)
+    .select('id,restaurant_id,token,table_id,bill_id')
+    .maybeSingle();
   // Loud, not swallowed: a picker that reported success on a write that failed would tell the
   // owner's report something the database never agreed to.
+  if (error) throw error;
+  if (!session) return;
+
+  /* THE ANSWER THAT SURVIVES (02-Oct-2026). `guest_session` is deleted when a table is marked
+     free or a phone moves tables, and its `heard_about` went with it. The report reads
+     `guest_attribution`, whose links to the session, table and bill are ON DELETE SET NULL.
+
+     ONE ANSWER PER VISIT. A guest re-picking within the same sitting is CORRECTING their answer
+     (the picker is one tap from a mis-tap), so the phone's latest answer from the last few hours
+     is updated rather than a second one counted. A later visit - the same phone weeks on, at the
+     same table, on a reused session - is a new row, so it never overwrites the earlier visit's. */
+  const restaurantId = session.restaurant_id as string;
+  const token = (session.token as string) ?? '';
+  const since = new Date(Date.now() - HEARD_CORRECTION_HOURS * 3600_000).toISOString();
+  const { data: recent, error: recentErr } = await db()
+    .from('guest_attribution')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('session_token', token)
+    .gte('answered_at', since)
+    .order('answered_at', { ascending: false })
+    .limit(1);
+  if (recentErr) throw recentErr;
+  const latest = (recent ?? [])[0]?.id as string | undefined;
+
+  if (!source) {
+    // Cleared within the sitting: the answer was withdrawn, so it is not counted.
+    if (latest) {
+      const { error: delErr } = await db().from('guest_attribution').delete().eq('id', latest);
+      if (delErr) throw delErr;
+    }
+    return;
+  }
+  const where = {
+    guest_session_id: session.id as string,
+    table_id: (session.table_id as string | null) ?? null,
+    bill_id: (session.bill_id as string | null) ?? null,
+  };
+  const { error: writeErr } = latest
+    ? await db()
+        .from('guest_attribution')
+        .update({ source, ...where, updated_at: new Date().toISOString() })
+        .eq('id', latest)
+    : await db()
+        .from('guest_attribution')
+        .insert({ restaurant_id: restaurantId, session_token: token, source, ...where });
+  if (writeErr) throw writeErr;
+}
+
+/** "Not now" on the question: this phone is not asked again on its order screen. */
+export async function dismissHeardAbout(input: { sessionId: string }): Promise<void> {
+  const { error } = await db()
+    .from('guest_session')
+    .update({ heard_dismissed_at: new Date().toISOString() })
+    .eq('id', input.sessionId);
   if (error) throw error;
 }
 

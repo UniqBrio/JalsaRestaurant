@@ -46,6 +46,8 @@ export interface GuestScreenProps {
   /** Whether this phone is currently showing the order total. See TotalReveal. */
   showTotal: boolean;
   setShowTotal: (v: boolean) => void;
+  /** This phone joined after the first round, so the welcome screen's question was never shown. */
+  joinedLate: boolean;
   /** Catch Your Craving: rounds it was dismissed on, and plays this visit (see GuestApp). */
   cravingDismissed: readonly string[];
   dismissCraving: (roundCode: string) => void;
@@ -73,6 +75,9 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
   const toast = useToast();
 
   const [phase, setPhase] = React.useState<Phase>(() => startingPhase(factsOf(initial)));
+  /* Whether this phone came in AFTER the table's first round, i.e. never saw the welcome screen
+     and its question (02-Oct-2026). Fixed at first render. */
+  const [joinedLate] = React.useState(() => startingPhase(factsOf(initial)) !== 'welcome');
   const [sheet, setSheet] = React.useState<{ kind: SheetKind; arg?: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -242,6 +247,7 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     runBusy,
     showTotal,
     setShowTotal,
+    joinedLate,
     cravingDismissed,
     dismissCraving,
     cravingPlays,

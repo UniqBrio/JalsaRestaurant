@@ -45,6 +45,8 @@ export interface GuestSession {
   billId: string | null;
   /** How this party says they found Jalsa. Empty until they answer; they need not. */
   heardAbout: string;
+  /** This phone said "Not now" to the question (02-Oct-2026) - it is not asked again. Absent: no. */
+  heardDismissed?: boolean;
 }
 
 export interface GuestContext {
@@ -61,6 +63,8 @@ export interface GuestContext {
    * where no bill exists yet: a bill opens at the first round. See the migration's own note.
    */
   heardAbout: string;
+  /** This phone said "Not now" to the question (02-Oct-2026). */
+  heardDismissed: boolean;
 }
 
 /**
@@ -172,13 +176,13 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
   const [table, allSettings, { data: existing }] = await Promise.all([
     findTableByName(tableName),
     settings,
-    db().from('guest_session').select('id,table_id,bill_id,heard_about').eq('token', token).maybeSingle(),
+    db().from('guest_session').select('id,table_id,bill_id,heard_about,heard_dismissed_at').eq('token', token).maybeSingle(),
   ]);
   if (!table) return null;
   const rescanMinutes = rescanFrom(allSettings);
 
   if (!table.active) {
-    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '' };
+    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '', heardDismissed: false };
   }
 
   const restaurantId = await currentRestaurantId();
@@ -214,13 +218,17 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
   // an existing one is corrected only when it is wrong (it used to be rewritten on every poll).
   // A NEW session is created even if a bill read failed: once the old row is deleted, this phone
   // must not be left holding a token that opens nothing. The bill error is rethrown after.
-  const sessionWrite = async (): Promise<{ sessionId: string; heardAbout: string }> => {
+  const sessionWrite = async (): Promise<{ sessionId: string; heardAbout: string; heardDismissed: boolean }> => {
     if (reuse) {
       const sessionId = existing.id as string;
       if (knownOpen && existing.bill_id !== knownOpen.id) {
         await db().from('guest_session').update({ bill_id: knownOpen.id }).eq('id', sessionId);
       }
-      return { sessionId, heardAbout: (existing.heard_about as string) ?? '' };
+      return {
+        sessionId,
+        heardAbout: (existing.heard_about as string) ?? '',
+        heardDismissed: !!(existing.heard_dismissed_at as string | null),
+      };
     }
     const { data: created, error } = await db()
       .from('guest_session')
@@ -228,7 +236,7 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
       .select('id')
       .single();
     if (error) throw error;
-    return { sessionId: created.id as string, heardAbout: '' };
+    return { sessionId: created.id as string, heardAbout: '', heardDismissed: false };
   };
   if (openR.status === 'rejected' || (!knownOpen && closedR.status === 'rejected')) {
     await sessionWrite();
@@ -239,7 +247,7 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
   if (phase === 'welcome') prefetch.heard ??= early(listHeardSources());
   // The whole closed bill is fetched only for the screen that shows it, in the same round as the
   // session write.
-  const [bill, { sessionId, heardAbout }] = await Promise.all([
+  const [bill, { sessionId, heardAbout, heardDismissed }] = await Promise.all([
     phase === 'live' ? open : phase === 'recently_paid' && closed ? getBill(closed.billId) : null,
     sessionWrite(),
   ]);
@@ -248,7 +256,7 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
   // `carried` is set, so nothing is attempted; in a route handler it persists the new key.
   if (!carried) await persistGuestToken(token);
 
-  return { phase, sessionId, table, bill, rescanMinutes, heardAbout };
+  return { phase, sessionId, table, bill, rescanMinutes, heardAbout, heardDismissed };
 }
 
 /**
@@ -314,7 +322,7 @@ export async function contextForSession(
   const rescanMinutes = rescanFrom(settingsR.value);
 
   if (!row.active) {
-    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '' };
+    return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '', heardDismissed: false };
   }
 
   const { open, closed } = billsFrom(openR, closedR);
@@ -329,7 +337,15 @@ export async function contextForSession(
       ? db().from('guest_session').update({ bill_id: open.id }).eq('id', session.id)
       : null,
   ]);
-  return { phase, sessionId: session.id, table, bill, rescanMinutes, heardAbout: session.heardAbout };
+  return {
+    phase,
+    sessionId: session.id,
+    table,
+    bill,
+    rescanMinutes,
+    heardAbout: session.heardAbout,
+    heardDismissed: session.heardDismissed ?? false,
+  };
 }
 
 /** The bill a guest session is allowed to act on - and no other. */
@@ -354,7 +370,7 @@ export async function currentGuestSession(): Promise<GuestSession | null> {
   if (!token) return null;
   const { data } = await db()
     .from('guest_session')
-    .select('id,table_id,bill_id,heard_about')
+    .select('id,table_id,bill_id,heard_about,heard_dismissed_at')
     .eq('token', token)
     .maybeSingle();
   if (!data) return null;
@@ -363,6 +379,7 @@ export async function currentGuestSession(): Promise<GuestSession | null> {
     tableId: data.table_id as string,
     billId: (data.bill_id as string) ?? null,
     heardAbout: (data.heard_about as string) ?? '',
+    heardDismissed: !!(data.heard_dismissed_at as string | null),
   };
 }
 
@@ -379,7 +396,7 @@ export async function currentGuestSessionWithCart(): Promise<{
   if (!token) return null;
   const { data, error } = await db()
     .from('guest_session')
-    .select('id,table_id,bill_id,heard_about,guest_cart_line (menu_item_id,qty)')
+    .select('id,table_id,bill_id,heard_about,heard_dismissed_at,guest_cart_line (menu_item_id,qty)')
     .eq('token', token)
     .maybeSingle();
   // As `currentGuestSession` answers: a session that cannot be read is no session, and the phone
@@ -392,6 +409,7 @@ export async function currentGuestSessionWithCart(): Promise<{
       tableId: data.table_id as string,
       billId: (data.bill_id as string) ?? null,
       heardAbout: (data.heard_about as string) ?? '',
+    heardDismissed: !!(data.heard_dismissed_at as string | null),
     },
     cart: lines.map((r) => ({ menuItemId: r.menu_item_id, qty: r.qty })),
   };

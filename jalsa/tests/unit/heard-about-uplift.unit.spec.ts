@@ -37,8 +37,13 @@ const code = (path: string): string =>
 test('read from the one stored field, over the IST range, gated like the section', () => {
   const q = code('src/lib/db/queries.ts');
   const fn = q.slice(q.indexOf('export async function listHeardAboutBetween'));
-  expect(fn).toContain(".from('guest_session')");
-  expect(fn).toContain(".select('heard_about')");
+  /* SUPERSEDED 02-Oct-2026 (answers that survive): previously asserted `.from('guest_session')`
+     and `.select('heard_about')`. A released table deleted those sessions and their answers, so
+     the report now reads `guest_attribution` (`source`), which outlives the session; the answers
+     on sessions were backfilled into it by 20261002110000_jalsa_guest_attribution. Still one
+     stored answer per visit, over the same IST range. */
+  expect(fn.slice(0, 900)).toContain(".from('guest_attribution')");
+  expect(fn.slice(0, 900)).toContain(".select('source')");
   expect(fn).toContain('dayWindow(from, to)');
   const route = code('src/app/api/owner/heard/route.ts');
   expect(route).toContain("staff.grants.can('rep.sales')");

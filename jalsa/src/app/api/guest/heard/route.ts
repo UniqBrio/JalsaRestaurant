@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { currentGuestSession } from '@/lib/db/guest';
-import { recordHeardAbout } from '@/lib/db/mutations';
+import { dismissHeardAbout, recordHeardAbout } from '@/lib/db/mutations';
 
 /**
  * "How did you hear about us?" — recorded against the visit.
@@ -26,7 +26,12 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
     });
   }
 
-  const input = await body<{ source?: string }>(req);
+  const input = await body<{ source?: string; dismiss?: boolean }>(req);
+  // "Not now" (02-Oct-2026): the phone is not asked again. Nothing is recorded as an answer.
+  if (input.dismiss === true) {
+    await dismissHeardAbout({ sessionId: session.id });
+    return ok({ dismissed: true });
+  }
   const source = (input.source ?? '').trim();
 
   // The same 60 the column's own constraint states, refused here so the guest reads a sentence

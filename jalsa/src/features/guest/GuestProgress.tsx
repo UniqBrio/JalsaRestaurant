@@ -16,6 +16,7 @@ import {
   type CravingPhase,
 } from '@/lib/craving';
 import { CravingGame } from './CravingGame';
+import { HeardPrompt } from './HeardPrompt';
 import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /**
@@ -168,6 +169,7 @@ export function StatusScreen({
   busy,
   showTotal,
   setShowTotal,
+  joinedLate,
   cravingDismissed,
   dismissCraving,
   cravingPlays,
@@ -339,6 +341,9 @@ export function StatusScreen({
           </li>
         ))}
       </ul>
+
+      {/* Asked once of a phone that never saw the welcome screen (02-Oct-2026). */}
+      {joinedLate && !data.heardAbout && !data.heardDismissed ? <HeardPrompt data={data} send={send} /> : null}
 
       {/* After the rounds and before the bar: status comes first, and the game is never in
           front of it. Always skippable; the owner can switch it off (features.craving). */}

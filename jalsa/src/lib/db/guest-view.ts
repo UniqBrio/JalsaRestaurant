@@ -1,4 +1,5 @@
 import 'server-only';
+import { SEEDED_HEARD_SOURCES } from '@/lib/heard-about';
 import { timeLabelIn, weekdayIn } from '@/lib/restaurant-time';
 import { rupees, totalBill, totalsRows, type TotalsRow } from '@/lib/money';
 import { KOT_STATUS, type FoodType, type KotStatus } from '@/lib/status';
@@ -96,6 +97,8 @@ export interface GuestPayload {
   restaurantName: string;
   /** How this party said they found Jalsa — '' until they answer. */
   heardAbout: string;
+  /** This phone said "Not now" to the question - its order screen does not ask again. */
+  heardDismissed: boolean;
   /**
    * What the picker offers: the seeded answers, plus every distinct answer THIS restaurant has
    * recorded. Assembled the same way the expense-category list is, and scoped by restaurant_id
@@ -178,12 +181,7 @@ export async function buildGuestPayload(tableName: string): Promise<GuestPayload
  * and anything added joins the list for the next guest by being recorded on their session.
  * Not a database enum, for exactly that reason.
  */
-export const SEEDED_HEARD_SOURCES = [
-  'Google review',
-  'Friend recommended',
-  'Ordered earlier',
-  'Regular customer',
-] as const;
+export { SEEDED_HEARD_SOURCES };
 
 export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPrefetch = {}): Promise<GuestPayload> {
   /**
@@ -292,6 +290,7 @@ export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPre
     table: { name: ctx.table.name, zone: ctx.table.zone },
     restaurantName: copy.name ?? 'Jalsa Restaurant',
     heardAbout: ctx.heardAbout ?? '',
+    heardDismissed: ctx.heardDismissed ?? false,
     /* Seeds first, in the order the request fixes them, then what this restaurant has been
        told, with anything that duplicates a seed folded out case-insensitively. */
     heardSources: [

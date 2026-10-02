@@ -5,6 +5,7 @@ import { FOOD_TYPE, phonesHoldingTables, tableStateFrom, type KotStatus } from '
 import { isCounterNotice } from '@/lib/payment-notice';
 import { totalBill } from '@/lib/money';
 import { TAKEAWAY_LABEL } from '@/lib/takeaway';
+import { heardKey } from '@/lib/heard-about';
 import type {
   AuditRow,
   Bill,
@@ -487,15 +488,17 @@ export async function lastClosedBillBefore(from: string): Promise<{ code: string
 export async function listHeardAboutBetween(from: string, to: string): Promise<string[]> {
   const restaurantId = await currentRestaurantId();
   const { start, end } = dayWindow(from, to);
+  /* From `guest_attribution` since 02-Oct-2026: the answers that SURVIVE a released table or a
+     moved phone. Dated by when the guest answered (a backfilled answer carries its session's
+     start, the date this report used before). */
   const { data, error } = await db()
-    .from('guest_session')
-    .select('heard_about')
+    .from('guest_attribution')
+    .select('source')
     .eq('restaurant_id', restaurantId)
-    .neq('heard_about', '')
-    .gte('created_at', start.toISOString())
-    .lt('created_at', end.toISOString());
+    .gte('answered_at', start.toISOString())
+    .lt('answered_at', end.toISOString());
   if (error) throw error;
-  return (data ?? []).map((r) => (r.heard_about as string) ?? '');
+  return (data ?? []).map((r) => (r.source as string) ?? '');
 }
 
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */
@@ -867,21 +870,28 @@ export async function listExpenses(): Promise<ExpenseRow[]> {
  */
 export async function listHeardSources(): Promise<string[]> {
   const restaurantId = await currentRestaurantId();
+  /* What guests here have said, for the next guest's picker - from the answers that survive
+     (02-Oct-2026), and BOUNDED: the most recent few hundred, not every answer ever recorded,
+     because this is read on a polled screen. */
   const { data, error } = await db()
-    .from('guest_session')
-    .select('heard_about')
+    .from('guest_attribution')
+    .select('source')
     .eq('restaurant_id', restaurantId)
-    .neq('heard_about', '');
+    .order('answered_at', { ascending: false })
+    .limit(HEARD_SOURCES_SCAN);
   if (error) throw error;
   const seen = new Map<string, string>();
   for (const row of data ?? []) {
-    const value = ((row.heard_about as string) ?? '').trim();
-    if (!value) continue;
-    const key = value.toLowerCase();
+    const value = ((row.source as string) ?? '').trim().replace(/\s+/g, ' ');
+    const key = heardKey(value);
+    if (!key) continue;
     if (!seen.has(key)) seen.set(key, value);
   }
   return [...seen.values()].sort((a, b) => a.localeCompare(b));
 }
+
+/** How many recent answers the guest picker's source list is drawn from. */
+const HEARD_SOURCES_SCAN = 500;
 
 export async function listAudit(limit = 200): Promise<AuditRow[]> {
   const restaurantId = await currentRestaurantId();

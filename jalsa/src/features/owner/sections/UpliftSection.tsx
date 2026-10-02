@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Card, SectionLabel } from '@/components/ui/atoms';
 import { FirstRunState } from '@/components/ui/states';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
-import { readReportAnswer, rangeLabel, resolvePreset } from '@/lib/report-range';
+import { readReportAnswer, rangeLabel, resolvePreset, type DateRange } from '@/lib/report-range';
 import { nowForRangeCheck } from '@/lib/restaurant-time';
 import type { HeardTally } from '@/lib/heard-about';
 
@@ -101,9 +101,20 @@ export function UpliftSection({ data }: OwnerSectionProps) {
  * never on the console's poll, and shown as counts with shares: this is where guests came FROM,
  * not what they spent.
  */
-function HeardAboutCard() {
+export function HeardAboutCard({
+  range: given,
+  testId = 'owner-uplift-heard',
+}: {
+  /** The Reports section's selected range (02-Oct-2026). Absent: Uplift's fixed last 30 days. */
+  range?: DateRange;
+  testId?: string;
+} = {}) {
   // Fixed once per mount: the range is "the last 30 days" as of opening the section.
-  const [range] = React.useState(() => resolvePreset('last30', nowForRangeCheck()));
+  const [last30] = React.useState(() => resolvePreset('last30', nowForRangeCheck()));
+  const range = given ?? last30;
+  // In Reports the words say what the figures are: guest RESPONSES, never customers - Jalsa has
+  // no customer records, and one phone answers once per visit.
+  const inReports = given !== undefined;
   const [result, setResult] = React.useState<{
     total: number;
     sources: HeardTally[];
@@ -128,23 +139,24 @@ function HeardAboutCard() {
   }, [range.from, range.to]);
 
   return (
-    <Card data-testid="owner-uplift-heard">
+    <Card data-testid={testId}>
       <SectionLabel>How guests found Jalsa · {rangeLabel(range)}</SectionLabel>
       {problem ? (
-        <p className="m-0 type-caption text-[var(--error)]" data-testid="owner-uplift-heard-problem">
+        <p className="m-0 type-caption text-[var(--error)]" data-testid={`${testId}-problem`}>
           {problem}
         </p>
       ) : !result ? (
         <p className="m-0 type-caption text-[var(--text-muted)]">Reading the answers…</p>
       ) : result.total === 0 ? (
-        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="owner-uplift-heard-empty">
-          No answers to “How did you hear about us?” are on record for these 30 days. It is asked once, on the
-          welcome screen of the table’s menu.
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid={`${testId}-empty`}>
+          {inReports
+            ? 'No guest responses to “How did you hear about us?” are on record for this range.'
+            : 'No answers to “How did you hear about us?” are on record for these 30 days. It is asked once, on the welcome screen of the table’s menu.'}
         </p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {result.sources.map((r) => (
-            <li key={r.source} data-testid="owner-uplift-heard-row">
+            <li key={r.source} data-testid={`${testId}-row`}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="type-body font-semibold">{r.source}</span>
                 <span className="type-caption text-[var(--text-muted)]">
@@ -156,8 +168,10 @@ function HeardAboutCard() {
               </div>
             </li>
           ))}
-          <li className="type-caption text-[var(--text-muted)]">
-            {result.total} {result.total === 1 ? 'answer' : 'answers'} from guests at their tables.
+          <li className="type-caption text-[var(--text-muted)]" data-testid={`${testId}-total`}>
+            {inReports
+              ? `Total guest responses · ${result.total}`
+              : `${result.total} ${result.total === 1 ? 'answer' : 'answers'} from guests at their tables.`}
           </li>
         </ul>
       )}
