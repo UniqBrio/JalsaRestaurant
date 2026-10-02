@@ -34,6 +34,9 @@ export const PRINT_STATUS: Record<KotPrintJob['status'], { word: string; tone: T
   processing: { word: 'Sending…', tone: 'info' },
   printed: { word: 'Printed', tone: 'success' },
   failed: { word: 'Print failed', tone: 'error' },
+  // Print elsewhere sent it to another machine before it printed (02-Oct-2026). Not a failure:
+  // nothing is wrong with it, and nothing will print from it.
+  cancelled: { word: 'Sent elsewhere', tone: 'neutral' },
 };
 
 /**
@@ -88,7 +91,7 @@ export function PrintTargets({
             <span className="type-caption tabular-nums text-[var(--text-muted)]">· {job.attempts} tries</span>
           ) : null}
 
-          {canRetry && job.status !== 'printed' && job.printerId ? (
+          {canRetry && job.status !== 'printed' && job.status !== 'cancelled' && job.printerId ? (
             <Button
               data-testid={`${testIdPrefix}-retry-${job.id}`}
               size="sm"

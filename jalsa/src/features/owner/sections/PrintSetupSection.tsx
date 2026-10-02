@@ -1464,7 +1464,7 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     — and it must not read as "printed". */}
                 <Pill tone={PRINT_STATUS[j.status].tone}>{PRINT_STATUS[j.status].word}</Pill>
 
-                {canRetry && j.status !== 'printed' && j.printerId ? (
+                {canRetry && j.status !== 'printed' && j.status !== 'cancelled' && j.printerId ? (
                   <Button
                     size="sm"
                     variant="secondary"
@@ -1486,7 +1486,7 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                   </Button>
                 ) : null}
 
-                {canRetry && j.status !== 'printed' ? (
+                {canRetry && j.status !== 'printed' && j.status !== 'cancelled' ? (
                   <Button
                     size="sm"
                     variant="ghost"

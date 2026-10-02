@@ -21,6 +21,7 @@ import {
   replyToSuggestion,
   reprintKot,
   printElsewhere,
+  reprintBill,
   retryPrintJob,
   setItemAvailability,
 } from '@/lib/db/mutations';
@@ -190,6 +191,9 @@ type Action =
      path to a machine other than the assigned one, and it exists so no automatic path has
      to. A redirect nobody asked for is indistinguishable, from a kitchen, from routing. */
   | { action: 'print-elsewhere'; jobId: string; printerId: string }
+  /* A thermal copy of a settled bill, marked REPRINT. A print job and an audit row - nothing on
+     the bill itself changes (02-Oct-2026). */
+  | { action: 'reprint-bill'; billId: string }
   | { action: 'detach-table'; billId: string; tableId: string }
   | { action: 'write-employment'; staffId: string; patch: Record<string, string | number | null> };
 
@@ -637,6 +641,9 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
 
     case 'print-elsewhere':
       return ok(await printElsewhere({ jobId: input.jobId, printerId: input.printerId, actor }));
+
+    case 'reprint-bill':
+      return ok(await reprintBill({ billId: input.billId, actor }));
 
     case 'detach-table':
       return ok(await detachTableFromBill({ billId: input.billId, tableId: input.tableId, actor }));

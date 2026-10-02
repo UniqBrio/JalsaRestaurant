@@ -61,6 +61,8 @@ const read = (p: string): string => readFileSync(p, 'utf8');
 const MUTATIONS = read('src/lib/db/mutations.ts');
 const QUERIES = read('src/lib/db/queries.ts');
 const MIGRATION = read('supabase/migrations/20260919090000_jalsa_print_job_assignment.sql');
+/** Print elsewhere's write, moved into one transaction on 02-Oct-2026. */
+const REDIRECT = read('supabase/migrations/20261002120000_jalsa_print_redirect.sql');
 /* R4-1 (22-Sep-2026): the module that now names the side, and the migration that persists it. */
 const ROUTING = read('src/lib/print-routing.ts');
 
@@ -221,8 +223,13 @@ test('Print elsewhere requires a printer from the operator and never picks one',
     expect(e, `printElsewhere must not call ${router}`).not.toContain(router);
   }
   // A new row pointing at the one it replaces — never an edit, because the original is evidence.
-  expect(e).toContain('redirected_from_job_id');
-  expect(e).toContain(".from('print_job')\n    .insert(");
+  // Superseded 02-Oct-2026 (print redirect): this previously asserted that `printElsewhere`
+  // itself contained `redirected_from_job_id` and `.from('print_job').insert(`. The insert now
+  // happens inside `redirect_print_job`, in the same transaction that cancels a waiting
+  // original, so the row and its lineage are asserted there.
+  expect(e).toContain("db().rpc('redirect_print_job', {");
+  expect(REDIRECT).toContain('redirected_from_job_id');
+  expect(REDIRECT).toContain('insert into public.print_job (');
 });
 
 /* ── 5 · A reprint routes on the round it is reprinting ────────────────── */
@@ -418,7 +425,9 @@ test('NOTHING IN THE PRINT PATH MAY WRITE printed — there is no transport to l
   // meant a boolean on another table was true. No socket was opened and no paper necessarily
   // moved. Until the Phase 2 bridge reports back, this layer cannot know and must not say.
   let inspected = 0;
-  for (const fn of ['queuePrint', 'retryPrintJob', 'printElsewhere']) {
+  // Superseded 02-Oct-2026 (print redirect): `printElsewhere` was in this list. Its status writes
+  // moved into `redirect_print_job` (asserted below), so it sets no status in TypeScript at all.
+  for (const fn of ['queuePrint', 'retryPrintJob']) {
     const writes = statusWrites(bodyOf(MUTATIONS, fn) ?? '');
     expect(writes.length, `${fn} sets a status at all`).toBeGreaterThan(0);
 
@@ -427,6 +436,12 @@ test('NOTHING IN THE PRINT PATH MAY WRITE printed — there is no transport to l
       expect(value, `${fn} must not be able to write ${field} 'printed'`).not.toContain("'printed'");
     }
   }
+  // The redirect's own writes: it cancels and it queues, and never says printed.
+  const redirectStatuses = [...REDIRECT.replace(/--.*$/gm, '').matchAll(/set status\s*=\s*'(\w+)'/g)].map((m) => m[1]);
+  expect(redirectStatuses, 'the redirect sets a status at all').toContain('cancelled');
+  expect(REDIRECT).toContain("'queued', 0, original.status::text = 'printed'");
+  expect(redirectStatuses).not.toContain('printed');
+  inspected += redirectStatuses.length;
   expect(inspected, 'status writes were found and inspected, not merely absent').toBeGreaterThan(2);
 
   // And `syncKotPrintState` may, because it is the one place that MIRRORS a status the jobs
@@ -553,7 +568,17 @@ test('PRINT ELSEWHERE NEVER TOUCHES THE JOB IT REPLACES — the original is the 
   // which is the same loss the old retry caused, reached deliberately instead of by accident.
   expect(e).toContain(".from('print_job')\n    .select(");
   expect(e.match(/\.from\('print_job'\)\s*\n\s*\.update\(/g), 'no update of print_job').toBeNull();
-  expect(e).toContain('redirected_from_job_id: job.id');
+  // Superseded 02-Oct-2026 (print redirect): this previously asserted `redirected_from_job_id:
+  // job.id` in `printElsewhere`, and - by the title - that the original is never written at all.
+  // A WAITING original is now cancelled in the same transaction (or both tickets print when its
+  // machine returns). What is kept is the evidence: the original is cancelled, never deleted and
+  // never re-pointed, and a printed or failed one is not written at all.
+  expect(REDIRECT).toContain('original.id\n  )');
+  expect(REDIRECT).not.toMatch(/delete\s+from\s+public\.print_job/i);
+  const update = REDIRECT.slice(REDIRECT.indexOf('update public.print_job'), REDIRECT.indexOf('end if;', REDIRECT.indexOf('update public.print_job')));
+  expect(update, 'only a queued original is updated').toContain("set status = 'cancelled'");
+  expect(update, 'no column of the assignment is re-set').not.toMatch(/\b(printer_id|printer_name|station|food_side)\s*=/);
+  expect(REDIRECT).toContain("if original.status::text = 'queued' then");
 });
 
 test('the redirect lineage is readable on the screen, not only in the row', () => {
@@ -643,12 +668,14 @@ test('printElsewhere copies the ORIGINAL job’s half, never the destination’s
   // Redirecting changes where a ticket prints. It does not change what is on it. Deriving the
   // side from the chosen machine would compose whichever half that machine happens to claim —
   // which is precisely what happened before the column existed.
+  // Superseded 02-Oct-2026 (print redirect): this previously read `printElsewhere` for
+  // `job.food_side` and a select of the column. The copy now happens in `redirect_print_job`,
+  // from the row it locked - the same rule, asserted where the write is.
   const p = code(bodyOf(MUTATIONS, 'printElsewhere') ?? '');
-  expect(p).toContain('job.food_side');
   expect(p, 'the destination printer never decides the half').not.toMatch(/food_side:\s*printer\./);
-  // And it must actually have read the column to copy it.
-  expect(p).toContain('food_side');
-  expect(p, 'the origin is selected').toMatch(/select\([^)]*food_side/);
+  expect(REDIRECT).toContain("coalesce(original.food_side, 'all')");
+  expect(REDIRECT, 'the origin is the locked row').toMatch(/select \* into original[\s\S]*for update/);
+  expect(REDIRECT).not.toMatch(/food_side[^\n]*p_printer/);
 });
 
 test('the sides a job may carry are exactly the ones routing can produce', () => {

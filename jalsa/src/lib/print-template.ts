@@ -645,7 +645,7 @@ export function totalLine(amount: string, big: number, cols: number): TicketLine
   return { text: leftRight('TOTAL', `Rs.${amount}`, cols), weight: 'bold' };
 }
 
-export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[] {
+export function buildBill(data: TicketData, config: TemplateConfig, opts?: { reprint?: boolean }): TicketLine[] {
   const cols = columnsFor(config);
   const big = bigColsFor(cols, config.font);
   const t = data.totals ?? { subtotal: 0, discount: 0, tax: 0, payable: 0, paymentMode: '' };
@@ -654,6 +654,12 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
     lines.push({ text: text === '' ? ' ' : text, weight });
   };
   const money = (n: number): string => amountText(n);
+  // A second copy of a settled bill is not a second sale (02-Oct-2026). The same band, at the
+  // same size, as a reprinted kitchen ticket - and, like it, not configurable.
+  if (opts?.reprint) {
+    bigCentred('*** REPRINT ***', big, push);
+    push(separatorLine(config, cols));
+  }
   if (data.orderType === 'takeaway') {
     bigCentred('TAKEAWAY', big, push);
     push(separatorLine(config, cols));
@@ -773,7 +779,7 @@ export const buildTicket = (
   data: TicketData,
   config: TemplateConfig,
   opts?: { reprint?: boolean }
-): TicketLine[] => (kind === 'kot' ? buildKot(data, config, opts) : buildBill(data, config));
+): TicketLine[] => (kind === 'kot' ? buildKot(data, config, opts) : buildBill(data, config, opts));
 
 /* ── Validation ────────────────────────────────────────────────────────── */
 

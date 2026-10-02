@@ -12,7 +12,7 @@ import { FOOD_TYPE, KOT_CLASSES, KOT_CLASS_LABEL, type FoodType } from '@/lib/st
 import { parentChoices } from '@/lib/sub-menus';
 import { ImagePicker } from '@/components/ui/image-picker';
 import { FoodTypePicker } from '@/components/ui/food-type-picker';
-import { defaultPrinter } from '@/lib/print-routing';
+import { defaultPrinter, printsKind } from '@/lib/print-routing';
 import type { OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -43,7 +43,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
     printerId: string;
   } | null>(null);
   const [newCategory, setNewCategory] = React.useState<{ name: string; printerId: string } | null>(null);
-  const kotPrinters = data.printers.filter((p) => p.purpose === 'KOT');
+  // Every machine that prints kitchen tickets - one that prints bills too included (02-Oct-2026).
+  const kotPrinters = data.printers.filter((p) => printsKind(p, 'KOT'));
   const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
   const fallbackPrinter = defaultPrinter(
     kotPrinters.map((p) => ({ ...p, routes: p.routes })),

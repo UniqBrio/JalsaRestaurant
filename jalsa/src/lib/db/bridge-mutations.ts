@@ -226,6 +226,37 @@ export async function sweepStaleClaims(input: {
 }
 
 /**
+ * Run `sweepStaleClaims` at most once a minute per restaurant, from requests that already arrive
+ * on a schedule (02-Oct-2026).
+ *
+ * WHY HERE AND NOT A NEW TIMER
+ *   Until now nothing called the sweeper, so a ticket claimed by a PC that then died stayed
+ *   "Sending…" forever. Jalsa has no job scheduler and no cron; what it does have are two things
+ *   that already poll: every running bridge asks for work every few seconds, and an open owner
+ *   console asks for state every eight. Both call this. When the dead PC is the only one, the
+ *   owner's console is what sweeps; when the console is closed, the PC sweeps its own old claims
+ *   the moment it comes back. No new loop exists.
+ *
+ * THROTTLED, AND NEVER IN THE WAY. One UPDATE a minute per server instance per restaurant, not
+ * one per poll. A sweep that fails is reported to the log and ignored: the request it rode on -
+ * a bridge asking for work, an owner looking at the floor - must not fail because housekeeping
+ * did.
+ */
+const lastSweep = new Map<string, number>();
+export const SWEEP_EVERY_MS = 60_000;
+
+export async function maybeSweepStaleClaims(restaurantId: string, now: number = Date.now()): Promise<void> {
+  const last = lastSweep.get(restaurantId) ?? 0;
+  if (now - last < SWEEP_EVERY_MS) return;
+  lastSweep.set(restaurantId, now);
+  try {
+    await sweepStaleClaims({ restaurantId });
+  } catch (err) {
+    console.warn('[print] stale-claim sweep failed', err instanceof Error ? err.message : err);
+  }
+}
+
+/**
  * Re-derive `kot.print_status` after a bridge changed one of its jobs.
  *
  * The same pessimistic aggregate `syncKotPrintState` applies on the order path, kept here rather

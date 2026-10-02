@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import { Card, Pill, SectionLabel } from '@/components/ui/atoms';
 import { FirstRunState } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/data-table';
@@ -13,13 +14,15 @@ import { defaultWhatsAppTemplate, type WhatsAppTemplate } from '@/lib/bill-share
 import { BillDetailSheet } from '../BillDetailSheet';
 import { previewIdentity, previewTaxRate, ticketPreview } from '@/lib/ticket-preview';
 import type { TemplateConfig } from '@/lib/print-template';
+import { printsKind } from '@/lib/print-routing';
 
 /**
  * This bill as the counter printer would print it (item 8): the saved bill template, at the paper
  * width of the machine that prints bills, through the one invoice builder.
  */
 function invoiceForScreen(bill: OwnerBillView, data: OwnerSectionProps['data']) {
-  const counter = data.printers.find((p) => p.purpose === 'Invoice' && p.enabled);
+  // A machine that prints bills AND kitchen tickets is the counter's printer too (02-Oct-2026).
+  const counter = data.printers.find((p) => printsKind(p, 'Invoice') && p.enabled);
   const stored = (data.settings.print ?? {}) as { bill?: Partial<TemplateConfig> };
   const preview = ticketPreview({
     kind: 'bill',
@@ -73,6 +76,8 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
   const others = data.openBills.filter((b) => b.status !== 'payment_requested');
 
   const canClose = data.grants.includes('bill.record_payment');
+  const canReprint = data.grants.includes('bill.reprint');
+  const toast = useToast();
 
   return (
     <div className="flex flex-col gap-5" data-testid="owner-payments">
@@ -209,6 +214,21 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
         identity={restaurantIdentity(data.restaurant, data.settings.tax as { gstin?: unknown })}
         whatsAppTemplate={waTemplate}
         {...(viewing ? { invoice: invoiceForScreen(viewing, data) } : {})}
+        {...(viewing && canReprint
+          ? {
+              reprint: {
+                busy,
+                run: () =>
+                  runBusy(async () => {
+                    const res = await send<{ printerName: string }>('/api/owner/action', {
+                      action: 'reprint-bill',
+                      billId: viewing.id,
+                    });
+                    toast.show(`${viewing.code} sent to ${res.printerName}, marked REPRINT`, { tone: 'success' });
+                  }),
+              },
+            }
+          : {})}
       />
 
       <CloseBillSheet

@@ -4,6 +4,8 @@ import { publicConfig } from '@/lib/config';
 import { currentStaff } from '@/lib/db/auth';
 import { buildOwnerPayload } from '@/lib/db/owner-view';
 import { floorStamp, staffStamp, STAMP_HEADER, UNCHANGED } from '@/lib/db/change-stamp';
+import { maybeSweepStaleClaims } from '@/lib/db/bridge-mutations';
+import { currentRestaurantId } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,8 @@ export const GET = handler(async (req: Request): Promise<NextResponse> => {
       permission: 'orders.view',
     });
   }
+  // The open console is what notices a PC that died holding a ticket (throttled; see the sweeper).
+  await maybeSweepStaleClaims(await currentRestaurantId());
   const stamp = staffStamp(floor, staff);
   const init: ResponseInit = stamp ? { headers: { [STAMP_HEADER]: stamp } } : {};
   if (stamp && new URL(req.url).searchParams.get('since') === stamp) return ok(UNCHANGED, init);

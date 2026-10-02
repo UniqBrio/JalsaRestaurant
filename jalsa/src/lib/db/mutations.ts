@@ -1080,6 +1080,12 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
     .single();
   if (error) throw error;
 
+  if (job.status === 'cancelled') {
+    // Sent to another machine on purpose (02-Oct-2026). Re-sending it here would print the round
+    // a second time - the very thing cancelling it prevented.
+    throw new Error('That ticket was sent to another machine instead. Retry that one, not this.');
+  }
+
   if (job.status === 'printed') {
     // Not an error and not a silent success: the job is already done, and re-sending it would
     // put a second unmarked ticket in the kitchen — the one printing mistake that costs food.
@@ -1106,7 +1112,10 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
       last_error: '',
       completed_at: null,
     })
-    .eq('id', input.jobId);
+    .eq('id', input.jobId)
+    // A redirect that landed between the read above and this write has cancelled the job; it
+    // must stay cancelled, or both machines print the round.
+    .neq('status', 'cancelled');
 
   if (job.kot_id) await syncKotPrintState(job.kot_id as string);
 
@@ -1129,6 +1138,10 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
  *   old retry caused, arrived at deliberately instead of accidentally. So the redirect is its
  *   own row, pointing back at the one it replaces, and the history shows both.
  *
+ * WHY A WAITING ORIGINAL IS CANCELLED (02-Oct-2026)
+ *   Kept, but cancelled: still the evidence of where the ticket was meant to go, and no longer
+ *   a ticket that can print. A printed or failed original is left exactly as it was.
+ *
  * WHY IT TAKES A PRINTER AND NEVER PICKS ONE
  *   This is the ONLY way a ticket reaches a machine other than the one routing chose, and it
  *   exists precisely so that no automatic path has to. A fallback that happens without anybody
@@ -1144,7 +1157,7 @@ export async function printElsewhere(input: {
 
   const { data: job, error } = await db()
     .from('print_job')
-    .select('id,kind,kot_id,bill_id,status,printer_id,printer_name,station,food_side')
+    .select('id,kind,kot_id,status,printer_id,printer_name')
     .eq('id', input.jobId)
     .eq('restaurant_id', restaurantId)
     .single();
@@ -1173,37 +1186,33 @@ export async function printElsewhere(input: {
     throw new Error(`This ticket is already assigned to ${printer.name as string}. Use Retry to send it again.`);
   }
 
-  const { error: insertErr } = await db()
-    .from('print_job')
-    .insert({
-      restaurant_id: restaurantId,
-      printer_id: printer.id as string,
-      printer_name: printer.name as string,
-      station: printer.station as string,
-      // Not a routing rule — a person's decision. The column records WHO decided, not only what.
-      routing_rule: 'chosen',
-      // THE HALF IS THE ORIGINAL'S, NEVER THE DESTINATION'S (22-Sep-2026).
-      //   Redirecting a ticket changes WHERE it prints. It does not change WHAT is on it. Taking
-      //   the side from the chosen machine would be inventing a new ticket, and matching the
-      //   round by machine-and-station alone — which is what happened before this line existed —
-      //   composed whichever half the destination happened to claim. A tandoor round redirected
-      //   to the main kitchen printed the main kitchen's dishes a second time and the tandoor's
-      //   round never arrived at all.
-      food_side: (job.food_side as string | null) ?? 'all',
-      kind: job.kind as string,
-      kot_id: (job.kot_id as string | null) ?? null,
-      bill_id: job.bill_id as string,
-      status: 'queued',
-      attempts: 0,
-      // Paper that already came out of one machine must be marked before it comes out of another,
-      // or a cook reads the same round twice.
-      is_reprint: job.status === 'printed',
-      requested_by: input.actor.label,
-      last_error: '',
-      completed_at: null,
-      redirected_from_job_id: job.id as string,
-    });
-  if (insertErr) throw insertErr;
+  if (job.status === 'processing') {
+    // Checked again inside the transaction below; said here first so the common case needs no
+    // round trip to learn it. Paper already moving cannot be taken back by cancelling its job.
+    throw new Error(
+      `That ticket is being printed at ${(job.printer_name as string) || 'its machine'} right now. Wait for it to print or fail, then choose again.`
+    );
+  }
+  if (job.status === 'cancelled') throw new Error('That ticket was already sent to another machine.');
+
+  // ONE TRANSACTION, HOLDING THE ORIGINAL'S ROW LOCK (02-Oct-2026).
+  //   It used to insert the new job and leave the original as it was - so an original still
+  //   WAITING printed too, the moment its machine came back: the same round twice in the kitchen.
+  //   `redirect_print_job` cancels a waiting original and inserts its replacement together, and
+  //   the bridge's claim (`where status = 'queued'`) waits on the same lock, so exactly one of
+  //   the two can ever print. A printed or failed original is never cancelled - it is evidence,
+  //   and the new job is marked a reprint when paper already came out. The new job copies the
+  //   ORIGINAL's food_side, never the destination's (22-Sep-2026): redirecting changes where a
+  //   ticket prints, not what is on it. See 20261002120000_jalsa_print_redirect.sql.
+  const { error: redirectErr } = await db().rpc('redirect_print_job', {
+    p_job_id: job.id as string,
+    p_restaurant_id: restaurantId,
+    p_printer_id: printer.id as string,
+    p_printer_name: printer.name as string,
+    p_station: printer.station as string,
+    p_requested_by: input.actor.label,
+  });
+  if (redirectErr) throw new Error(redirectErr.message);
 
   if (job.kot_id) await syncKotPrintState(job.kot_id as string);
 
@@ -1216,6 +1225,57 @@ export async function printElsewhere(input: {
   });
 
   return { printerName: printer.name as string, station: printer.station as string };
+}
+
+/**
+ * A second paper copy of a SETTLED bill, at the counter's thermal printer (02-Oct-2026).
+ *
+ * It writes ONE thing: a print job, marked a reprint, so the paper carries *** REPRINT *** above
+ * everything else. It never touches the bill - no payment, no total, no closure time, no number
+ * - so a reprint cannot be read as a second sale anywhere a sale is counted. The browser "Print"
+ * beside it is unchanged; this is the thermal copy that one was never meant to be.
+ *
+ * Only a closed bill: an open bill's paper is printed by closing it, and a "reprint" of a bill
+ * that has not been settled would be a bill the guest could pay from twice.
+ */
+export async function reprintBill(input: { billId: string; actor: Actor }): Promise<{ printerName: string }> {
+  demand(input.actor, 'bill.reprint');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: bill, error } = await db()
+    .from('bill')
+    .select('id,code,status')
+    .eq('id', input.billId)
+    .eq('restaurant_id', restaurantId)
+    .single();
+  if (error) throw error;
+  if (bill.status !== 'closed') {
+    throw new Error('Only a settled bill can be reprinted. Closing the bill prints it.');
+  }
+
+  // Asked first so that "nothing prints bills" is a sentence now, not a failed job later.
+  const printers = await routablePrinters(restaurantId, 'Invoice', { strict: true });
+  const decision = resolvePrinter({ purpose: 'Invoice', category: '', printers });
+  if (!decision.printer) {
+    throw new Error('No printer prints bills. Choose one under Printers, then reprint.');
+  }
+
+  await queuePrint({
+    kind: 'Invoice',
+    billId: bill.id as string,
+    actor: input.actor,
+    isReprint: true,
+    known: { printers, splitByFoodType: false },
+  });
+
+  await audit({
+    action: 'Reprint',
+    detail: `${bill.code as string} bill reprinted at ${decision.printer.name} — marked as a reprint, no payment recorded`,
+    actor: input.actor,
+    billId: bill.id as string,
+  });
+
+  return { printerName: decision.printer.name };
 }
 
 /* ── Closure ───────────────────────────────────────────────────────────── */

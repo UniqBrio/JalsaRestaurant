@@ -36,6 +36,8 @@ import type { OwnerBillView } from '@/lib/db/owner-view';
  *   not that: it is an owner, at a desk, wanting a copy of one bill. `window.print()` over a
  *   print stylesheet needs no machine to be online, no route, and no job to fail silently. If
  *   what was wanted is a thermal ticket, that is the other thing and it is a different build.
+ *   (02-Oct-2026: that build is "Reprint at counter" beside it - a print job marked REPRINT, for
+ *   a settled bill, for a holder of `bill.reprint`. Print is unchanged.)
  */
 export function BillDetailSheet({
   bill,
@@ -44,6 +46,7 @@ export function BillDetailSheet({
   identity,
   whatsAppTemplate,
   invoice,
+  reprint,
 }: {
   bill: OwnerBillView | null;
   open: boolean;
@@ -55,6 +58,11 @@ export function BillDetailSheet({
    * The browser copy used to be this detail sheet itself, a second invoice format.
    */
   invoice?: { lines: TicketLine[]; cols: number };
+  /**
+   * A thermal copy at the counter's printer, marked REPRINT (02-Oct-2026). Given only to a holder
+   * of `bill.reprint`, and only for a settled bill - absent, the button is not drawn.
+   */
+  reprint?: { run: () => void; busy: boolean };
 }) {
   // The number is typed per share and kept nowhere: Jalsa stores no guest phone (item 38).
   const [phone, setPhone] = React.useState('');
@@ -92,6 +100,11 @@ export function BillDetailSheet({
           <Button data-testid="owner-bill-print" variant="secondary" onClick={() => window.print()}>
             Print
           </Button>
+          {reprint && bill.status === 'closed' ? (
+            <Button data-testid="owner-bill-reprint" variant="secondary" disabled={reprint.busy} onClick={reprint.run}>
+              Reprint at counter
+            </Button>
+          ) : null}
           {/*
             A real anchor wearing the button's clothes, rather than a Button with `asChild`.
 

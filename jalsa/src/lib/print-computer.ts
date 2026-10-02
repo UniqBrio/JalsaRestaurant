@@ -119,10 +119,11 @@ export function ownerPrintError(lastError: string, printerName: string): string 
 
 /** A test job's status, as the one line beside the Test Print button. */
 export function testPrintProgress(
-  job: { status: 'queued' | 'processing' | 'printed' | 'failed'; lastError: string } | null,
+  job: { status: 'queued' | 'processing' | 'printed' | 'failed' | 'cancelled'; lastError: string } | null,
   printerName: string
 ): { text: string; tone: Tone } | null {
-  if (!job) return null;
+  // A test page sent to another machine has nothing left to report beside this one (02-Oct-2026).
+  if (!job || job.status === 'cancelled') return null;
   if (job.status === 'printed') return { text: OWNER_PRINT_MESSAGES.completed, tone: 'success' };
   if (job.status === 'failed') return { text: ownerPrintError(job.lastError, printerName), tone: 'error' };
   return { text: OWNER_PRINT_MESSAGES.sending, tone: 'info' };

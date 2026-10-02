@@ -318,7 +318,8 @@ export interface PrinterRow {
  * `printed` is still unwritable by anything on the ORDER path. Only a bridge report produces it,
  * and only for a job that bridge is holding.
  */
-export type PrintJobStatus = 'queued' | 'processing' | 'printed' | 'failed';
+/** `cancelled` (02-Oct-2026): sent to another machine by Print elsewhere before it printed. */
+export type PrintJobStatus = 'queued' | 'processing' | 'printed' | 'failed' | 'cancelled';
 
 /**
  * A print job's destination, as every screen that shows one needs it.

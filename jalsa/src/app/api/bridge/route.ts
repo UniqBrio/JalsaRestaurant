@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { authenticateBridge, touchBridge } from '@/lib/bridge-auth';
-import { claimPrintJob, cleanDiscovery, listBridgeJobs, reportPrintJob, syncBridge } from '@/lib/db/bridge-mutations';
+import { claimPrintJob, cleanDiscovery, listBridgeJobs, maybeSweepStaleClaims, reportPrintJob, syncBridge } from '@/lib/db/bridge-mutations';
 import { ticketPayloadFor } from '@/lib/db/bridge-payload';
 
 /**
@@ -61,6 +61,8 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       const machineIds = Array.isArray(input.machineIds) ? input.machineIds.filter((m) => typeof m === 'string') : [];
       // `exactOptionalPropertyTypes` is on: an absent limit is absent, not `undefined`.
       const limit = typeof input.limit === 'number' ? { limit: input.limit } : {};
+      // Before listing: a ticket a dead PC was holding is put in front of a person (throttled).
+      await maybeSweepStaleClaims(bridge.restaurantId);
       return ok({ jobs: await listBridgeJobs({ bridge, machineIds, ...limit }) });
     }
 
