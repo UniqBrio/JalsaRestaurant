@@ -261,6 +261,31 @@ export async function ensureOpenBill(
  * and the answer is snapshot on the bill. Until the owner has answered, a non-zero charge is
  * refused with a sentence saying where to answer - never charged one way or the other by guess.
  */
+/**
+ * Remove a takeaway bill that no round reached (review, 02-Oct-2026).
+ *
+ * ONLY when it has no round. A round that was written before something later failed is an order
+ * the kitchen may already hold - deleting its bill would cascade to its KOT and its print jobs,
+ * and the kitchen would cook an order with no bill. Such a bill stays, as the order it is. A
+ * delete that fails is said in the log; the empty bill is then visible on Live orders.
+ */
+async function dropEmptyTakeaway(billId: string, restaurantId: string): Promise<void> {
+  const { count, error: readErr } = await db().from('kot').select('id', { count: 'exact', head: true }).eq('bill_id', billId);
+  if (readErr || (count ?? 0) > 0) return;
+  const { error } = await db().from('bill').delete().eq('id', billId).eq('restaurant_id', restaurantId);
+  if (error) console.warn('[takeaway] an empty takeaway bill could not be removed', billId, error.message);
+}
+
+/**
+ * The open takeaway a "more items" round is for - asked AFTER the grant (review, 02-Oct-2026), so
+ * a caller without `orders.add_items` learns nothing about which bills exist.
+ */
+export async function openTakeawayFor(input: { billId: string; actor: Actor }): Promise<Bill | null> {
+  demand(input.actor, 'orders.add_items');
+  const bill = await getBill(input.billId);
+  return bill && bill.orderType === 'takeaway' && bill.status === 'open' ? bill : null;
+}
+
 export async function placeTakeaway(input: {
   lines: readonly RoundLine[];
   packagingCharge: number;
@@ -306,12 +331,11 @@ export async function placeTakeaway(input: {
     actor: input.actor,
     ...(input.note ? { note: input.note } : {}),
   }).catch(async (err: unknown) => {
-    // Nothing reached the kitchen: the bill goes with it, so no empty takeaway is left open.
-    await db().from('bill').delete().eq('id', billId).eq('restaurant_id', restaurantId);
+    await dropEmptyTakeaway(billId, restaurantId);
     throw err;
   });
   if (!placed.kotId) {
-    await db().from('bill').delete().eq('id', billId).eq('restaurant_id', restaurantId);
+    await dropEmptyTakeaway(billId, restaurantId);
     return { billId: '', billCode: '', kotCode: '', refused: placed.refused };
   }
 
@@ -341,8 +365,12 @@ export async function setPackagingCharge(input: {
   const restaurantId = await currentRestaurantId();
   const [bill, tax] = await Promise.all([getBill(input.billId), currentTaxSettings()]);
   if (!bill || bill.orderType !== 'takeaway') throw new Error('Only a takeaway carries a packaging charge.');
-  if (bill.status !== 'open' && bill.status !== 'payment_requested')
-    throw new Error(`${bill.code} is already ${bill.status === 'closed' ? 'paid' : bill.status}. Its charges cannot change.`);
+  // Open only (review, 02-Oct-2026): once the guest has asked to pay, the amount they were told
+  // is the amount owed - lowering it then would be a discount without a discount grant, and
+  // raising it would change a bill already in the guest's hand.
+  if (bill.status === 'closed') throw new Error(`${bill.code} is already paid. Its packaging charge can no longer change.`);
+  if (bill.status !== 'open')
+    throw new Error(`${bill.code} has asked to pay. Its packaging charge can no longer change.`);
   if (packaging > 0 && tax.packagingTaxable === null) throw new Error(PACKAGING_TAX_UNDECIDED);
 
   const { data, error } = await db()
@@ -1083,7 +1111,16 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
   if (job.status === 'cancelled') {
     // Sent to another machine on purpose (02-Oct-2026). Re-sending it here would print the round
     // a second time - the very thing cancelling it prevented.
-    throw new Error('That ticket was sent to another machine instead. Retry that one, not this.');
+    throw new Error('This ticket was sent to another machine instead. Retry the new ticket for that machine.');
+  }
+
+  if (job.status === 'processing') {
+    // A bridge is printing it now (review, 02-Oct-2026). Putting it back to queued would hand it
+    // to a second claim while the first is still printing. A PC that died holding it is released
+    // by the sweeper within a minute, as failed - and that one can be retried.
+    throw new Error(
+      `That ticket is being printed at ${(job.printer_name as string) || 'its machine'} right now. Wait for it to print or fail.`
+    );
   }
 
   if (job.status === 'printed') {
@@ -1103,7 +1140,7 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
   const attempts = ((job.attempts as number) ?? 0) + 1;
 
   // `printer_id` is deliberately absent from this patch. So are `printer_name` and `station`.
-  await db()
+  const { data: requeued, error: requeueErr } = await db()
     .from('print_job')
     .update({
       status: 'queued',
@@ -1113,9 +1150,15 @@ export async function retryPrintJob(input: { jobId: string; actor: Actor }): Pro
       completed_at: null,
     })
     .eq('id', input.jobId)
-    // A redirect that landed between the read above and this write has cancelled the job; it
-    // must stay cancelled, or both machines print the round.
-    .neq('status', 'cancelled');
+    // Only from a state a retry may leave (review, 02-Oct-2026). A redirect that landed between
+    // the read above and this write has cancelled the job, or a bridge has claimed it; either way
+    // it must stay as it is, or two machines - or two claims - print the round.
+    .in('status', ['queued', 'failed'])
+    .select('id');
+  if (requeueErr) throw requeueErr;
+  if ((requeued ?? []).length === 0) {
+    throw new Error('That ticket changed while you were retrying it. Reload the page and look again.');
+  }
 
   if (job.kot_id) await syncKotPrintState(job.kot_id as string);
 
@@ -1162,6 +1205,9 @@ export async function printElsewhere(input: {
     .eq('restaurant_id', restaurantId)
     .single();
   if (error) throw error;
+  // A bill sent to another machine is a bill reprint when it already printed - the bill's own
+  // grant, not only the kitchen's (review, 02-Oct-2026).
+  if (job.kind === 'Invoice') demand(input.actor, 'bill.reprint');
 
   const { data: printer, error: printerErr } = await db()
     .from('printer')
@@ -1176,7 +1222,9 @@ export async function printElsewhere(input: {
     // is a round nobody is cooking. The kinds are not interchangeable - unless the owner set the
     // machine to print both (02-Oct-2026), in which case it is the counter's own printer.
     throw new Error(
-      `${printer.name as string} prints ${printer.purpose as string} tickets, and this is a ${job.kind as string}.`
+      `${printer.name as string} is not set to print ${job.kind === 'Invoice' ? 'bills' : 'kitchen tickets'}. Choose another machine, or turn on ${
+        job.kind === 'Invoice' ? 'Bills' : 'Kitchen tickets'
+      } for it under Printers.`
     );
   }
   if (((printer.enabled as boolean | null) ?? true) === false) {
@@ -1257,7 +1305,7 @@ export async function reprintBill(input: { billId: string; actor: Actor }): Prom
   const printers = await routablePrinters(restaurantId, 'Invoice', { strict: true });
   const decision = resolvePrinter({ purpose: 'Invoice', category: '', printers });
   if (!decision.printer) {
-    throw new Error('No printer prints bills. Choose one under Printers, then reprint.');
+    throw new Error('No printer is set to print bills. Under Printers, turn on Bills for one, then reprint.');
   }
 
   await queuePrint({

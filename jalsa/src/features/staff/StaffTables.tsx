@@ -505,7 +505,9 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
       )}
 
       <div className="flex flex-col gap-2">
-        {canAdd ? (
+        {/* Not for a takeaway (review, 02-Oct-2026): this screen orders FOR A TABLE and the server
+            refuses a takeaway here; its rounds are added from the owner console's Live orders. */}
+        {canAdd && bill.orderType !== 'takeaway' ? (
           <Button data-testid="staff-add-items" onClick={() => go('menu', bill.id)}>
             Add items for this table
           </Button>

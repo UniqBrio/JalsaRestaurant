@@ -15,6 +15,7 @@ import {
   ensureOpenBill,
   placeRound,
   placeTakeaway,
+  openTakeawayFor,
   setPackagingCharge,
   reassignBillStaff,
   joinTableToBill,
@@ -26,7 +27,6 @@ import {
   setItemAvailability,
 } from '@/lib/db/mutations';
 import { newDishProblem, type NewDish } from '@/lib/new-dish';
-import { getBill } from '@/lib/db/queries';
 import {
   addCategory,
   addDishWhileOrdering,
@@ -336,8 +336,8 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
     }
 
     case 'takeaway-round': {
-      const bill = await getBill(input.billId);
-      if (!bill || bill.orderType !== 'takeaway' || bill.status !== 'open') {
+      const bill = await openTakeawayFor({ billId: input.billId, actor });
+      if (!bill) {
         return fail(409, { code: 'conflict', message: 'That takeaway is no longer open.' });
       }
       const placed = await placeRound({ billId: bill.id, tableId: null, lines: input.lines, source: 'owner', actor });

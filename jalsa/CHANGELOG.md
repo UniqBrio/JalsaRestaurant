@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### Added — 02-Oct-2026 — One printer for kitchen tickets and bills
+
+- **Settings → Printers → Configure** (and Map printer): **Use for** has two chips, **Kitchen tickets** and **Bills**. Choose one or both. A restaurant with a single printer sets both, and that printer prints every KOT and every bill.
+- **Default** chips choose which printer is the default for kitchen tickets and which for bills. Choosing a default on one printer takes it off any other.
+- Two printers (kitchen + counter) route exactly as before. A bill is never sent to a kitchen-only printer, and a KOT never to a bills-only one. Turning on **Bills** for the main kitchen printer does not move dishes no station claims to a station printer (such as the Tandoor).
+- Mapping a second role onto a Windows printer that is already in use adds the role to it. It no longer removes the other mapping without asking. Only **Change** replaces a mapping.
+
+### Added — 02-Oct-2026 — Takeaway
+
+- **Dashboard** and **Live orders** have a **Takeaway** button. It opens the same menu sheet as a table's new round, with no table to choose. The order is a real takeaway order with no table attached; no dummy table is used.
+- **Packaging Charges**: an amount typed in whole rupees, 0 or more. It is a separate line on the bill, not a dish. It is never discounted, and it is never counted as item sales in Reports. It can be changed while the takeaway is open, but not once the guest has asked to pay.
+- Kitchen tickets and bills for a takeaway print **TAKEAWAY** at the top and name no table. Live orders, Dashboard, Payments and the bill say **TAKEAWAY** where a table name would be.
+- **Reports → Sales** gains **Dine-in and takeaway**: orders, income and packaging for each, adding back to total sales. **All orders** can be filtered by order type. A takeaway is not counted as a cover.
+- **Settings → Tax & GST → GST on packaging**: **Not decided** (the starting value), **Charge GST on packaging**, or **No GST on packaging**. Until the owner decides, a non-zero packaging charge cannot be saved. Jalsa does not make this decision for the restaurant.
+
+### Changed — 02-Oct-2026 — How did you hear about us? answers are kept
+
+- Answers are now kept as their own records. **Mark free**, a guest moving tables, and a deleted bill or table no longer erase them, and a later visit does not overwrite an earlier one. Every answer already saved is carried over.
+- A guest whose phone joins a table after its first round is asked once, on the order screen. **Not now** puts the question away for that phone.
+- **Reports → Sales** shows the answers over the selected range (Last 7 days, Last 30 days, This month, or Custom) as **Total guest responses**. Spellings that differ only in capitals, spacing, punctuation or a plural are counted together. Nothing else is merged.
+
+### Fixed — 02-Oct-2026 — Printing
+
+- **Print elsewhere** on a ticket that is waiting, or that failed, now cancels the original as part of the same step. The round can no longer print twice: the first printer cannot print it when it comes back, and the original cannot be retried. A cancelled ticket reads **Sent elsewhere**, and a failed one keeps its error in the note. A ticket that is printing at that moment, or was already sent elsewhere, is refused. A ticket that already printed is never cancelled; the new copy is marked a reprint, and so is a copy of a ticket that was already a reprint. Sending a bill elsewhere needs **Reprint a bill** as well.
+- **Retry** is refused while a print computer is printing the ticket. Before, it could put the ticket back in the queue, and a second computer could print it.
+- A ticket held by a print computer that stopped responding is now released automatically within about a minute, while the owner console or any print computer is open. Before, it stayed on **Sending…**.
+- **Payments → a closed bill → Reprint on bill printer** sends a second copy to the bills printer with **\*\*\* REPRINT \*\*\*** at the top. It needs the **Reprint a bill** permission. It records nothing on the bill and takes no payment.
+
+**Technical.** Four migrations, which must be applied in this order before this code is deployed:
+- `20261002090000_jalsa_printer_roles` (`printer.roles`, `printer.default_roles`)
+- `20261002100000_jalsa_takeaway` (`bill.order_type`, `bill.packaging_charge`, `bill.packaging_taxable`; `kot.table_id` nullable for takeaway only)
+- `20261002110000_jalsa_guest_attribution` (`guest_attribution`, with backfill; `guest_session.heard_dismissed_at`)
+- `20261002120000_jalsa_print_redirect` (`print_status` gains `cancelled`; function `redirect_print_job`)
+
 ### Added — 30-Sep-2026 — Catch Your Craving
 
 - **While a round is being cooked**, the guest's order screen offers a short, optional game: dishes from your own menu fall, and the guest catches them on a plate. It lasts about 24 seconds, can be played twice, and "Maybe later" puts it away. It ends with at most two suggestions from your menu (a dessert or a drink first), which go into the guest's cart like any other dish. It disappears the moment the round is Ready.

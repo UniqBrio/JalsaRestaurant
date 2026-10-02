@@ -224,7 +224,7 @@ export function Payments({ data, send, runBusy, busy }: OwnerSectionProps) {
                       action: 'reprint-bill',
                       billId: viewing.id,
                     });
-                    toast.show(`${viewing.code} sent to ${res.printerName}, marked REPRINT`, { tone: 'success' });
+                    toast.show(`${viewing.code} reprinted at ${res.printerName} — stamped REPRINT`, { tone: 'success' });
                   }),
               },
             }

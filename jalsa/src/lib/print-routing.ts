@@ -135,9 +135,14 @@ export function mainPrinter(purpose: string, printers: readonly RoutablePrinter[
         restaurant before this change), the result is exactly what it was. */
   const chosen = kind.find((p) => assignable(p) && (p.defaultFor ?? []).includes(purpose));
   if (chosen) return chosen;
-  const pick = (list: RoutablePrinter[]): RoutablePrinter | null =>
-    list.find((p) => assignable(p) && p.routes.length === 0) ?? list.find(assignable) ?? null;
-  return pick(kind.filter((p) => rolesOf(p).length === 1)) ?? pick(kind);
+  // "No category of its own" outranks "prints only this kind" (review, 02-Oct-2026): a main
+  // kitchen machine given Bills as well must stay the main kitchen machine, not hand unrouted
+  // dishes to the Tandoor because the Tandoor prints one kind. With every machine single-kind
+  // this is exactly the old rule: first free, then first enabled.
+  const single = kind.filter((p) => rolesOf(p).length === 1);
+  const free = (list: RoutablePrinter[]): RoutablePrinter | undefined =>
+    list.find((p) => assignable(p) && p.routes.length === 0);
+  return free(single) ?? free(kind) ?? single.find(assignable) ?? kind.find(assignable) ?? null;
 }
 
 /**

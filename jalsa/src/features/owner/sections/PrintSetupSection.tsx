@@ -9,6 +9,7 @@ import { Field, Input, Select, Toggle } from '@/components/ui/field';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { PRINT_STATUS, TicketPaper } from '@/components/ui/print';
+import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import { useToast } from '@/components/ui/toast';
 import { TEST_PRINT_NOTE, TEST_PRINT_QUEUED } from '@/lib/test-print';
 import { previewBillData, previewIdentity, previewKotData, previewRound, previewTaxRate } from '@/lib/ticket-preview';
@@ -1443,7 +1444,8 @@ function HistoryPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     {j.isReprint ? ' · reprint' : ''}
                   </span>
                   <span className="block type-caption text-[var(--text-muted)]">
-                    {j.kind === 'KOT' ? 'Kitchen ticket' : 'Bill'} · table {j.table}
+                    {j.kind === 'KOT' ? 'Kitchen ticket' : 'Bill'}
+                    {j.table === TAKEAWAY_LABEL ? ` · ${TAKEAWAY_LABEL}` : ` · table ${j.table}`}
                     {/* The station AND the machine. Either one alone leaves the question that
                         sends somebody to the wrong room: a fallback ticket is stamped for one
                         station and comes out at another, and only both facts say so. */}

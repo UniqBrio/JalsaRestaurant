@@ -494,7 +494,7 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         testId="owner-gst-inclusive"
       />
 
-      <div className="flex flex-col gap-1.5" role="group" aria-label="GST on packaging charges">
+      <div className="flex flex-col gap-1.5" role="group" aria-label="GST on takeaway packaging charges">
         <span className="type-caption font-semibold">GST on takeaway packaging charges</span>
         <div className="flex flex-wrap gap-2">
           {(
@@ -512,7 +512,7 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         <span className="type-caption leading-relaxed text-[var(--text-muted)]">
           {packaging === 'undecided'
             ? 'Until this is decided, a takeaway can be placed but not with a packaging charge. Confirm with your accountant.'
-            : 'Applies to packaging charges set from now on. A takeaway already open keeps what it was set with.'}
+            : 'Applies to packaging charges set from now on, including a change to a takeaway that is already open. A charge already set keeps the GST treatment it was set with.'}
         </span>
       </div>
 
@@ -537,8 +537,9 @@ function TaxPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                 rate: rateNum,
                 gstin,
                 inclusive,
-                // Stored only once decided: absent IS "not decided" (packagingTaxableFrom).
-                ...(packaging === 'undecided' ? {} : { packagingTaxable: packaging === 'taxed' }),
+                // null IS "not decided" (packagingTaxableFrom). Sent, never left out: the save merges
+                // with what is stored, so leaving it out kept an earlier decision (review, 02-Oct-2026).
+                packagingTaxable: packaging === 'undecided' ? null : packaging === 'taxed',
               },
             });
             toast.show(`GST set to ${rateNum}% — recorded in the audit log`, { tone: 'success' });

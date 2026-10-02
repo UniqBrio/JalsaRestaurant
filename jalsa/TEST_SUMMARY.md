@@ -4,6 +4,34 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-02 - Phase 6: review of all five phases, the defects it found, and the full regression
+
+Code, copy and permission reviewers read all five phases. Fixed:
+- (B1) mainPrinter put any single-role machine ahead of a machine with no routes. Ticking Bills on the main kitchen printer would have sent every unrouted dish to the Tandoor. A machine with no routes now outranks it; with all machines single-role the order is the old one.
+- (B2) Print elsewhere left a FAILED original as failed, so a later Retry printed the round on two machines. redirect_print_job now cancels failed originals too and keeps their error. A second redirect is refused. retryPrintJob is conditional on status in (queued, failed), checks it changed a row, and refuses a ticket being printed.
+- (S1) A redirected reprint stays marked as a reprint.
+- (S2) A takeaway bill is deleted only when no round reached the kitchen; before, the cascade would have removed the KOT and its print jobs.
+- (S3) Choosing Not decided for GST on packaging now saves as not decided.
+- (N4) A taxed packaging charge still prints when the GST lines are switched off.
+- (N1) The captain app hides Add items on a takeaway.
+- (N2) Print history says TAKEAWAY.
+- Permissions:
+  - set-packaging only while the takeaway is open;
+  - Print elsewhere on a bill also needs bill.reprint;
+  - upsertPrinter checks that the printer exists before moving a default;
+  - a more-items round checks the grant before reading the bill;
+  - the SQL function checks that the printer belongs to the restaurant.
+- Copy: 9 strings corrected.
+- Also: the RBAC_MATRIX rows and the CHANGELOG entry.
+
+FAIL-FIRST: tests/unit/review-fixes.unit.spec.ts, plus new cases in tests/unit/print-redirect.db.unit.spec.ts and tests/unit/print-reliability.unit.spec.ts, run with src and supabase stashed: 7 failed and 12 did not run. The review-fixes spec cannot build because openTakeawayFor does not exist. The failed-redirect, retry-filter, bill-grant, retry-while-printing and unknown-printer cases each fail on their own assertion. The B1 rung alone, run against the old print-routing.ts, expected main and received tandoor. After the fixes, all pass.
+Superseded in place, dated: print-assignment (2 rungs on the redirect SQL); print-reliability (scenario count, retry filter, no-printer message); print-redirect.db (a failed original is now cancelled); takeaway-flow (the more-items route reads the bill through openTakeawayFor).
+NOT RUN HERE: the functional tier, which needs a test database this container cannot reach (KL-1).
+Render tier: 277 passed, 0 failed. The first attempt timed out because the degraded instance lacked 3 client variables. The second had 9 failures because my own dev server had no client variables (/staff returned 500). With non-secret placeholder values in the process environment, all 277 pass.
+Unit tier: 1398 passed, 0 failed. One earlier run, made while the render tier was also running, failed outage.unit with EADDRINUSE on its fixed local port. Re-run alone, it passes; the outage spec was not changed. Typecheck, ESLint and audit:all all pass, 10/10.
+
+---
+
 ## 2026-10-02 - Phase 5: printing that cannot print a round twice, cannot strand a ticket, and can reprint a bill
 
 Print elsewhere inserted a new job and left a WAITING original queued, so when its machine came back both printed. Migration 20261002120000_jalsa_print_redirect adds print_status 'cancelled' and redirect_print_job(): one transaction holding the original's row lock - queued -> cancelled + replacement inserted together; processing -> refused (paper may be moving); cancelled -> refused (second click); printed -> original untouched, replacement marked a reprint; failed -> original stays failed. The bridge's claim is conditional on status = 'queued', so exactly one of the two can ever print. Execute granted to service_role only. printElsewhere calls it; retryPrintJob refuses a cancelled job and its update carries .neq('status','cancelled'). A cancelled job reads 'Sent elsewhere' (neutral) with no Retry / Print elsewhere. sweepStaleClaims was never called: maybeSweepStaleClaims (at most once a minute per restaurant per server instance, failures logged not thrown) now rides the bridge's list poll and the owner console's state poll - no new loop. Thermal bill reprint: reprintBill (bill.reprint; settled bills only; refuses when nothing prints bills) queues ONE Invoice job with is_reprint and audits; it writes nothing on the bill. buildBill prints *** REPRINT *** above everything for such a job. Owner console -> Payments -> a closed bill -> Reprint at counter. Also: the closed-bill preview and Menu's printer list now recognise a printer that prints both kinds (printsKind).

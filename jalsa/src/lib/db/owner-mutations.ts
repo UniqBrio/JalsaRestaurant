@@ -1145,7 +1145,11 @@ export async function upsertPrinter(input: {
       .from('printer')
       .select('name,station,routes,enabled,default_roles')
       .eq('id', input.id)
+      .eq('restaurant_id', restaurantId)
       .maybeSingle();
+    // Before any write (review, 02-Oct-2026): an unknown id must not take another printer's
+    // default away on its way to being refused.
+    if (!before) throw new Error('That printer is no longer configured. Reload the page.');
 
     /* A default it no longer prints is dropped with the role (`printer_default_roles_held`). A
        caller that sent no defaults - the Routing screen, older clients - keeps the ones it had. */

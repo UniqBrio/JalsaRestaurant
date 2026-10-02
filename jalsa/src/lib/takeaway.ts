@@ -12,7 +12,7 @@ export const TAKEAWAY_LABEL = 'TAKEAWAY';
 
 /** Said wherever a packaging charge is refused because GST on it has not been decided. */
 export const PACKAGING_TAX_UNDECIDED =
-  'Packaging charges need a decision first: whether GST applies to them. The owner sets it in Settings → Tax & GST. Until then, place the takeaway with no packaging charge.';
+  'Packaging charges need a decision first: whether GST applies to them. The owner sets it in Settings → Tax & GST. Until then, leave the packaging charge empty.';
 
 /** The words for where an order is: its tables, or TAKEAWAY. */
 export function placeLabel(bill: { orderType?: string | null; tables: readonly string[] }, joiner = ', '): string {

@@ -439,7 +439,9 @@ test('NOTHING IN THE PRINT PATH MAY WRITE printed — there is no transport to l
   // The redirect's own writes: it cancels and it queues, and never says printed.
   const redirectStatuses = [...REDIRECT.replace(/--.*$/gm, '').matchAll(/set status\s*=\s*'(\w+)'/g)].map((m) => m[1]);
   expect(redirectStatuses, 'the redirect sets a status at all').toContain('cancelled');
-  expect(REDIRECT).toContain("'queued', 0, original.status::text = 'printed'");
+  // Revised 02-Oct-2026 (code review): previously `original.status::text = 'printed'` alone; a
+  // waiting reprint sent elsewhere now stays marked a reprint.
+  expect(REDIRECT).toContain("'queued', 0, original.is_reprint or original.status::text = 'printed'");
   expect(redirectStatuses).not.toContain('printed');
   inspected += redirectStatuses.length;
   expect(inspected, 'status writes were found and inspected, not merely absent').toBeGreaterThan(2);
@@ -578,7 +580,9 @@ test('PRINT ELSEWHERE NEVER TOUCHES THE JOB IT REPLACES — the original is the 
   const update = REDIRECT.slice(REDIRECT.indexOf('update public.print_job'), REDIRECT.indexOf('end if;', REDIRECT.indexOf('update public.print_job')));
   expect(update, 'only a queued original is updated').toContain("set status = 'cancelled'");
   expect(update, 'no column of the assignment is re-set').not.toMatch(/\b(printer_id|printer_name|station|food_side)\s*=/);
-  expect(REDIRECT).toContain("if original.status::text = 'queued' then");
+  // Revised 02-Oct-2026 (code review): previously only a queued original was cancelled; a failed
+  // one is too now, or a Retry of it would print the round on two machines. Printed: never.
+  expect(REDIRECT).toContain("if original.status::text in ('queued', 'failed') then");
 });
 
 test('the redirect lineage is readable on the screen, not only in the row', () => {

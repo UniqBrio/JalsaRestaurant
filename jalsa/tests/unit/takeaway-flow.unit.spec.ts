@@ -105,7 +105,11 @@ test('the owner route carries takeaway, takeaway-round and set-packaging into th
   expect(route).toContain("case 'takeaway': {");
   expect(route).toContain('const placed = await placeTakeaway({');
   expect(route).toContain("case 'takeaway-round': {");
-  expect(route).toContain("if (!bill || bill.orderType !== 'takeaway' || bill.status !== 'open') {");
+  // Superseded 02-Oct-2026 (permission review): this previously asserted the route read the bill
+  // itself and checked `bill.orderType !== 'takeaway' || bill.status !== 'open'`. That read now
+  // happens in `openTakeawayFor`, AFTER the grant (review-fixes.unit.spec.ts holds the order).
+  expect(route).toContain('const bill = await openTakeawayFor({ billId: input.billId, actor });');
+  expect(route).toContain('if (!bill) {');
   expect(route).toContain('placeRound({ billId: bill.id, tableId: null, lines: input.lines, source: \'owner\', actor })');
   expect(route).toContain("case 'set-packaging':");
 });

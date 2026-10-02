@@ -10,12 +10,15 @@
  */
 import { printElsewhere, reprintBill, retryPrintJob } from '@/lib/db/mutations';
 import { maybeSweepStaleClaims, SWEEP_EVERY_MS } from '@/lib/db/bridge-mutations';
+import { upsertPrinter } from '@/lib/db/owner-mutations';
 import { fakeDb, type FakeQuery } from '../fake-supabase';
 
 interface World {
   grants: string[];
   /** The job being redirected or retried. */
   jobStatus?: 'queued' | 'processing' | 'printed' | 'failed' | 'cancelled';
+  /** The job's kind (KOT unless said). */
+  jobKind?: 'KOT' | 'Invoice';
   /** The bill being reprinted. */
   billStatus?: 'open' | 'payment_requested' | 'closed';
   printers?: Array<Record<string, unknown>>;
@@ -47,10 +50,11 @@ function responder(world: World, writes: Write[]) {
       case 'print_job':
         if (q.op === 'select') {
           return [
-            { id: 'j1', kind: 'KOT', kot_id: 'k1', status: world.jobStatus ?? 'queued', attempts: 1, printer_id: 'p-tan', printer_name: 'Tandoor', station: 'Tandoor' },
+            { id: 'j1', kind: world.jobKind ?? 'KOT', kot_id: world.jobKind === 'Invoice' ? null : 'k1', status: world.jobStatus ?? 'queued', attempts: 1, printer_id: 'p-tan', printer_name: 'Tandoor', station: 'Tandoor' },
           ];
         }
-        if (q.op === 'update') return [];
+        // A conditional update reports the row it changed - the retry checks that it changed one.
+        if (q.op === 'update') return [{ id: 'j1' }];
         return [];
       case 'printer': {
         const all = world.printers ?? [KITCHEN, TANDOOR, COUNTER];
@@ -106,6 +110,21 @@ const results = [
   ),
   await run('reprint bill, nothing prints bills', { grants: ['bill.reprint'], billStatus: 'closed', printers: [KITCHEN] }, (actor) =>
     reprintBill({ billId: 'b1', actor })
+  ),
+  // Review, 02-Oct-2026: a printed BILL sent elsewhere is a bill reprint - it needs bill.reprint.
+  await run('elsewhere, a bill, kitchen grant only', { grants: REPRINT, jobStatus: 'printed', jobKind: 'Invoice' }, (actor) =>
+    printElsewhere({ jobId: 'j1', printerId: 'p-inv', actor })
+  ),
+  await run('elsewhere, a bill, both grants', { grants: [...REPRINT, 'bill.reprint'], jobStatus: 'printed', jobKind: 'Invoice' }, (actor) =>
+    printElsewhere({ jobId: 'j1', printerId: 'p-inv', actor })
+  ),
+  await run('retry, being printed', { grants: REPRINT, jobStatus: 'processing' }, (actor) => retryPrintJob({ jobId: 'j1', actor })),
+  // Review, 02-Oct-2026: an unknown printer id takes no other printer's default on its way out.
+  await run('printer, unknown id', { grants: ['set.printer'] }, (actor) =>
+    upsertPrinter({
+      id: 'p-ghost', machineId: 'POS-9', name: 'Ghost', purpose: 'Invoice', roles: ['Invoice'], defaultFor: ['Invoice'],
+      station: 'Billing', paperMm: 80, connection: 'USB', address: '', port: 9100, routes: [], enabled: true, actor,
+    })
   ),
   // The sweeper: three polls inside a minute, then one after it, for one restaurant.
   await run('sweep throttle', { grants: [] }, async () => {

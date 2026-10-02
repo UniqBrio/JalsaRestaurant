@@ -36,7 +36,7 @@ import type { OwnerBillView } from '@/lib/db/owner-view';
  *   not that: it is an owner, at a desk, wanting a copy of one bill. `window.print()` over a
  *   print stylesheet needs no machine to be online, no route, and no job to fail silently. If
  *   what was wanted is a thermal ticket, that is the other thing and it is a different build.
- *   (02-Oct-2026: that build is "Reprint at counter" beside it - a print job marked REPRINT, for
+ *   (02-Oct-2026: that build is "Reprint on bill printer" beside it - a print job marked REPRINT, for
  *   a settled bill, for a holder of `bill.reprint`. Print is unchanged.)
  */
 export function BillDetailSheet({
@@ -102,7 +102,7 @@ export function BillDetailSheet({
           </Button>
           {reprint && bill.status === 'closed' ? (
             <Button data-testid="owner-bill-reprint" variant="secondary" disabled={reprint.busy} onClick={reprint.run}>
-              Reprint at counter
+              Reprint on bill printer
             </Button>
           ) : null}
           {/*

@@ -27,7 +27,7 @@ export function PrinterRolesField({
     if (ordered.length > 0) onChange(ordered);
   };
   return (
-    <div className="flex flex-col gap-1.5" role="group" aria-label="Use this printer for">
+    <div className="flex flex-col gap-1.5" role="group" aria-label="Use for">
       <span className="type-caption font-semibold">Use for</span>
       <div className="flex flex-wrap gap-2">
         {PRINTER_ROLES.map((r) => (
@@ -74,7 +74,7 @@ export function DefaultRolesField({
         ))}
       </div>
       <span className="type-caption text-[var(--text-muted)]">
-        Tickets nobody else is set up for go to the default. Leave both off and Jalsa picks one for you.
+        Tickets no other printer is set up for go to the default. Leave these off and Jalsa picks a default for you.
       </span>
     </div>
   );

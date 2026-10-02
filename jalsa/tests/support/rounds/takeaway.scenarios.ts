@@ -6,7 +6,7 @@
  * a bill at no table, a round with no table, packaging stored as entered, the KOT routed by the
  * same printers as any round - and nothing at all written when the order is refused.
  */
-import { closeBill, placeTakeaway } from '@/lib/db/mutations';
+import { closeBill, openTakeawayFor, placeTakeaway, setPackagingCharge } from '@/lib/db/mutations';
 import { fakeDb, type FakeQuery } from '../fake-supabase';
 
 const iso = new Date().toISOString();
@@ -20,14 +20,14 @@ interface World {
   /** The printers, as `printer` rows. */
   printers?: Array<Record<string, unknown>>;
   /** For a CLOSE: the open takeaway's packaging charge and its GST decision. */
-  open?: { packaging: number; taxable: boolean | null };
+  open?: { packaging: number; taxable: boolean | null; status?: 'open' | 'payment_requested' | 'closed' };
 }
 
 /** An open takeaway as `BILL_SELECT` returns it: two plates of fried rice at ₹170, no table. */
-const takeawayRow = (open: { packaging: number; taxable: boolean | null }) => ({
+const takeawayRow = (open: { packaging: number; taxable: boolean | null; status?: string }) => ({
   id: 'b-take',
   code: 'TK-1',
-  status: 'open',
+  status: open.status ?? 'open',
   group_code: null,
   guests: 1,
   occasion_type: null,
@@ -114,6 +114,8 @@ function responder(world: World, writes: Array<{ table: string; op: string; body
       }
       case 'bill':
         if (q.op === 'insert') return [{ id: 'b-take' }];
+        // A scoped update reports the row it changed (setPackagingCharge checks it changed one).
+        if (q.op === 'update' && world.open) return [{ id: 'b-take' }];
         if (q.op === 'select' && world.open) return [takeawayRow(world.open)];
         return [];
       case 'kot':
@@ -163,6 +165,27 @@ async function close(name: string, world: World) {
   }
 }
 
+/** Review, 02-Oct-2026: the packaging charge after the guest asked to pay, and the more-items read. */
+async function guarded(name: string, world: World, call: (actor: ReturnType<typeof ownerWith>) => Promise<unknown>) {
+  const db = fakeDb();
+  db.calls = [];
+  db.latencyMs = 1;
+  const writes: Array<{ table: string; op: string; body: unknown }> = [];
+  db.respond = responder(world, writes);
+  const reads: string[] = [];
+  const respond = db.respond;
+  db.respond = (q) => {
+    if (q.op === 'select') reads.push(q.table);
+    return respond(q);
+  };
+  try {
+    const out = await call(ownerWith(world.grants));
+    return { name, out: out ?? null, threw: null, writes, reads };
+  } catch (err) {
+    return { name, out: null, threw: err instanceof Error ? err.message : String(err), writes, reads };
+  }
+}
+
 const BOTH = ['orders.create', 'orders.add_items'];
 const results = [
   await run('placed with no packaging', { grants: BOTH }, { packagingCharge: 0 }),
@@ -177,6 +200,15 @@ const results = [
   await close('close, packaging untaxed, one printer for both', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: false } }),
   await close('close, packaging taxed', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: true } }),
   await close('close, only a kitchen printer', { grants: [], printers: KITCHEN_ONLY, open: { packaging: 0, taxable: null } }),
+  await guarded('packaging, guest asked to pay', { grants: BOTH, packagingTaxable: false, open: { packaging: 40, taxable: false, status: 'payment_requested' } }, (actor) =>
+    setPackagingCharge({ billId: 'b-take', packagingCharge: 0, actor })
+  ),
+  await guarded('packaging, still open', { grants: BOTH, packagingTaxable: false, open: { packaging: 40, taxable: false } }, (actor) =>
+    setPackagingCharge({ billId: 'b-take', packagingCharge: 30, actor })
+  ),
+  await guarded('more items, no grant', { grants: ['orders.create'], open: { packaging: 0, taxable: null } }, (actor) =>
+    openTakeawayFor({ billId: 'b-take', actor })
+  ),
 ];
 void iso;
 process.stdout.write(`${JSON.stringify(results)}\n`);

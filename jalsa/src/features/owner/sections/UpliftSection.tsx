@@ -151,7 +151,7 @@ export function HeardAboutCard({
         <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid={`${testId}-empty`}>
           {inReports
             ? 'No guest responses to “How did you hear about us?” are on record for this range.'
-            : 'No answers to “How did you hear about us?” are on record for these 30 days. It is asked once, on the welcome screen of the table’s menu.'}
+            : 'No answers to “How did you hear about us?” are on record for these 30 days. It is asked once per phone: on the welcome screen, or on the order screen for a phone that joined later.'}
         </p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">

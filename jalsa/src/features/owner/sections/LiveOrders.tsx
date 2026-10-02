@@ -199,7 +199,9 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
               <span className="type-caption" data-testid="owner-takeaway-packaging-now">
                 Packaging Charges {rupees(selected.packagingCharge)}
               </span>
-              {canTakeaway && (selected.status === 'open' || selected.status === 'payment_requested') ? (
+              {/* Open only: once the guest has asked to pay, the amount is what they were told
+                  (review, 02-Oct-2026 - the server refuses it too). */}
+              {canTakeaway && selected.status === 'open' ? (
                 <Button
                   data-testid="owner-takeaway-packaging-edit"
                   variant="ghost"

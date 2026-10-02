@@ -138,10 +138,21 @@ test('a PRINTED ticket is never cancelled - the replacement is marked a reprint'
   expect(await row(replacement)).toMatchObject({ status: 'queued', is_reprint: true });
 });
 
-test('a FAILED ticket stays failed - it printed nothing - and the replacement is not a reprint', async () => {
-  const original = await job('failed');
-  const replacement = await redirect(original);
-  expect((await row(original)).status).toBe('failed');
+test('a FAILED ticket is cancelled too - it printed nothing - and the replacement is not a reprint', async () => {
+  // Superseded 02-Oct-2026 (code review): this previously asserted the failed original STAYED
+  // failed. A failed original could then be retried, printing the round on its own machine as
+  // well as the new one. It is now cancelled, and its failure is kept in the note.
+  const original = await db.query<{ id: string }>(
+    `insert into print_job (restaurant_id, printer_id, printer_name, station, routing_rule, food_side, kind, bill_id, status, last_error)
+     values ($1, $2, 'Test Tandoor', 'Tandoor', 'routed', 'all', 'KOT', $3, 'failed', 'Printer offline') returning id`,
+    [restaurant, tandoor, bill]
+  );
+  const id = original.rows[0]!.id;
+  const replacement = await redirect(id);
+  expect(await row(id)).toMatchObject({
+    status: 'cancelled',
+    last_error: 'Sent to Test Kitchen instead - not printed here. Before that: Printer offline',
+  });
   expect(await row(replacement)).toMatchObject({ status: 'queued', is_reprint: false });
 });
 
@@ -164,4 +175,41 @@ test('only the server may call it: no execute grant to anon or authenticated', a
   expect(grants).not.toContain('anon');
   expect(grants).not.toContain('authenticated');
   expect(grants).not.toContain('PUBLIC');
+});
+
+/* ── Review fixes, 02-Oct-2026 ────────────────────────────────────────────────────────────── */
+
+/** `retryPrintJob`'s write, exactly: conditional on the two states a retry may leave. */
+const retry = async (id: string): Promise<number> =>
+  (await db.query(`update print_job set status = 'queued', attempts = attempts + 1 where id = $1 and status in ('queued', 'failed')`, [id]))
+    .affectedRows ?? -1;
+
+test('RACE, failed then redirected: a Retry of the original afterwards changes nothing - one ticket prints', async () => {
+  const original = await job('failed');
+  const replacement = await redirect(original);
+  expect(await retry(original)).toBe(0);
+  expect((await row(original)).status).toBe('cancelled');
+  const live = await db.query(`select 1 from print_job where id in ($1, $2) and status in ('queued', 'processing')`, [original, replacement]);
+  expect(live.rows).toHaveLength(1);
+  // And a second Print elsewhere of the same failed original is refused.
+  await expect(redirect(original)).rejects.toThrow(/already sent to another machine/);
+});
+
+test('a WAITING reprint sent elsewhere is still marked a reprint', async () => {
+  const { rows } = await db.query<{ id: string }>(
+    `insert into print_job (restaurant_id, printer_id, printer_name, station, routing_rule, food_side, kind, bill_id, status, is_reprint)
+     values ($1, $2, 'Test Tandoor', 'Tandoor', 'routed', 'all', 'KOT', $3, 'queued', true) returning id`,
+    [restaurant, tandoor, bill]
+  );
+  const replacement = await redirect(rows[0]!.id);
+  expect(await row(replacement)).toMatchObject({ is_reprint: true });
+});
+
+test('a printer of another restaurant is refused, and nothing is written', async () => {
+  const original = await job('queued');
+  const ghost = (await db.query<{ id: string }>(`select gen_random_uuid() as id`)).rows[0]!.id;
+  await expect(
+    db.query(`select redirect_print_job($1, $2, $3, 'X', 'Y', 'Z')`, [original, restaurant, ghost])
+  ).rejects.toThrow(/no longer configured/);
+  expect((await row(original)).status).toBe('queued');
 });

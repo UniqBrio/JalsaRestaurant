@@ -108,6 +108,13 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | Reports — sales, staff, expenses, reviews | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Staff — view, create, permissions, PINs | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Settings — all | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Orders — **open a takeaway, add items to one** (`orders.create` **and** `orders.add_items`, both checked before any write; added 02-Oct-2026 — the button is on the owner console's Dashboard and Live Orders; the captain app has none yet) | ✅ grant, no button | ❌ | ❌ | ❌ | ✅ |
+| Orders — **set a takeaway's packaging charge** (`orders.create`, added 02-Oct-2026; only while the takeaway is open, never once the guest has asked to pay. Whether LOWERING it should need a discount grant is an open owner decision) | ✅ grant, no button | ❌ | ❌ | ❌ | ✅ |
+| Orders — **Print elsewhere / Retry** a ticket (`orders.reprint`, unchanged; 02-Oct-2026: a waiting or failed original is cancelled in the same transaction, and sending a BILL elsewhere also needs `bill.reprint`) | ✅ | ❌ | ✅ | ❌ | ✅ |
+| Bills — **thermal reprint of a settled bill, marked REPRINT** (`bill.reprint`, added 02-Oct-2026 — one print job and an audit row, nothing on the bill; owner console → Payments) | ✅ grant, no button | ❌ | ❌ | ✅ | ✅ |
+| Settings — **decide whether GST applies to packaging** (`set.tax`, added 02-Oct-2026; until decided, no non-zero packaging charge can be saved) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Settings — **printer roles and defaults** (`set.printer`, added 02-Oct-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Guest (no grant) — **answer "How did you hear about us?", or Not now** (added 02-Oct-2026 — their own session only, found by their cookie; never another phone's answer) | — | — | — | — | — |
 
 ---
 

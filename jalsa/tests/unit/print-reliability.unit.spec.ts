@@ -40,7 +40,10 @@ test.beforeAll(async () => {
 });
 
 test('the scenarios ran - a rig that parsed nothing is not a passing rig', () => {
-  expect(results.length).toBe(13);
+  // Superseded 02-Oct-2026 (review fixes): this previously asserted 13 scenarios; the review
+  // added four (a bill sent elsewhere without/with bill.reprint, an unknown printer id, a retry
+  // of a ticket being printed).
+  expect(results.length).toBe(17);
 });
 
 /* ── Print elsewhere ──────────────────────────────────────────────────────────────────────── */
@@ -88,7 +91,10 @@ test('Retry of a failed ticket still works, and its write cannot revive a job ca
   expect(r.threw).toBeNull();
   const update = r.writes.find((w) => w.table === 'print_job' && w.op === 'update');
   expect(update?.body).toMatchObject({ status: 'queued' });
-  expect(update?.filters).toContain('neq:status=cancelled');
+  // Superseded 02-Oct-2026 (review fixes): this previously asserted `.neq('status', 'cancelled')`.
+  // The write is now conditional on the two states a retry may leave - which also keeps a job a
+  // bridge claimed meanwhile from being handed out twice - and its row count is checked.
+  expect(update?.filters).toContain('in:status=queued,failed');
 });
 
 /* ── Bill reprint ─────────────────────────────────────────────────────────────────────────── */
@@ -109,7 +115,9 @@ test('a bill reprint writes ONE print job marked a reprint and an audit row - no
 test('a bill reprint needs bill.reprint, a settled bill, and a printer that prints bills - and writes nothing otherwise', () => {
   expect(by('reprint bill, no grant').threw).toMatch(/Not permitted: Reprint a bill/);
   expect(by('reprint bill, still open').threw).toMatch(/Only a settled bill can be reprinted/);
-  expect(by('reprint bill, nothing prints bills').threw).toMatch(/No printer prints bills/);
+  // Superseded 02-Oct-2026 (copy review): this previously matched "No printer prints bills"; the
+  // message now names the setting that fixes it.
+  expect(by('reprint bill, nothing prints bills').threw).toMatch(/No printer is set to print bills\. Under Printers, turn on Bills/);
   for (const name of ['reprint bill, no grant', 'reprint bill, still open', 'reprint bill, nothing prints bills']) {
     expect(by(name).writes, name).toEqual([]);
   }
@@ -173,4 +181,27 @@ test('a cancelled job reads "Sent elsewhere", neutral - not a failure, and no Re
   expect(print).toContain("job.status !== 'cancelled' && job.printerId ? (");
   const setup = readFileSync('src/features/owner/sections/PrintSetupSection.tsx', 'utf8');
   expect(setup.match(/j\.status !== 'cancelled'/g)?.length).toBe(2);
+});
+
+/* ── Review fixes, 02-Oct-2026 ────────────────────────────────────────────────────────────── */
+
+test('a printed BILL sent elsewhere is a bill reprint: it needs bill.reprint, not only the kitchen grant', () => {
+  const denied = by('elsewhere, a bill, kitchen grant only');
+  expect(denied.threw).toMatch(/Not permitted: Reprint a bill/);
+  expect(denied.writes).toEqual([]);
+  const allowed = by('elsewhere, a bill, both grants');
+  expect(allowed.threw).toBeNull();
+  expect(allowed.writes.filter((w) => w.op === 'rpc')).toHaveLength(1);
+});
+
+test('Retry refuses a ticket a bridge is printing right now - re-queueing it would hand it to a second claim', () => {
+  const r = by('retry, being printed');
+  expect(r.threw).toMatch(/being printed at Tandoor right now/);
+  expect(r.writes).toEqual([]);
+});
+
+test('saving a printer that no longer exists takes no default from any other printer', () => {
+  const r = by('printer, unknown id');
+  expect(r.threw).toMatch(/no longer configured/);
+  expect(r.writes).toEqual([]);
 });

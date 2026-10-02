@@ -17,8 +17,11 @@
 --     processing  -> refused: a bridge is printing it at this moment, and cancelling it could not
 --                    take back paper already moving;
 --     cancelled   -> refused: it was already sent elsewhere;
---     failed      -> the new job is inserted; the failed original stays failed (it printed nothing);
+--     failed      -> cancelled too, with its failure kept in the note: it printed nothing, and a
+--                    failed original left 'failed' could be retried later - printing the round on
+--                    its own machine as well as the new one (review, 02-Oct-2026);
 --     printed     -> the new job is inserted, marked a reprint - the original is never cancelled.
+--   The new job is a reprint when the original was one, or already printed.
 --   The bridge's claim is `update ... set status = 'processing' where status = 'queued'`; the
 --   row lock means whichever of the two reaches the row first wins and the other sees the result,
 --   so exactly one of the two jobs can ever print.
@@ -54,6 +57,11 @@ begin
   if not found then
     raise exception 'That ticket no longer exists. Reload the page.' using errcode = 'no_data_found';
   end if;
+  -- The machine is this restaurant's too: the server checks it, and so does the one place that
+  -- writes the job.
+  if not exists (select 1 from public.printer where id = p_printer_id and restaurant_id = p_restaurant_id) then
+    raise exception 'That printer is no longer configured. Reload the page.' using errcode = 'no_data_found';
+  end if;
 
   if original.status::text = 'processing' then
     raise exception 'That ticket is being printed at % right now. Wait for it to print or fail, then choose again.',
@@ -64,11 +72,12 @@ begin
     raise exception 'That ticket was already sent to another machine.' using errcode = 'check_violation';
   end if;
 
-  if original.status::text = 'queued' then
+  if original.status::text in ('queued', 'failed') then
     update public.print_job
        set status = 'cancelled',
            completed_at = now(),
            last_error = 'Sent to ' || p_printer_name || ' instead - not printed here.'
+             || case when original.last_error <> '' then ' Before that: ' || original.last_error else '' end
      where id = p_job_id;
   end if;
 
@@ -78,7 +87,7 @@ begin
   ) values (
     p_restaurant_id, p_printer_id, p_printer_name, p_station, 'chosen', coalesce(original.food_side, 'all'),
     original.kind, original.kot_id, original.bill_id,
-    'queued', 0, original.status::text = 'printed', p_requested_by, '', null, original.id
+    'queued', 0, original.is_reprint or original.status::text = 'printed', p_requested_by, '', null, original.id
   )
   returning id into new_id;
 

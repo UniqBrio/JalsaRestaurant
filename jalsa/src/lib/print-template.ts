@@ -745,8 +745,10 @@ export function buildBill(data: TicketData, config: TemplateConfig, opts?: { rep
       case 'total':
         // A tip is part of what the guest pays, so it is its own line above the total and the
         // total is the screen's To pay, tip included (review, 25-Sep-2026).
-        // A packaging charge with no GST on it prints after the GST lines (02-Oct-2026).
-        if ((t.packaging ?? 0) > 0 && !t.packagingTaxable) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
+        // A packaging charge with no GST on it prints after the GST lines (02-Oct-2026) - and so
+        // does a taxed one when the GST lines are switched off, or the paper's TOTAL would include
+        // a charge the paper never shows (review, 02-Oct-2026).
+        if ((t.packaging ?? 0) > 0 && (!t.packagingTaxable || !isOn(config, 'tax'))) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
         if ((t.tip ?? 0) > 0) push(leftRight('TIP', money(t.tip ?? 0), cols));
         push(separatorLine(config, cols));
         push(totalLine(money(t.payable), big, cols).text, totalLine(money(t.payable), big, cols).weight);

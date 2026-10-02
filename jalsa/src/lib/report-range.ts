@@ -216,8 +216,9 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
   const side = (bills: readonly RangeBill[]): GstSide => ({
     orders: bills.length,
     gross: bills.reduce((a, b) => a + b.restaurantIncome, 0),
-    /* Before GST. `restaurantIncome` IS taxable + tax (money.ts), so the base is that minus
-       the tax - derived rather than carried, so the two can never be passed in disagreeing. */
+    /* Before GST: what was paid less the GST on it - derived rather than carried, so the two
+       can never be passed in disagreeing. (02-Oct-2026: with an untaxed packaging charge this is
+       taxable value PLUS that charge - gross less GST, as the screen says, not the taxable base.) */
     net: bills.reduce((a, b) => a + (b.restaurantIncome - b.tax), 0),
     tax: bills.reduce((a, b) => a + b.tax, 0),
   });

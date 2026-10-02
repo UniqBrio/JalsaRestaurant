@@ -1009,7 +1009,7 @@ export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db()
     .from('print_job')
-    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id,table:table_id(name)),bill(code)')
+    .select('id,kind,status,attempts,is_reprint,requested_by,last_error,created_at,last_attempt_at,printer_id,printer_name,station,routing_rule,redirected_from_job_id,kot(code,table_id,table:table_id(name)),bill(code,order_type)')
     .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -1025,14 +1025,15 @@ export async function listPrintJobs(limit = 80): Promise<PrintJobRow[]> {
 
   return (data ?? []).map((j) => {
     const kot = j.kot as unknown as { code: string; table_id: string | null } | null;
-    const bill = j.bill as unknown as { code: string } | null;
+    const bill = j.bill as unknown as { code: string; order_type?: string } | null;
     return {
       id: j.id as string,
       kind: j.kind as string,
       // The reference a person would look for. A print job's own uuid appears on no ticket and
       // in no conversation anybody has ever had in a kitchen.
       reference: kot?.code ?? bill?.code ?? '—',
-      table: kot?.table_id ? (names.get(kot.table_id) ?? '—') : '—',
+      // A takeaway's ticket names no table, and says so (02-Oct-2026).
+      table: bill?.order_type === 'takeaway' ? TAKEAWAY_LABEL : kot?.table_id ? (names.get(kot.table_id) ?? '—') : '—',
       // The snapshot on the job, not a join through `printer`. A machine renamed at nine o'clock
       // must not silently rewrite the eight o'clock rows in the history somebody is reading to
       // work out where a ticket went.
