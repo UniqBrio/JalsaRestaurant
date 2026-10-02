@@ -11,7 +11,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Field, Input } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
-import { rupees } from '@/lib/money';
+import { packagingProblem, rupees } from '@/lib/money';
 import { billSeparability, eligibleForBillRole } from '@/lib/status';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { CloseBillSheet } from '../CloseBillSheet';
@@ -51,6 +51,8 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
   /* Takeaway (02-Oct-2026): a new one, or more items for one already open. The Dashboard's sheet
      and menu, not a second ordering screen. Both grants, as the server demands. */
   const [roundTarget, setRoundTarget] = React.useState<RoundTarget | null>(null);
+  /** The packaging charge being corrected on an open takeaway, as typed; null when not editing. */
+  const [packagingDraft, setPackagingDraft] = React.useState<string | null>(null);
   const canTakeaway = data.grants.includes('orders.add_items') && data.grants.includes('orders.create');
   const roundSheet = (
     <NewRoundSheet
@@ -194,8 +196,68 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
                   Add items
                 </Button>
               ) : null}
+              <span className="type-caption" data-testid="owner-takeaway-packaging-now">
+                Packaging Charges {rupees(selected.packagingCharge)}
+              </span>
+              {canTakeaway && (selected.status === 'open' || selected.status === 'payment_requested') ? (
+                <Button
+                  data-testid="owner-takeaway-packaging-edit"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => setPackagingDraft(String(selected.packagingCharge || ''))}
+                >
+                  Change
+                </Button>
+              ) : null}
             </div>
           ) : null}
+
+          {/* Correcting a takeaway's packaging charge before it is paid - the same validation and
+              the same GST decision as when it was placed (`setPackagingCharge`). */}
+          <Sheet
+            open={packagingDraft !== null}
+            onOpenChange={(v) => !v && setPackagingDraft(null)}
+            posture="modal"
+            title={`Packaging Charges · ${selected.code}`}
+            description="Whole rupees. Leave empty for none."
+            testId="owner-takeaway-packaging-sheet"
+            footer={
+              <>
+                <Button data-testid="owner-takeaway-packaging-cancel" variant="ghost" onClick={() => setPackagingDraft(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  data-testid="owner-takeaway-packaging-save"
+                  disabled={busy || !!packagingProblem(packagingDraft ?? '')}
+                  onClick={() =>
+                    runBusy(async () => {
+                      const res = await send<{ packagingCharge: number }>('/api/owner/action', {
+                        action: 'set-packaging',
+                        billId: selected.id,
+                        packagingCharge: (packagingDraft ?? '').trim() || '0',
+                      });
+                      setPackagingDraft(null);
+                      toast.show(`${selected.code}: packaging charges ${rupees(res.packagingCharge)}`, { tone: 'success' });
+                    })
+                  }
+                >
+                  Save
+                </Button>
+              </>
+            }
+          >
+            <Field label="Packaging Charges" htmlFor="owner-takeaway-packaging-input" error={packagingProblem(packagingDraft ?? '')}>
+              <Input
+                id="owner-takeaway-packaging-input"
+                data-testid="owner-takeaway-packaging-input"
+                inputMode="numeric"
+                value={packagingDraft ?? ''}
+                placeholder="₹ 0"
+                onChange={(e) => setPackagingDraft(e.target.value)}
+              />
+            </Field>
+          </Sheet>
 
           {canReassign ? (
             <div className="flex flex-wrap gap-2">

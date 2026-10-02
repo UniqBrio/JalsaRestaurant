@@ -135,6 +135,10 @@ export interface RangeBill {
    * number a cash reconciliation is done against is worse than an honest Unrecorded.
    */
   paymentMode?: string;
+  /** 'takeaway' or 'dine_in' (02-Oct-2026). Absent: dine-in, as every bill before takeaway. */
+  orderType?: 'dine_in' | 'takeaway';
+  /** The packaging charge inside `restaurantIncome` - income, never item sales. Absent: 0. */
+  packaging?: number;
 }
 
 export interface RangeExpense {
@@ -174,6 +178,15 @@ export interface RangeSummary {
   };
   /** Cash, Card, UPI. Ordered by amount, because the biggest share is the one being asked about. */
   byPaymentMode: Array<{ mode: string; amount: number; bills: number }>;
+  /**
+   * Dine-in and takeaway, side by side (02-Oct-2026). `sales` is each side's income - the same
+   * figure `sales` sums - so the two always add back to it; `packaging` is the part of it that
+   * was packaging charges, which are income but never item sales. Both sides are always present,
+   * in that order, so a range with no takeaway reads "0" rather than leaving a gap.
+   */
+  byOrderType: Array<{ orderType: 'dine_in' | 'takeaway'; bills: number; sales: number; packaging: number }>;
+  /** Packaging charges over the range. Inside `sales`; never in the item breakdowns. */
+  packaging: number;
 }
 
 export interface GstSide {
@@ -241,6 +254,16 @@ export function summarise(input: { bills: readonly RangeBill[]; expenses: readon
     byCategory: [...byCategory.entries()]
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount),
+    byOrderType: (['dine_in', 'takeaway'] as const).map((orderType) => {
+      const of = input.bills.filter((b) => (b.orderType ?? 'dine_in') === orderType);
+      return {
+        orderType,
+        bills: of.length,
+        sales: of.reduce((a, b) => a + b.restaurantIncome, 0),
+        packaging: of.reduce((a, b) => a + (b.packaging ?? 0), 0),
+      };
+    }),
+    packaging: input.bills.reduce((a, b) => a + (b.packaging ?? 0), 0),
   };
 }
 

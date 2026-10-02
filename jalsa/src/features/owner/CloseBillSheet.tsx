@@ -101,7 +101,14 @@ export function CloseBillSheet({
   // The derived value, shown as it is typed (Standard 3.4). ONE discount — not the sum of two
   // boxes — because the two boxes are two views of the same figure.
   // Change is for cash only, against what is charged at this moment (H3).
-  const payableNow = payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount });
+  const payableNow = payableAtClose({
+    subtotal: bill.subtotal,
+    taxRate: bill.taxRate,
+    tip: bill.tip,
+    discount,
+    packaging: bill.packagingCharge,
+    packagingTaxable: bill.packagingTaxable,
+  });
   const tenderProblem = mode === 'Cash' ? cashProblem(payableNow, tendered) : null;
   const discountPreview = payload
     ? discountBothWays({ base: bill.subtotal, typed: payload.discountType, value: payload.discountValue }).amount
@@ -241,6 +248,7 @@ export function CloseBillSheet({
             base={bill.subtotal}
             taxRate={bill.taxRate}
             tip={bill.tip}
+            packaging={{ amount: bill.packagingCharge, taxable: bill.packagingTaxable }}
             entry={discount}
             onChange={setDiscount}
             disabled={busy}

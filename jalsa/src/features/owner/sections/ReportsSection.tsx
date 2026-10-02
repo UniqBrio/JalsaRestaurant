@@ -83,6 +83,17 @@ interface RangeReport {
       nonGst: GstPanelSide;
     };
     byPaymentMode: Array<{ mode: string; amount: number; bills: number; amountLabel: string; share: number }>;
+    /** Dine-in and takeaway (02-Oct-2026). Absent from an older server: no panel. */
+    byOrderType?: Array<{
+      orderType: 'dine_in' | 'takeaway';
+      label: string;
+      bills: number;
+      sales: number;
+      salesLabel: string;
+      packaging: number;
+      packagingLabel: string;
+    }>;
+    packagingLabel?: string;
   };
   products: Array<{ name: string; qty: number; revenue: number }>;
   /** Sales per day over the range (item 39). Absent from an older server: no chart. */
@@ -107,6 +118,8 @@ interface RangeReport {
     closedOn: string;
     payable: number;
     payableLabel: string;
+    /** Absent from an older server: dine-in. */
+    orderType?: 'dine_in' | 'takeaway';
   }>;
   expenses: Array<{ id: string; spentOn: string; category: string; note: string; amount: number; enteredBy: string }>;
   /** The actual last bill closed before this range, for the empty Today state. */
@@ -528,6 +541,8 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
 
       <GstPanel report={report} />
 
+      <OrderTypePanel report={report} />
+
       <PaymentPanel report={report} />
 
       {/* Only once the owner has put a category under another: until then every menu IS a
@@ -694,12 +709,70 @@ function SalesPanel({ report, canSeeMoney }: { report: RangeReport; canSeeMoney:
 
 /* ── All orders ────────────────────────────────────────────────────────── */
 
+/**
+ * Dine-in and takeaway, side by side (02-Oct-2026). Each side's income is part of the sales figure
+ * above - the two add back to it - and the packaging charges are named on their own line because
+ * they are income but never item sales: the product and category tables below do not contain them.
+ */
+function OrderTypePanel({ report }: { report: RangeReport }) {
+  const sides = report.summary.byOrderType;
+  if (!sides) return null;
+  return (
+    <section data-testid="owner-rep-order-type">
+      <SectionLabel>Dine-in and takeaway</SectionLabel>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {sides.map((o) => (
+          <Card key={o.orderType} className="flex flex-col gap-2" data-testid={`owner-rep-${o.orderType}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="type-body font-semibold">{o.label}</span>
+              <span className="type-caption text-[var(--text-muted)]">{o.bills === 1 ? '1 order' : `${o.bills} orders`}</span>
+            </div>
+            <dl className="m-0 grid grid-cols-2 gap-2">
+              <div>
+                <dt className="m-0 type-caption text-[var(--text-muted)]">Income</dt>
+                <dd className="m-0 type-body font-semibold tabular-nums">{o.salesLabel}</dd>
+              </div>
+              {o.orderType === 'takeaway' ? (
+                <div>
+                  <dt className="m-0 type-caption text-[var(--text-muted)]">Packaging charges</dt>
+                  <dd className="m-0 type-body font-semibold tabular-nums" data-testid="owner-rep-packaging">
+                    {o.packagingLabel}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </Card>
+        ))}
+      </div>
+      <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
+        Income includes GST and packaging charges, and leaves out tips. Packaging charges are not item sales, so the
+        dish and category tables do not count them.
+      </p>
+    </section>
+  );
+}
+
 function OrdersPanel({ report }: { report: RangeReport }) {
+  const [kind, setKind] = React.useState<'all' | 'dine_in' | 'takeaway'>('all');
+  const rows = report.orders.filter((o) => kind === 'all' || (o.orderType ?? 'dine_in') === kind);
   return (
     <section>
       <SectionLabel>All orders · {report.orders.length}</SectionLabel>
+      <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="Order type">
+        {(
+          [
+            ['all', 'All'],
+            ['dine_in', 'Dine-in'],
+            ['takeaway', 'Takeaway'],
+          ] as const
+        ).map(([key, label]) => (
+          <Chip key={key} on={kind === key} onClick={() => setKind(key)} data-testid={`owner-rep-orders-${key}`}>
+            {label}
+          </Chip>
+        ))}
+      </div>
       <DataTable
-        rows={report.orders}
+        rows={rows}
         rowKey={(o) => o.id}
         defaultSort={{ key: 'bill', direction: 'desc' }}
         exportName="jalsa-orders"

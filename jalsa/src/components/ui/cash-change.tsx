@@ -28,6 +28,9 @@ export function payableAtClose(input: {
   taxRate: number;
   tip: number;
   discount: DiscountEntry;
+  /** A takeaway's packaging charge and its GST decision (02-Oct-2026). Absent: none. */
+  packaging?: number;
+  packagingTaxable?: boolean | null;
 }): number {
   const payload = discountPayload(input.discount);
   const both = payload
@@ -37,6 +40,8 @@ export function payableAtClose(input: {
     lines: [{ name: 'Food', unitPrice: input.subtotal, qty: 1 }],
     taxRate: input.taxRate,
     tip: input.tip,
+    packaging: input.packaging ?? 0,
+    packagingTaxable: input.packagingTaxable ?? null,
     ...(payload && both
       ? payload.discountType === 'percentage'
         ? { discountPct: both.pct }

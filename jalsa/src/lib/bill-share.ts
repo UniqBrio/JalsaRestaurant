@@ -20,6 +20,7 @@
  *   The Business API variant remains un-built and needs its own decision. Ask before adding it.
  */
 import type { OwnerBillView } from './db/owner-view';
+import { placeLabel } from './takeaway';
 import { billName, type RestaurantIdentity } from './restaurant-identity';
 
 /* ── The template ──────────────────────────────────────────────────────── */
@@ -134,7 +135,7 @@ export function billShareText(
       const name = billName(identity);
       if (name) lines.push(name);
     },
-    billAndTable: () => lines.push(`Bill ${bill.code} · ${bill.tables.join(', ')}`),
+    billAndTable: () => lines.push(`Bill ${bill.code} · ${placeLabel(bill)}`),
     guestsAndTime: () =>
       lines.push(`${bill.guests} ${bill.guests === 1 ? 'guest' : 'guests'} · opened ${bill.openedAt}`),
     items: () => {

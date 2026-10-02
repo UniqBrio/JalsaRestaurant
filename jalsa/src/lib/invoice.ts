@@ -1,4 +1,5 @@
 import { totalBill } from './money';
+import { TAKEAWAY_LABEL } from './takeaway';
 import {
   buildTicket,
   defaultTemplate,
@@ -42,6 +43,10 @@ export interface InvoiceBill {
   paymentMode: string | null;
   /** The tip on this bill. Printed as its own line and included in TOTAL, as the screen does. */
   tip?: number;
+  /** 'takeaway': no table, a TAKEAWAY band, and a packaging charge (02-Oct-2026). */
+  orderType?: 'dine_in' | 'takeaway';
+  packagingCharge?: number;
+  packagingTaxable?: boolean | null;
   kots: ReadonlyArray<{
     status: string;
     items: ReadonlyArray<{
@@ -96,8 +101,11 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
     discountAmount: bill.discountAmount,
     taxRate: bill.taxRate,
     tip: bill.tip ?? 0,
+    packaging: bill.packagingCharge ?? 0,
+    packagingTaxable: bill.packagingTaxable ?? null,
   });
   const at = bill.closedAt ?? now.toISOString();
+  const takeaway = bill.orderType === 'takeaway';
   return {
     restaurant: (who.name || 'Jalsa').toUpperCase(),
     branch: who.address,
@@ -107,7 +115,8 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
     station: '',
     roundCode: '',
     billCode: bill.code,
-    table: bill.tables.length ? bill.tables.join(', ') : bill.hostTable,
+    table: takeaway ? TAKEAWAY_LABEL : bill.tables.length ? bill.tables.join(', ') : bill.hostTable,
+    ...(takeaway ? { orderType: 'takeaway' as const } : {}),
     customer: '',
     captain: bill.captain === 'Unassigned' ? '' : bill.captain,
     date: dateLabelIn(at),
@@ -123,6 +132,7 @@ export function invoiceTicketData(bill: InvoiceBill, who: InvoiceIdentity, now: 
       paymentMode: bill.paymentMode ?? '',
       taxRate: bill.taxRate,
       tip: t.tip,
+      ...(t.packaging > 0 ? { packaging: t.packaging, packagingTaxable: t.packagingTaxed } : {}),
     },
     ...(who.upiId ? { upiId: who.upiId } : {}),
   };

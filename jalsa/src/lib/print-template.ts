@@ -276,6 +276,12 @@ export interface TicketData {
   time: string;
   source: string;
   note: string;
+  /**
+   * 'takeaway' prints a TAKEAWAY band at the top of the ticket - not configurable, like REPRINT -
+   * and no TABLE row, because there is no table (02-Oct-2026). Absent: dine-in, as every ticket
+   * before this date.
+   */
+  orderType?: 'dine_in' | 'takeaway';
   items: TicketItem[];
   /** Bill only. Already computed by `money.ts` — this module never totals anything. */
   totals?: {
@@ -288,6 +294,10 @@ export interface TicketData {
     taxRate?: number;
     /** The tip, printed on its own line; `payable` includes it. Optional: older callers omit it. */
     tip?: number;
+    /** A takeaway's packaging charge, its own line - never an item (02-Oct-2026). */
+    packaging?: number;
+    /** Whether the GST lines include tax on the packaging charge: then it prints above them. */
+    packagingTaxable?: boolean;
   };
   upiId?: string;
 }
@@ -477,6 +487,11 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
     bigCentred('*** REPRINT ***', big, push);
     push(separatorLine(config, cols));
   }
+  // A parcel, not a table: the cook packs it and nobody walks it to a table. Not configurable.
+  if (data.orderType === 'takeaway') {
+    bigCentred('TAKEAWAY', big, push);
+    push(separatorLine(config, cols));
+  }
 
   printOrder(config, 'kot').forEach((key) => {
     if (!isOn(config, key)) return;
@@ -511,7 +526,9 @@ export function buildKot(data: TicketData, config: TemplateConfig, opts?: { repr
         valueRow(config, key, 'ROUND', data.roundCode, cols, push);
         break;
       case 'table':
-        valueRow(config, key, 'TABLE', data.table, cols, push);
+        // No TABLE row for a takeaway: the band above says where it goes, and a table it never
+        // sat at would be a fake one.
+        if (data.orderType !== 'takeaway') valueRow(config, key, 'TABLE', data.table, cols, push);
         break;
       case 'bill':
         valueRow(config, key, 'BILL NO', data.billCode, cols, push);
@@ -637,6 +654,10 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
     lines.push({ text: text === '' ? ' ' : text, weight });
   };
   const money = (n: number): string => amountText(n);
+  if (data.orderType === 'takeaway') {
+    bigCentred('TAKEAWAY', big, push);
+    push(separatorLine(config, cols));
+  }
 
   printOrder(config, 'bill').forEach((key) => {
     if (!isOn(config, key)) return;
@@ -670,7 +691,9 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
         valueRow(config, key, 'BILL NO', data.billCode, cols, push);
         break;
       case 'table':
-        valueRow(config, key, 'TABLE', data.table, cols, push);
+        // No TABLE row for a takeaway: the band above says where it goes, and a table it never
+        // sat at would be a fake one.
+        if (data.orderType !== 'takeaway') valueRow(config, key, 'TABLE', data.table, cols, push);
         break;
       case 'customer':
         valueRow(config, key, 'GUEST', data.customer, cols, push);
@@ -701,6 +724,8 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
         if (t.discount > 0 || always) push(leftRight('DISCOUNT', t.discount > 0 ? `-${money(t.discount)}` : '0', cols));
         break;
       case 'tax': {
+        // A packaging charge GST applies to prints ABOVE the GST lines that include its tax.
+        if ((t.packaging ?? 0) > 0 && t.packagingTaxable) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
         // GST is levied as one rate and PRINTED as two halves, because that is what the
         // return asks for. Splitting an odd number gives the paise to CGST, so the two
         // printed halves always add back to the tax `money.ts` computed.
@@ -714,6 +739,8 @@ export function buildBill(data: TicketData, config: TemplateConfig): TicketLine[
       case 'total':
         // A tip is part of what the guest pays, so it is its own line above the total and the
         // total is the screen's To pay, tip included (review, 25-Sep-2026).
+        // A packaging charge with no GST on it prints after the GST lines (02-Oct-2026).
+        if ((t.packaging ?? 0) > 0 && !t.packagingTaxable) push(leftRight('PACKAGING CHARGES', money(t.packaging ?? 0), cols));
         if ((t.tip ?? 0) > 0) push(leftRight('TIP', money(t.tip ?? 0), cols));
         push(separatorLine(config, cols));
         push(totalLine(money(t.payable), big, cols).text, totalLine(money(t.payable), big, cols).weight);

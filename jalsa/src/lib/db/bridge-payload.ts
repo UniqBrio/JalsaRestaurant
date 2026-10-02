@@ -192,14 +192,16 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
 
   const { data: bill } = await db()
     .from('bill')
-    .select('code,created_at,host_table_id')
+    .select('code,created_at,host_table_id,order_type')
     .eq('id', job.bill_id as string)
     .maybeSingle();
+  // A takeaway's round is at no table: the ticket says TAKEAWAY and names none (02-Oct-2026).
+  const takeaway = (bill?.order_type as string | undefined) === 'takeaway';
 
   const rows = await lineRows({ kind, kotId: job.kot_id as string | null, billId: job.bill_id as string });
   if ('blocked' in rows) return { ok: false, blocked: rows.blocked };
 
-  const table = await tableName(rows.tableId ?? (bill?.host_table_id as string | null));
+  const table = takeaway ? '' : await tableName(rows.tableId ?? (bill?.host_table_id as string | null));
   const kotRow = rows.kot;
   const at = (kotRow?.created_at as string | undefined) ?? (bill?.created_at as string) ?? new Date(0).toISOString();
 
@@ -235,6 +237,7 @@ export async function ticketPayloadFor(input: { bridge: Bridge; jobId: string })
       // In words, from the stored column (C3): "Captain", "Owner", "Guest phone" - not the enum.
       source: kotRow?.source ? (KOT_SOURCE_LABEL[kotRow.source as keyof typeof KOT_SOURCE_LABEL] ?? '') : '',
       note: (kotRow?.note as string | undefined) ?? '',
+      ...(takeaway ? { orderType: 'takeaway' as const } : {}),
     },
     items: rows.items,
   });

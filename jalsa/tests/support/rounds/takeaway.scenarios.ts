@@ -6,7 +6,7 @@
  * a bill at no table, a round with no table, packaging stored as entered, the KOT routed by the
  * same printers as any round - and nothing at all written when the order is refused.
  */
-import { placeTakeaway } from '@/lib/db/mutations';
+import { closeBill, placeTakeaway } from '@/lib/db/mutations';
 import { fakeDb, type FakeQuery } from '../fake-supabase';
 
 const iso = new Date().toISOString();
@@ -19,7 +19,62 @@ interface World {
   soldOut?: boolean;
   /** The printers, as `printer` rows. */
   printers?: Array<Record<string, unknown>>;
+  /** For a CLOSE: the open takeaway's packaging charge and its GST decision. */
+  open?: { packaging: number; taxable: boolean | null };
 }
+
+/** An open takeaway as `BILL_SELECT` returns it: two plates of fried rice at ₹170, no table. */
+const takeawayRow = (open: { packaging: number; taxable: boolean | null }) => ({
+  id: 'b-take',
+  code: 'TK-1',
+  status: 'open',
+  group_code: null,
+  guests: 1,
+  occasion_type: null,
+  occasion_name: null,
+  occasion_source: null,
+  discount_pct: 0,
+  discount_amount: 0,
+  tax_rate: 5,
+  payment_mode: null,
+  payment_reference: '',
+  payment_requested_at: null,
+  closed_at: null,
+  opened_at: iso,
+  order_type: 'takeaway',
+  packaging_charge: open.packaging,
+  packaging_taxable: open.taxable,
+  host_table: null,
+  captain: null,
+  waiter: null,
+  closed_by: null,
+  discount_by: null,
+  bill_table: [],
+  tip: [],
+  kot: [
+    {
+      id: 'k1',
+      code: 'KOT-1',
+      status: 'served',
+      source: 'owner',
+      placed_by_label: 'Meena · Owner',
+      note: '',
+      print_status: 'printed',
+      print_attempts: 1,
+      reprint_count: 0,
+      created_at: iso,
+      started_at: null,
+      ready_at: null,
+      picked_up_at: null,
+      served_at: null,
+      dining_table: null,
+      kot_item: [
+        { id: 'i1', name: 'Chicken Fried Rice', unit_price: 170, qty: 2, food_type: 'non_veg', food_type_name: 'Non-veg', qty_before: null, cancelled_at: null, cancel_reason: '', menu_category_name: 'Rice', menu_parent_category_name: '', line_seq: 1 },
+      ],
+      print_job: [],
+    },
+  ],
+});
 
 const KITCHEN_ONLY = [
   { id: 'p-kot', machine_id: 'KOT-1', name: 'Kitchen', purpose: 'KOT', roles: ['KOT'], default_roles: [], station: 'Main Kitchen', routes: [], online: false, enabled: true },
@@ -59,6 +114,7 @@ function responder(world: World, writes: Array<{ table: string; op: string; body
       }
       case 'bill':
         if (q.op === 'insert') return [{ id: 'b-take' }];
+        if (q.op === 'select' && world.open) return [takeawayRow(world.open)];
         return [];
       case 'kot':
         return q.op === 'insert' ? [{ id: 'k1' }] : [];
@@ -93,6 +149,20 @@ async function run(name: string, world: World, input: { packagingCharge: number 
   }
 }
 
+async function close(name: string, world: World) {
+  const db = fakeDb();
+  db.calls = [];
+  db.latencyMs = 1;
+  const writes: Array<{ table: string; op: string; body: unknown }> = [];
+  db.respond = responder(world, writes);
+  try {
+    const out = await closeBill({ billId: 'b-take', mode: 'Cash', actor: ownerWith(['bill.record_payment']) });
+    return { name, out, threw: null, writes };
+  } catch (err) {
+    return { name, out: null, threw: err instanceof Error ? err.message : String(err), writes };
+  }
+}
+
 const BOTH = ['orders.create', 'orders.add_items'];
 const results = [
   await run('placed with no packaging', { grants: BOTH }, { packagingCharge: 0 }),
@@ -103,6 +173,10 @@ const results = [
   await run('a negative packaging charge', { grants: BOTH, packagingTaxable: true }, { packagingCharge: -50 }),
   await run('everything sold out', { grants: BOTH, soldOut: true }, { packagingCharge: 0 }),
   await run('one printer for both', { grants: BOTH, printers: ONE_FOR_BOTH }, { packagingCharge: 0 }),
+  // CLOSING a takeaway: 2 x Rs.170 = 340 of food, Rs.25 packaging, 5% GST.
+  await close('close, packaging untaxed, one printer for both', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: false } }),
+  await close('close, packaging taxed', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: true } }),
+  await close('close, only a kitchen printer', { grants: [], printers: KITCHEN_ONLY, open: { packaging: 0, taxable: null } }),
 ];
 void iso;
 process.stdout.write(`${JSON.stringify(results)}\n`);

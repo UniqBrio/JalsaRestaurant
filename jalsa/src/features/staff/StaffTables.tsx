@@ -648,7 +648,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                 (mode === 'Cash' &&
                   bill.subtotal !== null &&
                   cashProblem(
-                    payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount }),
+                    payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount, packaging: bill.packagingCharge, packagingTaxable: bill.packagingTaxable }),
                     tendered
                   ) !== null)
               }
@@ -689,6 +689,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
               base={bill.subtotal}
               taxRate={bill.taxRate}
               tip={bill.tip}
+              packaging={{ amount: bill.packagingCharge, taxable: bill.packagingTaxable }}
               entry={discount}
               onChange={setDiscount}
               disabled={busy}
@@ -715,7 +716,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
           {/* Only where this person sees money: a waiter has no subtotal, so no change to work out. */}
           {mode === 'Cash' && bill.subtotal !== null ? (
             <CashChangeField
-              payable={payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount })}
+              payable={payableAtClose({ subtotal: bill.subtotal, taxRate: bill.taxRate, tip: bill.tip, discount, packaging: bill.packagingCharge, packagingTaxable: bill.packagingTaxable })}
               value={tendered}
               onChange={setTendered}
               disabled={busy}

@@ -132,3 +132,28 @@ test('a takeaway is never joined to a table', () => {
   const fn = mu.slice(mu.indexOf('export async function joinTableToBill'));
   expect(fn.indexOf("if (bill.orderType === 'takeaway')")).toBeLessThan(fn.indexOf(".from('bill_table').insert"));
 });
+
+/* ── Phase 3: closing a takeaway - packaging, GST, the bill print ───────────────────────────── */
+
+test('closing a takeaway charges the packaging - after GST when GST does not apply to it', () => {
+  const r = by('close, packaging untaxed, one printer for both');
+  expect(r.threw).toBeNull();
+  // 340 food + 17 GST (5% of 340) + 25 packaging = 382. Packaging is not an item and not taxed.
+  expect(r.out).toEqual({ payable: 382 });
+});
+
+test('closing a takeaway charges GST on the packaging when the owner decided it applies', () => {
+  // (340 + 25) x 5% = 18.25 -> 18; 340 + 25 + 18 = 383.
+  expect(by('close, packaging taxed').out).toEqual({ payable: 383 });
+});
+
+test('one printer used for both kinds prints the takeaway\'s bill too', () => {
+  const jobs = rows(by('close, packaging untaxed, one printer for both'), 'print_job');
+  expect(jobs).toHaveLength(1);
+  expect(jobs[0]).toMatchObject({ kind: 'Invoice', printer_id: 'p-both', status: 'queued' });
+});
+
+test('with only a kitchen printer the bill is never sent to it - it is recorded as having nowhere to go', () => {
+  const jobs = rows(by('close, only a kitchen printer'), 'print_job');
+  expect(jobs[0]).toMatchObject({ kind: 'Invoice', printer_id: null, status: 'failed' });
+});

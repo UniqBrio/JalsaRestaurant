@@ -2,6 +2,14 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-02 - Phase 3: a takeaway's packaging charge, GST, bill, KOT, Live Orders, Dashboard and Reports
+
+The packaging charge is a separate bill line (never an item, never discounted) threaded through the ONE totals function: billTotals -> totalBill (taxed only when bill.packaging_taxable is true; income, not item sales), so closeBill, every screen, the close previews (payableAtClose, DiscountFields), the invoice and the report all agree. GST on packaging is NOT decided by code: Settings -> Tax & GST has Not decided / Charge GST / No GST, starting Not decided; a non-zero charge is refused until the owner decides (and the DB refuses an undecided stored charge). Printed KOT and bill carry a TAKEAWAY band (not configurable, like REPRINT) and no TABLE row; the bill prints PACKAGING CHARGES after GST (above it when GST covers it). Live Orders: TAKEAWAY titles, Add items, Packaging Charges editor (set-packaging). Reports: Dine-in and takeaway panel (orders, income, packaging; the two add back to sales), order-type filter on All orders; a takeaway is not a cover.
+
+FAIL-FIRST: jalsa/tests/unit/takeaway-money.unit.spec.ts - against the Phase 2 tree (src stashed): 7 failed, 2 passed (the two cases on Phase 2's own money helpers); after: 9 passed.
+NOT OBSERVED FAILING: the four close scenarios appended to jalsa/tests/unit/takeaway-flow.unit.spec.ts (real closeBill: Rs.382 untaxed / Rs.383 taxed packaging, the bill print on a both-roles printer, failed-not-misrouted with only a kitchen printer) - they pass on the Phase 2 tree too, because the charge entered billTotals in Phase 2; they pin the close path, not this phase's change.
+Unit tier: 1346 passed, 0 failed (first run: 1 failed - bill-share read bill.place off a partial fixture; the share text now derives it with placeLabel). Typecheck, ESLint, audit:all 10/10.
+
 ## Application run - jalsa - 2026-10-02 - Phase 2: a takeaway is an order at no table
 
 Every order needed a dining_table. Migration 20261002100000_jalsa_takeaway adds bill.order_type ('dine_in' default / 'takeaway'), bill.packaging_charge (>= 0) and bill.packaging_taxable (snapshot; NULL = undecided), makes kot.table_id nullable ONLY for a takeaway round (trigger), refuses a takeaway host table or bill_table row, and fixes the order type once set. placeTakeaway (orders.create + orders.add_items, checked before any write) opens the bill and places the round through the ordinary placeRound; an all-sold-out order leaves no bill. Owner verbs takeaway / takeaway-round / set-packaging. Dashboard and Live Orders gain Takeaway (the Dashboard's NewRoundSheet, generalised to a table, a new takeaway or more items for one), and every place a bill's tables were joined reads placeLabel - TAKEAWAY for a takeaway.

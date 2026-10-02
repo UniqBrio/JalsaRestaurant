@@ -308,6 +308,9 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
       taxRate: b.taxRate,
       paymentMode: b.paymentMode,
       tip: b.tip,
+      orderType: b.orderType,
+      packagingCharge: b.packagingCharge,
+      packagingTaxable: b.packagingTaxable,
       kots: b.kots.map((k) => ({
         status: k.status,
         items: k.items.map((i) => ({
@@ -464,7 +467,8 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       sales,
       salesLabel: rupees(sales),
       orders: closed.length + open.length,
-      coversLabel: `${[...open, ...closed].reduce((a, b) => a + b.guests, 0)} covers`,
+      // A takeaway is not a cover: nobody sat down (02-Oct-2026).
+      coversLabel: `${[...open, ...closed].reduce((a, b) => a + (b.orderType === 'takeaway' ? 0 : b.guests), 0)} covers`,
       tips: tipsTotal,
       tipsLabel: rupees(tipsTotal),
       discountsLabel: rupees(discounts),

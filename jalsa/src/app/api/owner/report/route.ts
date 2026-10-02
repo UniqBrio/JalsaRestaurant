@@ -10,6 +10,7 @@ import {
   readAllSettings,
 } from '@/lib/db/queries';
 import { rupees } from '@/lib/money';
+import { placeLabel } from '@/lib/takeaway';
 import { FOOD_TYPE, KOT_SOURCE_LABEL, type FoodType } from '@/lib/status';
 import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
 import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
@@ -94,10 +95,13 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       tax: t.tax,
       tip: t.tip,
       restaurantIncome: t.restaurantIncome,
-      covers: b.guests,
+      // A takeaway is not a cover: nobody sat down (02-Oct-2026).
+      covers: b.orderType === 'takeaway' ? 0 : b.guests,
       // The payment chart is a projection of this; it needs no second read, and it is not
       // recomputed in the browser (Standard 7.4).
       paymentMode: b.paymentMode ?? '',
+      orderType: b.orderType,
+      packaging: t.packaging,
     };
   });
 
@@ -203,6 +207,13 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       taxLabel: rupees(summary.tax),
       averageBillLabel: rupees(summary.averageBill),
       byCategory: summary.byCategory.map((c) => ({ ...c, amountLabel: rupees(c.amount) })),
+      packagingLabel: rupees(summary.packaging),
+      byOrderType: summary.byOrderType.map((o) => ({
+        ...o,
+        label: o.orderType === 'takeaway' ? 'Takeaway' : 'Dine-in',
+        salesLabel: rupees(o.sales),
+        packagingLabel: rupees(o.packaging),
+      })),
       gstSplit: {
         gst: { ...summary.gstSplit.gst, ...sideLabels(summary.gstSplit.gst) },
         nonGst: { ...summary.gstSplit.nonGst, ...sideLabels(summary.gstSplit.nonGst) },
@@ -248,7 +259,10 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       return {
         id: b.id,
         code: b.code,
-        tables: b.tables.join(', '),
+        // TAKEAWAY in place of a table; the order type itself for the report's filter.
+        tables: placeLabel(b),
+        orderType: b.orderType,
+        packaging: t.packaging ?? 0,
         captain: b.captain,
         guests: b.guests,
         rounds: b.kots.length,

@@ -72,6 +72,9 @@ export interface StaffBillView {
   /** Its tables, or TAKEAWAY for an order at no table (02-Oct-2026). */
   place: string;
   orderType: OrderType;
+  /** A takeaway's packaging charge and its GST decision - what the close preview totals with. */
+  packagingCharge: number;
+  packagingTaxable: boolean | null;
   groupCode: string | null;
   hostTable: string;
   guests: number;
@@ -222,6 +225,8 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
       tables: b.tables,
       place: placeLabel(b),
       orderType: b.orderType,
+      packagingCharge: b.packagingCharge,
+      packagingTaxable: b.packagingTaxable,
       groupCode: b.groupCode,
       hostTable: b.hostTable,
       guests: b.guests,

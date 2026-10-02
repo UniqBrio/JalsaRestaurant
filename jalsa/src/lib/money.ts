@@ -59,6 +59,8 @@ export interface BillTotals {
   taxable: number;
   /** The packaging charge, in whole rupees. Zero on every dine-in bill. */
   packaging: number;
+  /** True when GST was charged on the packaging charge (it is inside `taxable`). */
+  packagingTaxed: boolean;
   tax: number;
   tip: number;
   /** What the guest owes. Includes the tip. */
@@ -96,6 +98,7 @@ export function totalBill(input: BillInput): BillTotals {
     discount,
     taxable,
     packaging,
+    packagingTaxed: packaging > 0 && input.packagingTaxable === true,
     tax,
     tip,
     payable: afterDiscount + packaging + tax + tip,
@@ -163,9 +166,12 @@ export interface TotalsRow {
 export function totalsRows(t: BillTotals, opts: { taxRate: number; tipTo?: string }): TotalsRow[] {
   const rows: TotalsRow[] = [{ label: 'Food', value: rupees(t.subtotal) }];
   if (t.discount > 0) rows.push({ label: 'Discount', value: `− ${rupees(t.discount)}` });
-  // A separate line, never an item (02-Oct-2026). Absent when there is no charge.
-  if (t.packaging > 0) rows.push({ label: 'Packaging charges', value: rupees(t.packaging) });
+  // A separate line, never an item (02-Oct-2026). Absent when there is no charge. Above GST when
+  // GST is charged on it, after GST when it is not - the same places the printed bill uses.
+  const packagingRow = { label: 'Packaging charges', value: rupees(t.packaging) };
+  if (t.packaging > 0 && t.packagingTaxed) rows.push(packagingRow);
   rows.push({ label: `GST ${opts.taxRate}%`, value: rupees(t.tax) });
+  if (t.packaging > 0 && !t.packagingTaxed) rows.push(packagingRow);
   rows.push({
     label: opts.tipTo ? `Tip for ${opts.tipTo}` : 'Tip for the team',
     value: t.tip > 0 ? rupees(t.tip) : '—',
