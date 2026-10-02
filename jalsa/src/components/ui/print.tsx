@@ -91,7 +91,7 @@ export function PrintTargets({
             <span className="type-caption tabular-nums text-[var(--text-muted)]">· {job.attempts} tries</span>
           ) : null}
 
-          {canRetry && job.status !== 'printed' && job.status !== 'cancelled' && job.printerId ? (
+          {canRetry && job.status !== 'printed' && job.status !== 'cancelled' && job.status !== 'processing' && job.printerId ? (
             <Button
               data-testid={`${testIdPrefix}-retry-${job.id}`}
               size="sm"

@@ -128,10 +128,11 @@ export function mainPrinter(purpose: string, printers: readonly RoutablePrinter[
   const kind = inOrder(purpose, printers);
   /* 02-Oct-2026, TWO ADDITIONS IN FRONT OF THE OLD RULE, which is otherwise unchanged:
      1. The machine the OWNER chose as the default for this kind wins while it is switched on.
-     2. A machine that prints only this kind is preferred to one that also prints the other. A
-        counter printer set to "KOT and Bills" must not quietly become where the kitchen's
-        unrouted tickets go just because its machine id sorts first; it takes them only when no
-        dedicated machine can. With one machine, or with every machine single-kind (every
+     2. Among machines with no category of their own, one that prints only this kind is
+        preferred to one that also prints the other: a counter printer set to "KOT and Bills"
+        does not take the kitchen's unrouted tickets from a free kitchen machine just because its
+        machine id sorts first. A free dual-kind machine still beats a machine that claims a
+        category (review, below). With one machine, or with every machine single-kind (every
         restaurant before this change), the result is exactly what it was. */
   const chosen = kind.find((p) => assignable(p) && (p.defaultFor ?? []).includes(purpose));
   if (chosen) return chosen;

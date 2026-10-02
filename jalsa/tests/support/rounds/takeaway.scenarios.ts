@@ -21,6 +21,10 @@ interface World {
   printers?: Array<Record<string, unknown>>;
   /** For a CLOSE: the open takeaway's packaging charge and its GST decision. */
   open?: { packaging: number; taxable: boolean | null; status?: 'open' | 'payment_requested' | 'closed' };
+  /** The round fails AFTER its lines were written (its print jobs cannot be saved). */
+  printFails?: boolean;
+  /** The round fails BEFORE its lines were written (an empty KOT is left). */
+  itemsFail?: boolean;
 }
 
 /** An open takeaway as `BILL_SELECT` returns it: two plates of fried rice at ₹170, no table. */
@@ -119,7 +123,15 @@ function responder(world: World, writes: Array<{ table: string; op: string; body
         if (q.op === 'select' && world.open) return [takeawayRow(world.open)];
         return [];
       case 'kot':
+        if (q.op === 'select' && (world.printFails || world.itemsFail)) return [{ id: 'k1' }];
         return q.op === 'insert' ? [{ id: 'k1' }] : [];
+      case 'kot_item':
+        if (q.op === 'insert' && world.itemsFail) return { __error: 'kot_item insert failed' };
+        if (q.op === 'select' && world.printFails) return [{ id: 'i1' }];
+        return [];
+      case 'print_job':
+        if (q.op === 'insert' && world.printFails) return { __error: 'print_job insert failed' };
+        return [];
       default:
         return [];
     }
@@ -200,6 +212,8 @@ const results = [
   await close('close, packaging untaxed, one printer for both', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: false } }),
   await close('close, packaging taxed', { grants: [], printers: ONE_FOR_BOTH, open: { packaging: 25, taxable: true } }),
   await close('close, only a kitchen printer', { grants: [], printers: KITCHEN_ONLY, open: { packaging: 0, taxable: null } }),
+  await run('round fails after its lines', { grants: BOTH, printFails: true }, { packagingCharge: 0 }),
+  await run('round fails before its lines', { grants: BOTH, itemsFail: true }, { packagingCharge: 0 }),
   await guarded('packaging, guest asked to pay', { grants: BOTH, packagingTaxable: false, open: { packaging: 40, taxable: false, status: 'payment_requested' } }, (actor) =>
     setPackagingCharge({ billId: 'b-take', packagingCharge: 0, actor })
   ),

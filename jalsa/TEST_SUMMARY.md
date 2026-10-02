@@ -4,6 +4,24 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-02 - Phase 6, second review: old redirects, the takeaway clean-up, and the reprint wording
+
+A second code review of the fixes found more problems. Fixed:
+- A failed ticket redirected BEFORE this change is still failed and has a live copy elsewhere. retryPrintJob now refuses any job that has a copy, and redirect_print_job refuses to redirect a non-printed original that already has one. A printed original may still be reprinted elsewhere again.
+- The takeaway clean-up looked at the wrong row: an EMPTY KOT kept the bill. It now counts the round's lines. A kept bill fails with "<code> may already be with the kitchen ... Check Live orders before placing it again". Read errors are logged.
+- The packaging write is conditional on status = open, matching the check made when the bill is read.
+- Retry is hidden while a ticket is being printed (Sending...).
+- Sending a bill elsewhere needs bill.reprint only when it already printed.
+- The reprint toast now says SENT, not reprinted.
+- Message fixes: a void takeaway; every bills printer switched off; a printer read that failed.
+- Comments brought up to date.
+The pushed migration 20261002120000 was edited in place. It has been applied to no database, so the edit is safe; once any environment applies it, further changes must be new migration files.
+FAIL-FIRST: new rungs in tests/unit/print-reliability.unit.spec.ts, tests/unit/review-fixes.unit.spec.ts and tests/unit/print-redirect.db.unit.spec.ts, with src and supabase stashed: 6 rig/source rungs failed. The DB case 'a failed original redirected BEFORE this change cannot be sent again' failed with supabase stashed (1 failed, 11 passed). After the fixes, all pass.
+Superseded in place, dated: print-reliability (scenario count 17 -> 19; the Retry visibility string); review-fixes S2 (a source-text rung replaced by real-code scenarios).
+Unit tier: 1404 passed, 0 failed. Render tier: 277 passed, 0 failed. Typecheck, ESLint and audit:all pass, 10/10. The functional tier was not run here (no test database, KL-1).
+
+---
+
 ## 2026-10-02 - Phase 6: review of all five phases, the defects it found, and the full regression
 
 Code, copy and permission reviewers read all five phases. Fixed:

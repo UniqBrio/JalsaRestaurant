@@ -98,17 +98,15 @@ test('a more-items round asks for the grant before it reads the bill', () => {
 });
 
 test('S2: a takeaway whose round failed part-way keeps its bill when a round reached the kitchen', () => {
-  const m = readFileSync('src/lib/db/mutations.ts', 'utf8');
-  const fn = m.slice(m.indexOf('async function dropEmptyTakeaway'));
-  const body = fn.slice(0, fn.indexOf('\n}\n'));
-  // It counts the rounds first and deletes only a bill with none - a delete would cascade to the
-  // KOT and its print jobs - and a failed delete is said, not swallowed.
-  expect(body.indexOf(".from('kot')")).toBeGreaterThan(-1);
-  expect(body.indexOf(".from('kot')")).toBeLessThan(body.indexOf('.delete()'));
-  expect(body).toContain('if (readErr || (count ?? 0) > 0) return;');
-  expect(body).toContain('console.warn');
-  // Both of placeTakeaway's clean-ups go through it.
-  expect(m.match(/await dropEmptyTakeaway\(billId, restaurantId\);/g)).toHaveLength(2);
+  // Superseded 02-Oct-2026 (second review): this previously read the source of dropEmptyTakeaway
+  // (a count of KOT rows, and a read error that returned silently). It keyed on the wrong row - an
+  // EMPTY KOT kept the bill - so it now counts the round's LINES, and this rung runs the real code.
+  const after = by('round fails after its lines');
+  expect(after.threw).toMatch(/TK-1 may already be with the kitchen, but finishing it failed \(print_job insert failed\)\. Check Live orders before placing it again\./);
+  expect(after.writes.some((w) => w.table === 'bill' && w.op === 'delete')).toBe(false);
+  const before = by('round fails before its lines');
+  expect(before.threw).not.toBeNull();
+  expect(before.writes.some((w) => w.table === 'bill' && w.op === 'delete')).toBe(true);
   expect(by('everything sold out').writes.some((w) => w.table === 'bill' && w.op === 'delete')).toBe(true);
 });
 
@@ -137,4 +135,14 @@ test('S7: Live orders offers Change on the packaging charge only while the takea
   const s = readFileSync('src/features/owner/sections/LiveOrders.tsx', 'utf8');
   expect(s).toContain("{canTakeaway && selected.status === 'open' ? (");
   expect(s).not.toContain("selected.status === 'open' || selected.status === 'payment_requested'");
+});
+
+test('the packaging write itself is conditional on the takeaway being open - a guest asking to pay in between wins', () => {
+  const open = by('packaging, still open');
+  const write = open.writes.find((w) => w.table === 'bill' && w.op === 'update') as unknown as { filters?: string[] } | undefined;
+  expect(write).toBeDefined();
+  const m = readFileSync('src/lib/db/mutations.ts', 'utf8');
+  const fn = m.slice(m.indexOf('export async function setPackagingCharge'));
+  expect(fn.slice(0, fn.indexOf('\n}\n'))).toContain(".eq('status', 'open')");
+  expect(fn.slice(0, fn.indexOf('\n}\n'))).not.toContain("'payment_requested'])");
 });

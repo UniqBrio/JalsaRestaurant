@@ -213,3 +213,24 @@ test('a printer of another restaurant is refused, and nothing is written', async
   ).rejects.toThrow(/no longer configured/);
   expect((await row(original)).status).toBe('queued');
 });
+
+/* ── Second review, 02-Oct-2026 ───────────────────────────────────────────────────────────── */
+
+test('a failed original redirected BEFORE this change (still failed, with a live copy) cannot be sent again', async () => {
+  const original = await job('failed');
+  // How the earlier Print elsewhere left it: the original untouched, a copy pointing at it.
+  await db.query(
+    `insert into print_job (restaurant_id, printer_id, printer_name, station, routing_rule, food_side, kind, bill_id, status, redirected_from_job_id)
+     values ($1, $2, 'Test Kitchen', 'Main Kitchen', 'chosen', 'all', 'KOT', $3, 'queued', $4)`,
+    [restaurant, kitchen, bill, original]
+  );
+  await expect(redirect(original)).rejects.toThrow(/already sent to another machine/);
+  expect((await db.query(`select count(*)::int n from print_job where redirected_from_job_id = $1`, [original])).rows[0]).toEqual({ n: 1 });
+});
+
+test('a PRINTED ticket may be sent elsewhere again - each copy a marked reprint', async () => {
+  const original = await job('printed');
+  await redirect(original);
+  const second = await redirect(original);
+  expect(await row(second)).toMatchObject({ is_reprint: true, status: 'queued' });
+});

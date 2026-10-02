@@ -71,6 +71,12 @@ begin
   if original.status::text = 'cancelled' then
     raise exception 'That ticket was already sent to another machine.' using errcode = 'check_violation';
   end if;
+  -- A ticket redirected before this function existed kept its failed status beside a live copy.
+  -- Sending it again would make a second live copy. A PRINTED original may be reprinted again.
+  if original.status::text <> 'printed'
+     and exists (select 1 from public.print_job c where c.redirected_from_job_id = original.id) then
+    raise exception 'That ticket was already sent to another machine.' using errcode = 'check_violation';
+  end if;
 
   if original.status::text in ('queued', 'failed') then
     update public.print_job

@@ -17,6 +17,8 @@ interface World {
   grants: string[];
   /** The job being redirected or retried. */
   jobStatus?: 'queued' | 'processing' | 'printed' | 'failed' | 'cancelled';
+  /** A copy already made of this job by Print elsewhere (a redirect from before 02-Oct-2026). */
+  hasCopy?: boolean;
   /** The job's kind (KOT unless said). */
   jobKind?: 'KOT' | 'Invoice';
   /** The bill being reprinted. */
@@ -48,6 +50,9 @@ function responder(world: World, writes: Write[]) {
     if (q.op === 'rpc') return 'new-job' as unknown as Record<string, unknown>;
     switch (q.table) {
       case 'print_job':
+        if (q.op === 'select' && q.filters.some(([, c]) => c === 'redirected_from_job_id')) {
+          return world.hasCopy ? [{ id: 'j2' }] : [];
+        }
         if (q.op === 'select') {
           return [
             { id: 'j1', kind: world.jobKind ?? 'KOT', kot_id: world.jobKind === 'Invoice' ? null : 'k1', status: world.jobStatus ?? 'queued', attempts: 1, printer_id: 'p-tan', printer_name: 'Tandoor', station: 'Tandoor' },
@@ -116,6 +121,12 @@ const results = [
     printElsewhere({ jobId: 'j1', printerId: 'p-inv', actor })
   ),
   await run('elsewhere, a bill, both grants', { grants: [...REPRINT, 'bill.reprint'], jobStatus: 'printed', jobKind: 'Invoice' }, (actor) =>
+    printElsewhere({ jobId: 'j1', printerId: 'p-inv', actor })
+  ),
+  await run('retry, a failed job already sent elsewhere', { grants: REPRINT, jobStatus: 'failed', hasCopy: true }, (actor) =>
+    retryPrintJob({ jobId: 'j1', actor })
+  ),
+  await run('elsewhere, a failed bill, kitchen grant only', { grants: REPRINT, jobStatus: 'failed', jobKind: 'Invoice' }, (actor) =>
     printElsewhere({ jobId: 'j1', printerId: 'p-inv', actor })
   ),
   await run('retry, being printed', { grants: REPRINT, jobStatus: 'processing' }, (actor) => retryPrintJob({ jobId: 'j1', actor })),

@@ -43,7 +43,9 @@ test('the scenarios ran - a rig that parsed nothing is not a passing rig', () =>
   // Superseded 02-Oct-2026 (review fixes): this previously asserted 13 scenarios; the review
   // added four (a bill sent elsewhere without/with bill.reprint, an unknown printer id, a retry
   // of a ticket being printed).
-  expect(results.length).toBe(17);
+  // Superseded again 02-Oct-2026 (second review): 17 -> 19 (a retry of a failed job that already
+  // has a copy elsewhere; a failed bill sent elsewhere by the kitchen grant alone).
+  expect(results.length).toBe(19);
 });
 
 /* ── Print elsewhere ──────────────────────────────────────────────────────────────────────── */
@@ -178,7 +180,9 @@ test('the sweeper rides requests that already arrive on a schedule - no new loop
 test('a cancelled job reads "Sent elsewhere", neutral - not a failure, and no Retry beside it', () => {
   expect(PRINT_STATUS.cancelled).toEqual({ word: 'Sent elsewhere', tone: 'neutral' });
   const print = readFileSync('src/components/ui/print.tsx', 'utf8');
-  expect(print).toContain("job.status !== 'cancelled' && job.printerId ? (");
+  // Revised 02-Oct-2026 (second review): previously `!== 'cancelled' && job.printerId`; Retry is
+  // now also hidden while a bridge is printing the ticket, which the server refuses.
+  expect(print).toContain("job.status !== 'cancelled' && job.status !== 'processing' && job.printerId ? (");
   const setup = readFileSync('src/features/owner/sections/PrintSetupSection.tsx', 'utf8');
   expect(setup.match(/j\.status !== 'cancelled'/g)?.length).toBe(2);
 });
@@ -204,4 +208,23 @@ test('saving a printer that no longer exists takes no default from any other pri
   const r = by('printer, unknown id');
   expect(r.threw).toMatch(/no longer configured/);
   expect(r.writes).toEqual([]);
+});
+
+/* ── Second review, 02-Oct-2026 ───────────────────────────────────────────────────────────── */
+
+test('a failed ticket redirected BEFORE this change (still failed, with a copy elsewhere) cannot be retried', () => {
+  const r = by('retry, a failed job already sent elsewhere');
+  expect(r.threw).toMatch(/sent to another machine instead/);
+  expect(r.writes).toEqual([]);
+});
+
+test('a bill that never printed is not a reprint: the kitchen grant may send it elsewhere', () => {
+  const r = by('elsewhere, a failed bill, kitchen grant only');
+  expect(r.threw).toBeNull();
+  expect(r.writes.filter((w) => w.op === 'rpc')).toHaveLength(1);
+});
+
+test('the reprint toast says the bill was SENT - nothing here knows paper came out', () => {
+  const pay = readFileSync('src/features/owner/sections/Payments.tsx', 'utf8');
+  expect(pay).toContain('sent to ${res.printerName} — it prints stamped REPRINT');
 });
