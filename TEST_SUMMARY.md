@@ -2,6 +2,15 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-03 - TEST database: the four 02-Oct migrations applied and verified (production untouched)
+
+Applied to uxmyomxtosjlkvjxnvpy (JalsaRestaurant-test) only, one at a time from c5b72ed: printer_roles, then takeaway, then guest_attribution, then print_redirect. Each was confirmed recorded, its schema checked, and all 8 data fingerprints compared before the next. Pre-flight: none of the four applied, nothing running. Snapshot: counts plus md5 fingerprints of bill, bill_table, kot, kot_item, print_job, printer, guest_session and setting. After all four, every count and fingerprint is identical; the printers' roles were backfilled to their one existing kind, and all 12 bills are dine_in with packaging 0.
+Schema against the code: all 92 columns the application selects from printer, print_job, bill, kot, guest_session and guest_attribution exist. packaging_taxable does not, and bill_packaging_tax_decided does not.
+INTEGRATION on the real TEST database: a 37-check block (dry-run first on PGlite with identical output), rolled back by its own final RAISE; afterwards no IT- row remained and every fingerprint was unchanged. The checks: one printer {KOT,Invoice} listed for both kinds; an older purpose-only writer gets its roles; one default per kind; unknown role refused. Takeaway bills at no table with packaging 0/10/50/100, independent per order; the ₹1,000 takeaway round at no table; a takeaway round, host or bill_table at a table refused; order type fixed; negative packaging refused; a dine-in round still needs its table. Packaging edit while open: 1 row; after the guest asks to pay: 0 rows, value kept. Attribution survives deleting its session and its bill (links null). Redirect: a waiting ticket is cancelled and copied (chosen, food_side kept), the original cannot be claimed after, a second redirect is refused, a ticket being printed is refused, a failed ticket is cancelled with its error kept and Retry then changes 0 rows, an OLD redirected ticket (failed + live copy) is refused, a printed ticket gives 2 marked reprints, an unknown printer is refused, and anon has no execute.
+NOT RUN: the functional tier - it needs this container to hold the TEST project's secret key; it does not.
+Advisors (TEST, after): the 4 new trigger functions join 5 older ones under function_search_path_mutable (WARN). Pre-existing, not from this change: next_number, set_own_pin, set_staff_pin and verify_staff_pin are SECURITY DEFINER and executable by anon and authenticated.
+Unit tier: 1415 passed, 0 failed. Local DB specs: 35 passed. Render: 277 passed. Typecheck, ESLint and audit:all pass, 10/10.
+
 ## Application run - jalsa - 2026-10-02 - Final GST rule: food only; packaging is per order and never taxed
 
 The owner fixed the rule that Phase 3 had left open: GST is charged on food only, and the packaging charge is never taxed.
