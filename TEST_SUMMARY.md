@@ -2,6 +2,20 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-03 - Security: the four privileged database functions were callable with the browser's key - locked to the server
+
+AUDIT (TEST, live): set_staff_pin, set_own_pin, verify_staff_pin and next_number are all SECURITY DEFINER with a fixed search_path, but EXECUTE was held by PUBLIC, anon and authenticated (Postgres and Supabase defaults, never revoked). Any holder of the publishable key could call /rest/v1/rpc/*, skipping the app's checks:
+- set_staff_pin: set anyone's PIN, the owner's included, without the staff.pin grant - an account takeover;
+- set_own_pin: an unthrottled oracle for a person's current PIN;
+- verify_staff_pin: sweep all 10,000 PINs and get back each holder's id, name and role;
+- next_number: advance the invoice series and leave gaps.
+The app calls all four only from server code, as service_role.
+FIX: migration 20261003090000_jalsa_lock_privileged_functions. EXECUTE is revoked from PUBLIC, anon and authenticated and granted to service_role. The functions stay SECURITY DEFINER and no function body changes. The four 02-Oct trigger functions get search_path = public. No data is touched; no applied migration was edited.
+FAIL-FIRST: jalsa/tests/unit/privileged-functions.db.unit.spec.ts with the new migration removed: 'anon cannot execute set_staff_pin' fails - anon COULD call it (the exploit, reproduced). The other 15 did not run (serial). With the migration: 16 passed.
+TEST: applied only this migration (recorded 20261003052210), after a snapshot of staff PIN hashes, permissions, number series and the 02-Oct fingerprints, all unchanged after. A 22-check block ran on TEST and rolled back, as the real roles: anon and authenticated DENIED on all 8 calls. As service_role: issue a PIN (bcrypt, provisional); sign in with the right PIN (columns id, initials, name, provisional, role; nothing secret); wrong PIN gives 0 rows; set_own_pin with the wrong current PIN returns false, with the right one true; the new PIN verifies and the old one does not; one person's PIN cannot change another's; next_number gives B-1053 then B-1054. After it, the staff hashes and number_series were unchanged.
+ADVISOR (TEST): anon_security_definer_function_executable 4 -> 0; authenticated_security_definer_function_executable 4 -> 0; function_search_path_mutable 9 -> 5. The 5 left are pre-existing trigger functions, invoker, not touched. rls_enabled_no_policy (33, INFO) is by design (rule 3).
+Unit tier: 1431 passed, 0 failed (+16). Local DB specs: 51 passed. Render: 277 passed. Typecheck, ESLint and audit:all pass, 10/10. Production NOT touched; this migration is required there before the 02-Oct code ships.
+
 ## Application run - jalsa - 2026-10-03 - TEST database: the four 02-Oct migrations applied and verified (production untouched)
 
 Applied to uxmyomxtosjlkvjxnvpy (JalsaRestaurant-test) only, one at a time from c5b72ed: printer_roles, then takeaway, then guest_attribution, then print_redirect. Each was confirmed recorded, its schema checked, and all 8 data fingerprints compared before the next. Pre-flight: none of the four applied, nothing running. Snapshot: counts plus md5 fingerprints of bill, bill_table, kot, kot_item, print_job, printer, guest_session and setting. After all four, every count and fingerprint is identical; the printers' roles were backfilled to their one existing kind, and all 12 bills are dine_in with packaging 0.
