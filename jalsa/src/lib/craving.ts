@@ -14,7 +14,7 @@
  *   the rest of the screen is a menu the guest is about to trust with money.
  */
 
-import type { FoodType, KotStatus } from '@/lib/status';
+import type { FoodType } from '@/lib/status';
 
 /* ── The four routes ───────────────────────────────────────────────────────────────────────── */
 
@@ -53,50 +53,17 @@ export const ROUTE_TYPES: Record<CravingRoute, readonly FoodType[]> = {
   mixed: ['veg', 'non_veg', 'egg', 'other'],
 };
 
-/** What the offer calls itself, per route. One line, in Jalsa's voice, never a cartoon.
+/* `ROUTE_LINE` - "A few Veg favourites from tonight's menu." and its siblings - was removed on
+   03-Oct-2026: it described the menu draw, and only the guest's own order falls now. The offer
+   lists the order's dishes instead (copy review). */
+
+/* ── Which round the moment belongs to ───────────────────────────────────────────────────────
  *
- * 30-Sep: in the menu's own Veg / Non-veg / Egg words. The first lines claimed what nobody
- * checked ("from the grill"), and "going vegetarian" was false for a table whose earlier round
- * was chicken, or whose only order was a juice. */
-export const ROUTE_LINE: Record<CravingRoute, string> = {
-  veg: 'A few Veg favourites from tonight’s menu.',
-  nonVeg: 'A few Non-veg favourites from tonight’s menu.',
-  egg: 'A few Egg dishes from tonight’s menu.',
-  mixed: 'A bit of everything is on its way.',
-};
+ * 03-Oct-2026: `isWaiting` and `activeCravingRound` (the round furthest along that was still
+ * being waited for) were removed with the game's move to the order-placed screen. The round is
+ * now the one this phone just placed - `placedCode`, see GuestProgress.tsx `PlacedCraving`. */
 
-/* ── Which round the moment belongs to ─────────────────────────────────────────────────────── */
-
-/** The statuses a guest is actually WAITING through. Ready and served are not waiting. */
-const WAITING: readonly KotStatus[] = ['new', 'preparing'];
-
-export function isWaiting(status: KotStatus): boolean {
-  return WAITING.includes(status);
-}
-
-/**
- * The ONE round the engagement belongs to, or null when there is none.
- *
- * A table has rounds, not a round: 101 served, 102 preparing, 103 just placed. The requester was
- * explicit that this must not become three games, so this returns exactly one — the round
- * furthest along that is still being waited for, which is the one whose food is closest to
- * arriving and therefore the one worth building an appetite for.
- *
- * Returns null the moment nothing is waiting, which is what makes the experience disappear on
- * Ready and on Served without any component needing to remember to.
- */
-export function activeCravingRound<T extends { code: string; status: KotStatus }>(
-  rounds: readonly T[]
-): T | null {
-  const waiting = rounds.filter((r) => isWaiting(r.status));
-  if (waiting.length === 0) return null;
-  // `preparing` beats `new`; among equals, the most recent round.
-  const preparing = waiting.filter((r) => r.status === 'preparing');
-  const pool = preparing.length ? preparing : waiting;
-  return pool[pool.length - 1] ?? null;
-}
-
-/* ── What falls ────────────────────────────────────────────────────────────────────────────── */
+/* ── What falls: the order just placed, and one thing to avoid ──────────────────────────────── */
 
 export interface CravingItem {
   id: string;
@@ -104,25 +71,148 @@ export interface CravingItem {
   foodType: FoodType;
 }
 
+/** A dish that can fall: one of the order's own lines, with the picture it falls as. */
+export interface CravingTarget extends CravingItem {
+  emoji: string;
+}
+
 /**
- * The food this round's game drops, drawn from the real menu.
+ * The picture a dish falls as, read from its own name.
  *
- * Available items only: dropping something the kitchen has run out of would build a craving the
- * restaurant cannot satisfy, and the suggestion at the end would then have to refuse it.
- *
- * Capped, because the list is a pool to draw from and not a catalogue — a phone does not need
- * fifty names in memory to drop eight of them.
+ * 03-Oct-2026: the game showed bare names in pills. The menu has no picture column to read
+ * (`menu_item.image_url` is an uploaded photo, absent for most dishes and far too heavy to drop
+ * ten of), so the emoji is matched from words the dish's name already contains, most specific
+ * first - "Chicken Biryani" is the biryani, not the chicken. A name that matches nothing falls
+ * as its Food Type's plate, never as a guess at a dish it is not.
  */
-export function cravingPool(
-  route: CravingRoute,
-  menu: readonly (CravingItem & { available: boolean })[],
-  limit = 12
-): CravingItem[] {
-  const allowed = ROUTE_TYPES[route];
-  return menu
-    .filter((m) => m.available && allowed.includes(m.foodType))
-    .slice(0, limit)
-    .map((m) => ({ id: m.id, name: m.name, foodType: m.foodType }));
+const EMOJI_WORDS: ReadonlyArray<readonly [readonly string[], string]> = [
+  [['biryani', 'pulao', 'fried rice', 'rice'], '🍛'],
+  [['noodle', 'chowmein', 'chow mein', 'hakka', 'ramen'], '🍜'],
+  [['soup', 'rasam', 'shorba'], '🍲'],
+  [['naan', 'roti', 'kulcha', 'paratha', 'parotta', 'chapati', 'dosa', 'uttapam', 'appam'], '🫓'],
+  [['idli', 'vada'], '🥟'],
+  [['momo', 'dumpling', 'samosa'], '🥟'],
+  [['prawn', 'shrimp'], '🍤'],
+  [['fish', 'pomfret', 'seer', 'crab'], '🐟'],
+  [['egg', 'omelette', 'omelet'], '🥚'],
+  [['paneer', 'cheese'], '🧀'],
+  [['chicken', 'tandoori', 'kebab', 'kabab', 'tikka', 'wings', 'lollipop'], '🍗'],
+  [['mutton', 'lamb', 'goat', 'keema'], '🍖'],
+  [['burger'], '🍔'],
+  [['pizza'], '🍕'],
+  [['fries', 'chips'], '🍟'],
+  [['sandwich', 'roll', 'wrap', 'shawarma', 'frankie'], '🌯'],
+  [['salad'], '🥗'],
+  [['ice cream', 'kulfi', 'sundae'], '🍨'],
+  [['cake', 'brownie', 'pastry'], '🍰'],
+  [['gulab', 'jamun', 'halwa', 'kheer', 'payasam', 'rasmalai', 'sweet', 'dessert'], '🍮'],
+  [['lassi', 'milkshake', 'shake', 'milk'], '🥛'],
+  [['coffee', 'tea', 'chai'], '☕'],
+  [['juice', 'lime', 'soda', 'mojito', 'cooler', 'drink', 'water'], '🥤'],
+  [['dal', 'curry', 'masala', 'gravy', 'korma', 'sabzi', 'kadai', 'kadhai'], '🥘'],
+  [['mushroom'], '🍄'],
+  [['corn'], '🌽'],
+  [['potato', 'aloo'], '🥔'],
+  [['gobi', 'cauliflower', 'manchurian', 'veg'], '🥦'],
+];
+
+const TYPE_EMOJI: Record<FoodType, string> = { veg: '🥗', non_veg: '🍗', egg: '🥚', other: '🍽️' };
+
+export function foodEmoji(name: string, foodType: FoodType): string {
+  const n = name.toLowerCase();
+  for (const [words, emoji] of EMOJI_WORDS) {
+    if (words.some((w) => n.includes(w))) return emoji;
+  }
+  return TYPE_EMOJI[foodType];
+}
+
+/**
+ * What falls for the guest: the dishes in the order they just placed, and nothing else.
+ *
+ * 03-Oct-2026 (supersedes `cravingPool`, which drew from the whole menu by route): the owner
+ * asked that the game be about THIS order - "the food items for catch should be based on their
+ * order". So the pool is the round's own lines, one per dish however many were ordered, and a
+ * menu row the table did not order can no longer fall at all. The route still decides the offer
+ * line and the suggestions; it no longer decides what falls.
+ */
+export function orderTargets(
+  items: ReadonlyArray<{ id: string; name: string; foodType: FoodType }>
+): CravingTarget[] {
+  const seen = new Set<string>();
+  const out: CravingTarget[] = [];
+  for (const i of items) {
+    if (seen.has(i.name)) continue;
+    seen.add(i.name);
+    out.push({ id: i.id, name: i.name, foodType: i.foodType, emoji: foodEmoji(i.name, i.foodType) });
+  }
+  return out;
+}
+
+/**
+ * The one thing NOT to catch. A germ: nobody wants it on their plate, it reads as "bad" without a
+ * word of instruction, and it is not food - so it can never be mistaken for a dish the kitchen
+ * might be sending.
+ */
+export const ENEMY = { emoji: '🦠', name: 'Germ' } as const;
+
+/* ── Levels and points ─────────────────────────────────────────────────────────────────────── */
+
+export type CravingLevel = 'easy' | 'moderate' | 'hard';
+
+export interface LevelRules {
+  label: string;
+  /** How long one drop takes to fall, ms. Shorter is harder to reach. */
+  fallMs: number;
+  /** How often something is released, ms. Shorter is busier. */
+  spawnMs: number;
+  /** The share of drops that are the germ, 0..1. */
+  enemyChance: number;
+  /** The plate's width, as a percentage of the play area. Narrower is harder to land on. */
+  plateWidthPct: number;
+}
+
+/**
+ * Three levels, and every one of them changes play - speed, density, how many germs, and how
+ * wide the plate is. None is a colour change. The numbers are ordered (asserted in
+ * craving.unit.spec.ts), so "Hard" can never quietly become easier than "Moderate".
+ */
+export const LEVELS: Record<CravingLevel, LevelRules> = {
+  easy: { label: 'Easy', fallMs: 3200, spawnMs: 1100, enemyChance: 0.15, plateWidthPct: 28 },
+  moderate: { label: 'Moderate', fallMs: 2500, spawnMs: 850, enemyChance: 0.25, plateWidthPct: 22 },
+  hard: { label: 'Hard', fallMs: 1800, spawnMs: 600, enemyChance: 0.35, plateWidthPct: 17 },
+};
+
+export const LEVEL_ORDER: readonly CravingLevel[] = ['easy', 'moderate', 'hard'];
+
+/** Points for a dish on the plate. */
+export const CATCH_POINTS = 10;
+/** Points lost for a germ on the plate. */
+export const ENEMY_PENALTY = 15;
+/** Germs a guest may catch before the game ends early. */
+export const CRAVING_LIVES = 3;
+
+export interface CravingScore {
+  score: number;
+  lives: number;
+  caught: number;
+  germs: number;
+}
+
+export const FRESH_SCORE: CravingScore = { score: 0, lives: CRAVING_LIVES, caught: 0, germs: 0 };
+
+/**
+ * What one landing does to the score. Pure, so the whole points table is tested without a
+ * browser. A miss changes nothing; a dish adds; a germ costs points (never below zero) and a life.
+ */
+export function scoreLanding(s: CravingScore, landed: 'food' | 'enemy', onPlate: boolean): CravingScore {
+  if (!onPlate) return s;
+  if (landed === 'food') return { ...s, score: s.score + CATCH_POINTS, caught: s.caught + 1 };
+  return { ...s, score: Math.max(0, s.score - ENEMY_PENALTY), lives: Math.max(0, s.lives - 1), germs: s.germs + 1 };
+}
+
+/** Whether the next drop is the germ. `roll` is a 0..1 random number, passed in so it is testable. */
+export function dropIsEnemy(level: CravingLevel, roll: number): boolean {
+  return roll < LEVELS[level].enemyChance;
 }
 
 /* ── What is suggested at the end ──────────────────────────────────────────────────────────── */
@@ -196,10 +286,6 @@ export function cravingSuggestions(
  * ends when we said" cannot drift apart.
  */
 export const CRAVING_SECONDS = 24;
-/** How often a new item is released, in milliseconds. */
-export const CRAVING_SPAWN_MS = 900;
-/** How long one item takes to fall. Long enough to reach for, short enough to feel lively. */
-export const CRAVING_FALL_MS = 2600;
 /**
  * How many times a guest may play before the offer stops offering.
  *
@@ -209,27 +295,25 @@ export const CRAVING_FALL_MS = 2600;
 export const CRAVING_MAX_PLAYS = 2;
 
 /**
- * The plate's width, as a percentage of the play area — and the single number every other piece
- * of the geometry is derived from.
+ * The plate's reach - half its width, since it is centred on its position - and the single fact
+ * the drawn plate, the movable plate and the catching plate are all derived from.
  *
- * IT IS HERE BECAUSE THREE THINGS DEPEND ON IT AND THEY MUST AGREE. How far the plate may slide
- * before part of it leaves the area, how close a dish must land to count, and where dishes may
- * be dropped are all the same fact seen three ways. Written separately they disagreed: the first
- * version clamped the plate's CENTRE to 92%, which put its right edge at 103% — outside the
- * area. `craving.render.spec.ts` measured it and refused it.
+ * IT IS ONE NUMBER BECAUSE THREE THINGS DEPEND ON IT AND THEY MUST AGREE. The first version
+ * clamped the plate's CENTRE to 92%, which put its right edge outside the area;
+ * `craving.render.spec.ts` measured it and refused it. 03-Oct-2026: the width now comes from the
+ * level (`LEVELS[level].plateWidthPct`), so every function here takes it rather than a constant.
  */
-export const PLATE_WIDTH_PCT = 22;
-/** Half the plate. The plate is centred on its position, so this is its reach either way. */
-export const PLATE_REACH_PCT = PLATE_WIDTH_PCT / 2;
+export const plateReach = (widthPct: number): number => widthPct / 2;
 
 /** Clamps the plate's centre so that no part of it leaves the play area. */
-export function clampPlate(pct: number): number {
-  return Math.min(100 - PLATE_REACH_PCT, Math.max(PLATE_REACH_PCT, pct));
+export function clampPlate(pct: number, widthPct: number): number {
+  const reach = plateReach(widthPct);
+  return Math.min(100 - reach, Math.max(reach, pct));
 }
 
-/** Whether a dish that landed at `itemPct` was caught by a plate centred at `platePct`. */
-export function isCaught(itemPct: number, platePct: number): boolean {
-  return Math.abs(itemPct - platePct) <= PLATE_REACH_PCT;
+/** Whether a drop that landed at `itemPct` was caught by a plate centred at `platePct`. */
+export function isCaught(itemPct: number, platePct: number, widthPct: number): boolean {
+  return Math.abs(itemPct - platePct) <= plateReach(widthPct);
 }
 
 export type CravingPhase = 'offer' | 'playing' | 'done' | 'dismissed';
@@ -268,5 +352,9 @@ export function shouldOfferCraving(input: {
   if (!input.enabled) return false;
   if (!input.hasWaitingRound) return false;
   if (input.phase === 'dismissed') return false;
+  /* A game in play is never taken away. `begin` counts the play before the first drop, so the
+     last allowed game reaches `plays === CRAVING_MAX_PLAYS` while it is being played; without
+     this, "Play again" removed the card it was tapped on (review, 03-Oct-2026). */
+  if (input.phase === 'playing') return true;
   return input.plays < CRAVING_MAX_PLAYS || input.phase === 'done';
 }

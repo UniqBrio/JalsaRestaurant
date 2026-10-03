@@ -40,7 +40,7 @@ const TABLE_ZONES = ['AC', 'Non-AC', 'Terrace'] as const;
 type Panel =
   'hours' | 'identity' | 'tax' | 'invoice' | 'tables' | 'features' | 'copy' | 'replies' | 'engage' | 'printers';
 
-const PANELS: Array<{ key: Panel; label: string; permission: string }> = [
+export const PANELS: Array<{ key: Panel; label: string; permission: string }> = [
   { key: 'hours', label: 'Opening hours', permission: 'set.hours' },
   { key: 'identity', label: 'Restaurant details', permission: 'set.identity' },
   { key: 'tax', label: 'Tax & GST', permission: 'set.tax' },
@@ -60,9 +60,13 @@ const PANELS: Array<{ key: Panel; label: string; permission: string }> = [
 ];
 
 export function SettingsSection(props: OwnerSectionProps) {
-  const { data } = props;
+  const { data, arg } = props;
   const allowed = PANELS.filter((p) => data.grants.includes(p.permission));
-  const [panel, setPanel] = React.useState<Panel>(allowed[0]?.key ?? 'tables');
+  /* `arg` opens a named panel - the owner's search (03-Oct-2026) goes to "Settings · Tax & GST".
+     Only a panel this person may open; anything else falls back to the first, as before. */
+  const [panel, setPanel] = React.useState<Panel>(
+    () => allowed.find((p) => p.key === arg)?.key ?? allowed[0]?.key ?? 'tables'
+  );
 
   return (
     <div className="flex flex-col gap-4" data-testid="owner-settings">

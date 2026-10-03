@@ -57,6 +57,8 @@ export interface MenuCategory {
 
 export interface KotItem {
   id: string;
+  /** The dish this line was ordered from; null when that dish has since been deleted. */
+  menuItemId: string | null;
   name: string;
   unitPrice: number;
   qty: number;
@@ -124,6 +126,12 @@ export interface IdentitySpine {
 export interface Bill {
   id: string;
   code: string;
+  /**
+   * The dishes this party hearted (`guest_favourite.menu_item_id`, 03-Oct-2026). Read inside the
+   * bill read itself, so the guest's poll carries the hearts without a round trip of its own.
+   * Optional: a bill built by hand (a fixture, the echo of a write) need not name any.
+   */
+  lovedItemIds?: string[];
   status: BillStatus;
   /** Every table on this bill. One entry for an ordinary table; several for a group. */
   tables: string[];

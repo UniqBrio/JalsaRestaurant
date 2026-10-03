@@ -1739,6 +1739,126 @@ export async function reassignBillStaff(input: {
 }
 
 /**
+ * When a table separates, its hearts follow its dishes (03-Oct-2026, review).
+ *
+ * A heart belongs to a party's bill and a dish. The separating table's rounds move to the new
+ * bill; a heart on a dish those rounds carried is copied there too, so that table's phones still
+ * show it - and it is taken off the old bill only if no round left there carries the dish, so the
+ * table staying behind never shows a heart it did not give. Every error is thrown, like the rest
+ * of the separation.
+ */
+export async function moveHeartsWithRounds(input: { fromBill: string; toBill: string; movedKots: string[] }): Promise<void> {
+  if (input.movedKots.length === 0) return;
+  const { data: hearts, error: heartErr } = await db()
+    .from('guest_favourite')
+    .select('restaurant_id,menu_item_id,item_name,guest_session_id,created_at')
+    .eq('bill_id', input.fromBill);
+  if (heartErr) throw heartErr;
+  if (!hearts || hearts.length === 0) return;
+
+  const dishesOn = async (kotIds: string[]): Promise<Set<string>> => {
+    if (kotIds.length === 0) return new Set();
+    const { data, error } = await db().from('kot_item').select('menu_item_id').in('kot_id', kotIds);
+    if (error) throw error;
+    return new Set((data ?? []).map((r) => r.menu_item_id as string | null).filter((id): id is string => !!id));
+  };
+  const { data: staying, error: stayErr } = await db().from('kot').select('id').eq('bill_id', input.fromBill);
+  if (stayErr) throw stayErr;
+  const [moved, left] = await Promise.all([
+    dishesOn(input.movedKots),
+    dishesOn((staying ?? []).map((k) => k.id as string)),
+  ]);
+
+  const follow = hearts.filter((h) => h.menu_item_id && moved.has(h.menu_item_id as string));
+  if (follow.length === 0) return;
+  const { error: copyErr } = await db()
+    .from('guest_favourite')
+    .upsert(
+      follow.map((h) => ({ ...h, bill_id: input.toBill })),
+      { onConflict: 'bill_id,menu_item_id', ignoreDuplicates: true }
+    );
+  if (copyErr) throw copyErr;
+  const gone = follow.map((h) => h.menu_item_id as string).filter((id) => !left.has(id));
+  if (gone.length > 0) {
+    const { error: dropErr } = await db()
+      .from('guest_favourite')
+      .delete()
+      .eq('bill_id', input.fromBill)
+      .in('menu_item_id', gone);
+    if (dropErr) throw dropErr;
+  }
+}
+
+/** Why a heart was refused - said to the guest, never a constraint name. */
+export class FavouriteRefused extends Error {}
+
+/**
+ * A guest hearts - or un-hearts - a dish served on their own bill (03-Oct-2026).
+ *
+ * WHAT IS CHECKED, HERE AND NOT ON THE PHONE
+ *   The bill is the session's own (the route found it by the cookie; no bill id is accepted from
+ *   the request). A heart is kept only for a dish SERVED on that bill - the same rule that
+ *   unlocks the button - so a modified phone cannot heart a dish it was never brought, and the
+ *   owner's report counts food people actually ate. Un-hearting is always allowed.
+ *
+ * IDEMPOTENT BOTH WAYS. A second heart on the same dish meets `unique (bill_id, menu_item_id)`
+ * and is ignored, not duplicated; un-hearting what is not hearted deletes nothing. Every error
+ * is thrown - a heart reported saved that the database refused would be a lie on the screen.
+ */
+export async function setFavourite(input: {
+  billId: string;
+  sessionId: string;
+  menuItemId: string;
+  loved: boolean;
+}): Promise<{ loved: boolean }> {
+  if (!input.loved) {
+    const { error } = await db()
+      .from('guest_favourite')
+      .delete()
+      .eq('bill_id', input.billId)
+      .eq('menu_item_id', input.menuItemId);
+    if (error) throw error;
+    return { loved: false };
+  }
+
+  const { data: served, error: kotError } = await db()
+    .from('kot')
+    .select('id')
+    .eq('bill_id', input.billId)
+    .eq('status', 'served');
+  if (kotError) throw kotError;
+  const kotIds = (served ?? []).map((k) => k.id as string);
+  const { data: lines, error: lineError } = kotIds.length
+    ? await db()
+        .from('kot_item')
+        .select('name')
+        .in('kot_id', kotIds)
+        .eq('menu_item_id', input.menuItemId)
+        .is('cancelled_at', null)
+        .limit(1)
+    : { data: [] as Array<{ name: string }>, error: null };
+  if (lineError) throw lineError;
+  const line = (lines ?? [])[0] as { name: string } | undefined;
+  if (!line) throw new FavouriteRefused('You can heart a dish once it has been served to your table.');
+
+  const restaurantId = await currentRestaurantId();
+  const { error } = await db()
+    .from('guest_favourite')
+    .upsert(
+      {
+        restaurant_id: restaurantId,
+        bill_id: input.billId,
+        menu_item_id: input.menuItemId,
+        item_name: line.name.slice(0, 120),
+        guest_session_id: input.sessionId,
+      },
+      { onConflict: 'bill_id,menu_item_id', ignoreDuplicates: true }
+    );
+  if (error) throw error;
+  return { loved: true };
+}
+
+/**
  * Record how this party found Jalsa, on their own session.
  *
  * Scoped by `sessionId`, which the caller reads from the cookie rather than the request body,
@@ -2223,6 +2343,12 @@ export async function detachTableFromBill(input: {
     .eq('table_id', input.tableId)
     .select('id');
   if (moveErr) throw moveErr;
+
+  await moveHeartsWithRounds({
+    fromBill: input.billId,
+    toBill: fresh.id as string,
+    movedKots: (moved ?? []).map((k) => k.id as string),
+  });
 
   /**
    * A TIP FOLLOWS ITS BILL, AND THERE IS NO SPLIT OF ONE.

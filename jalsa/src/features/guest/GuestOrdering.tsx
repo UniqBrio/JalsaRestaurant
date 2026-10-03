@@ -503,6 +503,7 @@ export function CartScreen({
   setCartQty,
   cartCount,
   flushCart,
+  notePlaced,
 }: GuestScreenProps) {
   const toast = useToast();
   const [note, setNote] = React.useState('');
@@ -531,6 +532,8 @@ export function CartScreen({
       } else {
         toast.show(`${res.kotCode} sent to the kitchen`, { tone: 'success' });
       }
+      // The order-placed screen's game belongs to this round (03-Oct-2026).
+      notePlaced(res.kotCode);
       go('placed');
     });
 

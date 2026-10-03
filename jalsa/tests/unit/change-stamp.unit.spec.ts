@@ -103,15 +103,19 @@ test('every table a polled screen reads moves a counter, or is excluded on purpo
      (menu_food_type, the restaurant's Food Type list) adds its own bump trigger in its own
      migration, so every migration that attaches `bump_change_version` now counts, and for those
      later files only the tables a trigger is actually created on. */
+  /* SUPERSEDED 03-Oct-2026: only `bump_change_version` triggers in later files counted. A bill's
+     child born later (guest_favourite) moves its BILL's version through `bill_version_from_child`
+     - the counter guest phones poll - exactly as the first migration attaches it to kot, tip and
+     the rest; that is a counter too, so a later trigger calling it now counts as well. */
   const LATER = readdirSync(`${APP}/supabase/migrations`)
     .filter((f) => f.endsWith('.sql') && f > '20260924120000_jalsa_change_versions.sql')
     .map((f) => read(`supabase/migrations/${f}`))
-    .filter((sql) => sql.includes('bump_change_version('));
+    .filter((sql) => sql.includes('bump_change_version(') || sql.includes('bill_version_from_child()'));
   const covered = new Set([
     ...[...MIGRATION.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? ''),
     ...[...MIGRATION.matchAll(/on public\.([a-z_]+)/g)].map((m) => m[1] ?? ''),
     ...LATER.flatMap((sql) =>
-      [...sql.matchAll(/create trigger \w+\s+after [^;]*? on public\.([a-z_]+)[^;]*?bump_change_version\(/g)].map(
+      [...sql.matchAll(/create trigger \w+\s+after [^;]*? on public\.([a-z_]+)[^;]*?(?:bump_change_version\(|bill_version_from_child\(\))/g)].map(
         (m) => m[1] ?? ''
       )
     ),

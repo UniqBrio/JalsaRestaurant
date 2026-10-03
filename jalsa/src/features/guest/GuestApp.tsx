@@ -53,6 +53,13 @@ export interface GuestScreenProps {
   dismissCraving: (roundCode: string) => void;
   cravingPlays: number;
   setCravingPlays: (n: number) => void;
+  /**
+   * The code of the round THIS phone just sent to the kitchen, or null (03-Oct-2026). The
+   * order-placed screen's game is about that round and no other: a round another phone at the
+   * table sends meanwhile, or a reload, never re-points it.
+   */
+  placedCode: string | null;
+  notePlaced: (kotCode: string) => void;
   /** What to show for one row right now — the phone's own intention until the server confirms. */
   qtyOf: (item: { id: string; inCart: number }) => number;
   /** Change a quantity. Returns immediately; the write follows. */
@@ -105,6 +112,9 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     []
   );
   const [cravingPlays, setCravingPlays] = React.useState(0);
+  /* The round this phone just placed - see GuestScreenProps.placedCode. Not persisted: after a
+     reload the phone lands on its order list, which has no game (startingPhase). */
+  const [placedCode, setPlacedCode] = React.useState<string | null>(null);
 
   /**
    * WHAT THE PHONE BELIEVES IS IN THE CART, before the server has confirmed it.
@@ -252,6 +262,8 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     dismissCraving,
     cravingPlays,
     setCravingPlays,
+    placedCode,
+    notePlaced: setPlacedCode,
     qtyOf,
     setCartQty,
     cartCount: draftedCount(draft, data.menu),

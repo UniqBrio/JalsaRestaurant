@@ -116,6 +116,10 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | Settings — **GST on takeaway packaging** (02-Oct-2026): no grant and no setting. GST is charged on food only; the packaging charge is never taxed, by the owner's rule. The tax RATE stays `set.tax` | — | — | — | — | — |
 | Settings — **printer roles and defaults** (`set.printer`, added 02-Oct-2026) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Guest (no grant) — **answer "How did you hear about us?", or Not now** (added 02-Oct-2026 — their own session only, found by their cookie; never another phone's answer) | — | — | — | — | — |
+| Guest (no grant) — **heart / un-heart a dish on "See my order"** (added 03-Oct-2026 — `/api/guest/favourite`; their own session's bill only, found by their cookie, no bill id accepted from the request; a heart only for a dish SERVED on that bill (`setFavourite`); un-heart always allowed on their own bill; a new heart is refused by the route while Settings → What the customer sees → `heart` is off) | — | — | — | — | — |
+| Reports — **People loved items** (`rep.products`, added 03-Oct-2026 — `/api/owner/favourites`, Reports → Guest insights; hearted dishes counted in parties, no guest identity) | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Reports — **How guests found Jalsa, also on Reports → Guest insights** (`rep.sales`, unchanged — `/api/owner/heard`; the card is shown on the tab only to a holder, so a `rep.products`-only holder sees the tab with People loved items alone) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Owner console — **search the console's screens** (added 03-Oct-2026): no grant of its own. It lists only screens the person's grants open (a Settings panel needs `set.tables` and the panel's own grant) and opening one still passes the console's section gate; it grants nothing | — | — | — | — | — |
 
 ---
 

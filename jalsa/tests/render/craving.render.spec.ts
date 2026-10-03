@@ -14,16 +14,25 @@
  * FAIL-FIRST EVIDENCE (18-Sep-2026) — recorded in TEST_SUMMARY.md.
  */
 import { test, expect } from '@playwright/test';
-import { PLATE_REACH_PCT, PLATE_WIDTH_PCT } from '../../src/lib/craving';
+import { LEVELS, plateReach } from '../../src/lib/craving';
+
+/* Revised 03-Oct-2026: the plate's width is the level's. Easy has the widest plate, so it is the
+   one that reaches furthest towards the edges - the case this spec exists to measure. */
+const PLATE_WIDTH_PCT = LEVELS.easy.plateWidthPct;
+const PLATE_REACH_PCT = plateReach(PLATE_WIDTH_PCT);
 
 /** Every width the requester named. */
 const WIDTHS = [320, 360, 375, 390, 430, 768, 1024] as const;
 
 /** The play area and its children, copied from CravingGame.tsx. */
 const AREA = 'relative h-52 w-full touch-none overflow-hidden rounded-[var(--radius-card)] bg-[var(--primary-surface)]';
+/* Superseded 03-Oct-2026: FOOD was a one-line pill and PLATE the brown bar
+   ('absolute bottom-2 h-3 -translate-x-1/2 rounded-full bg-[var(--primary)]'). A drop is now an
+   emoji over its name, and the catcher is a plate whose top sits where the bar's did. */
 const FOOD =
-  'j-craving-fall absolute top-0 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--surface)] px-2.5 py-1 type-caption font-semibold shadow-[var(--shadow-raised)]';
-const PLATE = 'absolute bottom-2 h-3 -translate-x-1/2 rounded-full bg-[var(--primary)]';
+  'j-craving-fall absolute top-0 flex -translate-x-1/2 flex-col items-center whitespace-nowrap rounded-[var(--radius-md)] px-1.5 py-0.5 type-caption font-semibold shadow-[var(--shadow-raised)] bg-[var(--surface)]';
+const PLATE =
+  'absolute bottom-1 flex h-4 -translate-x-1/2 items-center justify-center rounded-[50%] border-2 border-[var(--border-strong)] bg-[var(--surface)] shadow-[var(--shadow-raised)] transition-[left] duration-75 ease-out';
 const TAP =
   'inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[var(--primary-surface)] px-4 type-caption font-semibold';
 
@@ -59,7 +68,7 @@ async function measureAt(page: import('@playwright/test').Page, width: number): 
             // deliberately stops spawning food.
             .map(
               (n, i) =>
-                `<span class="${food}" style="left:${i === 0 ? 92 : i === 1 ? 8 : 50}%;animation:none">${n}</span>`
+                `<span class="${food}" style="left:${i === 0 ? 92 : i === 1 ? 8 : 50}%;animation:none"><span class="type-h3 leading-none">🍛</span>${n}</span>`
             )
             .join('')}
           <span id="cp-plate" class="${plate}" style="left:${100 - reach}%;width:${width_}%"></span>
@@ -87,7 +96,7 @@ async function measureAt(page: import('@playwright/test').Page, width: number): 
         // A dish whose box escapes the AREA is fine only because the area clips; what must never
         // happen is the page growing. Reported so a failure says which dish did it.
         foodOverflowingArea: [...areaEl.querySelectorAll('span')]
-          .filter((s) => s.id !== 'cp-plate')
+          .filter((s) => s.id !== 'cp-plate' && s.parentElement === areaEl)
           .filter((s) => {
             const b = s.getBoundingClientRect();
             return b.right > ab.right + 1 || b.left < ab.left - 1;
@@ -168,7 +177,7 @@ for (const width of [320, 390] as const) {
           host.id = 'craving-fall-probe';
           host.style.cssText = 'padding:0 16px;width:100%;box-sizing:border-box';
           host.innerHTML = `<div id="cf-area" class="${area}">
-              <span id="cf-dish" class="${food}" style="left:50%;animation-duration:200ms">Paneer Butter Masala</span>
+              <span id="cf-dish" class="${food}" style="left:50%;animation-duration:200ms"><span class="type-h3 leading-none">🧀</span>Paneer Butter Masala</span>
               <span id="cf-plate" class="${plate}" style="left:50%;width:22%"></span></div>`;
           document.body.prepend(host);
           const dish = document.getElementById('cf-dish')!;

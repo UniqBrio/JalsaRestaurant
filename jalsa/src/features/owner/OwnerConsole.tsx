@@ -21,6 +21,10 @@ import { ReportsSection } from './sections/ReportsSection';
 import { UpliftSection } from './sections/UpliftSection';
 import { SettingsSection } from './sections/SettingsSection';
 import { AuditSection } from './sections/AuditSection';
+import { REPORT_TABS } from './sections/ReportsSection';
+import { PANELS } from './sections/SettingsSection';
+import { OwnerSearch } from './OwnerSearch';
+import { buildNavEntries, type NavEntry } from '@/lib/owner-search';
 
 /**
  * OwnerConsole — the desktop surface, dense on purpose.
@@ -49,7 +53,7 @@ export interface OwnerSectionProps {
   runBusy: (fn: () => Promise<void>) => void;
 }
 
-const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> = [
+export const SECTIONS: Array<{ key: OwnerSection; label: string; permission: string }> = [
   { key: 'dashboard', label: 'Dashboard', permission: 'orders.view' },
   { key: 'day', label: 'Day setup', permission: 'day.setup' },
   { key: 'orders', label: 'Live orders', permission: 'orders.view' },
@@ -112,6 +116,24 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
     setArg(nextArg ?? null);
     setSection(next);
   }, []);
+
+  /* THE OWNER'S SEARCH (03-Oct-2026). Its results are this console's own screens, from the same
+     lists the nav and the sub-navs render; a result with a tab or panel opens on it. `jumps`
+     counts search openings so Reports and Settings - keyed by it - open fresh on the chosen tab
+     even when the owner is already in that section. The nav buttons do not bump it, so walking
+     between sections keeps a section's own tab exactly as before. */
+  const navEntries = React.useMemo(
+    () => buildNavEntries({ sections: SECTIONS, reportTabs: REPORT_TABS, settingsPanels: PANELS }),
+    []
+  );
+  const [jumps, setJumps] = React.useState(0);
+  const openFromSearch = React.useCallback(
+    (e: NavEntry) => {
+      setJumps((n) => n + 1);
+      go(e.section as OwnerSection, e.sub);
+    },
+    [go]
+  );
 
   const shared: OwnerSectionProps = { data, go, arg, send, busy, runBusy };
   const granted = new Set(data.grants);
@@ -198,6 +220,8 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
       </header>
 
       <main className="mx-auto flex flex-col gap-4 px-4 py-5" style={{ maxWidth: 'var(--layout-content-max-width)' }}>
+        <OwnerSearch entries={navEntries} grants={data.grants} onOpen={openFromSearch} />
+
         {staleReason ? (
           <PartialNotice testId="owner-stale">
             {staleReason} The figures below are the last complete read — nothing has been lost, and anything you save
@@ -219,9 +243,9 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
             {section === 'staff' ? <StaffSection {...shared} /> : null}
             {section === 'tips' ? <TipsSection {...shared} /> : null}
             {section === 'expenses' ? <ExpensesSection {...shared} /> : null}
-            {section === 'reports' ? <ReportsSection {...shared} /> : null}
+            {section === 'reports' ? <ReportsSection key={`reports-${jumps}`} {...shared} /> : null}
             {section === 'uplift' ? <UpliftSection {...shared} /> : null}
-            {section === 'settings' ? <SettingsSection {...shared} /> : null}
+            {section === 'settings' ? <SettingsSection key={`settings-${jumps}`} {...shared} /> : null}
             {section === 'audit' ? <AuditSection {...shared} /> : null}
           </>
         )}

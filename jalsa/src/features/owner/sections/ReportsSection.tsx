@@ -24,6 +24,7 @@ import {
 } from '@/lib/report-range';
 import { nowForRangeCheck } from '@/lib/restaurant-time';
 import { HeardAboutCard } from './UpliftSection';
+import { LovedItemsCard } from './LovedItemsCard';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 
 /**
@@ -53,14 +54,19 @@ import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
  * Uplift is NOT among these four. The flowchart carries it as its own top-level section and that
  * is where it lives (see `UpliftSection`, and DC-001).
  */
-type ReportTab = 'sales' | 'orders' | 'expenses' | 'final';
+type ReportTab = 'sales' | 'orders' | 'expenses' | 'final' | 'guests';
 
-const REPORT_TABS: Array<{ key: ReportTab; label: string }> = [
+export const REPORT_TABS: Array<{ key: ReportTab; label: string }> = [
   { key: 'sales', label: 'Sales & products' },
   { key: 'orders', label: 'All orders' },
   { key: 'expenses', label: 'Purchases & expenses' },
   { key: 'final', label: 'Final report' },
+  // 03-Oct-2026: what guests loved and how they found Jalsa - not about bills, so it is shown
+  // whether or not the range closed one.
+  { key: 'guests', label: 'Guest insights' },
 ];
+
+const isReportTab = (v: string | null): v is ReportTab => REPORT_TABS.some((t) => t.key === v);
 
 const PRESETS: RangePreset[] = ['today', 'yesterday', 'last7', 'last30', 'thisMonth'];
 
@@ -127,8 +133,11 @@ interface RangeReport {
   lastBillBefore: LastBillBefore | null;
 }
 
-export function ReportsSection({ data }: OwnerSectionProps) {
-  const [tab, setTab] = React.useState<ReportTab>('sales');
+export function ReportsSection({ data, arg }: OwnerSectionProps) {
+  /* `arg` opens a named tab - the owner's search (03-Oct-2026) goes to "Reports › Guest
+     insights", not just to Reports. The console keys this section by its count of search
+     openings (`jumps`), so a new search result remounts it on the chosen tab. */
+  const [tab, setTab] = React.useState<ReportTab>(() => (isReportTab(arg) ? arg : 'sales'));
   const [preset, setPreset] = React.useState<RangePreset>('today');
   const [range, setRange] = React.useState<DateRange>(() => resolvePreset('today', nowForRangeCheck()));
   /**
@@ -249,7 +258,20 @@ export function ReportsSection({ data }: OwnerSectionProps) {
         ))}
       </nav>
 
-      {!report || rangeIsEmpty(report) ? (
+      {tab === 'guests' ? (
+        /* THE GUEST INSIGHTS TAB (03-Oct-2026). Not "Guests": that word already means a headcount
+           in this section (All orders) and in Waitlist (copy review). Neither card reads bills,
+           so neither waits for the bills report or hides behind its empty state: a range can hold hearts and answers without a
+           closed bill. "How guests found Jalsa" is the SAME card and endpoint Uplift uses (it
+           keeps its fixed 30 days); it moved here from the foot of the Sales tab so it is found.
+           Its endpoint needs rep.sales, so it is only offered to someone who holds it. */
+        <div className="grid gap-5 md:grid-cols-2" data-testid="owner-rep-guests">
+          <LovedItemsCard key={`loved-${range.from}/${range.to}`} range={range} />
+          {data.grants.includes('rep.sales') ? (
+            <HeardAboutCard key={`${range.from}/${range.to}`} range={range} testId="owner-rep-heard" />
+          ) : null}
+        </div>
+      ) : !report || rangeIsEmpty(report) ? (
         problem ? null : loading || !report ? (
           <FirstRunState title="Reading the range" note="The rows are being read for the dates above." testId="owner-rep-empty" />
         ) : (
@@ -268,14 +290,6 @@ export function ReportsSection({ data }: OwnerSectionProps) {
           {tab === 'final' ? <FinalPanel report={report} /> : null}
         </>
       )}
-
-      {/* "How did you hear about us?" over THIS range (02-Oct-2026) - the same card and the same
-          endpoint as Uplift, which keeps its fixed 30 days. Outside the bills block: a range can
-          hold guest responses without a closed bill. Its endpoint needs rep.sales, so it is only
-          offered to someone who holds it - the Reports tab itself needs only rep.products. */}
-      {tab === 'sales' && data.grants.includes('rep.sales') ? (
-        <HeardAboutCard key={`${range.from}/${range.to}`} range={range} testId="owner-rep-heard" />
-      ) : null}
     </div>
   );
 }

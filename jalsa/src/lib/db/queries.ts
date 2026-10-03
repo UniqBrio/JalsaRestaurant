@@ -6,6 +6,7 @@ import { isCounterNotice } from '@/lib/payment-notice';
 import { totalBill } from '@/lib/money';
 import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import { heardKey } from '@/lib/heard-about';
+import { tallyFavourites, type LovedTally } from '@/lib/favourites';
 import type {
   AuditRow,
   Bill,
@@ -158,11 +159,12 @@ const BILL_SELECT = `
   discount_by:discount_by_staff_id (name),
   bill_table ( released_at, dining_table:table_id (id, name) ),
   tip ( amount ),
+  guest_favourite ( menu_item_id ),
   kot (
     id, code, status, source, placed_by_label, note, print_status, print_attempts,
     reprint_count, created_at, started_at, ready_at, picked_up_at, served_at,
     dining_table:table_id (name),
-    kot_item ( id, name, unit_price, qty, food_type, food_type_name, qty_before, cancelled_at, cancel_reason, menu_category_name, menu_parent_category_name, line_seq ),
+    kot_item ( id, menu_item_id, name, unit_price, qty, food_type, food_type_name, qty_before, cancelled_at, cancel_reason, menu_category_name, menu_parent_category_name, line_seq ),
     print_job (
       id, status, attempts, is_reprint, last_error,
       printer_id, printer_name, station, routing_rule, redirected_from_job_id
@@ -260,6 +262,7 @@ function shapeBill(row: Record<string, unknown>): Bill {
         // listed a round's lines in whatever order the database returned them.
         items: sortByLineSeq((k.kot_item ?? []) as Array<Record<string, unknown>>).map((i) => ({
           id: i.id as string,
+          menuItemId: (i.menu_item_id as string | null) ?? null,
           name: i.name as string,
           unitPrice: Number(i.unit_price),
           qty: i.qty as number,
@@ -313,6 +316,9 @@ function shapeBill(row: Record<string, unknown>): Bill {
     orderType: row.order_type === 'takeaway' ? 'takeaway' : 'dine_in',
     packagingCharge: Number(row.packaging_charge ?? 0),
     kots,
+    lovedItemIds: ((row.guest_favourite ?? []) as Array<{ menu_item_id: string | null }>)
+      .map((f) => f.menu_item_id)
+      .filter((id): id is string => !!id),
   };
 }
 
@@ -477,6 +483,44 @@ export async function lastClosedBillBefore(from: string): Promise<{ code: string
     .maybeSingle();
   if (error) throw error;
   return data ? { code: data.code as string, closedAt: data.closed_at as string } : null;
+}
+
+/**
+ * "People loved items" - every heart in the range, counted per dish (03-Oct-2026).
+ *
+ * Grouped here rather than in SQL because the range is small (a restaurant's hearts for a month)
+ * and grouping by id-or-name in one place keeps a deleted dish's hearts with its name.
+ * Scoped by restaurant_id, so one restaurant never counts another's.
+ */
+export async function listFavouritesBetween(from: string, to: string): Promise<LovedTally[]> {
+  const restaurantId = await currentRestaurantId();
+  const { start, end } = dayWindow(from, to);
+  /* Paged, so a busy month is counted whole: PostgREST answers at most `max_rows` (1000 by
+     default) per request, and a report built from the first page alone would under-count without
+     saying so (review, 03-Oct-2026). Ordered by id so the pages neither overlap nor skip. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('guest_favourite')
+      .select('menu_item_id,item_name,bill_id,created_at')
+      .eq('restaurant_id', restaurantId)
+      .gte('created_at', start.toISOString())
+      .lt('created_at', end.toISOString())
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return tallyFavourites(
+    data.map((r) => ({
+      menuItemId: (r.menu_item_id as string | null) ?? null,
+      name: (r.item_name as string) ?? '',
+      billId: r.bill_id as string,
+      createdAt: r.created_at as string,
+    }))
+  );
 }
 
 /**

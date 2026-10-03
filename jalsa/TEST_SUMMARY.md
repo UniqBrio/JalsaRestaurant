@@ -4,6 +4,33 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-03 - Game on the order-placed screen, hearts kept, owner search, Guest insights reports
+
+**Request:** `requests/2026-10-03-game-favourites-search-reports.md` (root causes, decisions, the five permission questions).
+
+**New / revised rungs**
+- `tests/unit/craving.unit.spec.ts` - 53 → 64 cases; superseded in place with dated notes where the game moved (status screen → order-placed screen, menu pool → the order's own lines, one plate width → per level). New: emoji from the dish name, germ enemy, points/lives table, levels ordered on every axis, plate not slate, replay cap.
+- `tests/render/craving-game.render.spec.ts` (new, 5) - the REAL CravingGame bundled into the app's page (`tests/support/mount.ts`): only the order's dishes and the germ fall, at the level's fall time; plate width per level; reduced-motion taps score +10 / −15 and a life, three germs end it, "Play Hard" starts a second game.
+- `tests/unit/favourites.unit.spec.ts` (new, 17) - the REAL `setFavourite` / `moveHeartsWithRounds` / `getBill` on the round rig (`tests/support/rounds/favourite.scenarios.ts`): served-on-this-bill only, not on another bill's, idempotent upsert, un-heart deletes only this bill's, failures thrown, hearts read inside the bill read, table separation moves hearts with their dishes; route and screen pins.
+- `tests/unit/favourites.db.unit.spec.ts` (new, 7, PGlite with Supabase default privileges emulated) - one heart per dish per party, deleted dish keeps its name, empty name refused, RLS on and anon/authenticated revoked, bill version moves on heart and un-heart.
+- `tests/unit/owner-search.unit.spec.ts` (new, 12) and `tests/render/owner-search.render.spec.ts` (new, 7, the REAL OwnerSearch) - registry from SECTIONS / REPORT_TABS / PANELS, no hint naming an unreal screen, exact > starts-with > keyword/alias > contains, RBAC filtering, Down/Up wrap/Enter/Escape, taps at 320 and 390 px, no sideways scroll, 44 px options.
+- `tests/unit/guest-reports.unit.spec.ts` (new, 5) - Guest insights tab, one source each (guest_favourite / guest_attribution), grants, empty/problem states.
+- Superseded pins: `tests/unit/heard-attribution.unit.spec.ts` (card moved from Sales to Guest insights), `tests/unit/change-stamp.unit.spec.ts` (a later `bill_version_from_child` trigger counts as a counter).
+
+**Fail-first evidence**
+- OBSERVED FAILING on the pre-change tree (`aa2606e`, a worktree with only the new specs copied in): favourites / owner-search / craving specs fail to load (`src/lib/favourites`, `src/lib/owner-search`, `CATCH_POINTS` absent); guest-reports 5 of 5 failed; favourites.db failed (no `guest_favourite`).
+- OBSERVED FAILING, replay cap: pre-change `shouldOfferCraving({plays: 2, phase: 'playing'})` → `false` (the card vanished on "Play again"); post-change → `true`.
+- OBSERVED FAILING during the build: the first hearts read was a separate query and `tests/unit/guest-rounds.unit.spec.ts` measured a live poll at 4 sequential rounds (budget 3); moved into `BILL_SELECT`, 3 again.
+- NOT OBSERVED FAILING: the render specs' geometry cases (plate inside the area, no sideways scroll) - the pre-change component had no plate or levels to measure.
+
+**Reviews:** code, copy and permission reviewers ran on the diff; fixed: hearts moved the 'floor' counter no guest reads (now the bill's version + echoed state), replay cap, owner's heart switch enforced server-side, strict uuid, report paging, hearts follow a separated table, RLS test emulates Supabase grants + explicit revoke, toast never shows browser error text, stale route line removed, copy (points, Play <level>, lives-out line, Guest insights), RBAC rows.
+
+**Results (03-Oct):** typecheck 0 · lint 0 · audit:all 10/10 · unit 1483 passed · render 289 passed (dev server with an unreachable database, as the degraded instance) · `next build` passed.
+
+**Databases:** production - read only (1 heard answer on record; 10 "Table freed by hand" deletions explain the missing ones). TEST - `20261004090000_jalsa_guest_favourite` NOT applied: three applies timed out in the connector, each verified not applied.
+
+---
+
 ## 2026-10-03 - Security: the four privileged database functions were callable with the browser's key - locked to the server
 
 AUDIT (TEST, live): set_staff_pin, set_own_pin, verify_staff_pin and next_number are all SECURITY DEFINER with a fixed search_path, but EXECUTE was held by PUBLIC, anon and authenticated (Postgres and Supabase defaults, never revoked). Any holder of the publishable key could call /rest/v1/rpc/*, skipping the app's checks:

@@ -8,15 +8,15 @@ import { cn } from '@/lib/cn';
 import { guestSteps, type Tone } from '@/lib/status';
 import type { GuestRound } from '@/lib/db/guest-view';
 import {
-  activeCravingRound,
-  cravingPool,
   cravingRoute as routeOf,
+  orderTargets,
   phaseForRound,
   shouldOfferCraving,
   type CravingPhase,
 } from '@/lib/craving';
 import { CravingGame } from './CravingGame';
 import { HeardPrompt } from './HeardPrompt';
+import { shownLoved } from '@/lib/favourites';
 import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
 
 /**
@@ -114,8 +114,85 @@ function RoundTimeline({ round }: { round: GuestRound }) {
   );
 }
 
-export function PlacedScreen({ data, go }: GuestScreenProps) {
-  const last = data.rounds[data.rounds.length - 1];
+/**
+ * Catch Your Craving on the order-placed screen (03-Oct-2026).
+ *
+ * WHY HERE AND NOT ON "SEE MY ORDER"
+ *   It used to sit at the foot of the order list, offered for whichever round was furthest
+ *   along (`activeCravingRound`) - so it was about "the table's wait", not about the order the
+ *   guest had just sent, and it shared a screen whose job is status. The owner moved it: the
+ *   game is part of placing an order, and "See my order" is for the order.
+ *
+ * WHICH ROUND
+ *   `placedCode` - the code the kitchen answered THIS phone's Send with. Not "the last round":
+ *   another phone at the table may send one a second later, and the game must not jump to food
+ *   this guest did not order. With no such round (a reload, everything sold out) there is no
+ *   game, rather than a game about something else.
+ */
+function PlacedCraving({
+  data,
+  placedCode,
+  cravingDismissed,
+  dismissCraving,
+  cravingPlays,
+  setCravingPlays,
+  qtyOf,
+  setCartQty,
+}: GuestScreenProps) {
+  const toast = useToast();
+  const round = placedCode ? data.rounds.find((r) => r.code === placedCode) : undefined;
+  const targets = React.useMemo(() => (round ? orderTargets(round.items) : []), [round]);
+  const route = round ? routeOf(round.items.map((i) => i.foodType)) : null;
+  /* This screen's own phase, for one round. Local, so leaving mid-game and coming back lands on
+     the offer rather than in a game that started itself; only a dismissal is kept above. */
+  const [local, setLocal] = React.useState<{ code: string; phase: CravingPhase } | null>(null);
+  const phase = round ? phaseForRound(round.code, cravingDismissed, local) : 'offer';
+  /* STABLE across live-data refreshes, because the game's timer effect depends on it - a new
+     function per poll would restart the 24 s stop. The round is fixed by `placedCode`. */
+  const setPhase = React.useCallback(
+    (next: CravingPhase) => {
+      if (!placedCode) return;
+      if (next === 'dismissed') dismissCraving(placedCode);
+      setLocal({ code: placedCode, phase: next });
+    },
+    [dismissCraving, placedCode]
+  );
+  // Round lines carry the KOT line's id, not the dish's, so "already ordered" is matched by name.
+  const orderedNames = new Set(data.rounds.flatMap((r) => r.items.map((i) => i.name)));
+  const orderedIds = data.menu.filter((m) => orderedNames.has(m.name)).map((m) => m.id);
+  const addSuggestion = (itemId: string) => {
+    const item = data.menu.find((m) => m.id === itemId);
+    if (!item) return;
+    // The ordinary cart path - the same one the menu's + button takes.
+    setCartQty(itemId, qtyOf(item) + 1);
+    // Said, because nothing else on this screen shows a cart: without it the tap looked like
+    // nothing, or like an order. The menu's own words, and the cart's.
+    toast.show(`${item.name} added · nothing sent to the kitchen yet`);
+  };
+
+  if (!round || !route || targets.length === 0) return null;
+  if (!shouldOfferCraving({ enabled: data.features.craving, hasWaitingRound: true, plays: cravingPlays, phase })) {
+    return null;
+  }
+  return (
+    <CravingGame
+      key={round.code}
+      route={route}
+      targets={targets}
+      menu={data.menu}
+      orderedIds={orderedIds}
+      phase={phase}
+      setPhase={setPhase}
+      plays={cravingPlays}
+      setPlays={setCravingPlays}
+      onAdd={addSuggestion}
+    />
+  );
+}
+
+export function PlacedScreen(props: GuestScreenProps) {
+  const { data, go, placedCode } = props;
+  const last = (placedCode ? data.rounds.find((r) => r.code === placedCode) : undefined) ?? data.rounds[data.rounds.length - 1];
   const summary = last?.items.map((i) => `${i.name} ×${i.qty}`).join(' · ') ?? '';
 
   return (
@@ -148,6 +225,10 @@ export function PlacedScreen({ data, go }: GuestScreenProps) {
         </Card>
       ) : null}
 
+      {/* Below the order it is about, so the confirmation is read first. Always skippable; the
+          owner can switch it off (features.craving). */}
+      <PlacedCraving {...props} />
+
       <ActionBar testId="guest-placed-bar">
         <Button data-testid="guest-see-my-order" size="lg" onClick={() => go('status')}>
           See my order
@@ -170,53 +251,44 @@ export function StatusScreen({
   showTotal,
   setShowTotal,
   joinedLate,
-  cravingDismissed,
-  dismissCraving,
-  cravingPlays,
-  setCravingPlays,
-  qtyOf,
-  setCartQty,
 }: GuestScreenProps) {
   const toast = useToast();
-  const [loved, setLoved] = React.useState<Record<string, boolean>>({});
-  const anyServed = data.rounds.some((r) => r.status === 'served');
-
-  /* Catch Your Craving: ONE game, on the one round still being waited for, themed by what that
-     round holds. Gone the moment nothing is waiting (activeCravingRound returns null). */
-  const cravingRound = activeCravingRound(data.rounds);
-  const cravingRoute = cravingRound ? routeOf(cravingRound.items.map((i) => i.foodType)) : null;
-  /* This screen's own phase, for one round. Local, so leaving mid-game and coming back lands on
-     the offer rather than in a game that started itself; only a dismissal is kept above. */
-  const [cravingLocal, setCravingLocal] = React.useState<{ code: string; phase: CravingPhase } | null>(null);
-  const cravingPhase = cravingRound ? phaseForRound(cravingRound.code, cravingDismissed, cravingLocal) : 'offer';
-  /* STABLE across live-data refreshes, because the game's timer effect depends on it - a new
-     function per poll would restart the 24 s stop. The round's code is read through a ref; the
-     game is keyed by that code, so it only ever calls this while the ref names its round. */
-  const cravingCodeRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    cravingCodeRef.current = cravingRound ? cravingRound.code : null;
-  });
-  const setCravingPhase = React.useCallback(
-    (phase: CravingPhase) => {
-      const code = cravingCodeRef.current;
-      if (!code) return;
-      if (phase === 'dismissed') dismissCraving(code);
-      setCravingLocal({ code, phase });
-    },
-    [dismissCraving]
-  );
-  // Round lines carry the KOT line's id, not the dish's, so "already ordered" is matched by name.
-  const orderedNames = new Set(data.rounds.flatMap((r) => r.items.map((i) => i.name)));
-  const orderedIds = data.menu.filter((m) => orderedNames.has(m.name)).map((m) => m.id);
-  const addSuggestion = (itemId: string) => {
-    const item = data.menu.find((m) => m.id === itemId);
-    if (!item) return;
-    // The ordinary cart path - the same one the menu's + button takes.
-    setCartQty(itemId, qtyOf(item) + 1);
-    // Said, because nothing else on this screen shows a cart: without it the tap looked like
-    // nothing, or like an order. The menu's own words, and the cart's.
-    toast.show(`${item.name} added · nothing sent to the kitchen yet`);
+  /*
+   * THE HEART IS KEPT (03-Oct-2026). It was `useState` here and nothing else - no route, no
+   * table, no payload field - so a trip to the menu, a new round, a reload or a second phone
+   * reset every heart. Now the server's `lovedItemIds` (guest_favourite, per party and dish) is
+   * the truth; `pendingLove` is only the answer the phone is waiting for, shown at once and
+   * dropped when the write answers - on failure too, so a heart that was not saved never stays
+   * filled.
+   */
+  const [pendingLove, setPendingLove] = React.useState<Record<string, boolean>>({});
+  const toggleLove = async (menuItemId: string, name: string) => {
+    if (menuItemId in pendingLove) return;
+    const next = !shownLoved(menuItemId, data.lovedItemIds, pendingLove);
+    setPendingLove((cur) => ({ ...cur, [menuItemId]: next }));
+    try {
+      await send('/api/guest/favourite', { menuItemId, loved: next });
+      // The parcel offer, as before - now only once the heart is actually kept.
+      if (next && data.features.takeaway) openSheet('loved', name);
+    } catch (err) {
+      /* The server's own sentence when it gave one - it already says what to do next. A fetch
+         that never reached it throws a TypeError whose text is the browser's ("Failed to
+         fetch"), never shown to a guest (copy review, 03-Oct-2026). */
+      toast.show(
+        err instanceof Error && !(err instanceof TypeError)
+          ? err.message
+          : `Your heart on ${name} was not saved. Check your connection, then tap it again.`,
+        { tone: 'error' }
+      );
+    } finally {
+      setPendingLove((cur) => {
+        const rest = { ...cur };
+        delete rest[menuItemId];
+        return rest;
+      });
+    }
   };
+  const anyServed = data.rounds.some((r) => r.status === 'served');
 
   const requestPayment = () =>
     runBusy(async () => {
@@ -316,24 +388,28 @@ export function StatusScreen({
                     <FoodMark type={i.foodType} />
                     <span className="min-w-0 flex-1 truncate type-body">{i.name}</span>
                     <span className="type-caption tabular-nums text-[var(--text-muted)]">×{i.qty}</span>
-                    {data.features.heart ? (
-                      <button
-                        data-testid={`guest-heart-${i.id}`}
-                        type="button"
-                        disabled={!i.servable}
-                        aria-label={i.servable ? `I loved the ${i.name}` : `${i.name} is not on your table yet`}
-
-                        onClick={() => {
-                          setLoved((cur) => ({ ...cur, [i.id]: !cur[i.id] }));
-                          if (!loved[i.id] && data.features.takeaway) openSheet('loved', i.name);
-                        }}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-surface)] disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
-                      >
-                        <span className={loved[i.id] ? 'text-[var(--primary)]' : 'text-[var(--text-disabled)]'}>
-                          {loved[i.id] ? '♥' : '♡'}
-                        </span>
-                      </button>
-                    ) : null}
+                    {data.features.heart ? (() => {
+                      const loved = shownLoved(i.menuItemId, data.lovedItemIds, pendingLove);
+                      const saving = !!i.menuItemId && i.menuItemId in pendingLove;
+                      return (
+                        <button
+                          data-testid={`guest-heart-${i.id}`}
+                          type="button"
+                          disabled={!i.servable || !i.menuItemId}
+                          aria-pressed={loved}
+                          aria-busy={saving}
+                          aria-label={i.servable ? `I loved the ${i.name}` : `${i.name} is not on your table yet`}
+                          onClick={() => {
+                            if (i.menuItemId) void toggleLove(i.menuItemId, i.name);
+                          }}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-surface)] disabled:opacity-30 aria-busy:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+                        >
+                          <span className={loved ? 'text-[var(--primary)]' : 'text-[var(--text-disabled)]'}>
+                            {loved ? '♥' : '♡'}
+                          </span>
+                        </button>
+                      );
+                    })() : null}
                   </li>
                 ))}
               </ul>
@@ -344,27 +420,6 @@ export function StatusScreen({
 
       {/* Asked once of a phone that never saw the welcome screen (02-Oct-2026). */}
       {joinedLate && !data.heardAbout && !data.heardDismissed ? <HeardPrompt data={data} send={send} /> : null}
-
-      {/* After the rounds and before the bar: status comes first, and the game is never in
-          front of it. Always skippable; the owner can switch it off (features.craving). */}
-      {cravingRound && cravingRoute && shouldOfferCraving({
-        enabled: data.features.craving,
-        hasWaitingRound: true,
-        plays: cravingPlays,
-        phase: cravingPhase,
-      }) && cravingPool(cravingRoute, data.menu).length > 0 ? (
-        <CravingGame
-          key={cravingRound.code}
-          route={cravingRoute}
-          menu={data.menu}
-          orderedIds={orderedIds}
-          phase={cravingPhase}
-          setPhase={setCravingPhase}
-          plays={cravingPlays}
-          setPlays={setCravingPlays}
-          onAdd={addSuggestion}
-        />
-      ) : null}
 
       {/* "So far" moved into the bar behind the same tick box the ordering screens use. One
           control for the total, in one place, on every screen that has one — a guest who

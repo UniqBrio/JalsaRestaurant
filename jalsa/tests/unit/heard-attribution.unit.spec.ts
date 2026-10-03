@@ -111,7 +111,12 @@ test('the owner reads the surviving answers, in Uplift and in Reports, with the 
   expect(fn.slice(0, 900)).toContain(".from('guest_attribution')");
   expect(fn.slice(0, 900)).toContain(".gte('answered_at', start.toISOString())");
   const reports = code('src/features/owner/sections/ReportsSection.tsx');
-  expect(reports).toContain("{tab === 'sales' && data.grants.includes('rep.sales') ? (");
+  // Superseded 03-Oct-2026: asserted the card sat at the foot of the Sales tab
+  // (`{tab === 'sales' && data.grants.includes('rep.sales') ? (`). The owner could not find it
+  // there; it moved to its own Reports tab, "Guests", beside People loved items - the same card,
+  // the same endpoint, still only for someone holding rep.sales.
+  expect(reports).toContain("{data.grants.includes('rep.sales') ? (");
+  expect(reports).toContain("{tab === 'guests' ? (");
   expect(reports).toContain('<HeardAboutCard key={`${range.from}/${range.to}`} range={range} testId="owner-rep-heard" />');
   // Responses, never customers: Jalsa has no customer records.
   expect(code('src/features/owner/sections/UpliftSection.tsx')).toContain('`Total guest responses · ${result.total}`');

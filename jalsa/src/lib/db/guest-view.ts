@@ -83,6 +83,8 @@ export interface GuestRound {
    */
   items: Array<{
     id: string;
+    /** The dish - what a heart is kept against (03-Oct-2026). Null when the dish was deleted. */
+    menuItemId: string | null;
     name: string;
     qty: number;
     foodType: FoodType;
@@ -114,6 +116,11 @@ export interface GuestPayload {
   cartCount: number;
   cartSubtotalLabel: string;
   rounds: GuestRound[];
+  /**
+   * The dishes this party has hearted (`guest_favourite`), so every phone at the table and every
+   * reload shows the same hearts (03-Oct-2026). Empty with no bill.
+   */
+  lovedItemIds: string[];
   billCode: string | null;
   billStatus: Bill['status'] | null;
   /** Asked for once, then withdrawn: the bill is open again and the phone says so. */
@@ -267,6 +274,7 @@ export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPre
       .filter((i) => !i.cancelledAt)
       .map((i) => ({
         id: i.id,
+        menuItemId: i.menuItemId,
         name: i.name,
         qty: i.qty,
         foodType: i.foodType,
@@ -308,6 +316,8 @@ export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPre
     cartCount: cart.reduce((a, c) => a + c.qty, 0),
     cartSubtotalLabel: `${rupees(cartSubtotal)} before tax`,
     rounds,
+    // Read with the bill itself (BILL_SELECT), so the poll pays no round trip for it.
+    lovedItemIds: bill?.lovedItemIds ?? [],
     billCode: bill?.code ?? null,
     billStatus: bill?.status ?? null,
     // Open, but asked for once already. The pair is the paused state — see withdrawPaymentRequest.
