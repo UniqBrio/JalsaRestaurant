@@ -4,6 +4,18 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-04 - Catch Your Craving: a picture per dish, two-line names, a decorated plate
+
+**The owner, from the live game:** curries and fried items all fell as the same emoji (Mutton Masala / Shuka / Chettinadu → 🍖); the plate looked plain; long names ran off the edge.
+
+**Changes:** `foodEmoji` matches the PREPARATION before the meat - curries/masalas 🥘, tandoori/tikka/kebab 🍢, dry/pepper (shuka, chukka) 🌶️, then prawn 🍤 / fish 🐟 / mutton 🍖 / chicken 🍗; falling emoji wobble (CSS `j-craving-wobble`, collapsed under reduced motion); chip capped at 7.5rem with a two-line name (`line-clamp-2`); plate: maroon rim, gold dotted band, shaded well - tokens only, same 1.25rem top so the fall still lands level.
+
+**Rungs:** `tests/unit/craving.unit.spec.ts` 67 (+2: the owner's five dishes fall as 4+ different pictures; two-line chip and wobble; plate pin superseded in place); `tests/render/craving.render.spec.ts` +1 (a long name wraps to exactly two lines in ≤ 7.5rem; FOOD/PLATE copies superseded).
+
+**Results (04-Oct):** typecheck 0 · lint 0 · audit:all 10/10 · unit 1487 passed · render 289 passed. NOT OBSERVED FAILING: the wrap case on the pre-change classes (`whitespace-nowrap` would give one line - not run).
+
+---
+
 ## 2026-10-04 - Catch Your Craving climbs by itself; the menu of the table's kind falls; the heart explains itself before Served
 
 **The owner, after playing it live:** name it "Catch Your Craving" only; no level buttons - the speed and level should rise by themselves; fall the menu items of the order's kind (non-veg order → all non-veg dishes); keep "Play again"; and the heart, disabled before Served, puzzled them - say why.

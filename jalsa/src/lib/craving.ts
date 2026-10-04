@@ -85,31 +85,41 @@ export interface CravingTarget extends CravingItem {
  * first - "Chicken Biryani" is the biryani, not the chicken. A name that matches nothing falls
  * as its Food Type's plate, never as a guess at a dish it is not.
  */
+/*
+ * 04-Oct-2026, the owner: "show different emojis for curries and fried items - the same emoji is
+ * showing up". The meat was matched before the dish, so Mutton Masala, Mutton Shuka and Mutton
+ * Chettinadu all fell as the same 🍖. The PREPARATION now comes first - curry, grill, dry - and
+ * the meat only decides what is left (a fry, a lollipop, a 65).
+ */
 const EMOJI_WORDS: ReadonlyArray<readonly [readonly string[], string]> = [
+  // The dish itself, whatever is in it.
   [['biryani', 'pulao', 'fried rice', 'rice'], '🍛'],
   [['noodle', 'chowmein', 'chow mein', 'hakka', 'ramen'], '🍜'],
   [['soup', 'rasam', 'shorba'], '🍲'],
   [['naan', 'roti', 'kulcha', 'paratha', 'parotta', 'chapati', 'dosa', 'uttapam', 'appam'], '🫓'],
-  [['idli', 'vada'], '🥟'],
-  [['momo', 'dumpling', 'samosa'], '🥟'],
-  [['prawn', 'shrimp'], '🍤'],
-  [['fish', 'pomfret', 'seer', 'crab'], '🐟'],
-  [['egg', 'omelette', 'omelet'], '🥚'],
-  [['paneer', 'cheese'], '🧀'],
-  [['chicken', 'tandoori', 'kebab', 'kabab', 'tikka', 'wings', 'lollipop'], '🍗'],
-  [['mutton', 'lamb', 'goat', 'keema'], '🍖'],
-  [['burger'], '🍔'],
-  [['pizza'], '🍕'],
-  [['fries', 'chips'], '🍟'],
-  [['sandwich', 'roll', 'wrap', 'shawarma', 'frankie'], '🌯'],
-  [['salad'], '🥗'],
+  [['idli', 'vada', 'momo', 'dumpling', 'samosa'], '🥟'],
   [['ice cream', 'kulfi', 'sundae'], '🍨'],
   [['cake', 'brownie', 'pastry'], '🍰'],
   [['gulab', 'jamun', 'halwa', 'kheer', 'payasam', 'rasmalai', 'sweet', 'dessert'], '🍮'],
   [['lassi', 'milkshake', 'shake', 'milk'], '🥛'],
   [['coffee', 'tea', 'chai'], '☕'],
   [['juice', 'lime', 'soda', 'mojito', 'cooler', 'drink', 'water'], '🥤'],
-  [['dal', 'curry', 'masala', 'gravy', 'korma', 'sabzi', 'kadai', 'kadhai'], '🥘'],
+  [['burger'], '🍔'],
+  [['pizza'], '🍕'],
+  [['fries', 'chips'], '🍟'],
+  [['sandwich', 'roll', 'wrap', 'shawarma', 'frankie'], '🌯'],
+  [['salad'], '🥗'],
+  [['paneer', 'cheese'], '🧀'],
+  [['egg', 'omelette', 'omelet'], '🥚'],
+  // How it is cooked - before the meat, so a mutton curry is a curry.
+  [['masala', 'curry', 'gravy', 'korma', 'kadai', 'kadhai', 'chettinad', 'makhani', 'butter chicken', 'kofta', 'saag', 'dal', 'sabzi', 'stew', 'salna'], '🥘'],
+  [['tandoori', 'tikka', 'kebab', 'kabab', 'seekh', 'grill', 'bbq', 'barbecue'], '🍢'],
+  [['shuka', 'sukka', 'chukka', 'pepper', 'dry', 'chilli', 'chili'], '🌶️'],
+  // What is left - a fry, a 65, a lollipop - falls as what it is made of.
+  [['prawn', 'shrimp'], '🍤'],
+  [['fish', 'pomfret', 'seer', 'crab'], '🐟'],
+  [['mutton', 'lamb', 'goat', 'keema'], '🍖'],
+  [['chicken', 'wings', 'lollipop'], '🍗'],
   [['mushroom'], '🍄'],
   [['corn'], '🌽'],
   [['potato', 'aloo'], '🥔'],

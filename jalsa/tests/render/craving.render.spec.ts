@@ -26,13 +26,14 @@ const WIDTHS = [320, 360, 375, 390, 430, 768, 1024] as const;
 
 /** The play area and its children, copied from CravingGame.tsx. */
 const AREA = 'relative h-52 w-full touch-none overflow-hidden rounded-[var(--radius-card)] bg-[var(--primary-surface)]';
-/* Superseded 03-Oct-2026: FOOD was a one-line pill and PLATE the brown bar
+/* Superseded 04-Oct-2026: FOOD no longer `whitespace-nowrap` - a long name wraps to two lines in a
+   7.5rem chip; PLATE has a maroon rim. Superseded 03-Oct-2026: FOOD was a one-line pill and PLATE the brown bar
    ('absolute bottom-2 h-3 -translate-x-1/2 rounded-full bg-[var(--primary)]'). A drop is now an
    emoji over its name, and the catcher is a plate whose top sits where the bar's did. */
 const FOOD =
-  'j-craving-fall absolute top-0 flex -translate-x-1/2 flex-col items-center whitespace-nowrap rounded-[var(--radius-md)] px-1.5 py-0.5 type-caption font-semibold shadow-[var(--shadow-raised)] bg-[var(--surface)]';
+  'j-craving-fall absolute top-0 flex w-max max-w-[7.5rem] -translate-x-1/2 flex-col items-center text-center rounded-[var(--radius-md)] px-1.5 py-0.5 type-caption font-semibold leading-tight shadow-[var(--shadow-raised)] bg-[var(--surface)]';
 const PLATE =
-  'absolute bottom-1 flex h-4 -translate-x-1/2 items-center justify-center rounded-[50%] border-2 border-[var(--border-strong)] bg-[var(--surface)] shadow-[var(--shadow-raised)] transition-[left] duration-75 ease-out';
+  'absolute bottom-1 flex h-4 -translate-x-1/2 items-center justify-center rounded-[50%] border-2 border-[var(--primary)] bg-[var(--surface)] shadow-[var(--shadow-raised)] transition-[left] duration-75 ease-out';
 const TAP =
   'inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[var(--primary-surface)] px-4 type-caption font-semibold';
 
@@ -199,3 +200,26 @@ for (const width of [320, 390] as const) {
     expect(at.dishBottom).toBeLessThanOrEqual(at.areaBottom);
   });
 }
+
+/* 04-Oct-2026 - "make the name appear in two lines if it's very wide". The chip is capped at
+   7.5rem and its name wraps instead of running past the area's edge. */
+test('a long dish name wraps to two lines inside a 7.5rem chip', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  const m = await page.evaluate(
+    ({ area, food }) => {
+      const host = document.createElement('div');
+      host.style.cssText = 'padding:0 16px;width:100%;box-sizing:border-box';
+      host.innerHTML = `<div class="${area}"><span id="wrap-dish" class="${food}" style="left:50%;animation:none"><span class="type-h3 leading-none">🍗</span><span id="wrap-name" class="line-clamp-2">Tandoori Chicken — Full Plate Special</span></span></div>`;
+      document.body.prepend(host);
+      const d = document.getElementById('wrap-dish')!.getBoundingClientRect();
+      const n = document.getElementById('wrap-name')!;
+      const lh = parseFloat(getComputedStyle(n).lineHeight);
+      return { width: d.width, rem: parseFloat(getComputedStyle(document.documentElement).fontSize), lines: Math.round(n.getBoundingClientRect().height / lh) };
+    },
+    { area: AREA, food: FOOD }
+  );
+  expect(m.width).toBeLessThanOrEqual(7.5 * m.rem + 1);
+  expect(m.lines).toBe(2);
+});

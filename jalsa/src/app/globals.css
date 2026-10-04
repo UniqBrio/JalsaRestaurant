@@ -305,6 +305,22 @@ h6 {
   }
 }
 
+/* The falling emoji's wobble (04-Oct-2026). Reduced motion collapses it with every other
+   animation (tokens.generated.css); the reduced-motion game renders no falling drops anyway. */
+@keyframes j-craving-wobble {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
+.j-craving-wobble {
+  animation: j-craving-wobble 0.9s ease-in-out infinite;
+}
+
 .j-craving-fall {
   animation-name: j-craving-fall;
   animation-timing-function: linear;

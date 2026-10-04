@@ -675,9 +675,14 @@ test('the catching surface is a plate, not the brown slate it replaced', () => {
   const src = read(GAME);
   // The slate: a thin bar in the primary (brown) colour.
   expect(src).not.toContain('absolute bottom-2 h-3 -translate-x-1/2 rounded-full bg-[var(--primary)]');
-  // The plate: a white oval with a rim and a well.
-  expect(src).toContain('rounded-[50%] border-2 border-[var(--border-strong)] bg-[var(--surface)]');
-  expect(src).toContain('h-2 w-3/5 rounded-[50%] border border-[var(--border)] bg-[var(--surface-sunken)]');
+  // Revised 04-Oct-2026 ("enhance plate appearance, it's plain"): a maroon rim, a gold dotted band
+  // like fine china, and a shaded well - every colour a token. Previously a grey rim and a plain
+  // well ('border-2 border-[var(--border-strong)]', 'h-2 w-3/5 ... bg-[var(--surface-sunken)]').
+  expect(src).toContain('rounded-[50%] border-2 border-[var(--primary)] bg-[var(--surface)]');
+  expect(src).toContain('rounded-[50%] border border-dotted border-[var(--warning)]');
+  expect(src).toContain('rounded-[50%] bg-[var(--surface-sunken)] shadow-[inset_0_1px_2px_var(--border)]');
+  // Its top is still 1.25rem up, so the fall still ends level with it.
+  expect(src).toContain("'absolute bottom-1 flex h-4 -translate-x-1/2");
 });
 
 test('a game in play is never taken away by the replay cap - "Play again" starts a game, it does not remove the card', () => {
@@ -714,4 +719,31 @@ test('every game starts on Level 1 and climbs every 10 seconds - the guest never
   expect(src).toContain('`Level up! Level ${levelNumber(next)} — faster now`');
   // And the plate is re-clamped at the narrower width, in the timer - not in an effect body.
   expect(src).toContain('setPlate((p) => clampPlate(p, LEVELS[next].plateWidthPct));');
+});
+
+/* ── 04-Oct-2026: the emoji follows the dish, a long name wraps, the drops wobble ───────────── */
+
+test('curries, grills, dry dishes and fries no longer fall as one meat emoji', () => {
+  // The owner's own screen: Mutton Masala, Mutton Shuka and Mutton Chettinadu all fell as 🍖.
+  expect(foodEmoji('Mutton Masala', 'non_veg')).toBe('🥘');
+  expect(foodEmoji('Mutton Chettinadu', 'non_veg')).toBe('🥘');
+  expect(foodEmoji('Chicken Masala', 'non_veg')).toBe('🥘');
+  expect(foodEmoji('Mutton Shuka', 'non_veg')).toBe('🌶️');
+  expect(foodEmoji('Tandoori Chicken — Full', 'non_veg')).toBe('🍢');
+  expect(foodEmoji('Chicken Tikka — 5 pc', 'non_veg')).toBe('🍢');
+  expect(foodEmoji('Chicken Lollipop — 1 pc', 'non_veg')).toBe('🍗');
+  expect(foodEmoji('Fish Fry', 'non_veg')).toBe('🐟');
+  expect(foodEmoji('Mutton Biryani', 'non_veg'), 'the dish still wins over the meat').toBe('🍛');
+  // The five dishes from that screen fall as five different pictures... or near enough: 3+.
+  const shown = ['Mutton Shuka', 'Mutton Masala', 'Chicken Masala', 'Tandoori Chicken — Full', 'Chicken Lollipop — 1 pc'];
+  expect(new Set(shown.map((n) => foodEmoji(n, 'non_veg'))).size).toBeGreaterThanOrEqual(4);
+});
+
+test('a long name wraps to two lines inside the chip, and the emoji wobbles as it falls', () => {
+  const src = read(GAME);
+  expect(src).toContain('flex w-max max-w-[7.5rem] -translate-x-1/2 flex-col items-center text-center');
+  expect(src).toContain('<span className="line-clamp-2">{drop.item ? drop.item.name : ENEMY.name}</span>');
+  expect(src).not.toMatch(/j-craving-fall[^']*whitespace-nowrap/);
+  expect(src).toContain('className="j-craving-wobble inline-block type-h3 leading-none"');
+  expect(read('src/app/globals.css')).toContain('@keyframes j-craving-wobble');
 });

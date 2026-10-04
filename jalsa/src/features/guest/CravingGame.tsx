@@ -390,19 +390,23 @@ export function CravingGame({
               onAnimationEnd={() => landed(drop)}
               style={{ left: `${drop.left}%`, animationDuration: `${rules.fallMs}ms` }}
               className={cn(
-                'j-craving-fall absolute top-0 flex -translate-x-1/2 flex-col items-center whitespace-nowrap',
-                'rounded-[var(--radius-md)] px-1.5 py-0.5 type-caption font-semibold shadow-[var(--shadow-raised)]',
+                // A long name wraps to two lines (04-Oct-2026) rather than running off the edge.
+                'j-craving-fall absolute top-0 flex w-max max-w-[7.5rem] -translate-x-1/2 flex-col items-center text-center',
+                'rounded-[var(--radius-md)] px-1.5 py-0.5 type-caption font-semibold leading-tight shadow-[var(--shadow-raised)]',
                 drop.item ? 'bg-[var(--surface)]' : 'bg-[var(--error-surface)] text-[var(--on-error-surface)]'
               )}
             >
-              <span aria-hidden className="type-h3 leading-none">
+              {/* A small wobble on the way down - CSS only, and collapsed under reduced motion. */}
+              <span aria-hidden className="j-craving-wobble inline-block type-h3 leading-none">
                 {drop.item ? drop.item.emoji : ENEMY.emoji}
               </span>
-              {drop.item ? drop.item.name : ENEMY.name}
+              <span className="line-clamp-2">{drop.item ? drop.item.name : ENEMY.name}</span>
             </span>
           ))}
 
-          {/* The plate - a white dinner plate seen from the side: a rim, and a well inside it.
+          {/* The plate - a dinner plate seen from the side: a maroon rim (Jalsa's own colour), a
+              gold dotted band inside it like fine china, and a shaded well at the centre
+              (04-Oct-2026: "enhance plate appearance, it's plain"). Every colour is a token.
               Its top sits where the old bar's did (bottom 0.25rem + height 1rem = 1.25rem), so
               `j-craving-fall` still ends every drop level with it.
               `transition` on `left` alone, so following a thumb stays smooth without animating
@@ -412,11 +416,13 @@ export function CravingGame({
             aria-hidden
             style={{ left: `${plate}%`, width: `${rules.plateWidthPct}%` }}
             className={cn(
-              'absolute bottom-1 flex h-4 -translate-x-1/2 items-center justify-center rounded-[50%] border-2 border-[var(--border-strong)] bg-[var(--surface)] shadow-[var(--shadow-raised)]',
+              'absolute bottom-1 flex h-4 -translate-x-1/2 items-center justify-center rounded-[50%] border-2 border-[var(--primary)] bg-[var(--surface)] shadow-[var(--shadow-raised)]',
               'transition-[left] duration-75 ease-out'
             )}
           >
-            <span className="h-2 w-3/5 rounded-[50%] border border-[var(--border)] bg-[var(--surface-sunken)]" />
+            <span className="flex h-[70%] w-[82%] items-center justify-center rounded-[50%] border border-dotted border-[var(--warning)]">
+              <span className="h-[70%] w-[70%] rounded-[50%] bg-[var(--surface-sunken)] shadow-[inset_0_1px_2px_var(--border)]" />
+            </span>
           </span>
         </div>
       )}
