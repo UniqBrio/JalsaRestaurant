@@ -8,8 +8,8 @@ import { cn } from '@/lib/cn';
 import { guestSteps, type Tone } from '@/lib/status';
 import type { GuestRound } from '@/lib/db/guest-view';
 import {
+  cravingPool,
   cravingRoute as routeOf,
-  orderTargets,
   phaseForRound,
   shouldOfferCraving,
   type CravingPhase,
@@ -29,6 +29,12 @@ import { ActionBar, TotalReveal, type GuestScreenProps } from './GuestApp';
  *
  * THE HEART UNLOCKS ON SERVED, AND ONLY ON SERVED. That tap is a person confirming the food is
  * on the table — the only moment at which "did you love it?" is a fair question.
+ *
+ * AND IT SAYS SO (04-Oct-2026). A disabled heart looked broken - the owner tapped one and saw
+ * only a "not allowed" cursor. It is no longer `disabled`: before Served it is dimmed and marked
+ * `aria-disabled`, carries the reason as its tooltip, and a tap says it in a toast (a tooltip
+ * never appears under a thumb). Kept against the party's bill (`/api/guest/favourite`) and
+ * counted in Reports → Guest insights.
  */
 
 /**
@@ -141,8 +147,10 @@ function PlacedCraving({
 }: GuestScreenProps) {
   const toast = useToast();
   const round = placedCode ? data.rounds.find((r) => r.code === placedCode) : undefined;
-  const targets = React.useMemo(() => (round ? orderTargets(round.items) : []), [round]);
   const route = round ? routeOf(round.items.map((i) => i.foodType)) : null;
+  /* The ROUND decides the kind of food; the MENU decides what falls (04-Oct-2026): every
+     available dish of that kind, so a Non-veg order rains the Non-veg menu. */
+  const targets = route ? cravingPool(route, data.menu) : [];
   /* This screen's own phase, for one round. Local, so leaving mid-game and coming back lands on
      the offer rather than in a game that started itself; only a dismissal is kept above. */
   const [local, setLocal] = React.useState<{ code: string; phase: CravingPhase } | null>(null);
@@ -189,6 +197,9 @@ function PlacedCraving({
     />
   );
 }
+
+/** What a heart says before its dish is served - as its tooltip, and in a toast when tapped. */
+const HEART_LOCKED = 'You can mark a favourite once the dish is served.';
 
 export function PlacedScreen(props: GuestScreenProps) {
   const { data, go, placedCode } = props;
@@ -395,14 +406,20 @@ export function StatusScreen({
                         <button
                           data-testid={`guest-heart-${i.id}`}
                           type="button"
-                          disabled={!i.servable || !i.menuItemId}
+                          disabled={!i.menuItemId}
+                          aria-disabled={!i.servable}
                           aria-pressed={loved}
                           aria-busy={saving}
                           aria-label={i.servable ? `I loved the ${i.name}` : `${i.name} is not on your table yet`}
+                          title={i.servable ? `I loved the ${i.name}` : HEART_LOCKED}
                           onClick={() => {
+                            if (!i.servable) {
+                              toast.show(HEART_LOCKED);
+                              return;
+                            }
                             if (i.menuItemId) void toggleLove(i.menuItemId, i.name);
                           }}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-surface)] disabled:opacity-30 aria-busy:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full type-h3 leading-none transition-colors hover:bg-[var(--primary-surface)] disabled:opacity-30 aria-disabled:opacity-40 aria-busy:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
                         >
                           <span className={loved ? 'text-[var(--primary)]' : 'text-[var(--text-disabled)]'}>
                             {loved ? '♥' : '♡'}

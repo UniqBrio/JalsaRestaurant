@@ -4,6 +4,18 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-04 - Catch Your Craving climbs by itself; the menu of the table's kind falls; the heart explains itself before Served
+
+**The owner, after playing it live:** name it "Catch Your Craving" only; no level buttons - the speed and level should rise by themselves; fall the menu items of the order's kind (non-veg order → all non-veg dishes); keep "Play again"; and the heart, disabled before Served, puzzled them - say why.
+
+**Changes:** one small Play; Level 1 → 2 → 3 at 10 s and 20 s of a 30 s game (faster, busier, more germs, narrower plate, 10/20/30 points a dish), announced "Level up!"; `cravingPool` (every available dish of `GAME_TYPES[route]`, Other never falls) replaces `orderTargets`; replay cap 2 → 5 so Play again stays; the heart keeps the Served rule on the server but is no longer `disabled` - before Served it is dimmed, `aria-disabled`, titled and toasts "You can mark a favourite once the dish is served." (A same-day "hearts at any time" change was reverted before commit at the owner's next message.)
+
+**Rungs:** `tests/unit/craving.unit.spec.ts` 65 (superseded in place with 04-Oct notes; new: levels climb at 10/20 s, level-scaled points, kind-only pool, Other never falls); `tests/render/craving-game.render.spec.ts` rewritten (5: real component, non-veg table on a mixed menu - only available non-veg dishes fall, Level 2 arrives by itself with the narrower plate and faster fall, reduced-motion scoring and Play again); `tests/unit/favourites.unit.spec.ts` +1 (heart explains itself, server still served-only).
+
+**Results (04-Oct):** typecheck 0 · lint 0 · audit:all 10/10 · unit 1485 passed · render 288 passed. NOT OBSERVED FAILING: the level-up render case on the pre-change tree (it had no auto levels to observe); the unit rungs fail to load there (`levelAt`, `cravingPool` absent).
+
+---
+
 ## 2026-10-03 - Game on the order-placed screen, hearts kept, owner search, Guest insights reports
 
 **Request:** `requests/2026-10-03-game-favourites-search-reports.md` (root causes, decisions, the five permission questions).

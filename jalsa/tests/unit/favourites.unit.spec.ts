@@ -214,3 +214,18 @@ test('the report reads every page, not only the first thousand rows', () => {
   expect(fn.slice(0, 1600)).toContain('.range(from, from + PAGE - 1);');
   expect(fn.slice(0, 1600)).toContain('if (!page || page.length < PAGE) break;');
 });
+
+test('before Served the heart explains itself instead of looking broken', () => {
+  // 04-Oct-2026, the owner: "I am unable to click on heart icon ... add a tooltip that you can mark
+  // favourite once dish is served so that user may not get puzzled". The served rule stays; the
+  // button is no longer `disabled` before Served (a disabled button shows only a "not allowed"
+  // cursor and answers no tap) - it is dimmed, says why on hover, and a tap shows it as a toast.
+  const src = read('src/features/guest/GuestProgress.tsx');
+  expect(src).toContain("const HEART_LOCKED = 'You can mark a favourite once the dish is served.';");
+  expect(src).toContain('aria-disabled={!i.servable}');
+  expect(src).toContain('title={i.servable ? `I loved the ${i.name}` : HEART_LOCKED}');
+  expect(src).toContain('toast.show(HEART_LOCKED);');
+  expect(src).not.toMatch(/\sdisabled=\{!i\.servable/);
+  // The server still keeps hearts for served dishes only.
+  expect(read('src/lib/db/mutations.ts')).toContain(".eq('status', 'served');");
+});

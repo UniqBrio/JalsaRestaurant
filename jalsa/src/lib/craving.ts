@@ -127,26 +127,48 @@ export function foodEmoji(name: string, foodType: FoodType): string {
 }
 
 /**
- * What falls for the guest: the dishes in the order they just placed, and nothing else.
+ * The food types that fall, per route - the table's own kind of food and nothing else.
  *
- * 03-Oct-2026 (supersedes `cravingPool`, which drew from the whole menu by route): the owner
- * asked that the game be about THIS order - "the food items for catch should be based on their
- * order". So the pool is the round's own lines, one per dish however many were ordered, and a
- * menu row the table did not order can no longer fall at all. The route still decides the offer
- * line and the suggestions; it no longer decides what falls.
+ * 04-Oct-2026: the owner, after playing it: "based on menu category you show items - if they have
+ * selected non veg show all non veg menu items, if veg then veg menu items". So a Non-veg order
+ * drops every Non-veg dish on the menu, a Veg order every Veg dish, an Egg order every Egg dish,
+ * and a table that mixed sees all three. Strictly the kind: 'other' (a juice, a dessert with no KOT
+ * class) does not fall, because "all non-veg items" is what was asked, not "anything but veg".
+ * The suggestions at the end keep `ROUTE_TYPES`, which does let an Other finisher through.
  */
-export function orderTargets(
-  items: ReadonlyArray<{ id: string; name: string; foodType: FoodType }>
+export const GAME_TYPES: Record<CravingRoute, readonly FoodType[]> = {
+  veg: ['veg'],
+  nonVeg: ['non_veg'],
+  egg: ['egg'],
+  mixed: ['veg', 'non_veg', 'egg'],
+};
+
+/**
+ * What falls: every AVAILABLE menu dish of the table's kind, each as an emoji and its name.
+ *
+ * SUPERSEDES `orderTargets` (03-Oct-2026), which dropped only the dishes in the order - the owner
+ * found one dish falling over and over dull ("you are giving only [ordered] items"). The order
+ * still decides the KIND (`cravingRoute`), so a vegetarian table never sees meat; the menu
+ * decides the variety. Sold-out dishes never fall: building a craving the kitchen cannot satisfy
+ * is worse than building none. Every dish of the kind, uncapped - that is what was asked.
+ */
+export function cravingPool(
+  route: CravingRoute,
+  menu: ReadonlyArray<CravingItem & { available: boolean }>
 ): CravingTarget[] {
-  const seen = new Set<string>();
-  const out: CravingTarget[] = [];
-  for (const i of items) {
-    if (seen.has(i.name)) continue;
-    seen.add(i.name);
-    out.push({ id: i.id, name: i.name, foodType: i.foodType, emoji: foodEmoji(i.name, i.foodType) });
-  }
-  return out;
+  const allowed = GAME_TYPES[route];
+  return menu
+    .filter((m) => m.available && allowed.includes(m.foodType))
+    .map((m) => ({ id: m.id, name: m.name, foodType: m.foodType, emoji: foodEmoji(m.name, m.foodType) }));
 }
+
+/** How the offer names the kind that will fall, in the menu's own Veg / Non-veg / Egg words. */
+export const ROUTE_KIND: Record<CravingRoute, string> = {
+  veg: 'Veg',
+  nonVeg: 'Non-veg',
+  egg: 'Egg',
+  mixed: 'Veg, Non-veg and Egg',
+};
 
 /**
  * The one thing NOT to catch. A germ: nobody wants it on their plate, it reads as "bad" without a
@@ -175,6 +197,9 @@ export interface LevelRules {
  * Three levels, and every one of them changes play - speed, density, how many germs, and how
  * wide the plate is. None is a colour change. The numbers are ordered (asserted in
  * craving.unit.spec.ts), so "Hard" can never quietly become easier than "Moderate".
+ *
+ * 04-Oct-2026: the guest no longer CHOOSES a level ("it's not like the user should select that"):
+ * every game starts on the first and climbs on its own as it runs (`levelAt`).
  */
 export const LEVELS: Record<CravingLevel, LevelRules> = {
   easy: { label: 'Easy', fallMs: 3200, spawnMs: 1100, enemyChance: 0.15, plateWidthPct: 28 },
@@ -183,6 +208,18 @@ export const LEVELS: Record<CravingLevel, LevelRules> = {
 };
 
 export const LEVEL_ORDER: readonly CravingLevel[] = ['easy', 'moderate', 'hard'];
+
+/** The seconds into a game at which the next level begins - 10 s each, over a 30 s game. */
+export const LEVEL_UP_AT_SECONDS: readonly number[] = [10, 20];
+
+/** The level a game is on, `elapsed` seconds in. It only ever climbs. */
+export function levelAt(elapsed: number): CravingLevel {
+  const passed = LEVEL_UP_AT_SECONDS.filter((t) => elapsed >= t).length;
+  return LEVEL_ORDER[Math.min(passed, LEVEL_ORDER.length - 1)]!;
+}
+
+/** "Level 2" - the number the guest sees, from 1. */
+export const levelNumber = (level: CravingLevel): number => LEVEL_ORDER.indexOf(level) + 1;
 
 /** Points for a dish on the plate. */
 export const CATCH_POINTS = 10;
@@ -203,10 +240,18 @@ export const FRESH_SCORE: CravingScore = { score: 0, lives: CRAVING_LIVES, caugh
 /**
  * What one landing does to the score. Pure, so the whole points table is tested without a
  * browser. A miss changes nothing; a dish adds; a germ costs points (never below zero) and a life.
+ *
+ * 04-Oct-2026: a dish is worth more as the game climbs - 10 on Level 1, 20 on Level 2, 30 on
+ * Level 3 - so holding on through the faster levels is where the score is made.
  */
-export function scoreLanding(s: CravingScore, landed: 'food' | 'enemy', onPlate: boolean): CravingScore {
+export function scoreLanding(
+  s: CravingScore,
+  landed: 'food' | 'enemy',
+  onPlate: boolean,
+  level: CravingLevel = 'easy'
+): CravingScore {
   if (!onPlate) return s;
-  if (landed === 'food') return { ...s, score: s.score + CATCH_POINTS, caught: s.caught + 1 };
+  if (landed === 'food') return { ...s, score: s.score + CATCH_POINTS * levelNumber(level), caught: s.caught + 1 };
   return { ...s, score: Math.max(0, s.score - ENEMY_PENALTY), lives: Math.max(0, s.lives - 1), germs: s.germs + 1 };
 }
 
@@ -281,18 +326,19 @@ export function cravingSuggestions(
 /**
  * How long a round of this lasts, and how often food appears.
  *
- * 24 SECONDS, inside the 20–30 the requester asked for. It is deliberately not a number the
+ * 30 SECONDS, inside the 20–30 the requester asked for. It is deliberately not a number the
  * component owns: the test that proves the game stops reads it from here, so "it ends" and "it
- * ends when we said" cannot drift apart.
+ * ends when we said" cannot drift apart. (24 until 04-Oct-2026: three 10-second levels need 30.)
  */
-export const CRAVING_SECONDS = 24;
+export const CRAVING_SECONDS = 30;
 /**
  * How many times a guest may play before the offer stops offering.
  *
  * A cap rather than a block: the requester asked that nobody be trapped in a loop, and the
- * primary experience is ordering dinner.
+ * primary experience is ordering dinner. Raised from 2 to 5 on 04-Oct-2026: the owner wants "Play
+ * again" there after a game, and a game that climbs through three levels is worth replaying.
  */
-export const CRAVING_MAX_PLAYS = 2;
+export const CRAVING_MAX_PLAYS = 5;
 
 /**
  * The plate's reach - half its width, since it is centred on its position - and the single fact

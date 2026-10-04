@@ -31,7 +31,12 @@ import {
   isCaught,
   LEVEL_ORDER,
   LEVELS,
-  orderTargets,
+  cravingPool,
+  GAME_TYPES,
+  LEVEL_UP_AT_SECONDS,
+  levelAt,
+  levelNumber,
+  ROUTE_KIND,
   plateReach,
   ROUTE_TYPES,
   scoreLanding,
@@ -112,13 +117,15 @@ test('an order with nothing in it routes nowhere, rather than defaulting', () =>
   expect(cravingRoute([])).toBeNull();
 });
 
-test('3b. what falls is the order itself, so a veg order can never drop chicken or egg', () => {
-  // Superseded 03-Oct-2026: this asserted that `cravingPool('veg', MENU)` - a draw from the whole
-  // menu - held only veg dishes. The pool is now the order's own lines (`orderTargets`), so a dish
-  // the table did not order cannot fall at all; the veg promise holds by construction.
-  const targets = orderTargets([line('k1', 'Paneer Butter Masala', 'veg'), line('k2', 'Veg Biryani', 'veg')]);
-  expect(targets.map((t) => t.name)).toEqual(['Paneer Butter Masala', 'Veg Biryani']);
-  expect(targets.every((t) => t.foodType === 'veg')).toBe(true);
+test('3b. a veg order rains the Veg menu - never chicken, never egg', () => {
+  // Superseded 04-Oct-2026: asserted the order's own lines fell (`orderTargets`, 03-Oct). The
+  // owner, after playing: "if they have selected non veg show all non veg menu items, if veg then
+  // veg menu items". The order decides the kind; every available dish of that kind falls.
+  const pool = cravingPool('veg', MENU);
+  expect(pool.map((p) => p.name)).toEqual(['Paneer Butter Masala', 'Veg Biryani', 'Gulab Jamun', 'Badam Milk']);
+  expect(pool.every((p) => p.foodType === 'veg')).toBe(true);
+  expect(pool.map((p) => p.name)).not.toContain('Chicken 65');
+  expect(pool.map((p) => p.name)).not.toContain('Egg Curry');
 });
 
 test('the mixed route may show all three, which is the point of it', () => {
@@ -128,14 +135,16 @@ test('the mixed route may show all three, which is the point of it', () => {
   expect([...ROUTE_TYPES.mixed].sort()).toEqual(['egg', 'non_veg', 'other', 'veg']);
 });
 
-test('nothing that was not ordered ever falls - not a sold-out dish, not any other menu row', () => {
-  // Superseded 03-Oct-2026: this asserted that the menu pool skipped 'Sold Out Special'. There is
-  // no menu pool now; only the order's lines fall.
-  const targets = orderTargets([line('k1', 'Chicken 65', 'non_veg')]);
-  expect(targets.map((t) => t.name)).toEqual(['Chicken 65']);
-  for (const m of MENU.filter((x) => x.name !== 'Chicken 65')) {
-    expect(targets.map((t) => t.name)).not.toContain(m.name);
-  }
+test('a non-veg order rains every Non-veg dish, and nothing sold out ever falls', () => {
+  // Superseded 04-Oct-2026: asserted only the ordered dish fell. Now the whole Non-veg menu does -
+  // but a sold-out dish still never falls, and no veg or egg dish does.
+  expect(cravingPool('nonVeg', MENU).map((p) => p.name)).toEqual(['Chicken 65', 'Mutton Biryani']);
+  expect(cravingPool('veg', MENU).map((p) => p.name)).not.toContain('Sold Out Special');
+  expect(cravingPool('egg', MENU).map((p) => p.name)).toEqual(['Egg Curry']);
+  // A table that mixed sees all three kinds.
+  expect(new Set(cravingPool('mixed', MENU).map((p) => p.foodType))).toEqual(new Set(['veg', 'non_veg', 'egg']));
+  // Each falls as an emoji and its name.
+  expect(cravingPool('nonVeg', MENU).map((p) => p.emoji)).toEqual(['🍗', '🍛']);
 });
 
 /* ── 1+2+7+8. When it is offered, and when it is gone ──────────────────────────────────────── */
@@ -143,7 +152,8 @@ test('nothing that was not ordered ever falls - not a sold-out dish, not any oth
 test('1. nothing is offered before a round exists', () => {
   // Superseded 03-Oct-2026: also asserted `activeCravingRound([])` was null; that helper went with
   // the move to the order-placed screen, where the round is the one this phone just placed.
-  expect(orderTargets([])).toEqual([]);
+  // Revised 04-Oct-2026: `orderTargets([])` became `cravingPool` over an empty menu.
+  expect(cravingPool('veg', [])).toEqual([]);
   expect(
     shouldOfferCraving({ enabled: true, hasWaitingRound: false, plays: 0, phase: 'offer' })
   ).toBe(false);
@@ -158,7 +168,9 @@ test('2. it is offered on the order-placed screen, for the round this phone just
   ).toBe(true);
   const src = read(PROGRESS);
   expect(src).toContain('const round = placedCode ? data.rounds.find((r) => r.code === placedCode) : undefined;');
-  expect(src).toContain('const targets = React.useMemo(() => (round ? orderTargets(round.items) : []), [round]);');
+  // Revised 04-Oct-2026: the round decides the kind; the menu decides what falls.
+  expect(src).toContain('const route = round ? routeOf(round.items.map((i) => i.foodType)) : null;');
+  expect(src).toContain('const targets = route ? cravingPool(route, data.menu) : [];');
   expect(read('src/features/guest/GuestOrdering.tsx')).toContain('notePlaced(res.kotCode);');
 });
 
@@ -276,11 +288,14 @@ test('10. it lasts the 20–30 seconds the requester asked for, and stops itself
 test('10b. it never restarts itself, and replay is capped', () => {
   // Superseded 03-Oct-2026: pinned one "Catch Your Craving" start button. There is now one start
   // button per level, and one "Play <level>" per level at the end - still only from a tap.
-  expect(CRAVING_MAX_PLAYS).toBeLessThanOrEqual(3);
+  // Superseded 04-Oct-2026: back to ONE small Play and ONE "Play again" - the guest does not pick
+  // a level, the game climbs by itself. The cap is 5 (was 2; the owner wants Play again there).
+  expect(CRAVING_MAX_PLAYS).toBeLessThanOrEqual(5);
   const src = read(GAME);
-  expect(src).toContain('{plays < CRAVING_MAX_PLAYS');
-  expect(src).toContain('data-testid={`craving-start-${l}`}');
-  expect(src).toContain('onClick={() => begin(l)}');
+  expect(src).toContain('{plays < CRAVING_MAX_PLAYS ? (');
+  expect(src).toContain('<Button data-testid="craving-start" size="sm" onClick={begin}>');
+  expect(src).toContain('<Button data-testid="craving-again" size="sm" variant="secondary" onClick={begin}>');
+  expect(src).not.toContain('craving-start-${l}');
   expect(src, 'nothing starts a game on its own').not.toContain('useEffect(() => begin');
 });
 
@@ -483,13 +498,15 @@ test('the placed screen keys the game by its round and remembers only dismissals
   expect(read('src/features/guest/GuestApp.tsx')).not.toContain('useState<CravingPhase>');
 });
 
-test('the 24 s stop is not restarted by a live-data refresh', () => {
+test('the 30 s stop is not restarted by a live-data refresh, nor by a level-up', () => {
   // The round is replaced on every payload change during exactly the wait this game fills, so
   // the timers must not depend on what is derived from it.
-  // Revised 03-Oct-2026: the dependency list gained `level` (a new level is a new game) and the
-  // ref holds the order's targets rather than the menu pool.
+  // Revised 04-Oct-2026: the clock (stop + level-ups) and the spawner are separate effects - the
+  // clock keyed on [playing, setPhase] only, so a level-up never restarts the stop; the spawner
+  // keyed on the level, which sets its pace.
   const src = codeOnly(GAME);
-  expect(src).toContain('}, [playing, reduced, setPhase, level]);');
+  expect(src).toContain('}, [playing, setPhase]);');
+  expect(src).toContain('}, [playing, reduced, level]);');
   expect(src).toContain('targetsRef.current');
 });
 
@@ -499,23 +516,31 @@ test('each drop takes its key before the state update, so two ticks never share 
   expect(src).not.toContain('key: dropSeq.current');
 });
 
-test('Other dishes fall when they were ordered, and are suggested wherever the table is not vegetarian-only', () => {
-  // Revised 03-Oct-2026: the first half drew from the menu pool by route; an Other dish now falls
-  // exactly when it is in the order.
+test('Other dishes never fall - only the table\'s kind - but are suggested wherever the table is not vegetarian-only', () => {
+  // Revised 03-Oct-2026 / superseded 04-Oct-2026: an Other dish (a juice) fell when it was ordered.
+  // Now the falling food is strictly the kind asked for ("all non veg items"), so Other never falls.
   const withOther = [...MENU, item('o1', 'Rose Milk', 'other', 'Drinks'), item('o2', 'Falooda', 'other', 'Desserts')];
-  expect(orderTargets([line('k1', 'Rose Milk', 'other')]).map((t) => t.name)).toEqual(['Rose Milk']);
+  for (const route of ['veg', 'nonVeg', 'egg', 'mixed'] as const) {
+    expect(cravingPool(route, withOther).map((p) => p.foodType), route).not.toContain('other');
+    expect(GAME_TYPES[route]).not.toContain('other');
+  }
   // With the Veg dessert and drink already ordered, the finishers left are the Other ones.
   expect(cravingSuggestions('mixed', withOther, ['d1', 'd2']).map((p) => p.foodType)).toEqual(['other', 'other']);
 });
 
-test('the offer claims nothing about the menu - it lists the order that will fall', () => {
+test('the offer says which kind of dish falls, in the menu\'s own words, and is titled Catch Your Craving', () => {
   // Superseded 03-Oct-2026: asserted the four ROUTE_LINE offer lines used the menu's Veg /
   // Non-veg / Egg words. Those lines described the menu draw ("A few Veg favourites from
   // tonight's menu."); with only the order falling they were false, and were removed.
+  // Superseded 04-Oct-2026: the menu of the table's kind falls again, so the offer names the kind
+  // (`ROUTE_KIND`) instead of listing one ordered dish; the card's name is "Catch Your Craving"
+  // (the owner: "give name as catch your craving only").
   const src = read(GAME);
   expect(src).not.toContain('ROUTE_LINE');
-  expect(read(LOGIC)).not.toContain('export const ROUTE_LINE');
-  expect(src).toContain("{targets.map((t) => `${t.emoji} ${t.name}`).join(' · ')} — but never the {ENEMY.emoji}.");
+  expect(src).not.toContain('Hungry while you wait?');
+  expect(src).toContain('<SectionLabel>Catch Your Craving</SectionLabel>');
+  expect(src).toContain("{`Every ${ROUTE_KIND[route]} dish on tonight's menu falls — but never the ${ENEMY.emoji}. It gets faster as you go.`}");
+  expect(ROUTE_KIND).toEqual({ veg: 'Veg', nonVeg: 'Non-veg', egg: 'Egg', mixed: 'Veg, Non-veg and Egg' });
 });
 
 test('the ending does not say "Nice catch!" when nothing was caught, and says what was caught', () => {
@@ -523,7 +548,8 @@ test('the ending does not say "Nice catch!" when nothing was caught, and says wh
   const src = read(GAME);
   expect(src).toContain('{tally.caught > 0 ? (');
   expect(src).toContain("`You caught ${tally.caught} ${tally.caught === 1 ? 'dish' : 'dishes'}`");
-  expect(src).toContain('{`${tally.score} points · ${LEVELS[level].label}`}');
+  // Revised 04-Oct-2026: the end says how far the game climbed.
+  expect(src).toContain('{`${tally.score} points · reached Level ${levelNumber(level)}`}');
 });
 
 test('Add says what it did, and that nothing went to the kitchen', () => {
@@ -542,17 +568,17 @@ test('no game is offered when the placed round has nothing to fall', () => {
  * they should not pick ... add levels easy moderate hard, give points, and the food items for
  * catch should be based on their order ... replace that brown slate for catching with a plate". */
 
-test('each ordered dish falls once, as its name and an emoji, however many were ordered', () => {
-  const t = orderTargets([
-    line('k1', 'Chicken Dum Biryani', 'non_veg'),
-    line('k2', 'Chicken Dum Biryani', 'non_veg'),
-    line('k3', 'Butter Naan', 'veg'),
-    line('k4', 'Fresh Lime Soda', 'other'),
-  ]);
-  expect(t.map((x) => [x.name, x.emoji])).toEqual([
+test('every dish of the kind falls, as its name and an emoji', () => {
+  // Superseded 04-Oct-2026: asserted each ORDERED dish fell once (`orderTargets`). Now the menu of
+  // the table's kind falls; each dish still carries its emoji.
+  const menu = [
+    item('a', 'Chicken Dum Biryani', 'non_veg', 'Biryani'),
+    item('b', 'Butter Naan', 'veg', 'Breads'),
+    item('c', 'Fresh Lime Soda', 'other', 'Drinks'),
+  ];
+  expect(cravingPool('mixed', menu).map((x) => [x.name, x.emoji])).toEqual([
     ['Chicken Dum Biryani', '🍛'],
     ['Butter Naan', '🫓'],
-    ['Fresh Lime Soda', '🥤'],
   ]);
 });
 
@@ -582,6 +608,9 @@ test('a dish on the plate scores, a germ on the plate costs points and a life, a
   expect(ENEMY_PENALTY).toBeGreaterThan(CATCH_POINTS);
   expect(scoreLanding(caught, 'food', false), 'a missed dish').toEqual(caught);
   expect(scoreLanding(caught, 'enemy', false), 'a germ left alone costs nothing').toEqual(caught);
+  // 04-Oct-2026: a dish is worth more as the game climbs - 10, 20, 30.
+  expect(scoreLanding(FRESH_SCORE, 'food', true, 'moderate').score).toBe(2 * CATCH_POINTS);
+  expect(scoreLanding(FRESH_SCORE, 'food', true, 'hard').score).toBe(3 * CATCH_POINTS);
 });
 
 test('points never go below zero, and lives run out at zero', () => {
@@ -592,7 +621,7 @@ test('points never go below zero, and lives run out at zero', () => {
   // And running out of lives ends the game - in an effect, never inside the score updater.
   const src = codeOnly(GAME);
   expect(src).toContain("if (playing && tally.lives === 0) setPhase('done');");
-  expect(src).toContain('setTally((s) => scoreLanding(s, kind, onPlate));');
+  expect(src).toContain('setTally((s) => scoreLanding(s, kind, onPlate, level));');
 });
 
 test('the three levels change play, not colour: faster, busier, more germs, smaller plate', () => {
@@ -638,7 +667,8 @@ test('the score is on screen while playing, and the final score at the end', () 
 });
 
 test('the one-line instruction says what to do without a tutorial', () => {
-  expect(read(GAME)).toContain('Catch your ordered food. Avoid the bad item!');
+  // Revised 04-Oct-2026: "ordered" dropped - the menu of the table's kind falls now, not the order.
+  expect(read(GAME)).toContain('Catch the food. Avoid the bad item!');
 });
 
 test('the catching surface is a plate, not the brown slate it replaced', () => {
@@ -659,4 +689,29 @@ test('a game in play is never taken away by the replay cap - "Play again" starts
   expect(shouldOfferCraving({ enabled: true, hasWaitingRound: true, plays: CRAVING_MAX_PLAYS, phase: 'offer' })).toBe(false);
   // The owner's switch and a dismissal still win.
   expect(shouldOfferCraving({ enabled: false, hasWaitingRound: true, plays: 1, phase: 'playing' })).toBe(false);
+});
+
+/* ── 04-Oct-2026: the game climbs by itself ─────────────────────────────────────────────────── */
+
+test('every game starts on Level 1 and climbs every 10 seconds - the guest never picks', () => {
+  expect(LEVEL_UP_AT_SECONDS).toEqual([10, 20]);
+  expect(CRAVING_SECONDS).toBe(30);
+  expect(levelAt(0)).toBe('easy');
+  expect(levelAt(9.9)).toBe('easy');
+  expect(levelAt(10)).toBe('moderate');
+  expect(levelAt(19.9)).toBe('moderate');
+  expect(levelAt(20)).toBe('hard');
+  expect(levelAt(29)).toBe('hard');
+  expect(levelAt(500), 'it never climbs past the last').toBe('hard');
+  expect(['easy', 'moderate', 'hard'].map((l) => levelNumber(l as 'easy'))).toEqual([1, 2, 3]);
+  const src = codeOnly(GAME);
+  // begin() always starts at the bottom; the clock moves it.
+  expect(src).toContain("const begin = () => {\n    setLevel('easy');");
+  expect(src).toContain('const ups = LEVEL_UP_AT_SECONDS.map((t) =>');
+  expect(src).toContain('ups.forEach((u) => clearTimeout(u));');
+  // The level is said on screen, and a level-up is announced.
+  expect(src).toContain('data-testid="craving-level"');
+  expect(src).toContain('`Level up! Level ${levelNumber(next)} — faster now`');
+  // And the plate is re-clamped at the narrower width, in the timer - not in an effect body.
+  expect(src).toContain('setPlate((p) => clampPlate(p, LEVELS[next].plateWidthPct));');
 });

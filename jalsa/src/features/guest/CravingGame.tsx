@@ -12,12 +12,15 @@ import {
   ENEMY,
   ENEMY_PENALTY,
   FRESH_SCORE,
-  LEVEL_ORDER,
+  LEVEL_UP_AT_SECONDS,
   LEVELS,
+  ROUTE_KIND,
   cravingSuggestions,
   clampPlate,
   dropIsEnemy,
   isCaught,
+  levelAt,
+  levelNumber,
   scoreLanding,
   type CravingItem,
   type CravingLevel,
@@ -48,11 +51,13 @@ import {
  *   JavaScript and a genuinely different variant is rendered: the same food, the same scoring,
  *   the same ending — tapped rather than caught. The concept survives; only the motion goes.
  *
- * WHAT FALLS (03-Oct-2026)
- *   The dishes of the order the guest has just placed - its own lines, each as an emoji and its
- *   name - and one germ to avoid. A dish on the plate scores; the germ costs points and one of
- *   three lives. Easy / Moderate / Hard change the fall speed, how busy it is, how many germs
- *   and how wide the plate is (`LEVELS`). It is shown on the order-placed screen only.
+ * WHAT FALLS (03-Oct-2026, revised 04-Oct-2026)
+ *   Every available dish on the menu of the table's own kind - a Non-veg order drops the Non-veg
+ *   dishes, a Veg order the Veg ones (`cravingPool`) - each as an emoji and its name, and one germ
+ *   to avoid. A dish on the plate scores; the germ costs points and one of three lives. The game
+ *   starts on Level 1 and climbs by itself every 10 seconds: faster, busier, more germs, a
+ *   smaller plate, and more points a dish (`LEVELS`, `levelAt`). Shown on the order-placed screen
+ *   only.
  *
  * WHAT IT NEVER DOES
  *   It sends nothing, stores nothing on the server, and reads nothing the phone did not already
@@ -90,7 +95,7 @@ function useReducedMotion(): boolean {
 
 export interface CravingGameProps {
   route: CravingRoute;
-  /** The dishes of the order just placed - the only food that falls. */
+  /** What falls: the menu's dishes of the table's own kind (`cravingPool`). */
   targets: readonly CravingTarget[];
   /** The menu the phone already holds, for the suggestions at the end. Nothing is fetched. */
   menu: ReadonlyArray<CravingSuggestion & CravingItem & { available: boolean }>;
@@ -121,6 +126,7 @@ export function CravingGame({
     [route, menu, orderedIds]
   );
 
+  /** Where the game has climbed to. Set by the clock (`levelAt`), never chosen by the guest. */
   const [level, setLevel] = React.useState<CravingLevel>('easy');
   const rules = LEVELS[level];
   const [tally, setTally] = React.useState<CravingScore>(FRESH_SCORE);
@@ -143,18 +149,35 @@ export function CravingGame({
   const playing = phase === 'playing';
 
   /*
-    THE TWO TIMERS, AND THE ONLY TWO — one effect owning both, so there is exactly one cleanup
-    and no way for one to survive the other. A guest who walks away mid-game unmounts this
-    component and leaves nothing running.
-
-    Under reduced motion only the end timer is set: nothing falls there, so nothing spawns.
+    THE CLOCK - one effect owning the end of the game and the two level-ups, so there is exactly
+    one cleanup and no way for one timer to survive the others. A guest who walks away mid-game
+    unmounts this component and leaves nothing running. It does not depend on the level: a
+    level-up must never restart the 30 s stop.
   */
   React.useEffect(() => {
     if (!playing) return;
-
     const stop = setTimeout(() => setPhase('done'), CRAVING_SECONDS * 1000);
-    if (reduced) return () => clearTimeout(stop);
+    const ups = LEVEL_UP_AT_SECONDS.map((t) =>
+      setTimeout(() => {
+        const next = levelAt(t);
+        setLevel(next);
+        // The plate narrows as the game climbs; keep it wholly inside the area at its new width.
+        setPlate((p) => clampPlate(p, LEVELS[next].plateWidthPct));
+        setLastEvent(`Level up! Level ${levelNumber(next)} — faster now`);
+      }, t * 1000)
+    );
+    return () => {
+      clearTimeout(stop);
+      ups.forEach((u) => clearTimeout(u));
+    };
+  }, [playing, setPhase]);
 
+  /*
+    THE SPAWNER - its own effect, keyed on the level, because each level drops at its own pace.
+    Under reduced motion nothing falls, so nothing spawns.
+  */
+  React.useEffect(() => {
+    if (!playing || reduced) return;
     const spawn = setInterval(() => {
       const pool = targetsRef.current;
       if (pool.length === 0) return;
@@ -166,12 +189,8 @@ export function CravingGame({
       const left = 10 + Math.random() * 80;
       setFalling((cur) => [...cur, { key, item, left }]);
     }, LEVELS[level].spawnMs);
-
-    return () => {
-      clearInterval(spawn);
-      clearTimeout(stop);
-    };
-  }, [playing, reduced, setPhase, level]);
+    return () => clearInterval(spawn);
+  }, [playing, reduced, level]);
 
   /* Three germs and the round is over - the rule the lives counter promises. An effect, not a
      line inside the score updater: React 19 runs updaters twice, and a side effect there would
@@ -180,8 +199,8 @@ export function CravingGame({
     if (playing && tally.lives === 0) setPhase('done');
   }, [playing, tally.lives, setPhase]);
 
-  const begin = (next: CravingLevel) => {
-    setLevel(next);
+  const begin = () => {
+    setLevel('easy');
     setTally(FRESH_SCORE);
     setLastEvent('');
     setFalling([]);
@@ -199,8 +218,10 @@ export function CravingGame({
   };
 
   const record = (kind: 'food' | 'enemy', onPlate: boolean, name: string) => {
-    setTally((s) => scoreLanding(s, kind, onPlate));
-    if (onPlate) setLastEvent(kind === 'food' ? `+${CATCH_POINTS} ${name}` : `${ENEMY.name}! −${ENEMY_PENALTY}`);
+    setTally((s) => scoreLanding(s, kind, onPlate, level));
+    if (onPlate) {
+      setLastEvent(kind === 'food' ? `+${CATCH_POINTS * levelNumber(level)} ${name}` : `${ENEMY.name}! −${ENEMY_PENALTY}`);
+    }
   };
 
   /**
@@ -219,18 +240,16 @@ export function CravingGame({
   if (phase === 'offer') {
     return (
       <Card className="flex w-full flex-col gap-2 text-left" data-testid="craving-offer">
-        <SectionLabel>Hungry while you wait?</SectionLabel>
-        <p className="m-0 type-body font-semibold">Catch your ordered food. Avoid the bad item!</p>
+        <SectionLabel>Catch Your Craving</SectionLabel>
+        <p className="m-0 type-body font-semibold">Catch the food. Avoid the bad item!</p>
         <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="craving-offer-items">
-          {targets.map((t) => `${t.emoji} ${t.name}`).join(' · ')} — but never the {ENEMY.emoji}.
+          {`Every ${ROUTE_KIND[route]} dish on tonight's menu falls — but never the ${ENEMY.emoji}. It gets faster as you go.`}
         </p>
-        <div className="mt-1 flex flex-wrap gap-2" role="group" aria-label="Choose a level">
-          {LEVEL_ORDER.map((l) => (
-            <Button key={l} data-testid={`craving-start-${l}`} variant={l === 'easy' ? 'primary' : 'secondary'} onClick={() => begin(l)}>
-              {`Play ${LEVELS[l].label}`}
-            </Button>
-          ))}
-          <Button data-testid="craving-skip" variant="ghost" onClick={() => setPhase('dismissed')}>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Button data-testid="craving-start" size="sm" onClick={begin}>
+            Play
+          </Button>
+          <Button data-testid="craving-skip" size="sm" variant="ghost" onClick={() => setPhase('dismissed')}>
             Maybe later
           </Button>
         </div>
@@ -256,7 +275,7 @@ export function CravingGame({
             <>
               <p className="m-0 type-h3">Nice catch! 🍽️</p>
               <p className="m-0 mt-0.5 type-body font-semibold tabular-nums" data-testid="craving-final-score">
-                {`${tally.score} points · ${LEVELS[level].label}`}
+                {`${tally.score} points · reached Level ${levelNumber(level)}`}
               </p>
               <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]" data-testid="craving-score">
                 {`You caught ${tally.caught} ${tally.caught === 1 ? 'dish' : 'dishes'}`}
@@ -295,13 +314,11 @@ export function CravingGame({
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          {plays < CRAVING_MAX_PLAYS
-            ? LEVEL_ORDER.map((l) => (
-                <Button key={l} data-testid={`craving-again-${l}`} size="sm" variant="secondary" onClick={() => begin(l)}>
-                  {`Play ${LEVELS[l].label}`}
-                </Button>
-              ))
-            : null}
+          {plays < CRAVING_MAX_PLAYS ? (
+            <Button data-testid="craving-again" size="sm" variant="secondary" onClick={begin}>
+              Play again
+            </Button>
+          ) : null}
           <Button data-testid="craving-close" size="sm" variant="ghost" onClick={() => setPhase('dismissed')}>
             Close
           </Button>
@@ -315,7 +332,10 @@ export function CravingGame({
   return (
     <Card className="flex w-full flex-col gap-2 text-left" data-testid="craving-playing" data-level={level}>
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>{`Catch Your Craving · ${rules.label}`}</SectionLabel>
+        <SectionLabel>
+          {'Catch Your Craving · '}
+          <span data-testid="craving-level">{`Level ${levelNumber(level)}`}</span>
+        </SectionLabel>
         <span className="flex items-center gap-3 type-caption tabular-nums">
           <span data-testid="craving-lives" aria-label={`${tally.lives} of ${CRAVING_LIVES} lives left`}>
             {`Lives ${tally.lives}`}
