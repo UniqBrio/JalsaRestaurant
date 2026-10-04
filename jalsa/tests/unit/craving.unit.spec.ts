@@ -29,17 +29,15 @@ import {
   foodEmoji,
   FRESH_SCORE,
   isCaught,
-  LEVEL_ORDER,
-  LEVELS,
   cravingPool,
   GAME_TYPES,
-  LEVEL_UP_AT_SECONDS,
-  levelAt,
-  levelNumber,
   ROUTE_KIND,
   plateReach,
   ROUTE_TYPES,
   scoreLanding,
+  levelForScore,
+  levelRules,
+  POINTS_PER_LEVEL,
   shouldOfferCraving,
   phaseForRound,
 } from '../../src/lib/craving';
@@ -50,6 +48,9 @@ const LOGIC = 'src/lib/craving.ts';
 const PROGRESS = 'src/features/guest/GuestProgress.tsx';
 
 const read = (p: string): string => readFileSync(p, 'utf8');
+
+/** Levels to check every geometric and pacing rule at - the first few, and deep into a long game. */
+const SAMPLE_LEVELS = [1, 2, 3, 5, 8, 20, 100] as const;
 
 /**
  * The file with its comments removed.
@@ -276,13 +277,17 @@ test('18g. a restaurant naming no category like a finisher still gets a suggesti
 
 /* ── 10. The lifecycle ─────────────────────────────────────────────────────────────────────── */
 
-test('10. it lasts the 20–30 seconds the requester asked for, and stops itself', () => {
+test('10. the falling game has no clock - it ends when the lives do; the tap game keeps its 30 s', () => {
+  // Superseded 04-Oct-2026: asserted every game stopped itself after CRAVING_SECONDS. The owner:
+  // "why is the game getting stopped when a level is reached - do not stop". The falling game now
+  // runs until the lives are gone; only the reduced-motion tap game, which drops nothing that
+  // could be missed, keeps the clock.
   expect(CRAVING_SECONDS).toBeGreaterThanOrEqual(20);
   expect(CRAVING_SECONDS).toBeLessThanOrEqual(30);
-  const src = read(GAME);
-  // The end is a timer set from the same constant, so "it ends" and "it ends when we said"
-  // cannot drift apart.
-  expect(src).toContain("setTimeout(() => setPhase('done'), CRAVING_SECONDS * 1000)");
+  const src = codeOnly(GAME);
+  expect(src).toContain("if (!playing || !reduced) return;\n    const stop = setTimeout(() => setPhase('done'), CRAVING_SECONDS * 1000);");
+  expect(src.match(/setPhase\('done'\), CRAVING_SECONDS/g)?.length).toBe(1);
+  expect(src).toContain("if (playing && tally.lives === 0) setPhase('done');");
 });
 
 test('10b. it never restarts itself, and replay is capped', () => {
@@ -410,8 +415,8 @@ test('the plate can never be slid out of the play area, at any level', () => {
   // side, so its right edge sat at 103%. `craving.render.spec.ts` measured 297 against an area
   // of 289 and refused it.
   // Revised 03-Oct-2026: the plate's width is the level's, so the property is checked per level.
-  for (const l of LEVEL_ORDER) {
-    const w = LEVELS[l].plateWidthPct;
+  for (const l of SAMPLE_LEVELS) {
+    const w = levelRules(l).plateWidthPct;
     const reach = plateReach(w);
     expect(clampPlate(200, w)).toBe(100 - reach);
     expect(clampPlate(-50, w)).toBe(reach);
@@ -423,8 +428,8 @@ test('the plate can never be slid out of the play area, at any level', () => {
 
 test('catching is decided by the same half-width the plate is drawn with', () => {
   // Revised 03-Oct-2026: per level; the plate's width is no longer one constant.
-  for (const l of LEVEL_ORDER) {
-    const w = LEVELS[l].plateWidthPct;
+  for (const l of SAMPLE_LEVELS) {
+    const w = levelRules(l).plateWidthPct;
     expect(isCaught(50, 50, w), 'dead centre').toBe(true);
     expect(isCaught(50 + plateReach(w), 50, w), 'the very edge counts').toBe(true);
     expect(isCaught(50 + plateReach(w) + 1, 50, w), 'just past it does not').toBe(false);
@@ -440,8 +445,8 @@ test('catching is decided by the same half-width the plate is drawn with', () =>
 test('every place a dish can be dropped is reachable by the plate', () => {
   // The component drops between 10% and 90%. A dish that could never be caught would be a
   // small dishonesty, so the two ranges are checked against each other rather than assumed.
-  for (const l of LEVEL_ORDER) {
-    const w = LEVELS[l].plateWidthPct;
+  for (const l of SAMPLE_LEVELS) {
+    const w = levelRules(l).plateWidthPct;
     for (const drop of [10, 25, 50, 75, 90]) {
       const best = clampPlate(drop, w);
       expect(isCaught(drop, best, w), `a dish at ${drop}% must be catchable on ${l}`).toBe(true);
@@ -498,15 +503,15 @@ test('the placed screen keys the game by its round and remembers only dismissals
   expect(read('src/features/guest/GuestApp.tsx')).not.toContain('useState<CravingPhase>');
 });
 
-test('the 30 s stop is not restarted by a live-data refresh, nor by a level-up', () => {
+test('the spawner follows the level, and nothing restarts on a live-data refresh', () => {
   // The round is replaced on every payload change during exactly the wait this game fills, so
   // the timers must not depend on what is derived from it.
-  // Revised 04-Oct-2026: the clock (stop + level-ups) and the spawner are separate effects - the
-  // clock keyed on [playing, setPhase] only, so a level-up never restarts the stop; the spawner
-  // keyed on the level, which sets its pace.
+  // Revised 04-Oct-2026 (twice): the clock is the reduced-motion game's alone; the spawner is keyed
+  // on the level - the score's - which sets its pace.
   const src = codeOnly(GAME);
-  expect(src).toContain('}, [playing, setPhase]);');
+  expect(src).toContain('}, [playing, reduced, setPhase]);');
   expect(src).toContain('}, [playing, reduced, level]);');
+  expect(src).toContain('}, levelRules(level).spawnMs);');
   expect(src).toContain('targetsRef.current');
 });
 
@@ -539,7 +544,8 @@ test('the offer says which kind of dish falls, in the menu\'s own words, and is 
   expect(src).not.toContain('ROUTE_LINE');
   expect(src).not.toContain('Hungry while you wait?');
   expect(src).toContain('<SectionLabel>Catch Your Craving</SectionLabel>');
-  expect(src).toContain("{`Every ${ROUTE_KIND[route]} dish on tonight's menu falls — but never the ${ENEMY.emoji}. It gets faster as you go.`}");
+  // Revised the same day (second round): it also says the rules that end and speed the game.
+  expect(src).toContain("{`Every ${ROUTE_KIND[route]} dish on tonight's menu falls — never catch the ${ENEMY.emoji}, never drop a dish. ${CRAVING_LIVES} lives; every ${POINTS_PER_LEVEL} points it gets faster.`}");
   expect(ROUTE_KIND).toEqual({ veg: 'Veg', nonVeg: 'Non-veg', egg: 'Egg', mixed: 'Veg, Non-veg and Egg' });
 });
 
@@ -549,7 +555,7 @@ test('the ending does not say "Nice catch!" when nothing was caught, and says wh
   expect(src).toContain('{tally.caught > 0 ? (');
   expect(src).toContain("`You caught ${tally.caught} ${tally.caught === 1 ? 'dish' : 'dishes'}`");
   // Revised 04-Oct-2026: the end says how far the game climbed.
-  expect(src).toContain('{`${tally.score} points · reached Level ${levelNumber(level)}`}');
+  expect(src).toContain('{`${tally.score} points · reached Level ${level}`}');
 });
 
 test('Add says what it did, and that nothing went to the kitchen', () => {
@@ -600,17 +606,19 @@ test('the enemy is a germ - plainly not food, and plainly not wanted', () => {
   for (const m of MENU) expect(foodEmoji(m.name, m.foodType)).not.toBe(ENEMY.emoji);
 });
 
-test('a dish on the plate scores, a germ on the plate costs points and a life, a miss changes nothing', () => {
+test('a dish scores, a dropped dish costs a life, a germ caught costs points and a life, a germ let past costs nothing', () => {
+  // Revised 04-Oct-2026: a missed DISH now costs a life ("on missing a craving we can cut a life");
+  // points are a flat 10 again - the level comes from the score, and scaling the points by the
+  // level would race the level up.
   const caught = scoreLanding(FRESH_SCORE, 'food', true);
-  expect(caught).toEqual({ score: CATCH_POINTS, lives: CRAVING_LIVES, caught: 1, germs: 0 });
+  expect(caught).toEqual({ score: CATCH_POINTS, lives: CRAVING_LIVES, caught: 1, germs: 0, missed: 0 });
   const germ = scoreLanding(caught, 'enemy', true);
-  expect(germ).toEqual({ score: 0, lives: CRAVING_LIVES - 1, caught: 1, germs: 1 });
+  expect(germ).toEqual({ score: 0, lives: CRAVING_LIVES - 1, caught: 1, germs: 1, missed: 0 });
   expect(ENEMY_PENALTY).toBeGreaterThan(CATCH_POINTS);
-  expect(scoreLanding(caught, 'food', false), 'a missed dish').toEqual(caught);
-  expect(scoreLanding(caught, 'enemy', false), 'a germ left alone costs nothing').toEqual(caught);
-  // 04-Oct-2026: a dish is worth more as the game climbs - 10, 20, 30.
-  expect(scoreLanding(FRESH_SCORE, 'food', true, 'moderate').score).toBe(2 * CATCH_POINTS);
-  expect(scoreLanding(FRESH_SCORE, 'food', true, 'hard').score).toBe(3 * CATCH_POINTS);
+  const dropped = scoreLanding(caught, 'food', false);
+  expect(dropped).toEqual({ score: CATCH_POINTS, lives: CRAVING_LIVES - 1, caught: 1, germs: 0, missed: 1 });
+  expect(scoreLanding(caught, 'enemy', false), 'a germ left alone costs nothing').toBe(caught);
+  expect(CRAVING_LIVES).toBe(5);
 });
 
 test('points never go below zero, and lives run out at zero', () => {
@@ -621,37 +629,42 @@ test('points never go below zero, and lives run out at zero', () => {
   // And running out of lives ends the game - in an effect, never inside the score updater.
   const src = codeOnly(GAME);
   expect(src).toContain("if (playing && tally.lives === 0) setPhase('done');");
-  expect(src).toContain('setTally((s) => scoreLanding(s, kind, onPlate, level));');
+  // Built from a ref, outside any updater, so two landings in one frame both count.
+  expect(src).toContain('const next = scoreLanding(before, kind, onPlate);');
+  expect(src).toContain('tallyRef.current = next;\n    setTally(next);');
 });
 
-test('the three levels change play, not colour: faster, busier, more germs, smaller plate', () => {
-  expect(LEVEL_ORDER).toEqual(['easy', 'moderate', 'hard']);
-  const [e, m, h] = LEVEL_ORDER.map((l) => LEVELS[l]);
-  expect(e!.fallMs).toBeGreaterThan(m!.fallMs);
-  expect(m!.fallMs).toBeGreaterThan(h!.fallMs);
-  expect(e!.spawnMs).toBeGreaterThan(m!.spawnMs);
-  expect(m!.spawnMs).toBeGreaterThan(h!.spawnMs);
-  expect(e!.enemyChance).toBeLessThan(m!.enemyChance);
-  expect(m!.enemyChance).toBeLessThan(h!.enemyChance);
-  expect(e!.plateWidthPct).toBeGreaterThan(m!.plateWidthPct);
-  expect(m!.plateWidthPct).toBeGreaterThan(h!.plateWidthPct);
+test('every level plays harder than the one before - faster, busier, more germs, smaller plate - down to a floor', () => {
+  // Superseded 04-Oct-2026: three fixed levels (Easy / Moderate / Hard). The level is now the
+  // score's, without end; each rule tightens per level and stops at a floor, so a long game gets
+  // hard but never impossible.
+  for (let l = 1; l < 30; l++) {
+    const a = levelRules(l);
+    const b = levelRules(l + 1);
+    expect(b.fallMs, `fall ${l}`).toBeLessThanOrEqual(a.fallMs);
+    expect(b.spawnMs, `spawn ${l}`).toBeLessThanOrEqual(a.spawnMs);
+    expect(b.enemyChance, `germs ${l}`).toBeGreaterThanOrEqual(a.enemyChance);
+    expect(b.plateWidthPct, `plate ${l}`).toBeLessThanOrEqual(a.plateWidthPct);
+  }
+  expect(levelRules(2).fallMs).toBeLessThan(levelRules(1).fallMs);
+  expect(levelRules(1000)).toEqual({ fallMs: 1200, spawnMs: 450, enemyChance: 0.4, plateWidthPct: 14 });
   // And the component actually uses them.
   const src = read(GAME);
-  expect(src).toContain('}, LEVELS[level].spawnMs);');
+  expect(src).toContain('const rules = levelRules(level);');
   expect(src).toContain('animationDuration: `${rules.fallMs}ms`');
   expect(src).toContain('dropIsEnemy(level, Math.random())');
 });
 
 test('how often the germ falls is the level\'s share and nothing else', () => {
-  for (const l of LEVEL_ORDER) {
-    const c = LEVELS[l].enemyChance;
+  for (const l of SAMPLE_LEVELS) {
+    const c = levelRules(l).enemyChance;
     expect(dropIsEnemy(l, c - 0.001)).toBe(true);
     expect(dropIsEnemy(l, c)).toBe(false);
   }
-  // Over a fixed sweep of rolls, Hard drops more germs than Easy.
+  // Over a fixed sweep of rolls, a high level drops more germs than the first.
   const rolls = Array.from({ length: 100 }, (_, i) => i / 100);
-  const count = (l: 'easy' | 'hard') => rolls.filter((r) => dropIsEnemy(l, r)).length;
-  expect(count('hard')).toBeGreaterThan(count('easy'));
+  const count = (l: number) => rolls.filter((r) => dropIsEnemy(l, r)).length;
+  expect(count(6)).toBeGreaterThan(count(1));
 });
 
 test('the score is on screen while playing, and the final score at the end', () => {
@@ -660,7 +673,7 @@ test('the score is on screen while playing, and the final score at the end', () 
   expect(src).toContain('{`${tally.score} points`}');
   expect(src).not.toContain('pts`');
   // A round ended by germs says so.
-  expect(src).toContain('Three germs on the plate — that round is over.');
+  expect(src).toContain('Out of lives — that round is over.');
   expect(src).toContain('data-testid="craving-live-score"');
   expect(src).toContain('data-testid="craving-lives"');
   expect(src).toContain('data-testid="craving-final-score"');
@@ -698,27 +711,25 @@ test('a game in play is never taken away by the replay cap - "Play again" starts
 
 /* ── 04-Oct-2026: the game climbs by itself ─────────────────────────────────────────────────── */
 
-test('every game starts on Level 1 and climbs every 10 seconds - the guest never picks', () => {
-  expect(LEVEL_UP_AT_SECONDS).toEqual([10, 20]);
-  expect(CRAVING_SECONDS).toBe(30);
-  expect(levelAt(0)).toBe('easy');
-  expect(levelAt(9.9)).toBe('easy');
-  expect(levelAt(10)).toBe('moderate');
-  expect(levelAt(19.9)).toBe('moderate');
-  expect(levelAt(20)).toBe('hard');
-  expect(levelAt(29)).toBe('hard');
-  expect(levelAt(500), 'it never climbs past the last').toBe('hard');
-  expect(['easy', 'moderate', 'hard'].map((l) => levelNumber(l as 'easy'))).toEqual([1, 2, 3]);
+test('every game starts on Level 1 and climbs with the score - every 100 points, without end', () => {
+  // Superseded 04-Oct-2026 (second round): levels came from the clock at 10 s and 20 s of a 30 s
+  // game. The owner: "as the points increase the speed increases".
+  expect(POINTS_PER_LEVEL).toBe(100);
+  expect(levelForScore(0)).toBe(1);
+  expect(levelForScore(99)).toBe(1);
+  expect(levelForScore(100)).toBe(2);
+  expect(levelForScore(250)).toBe(3);
+  expect(levelForScore(2000)).toBe(21);
   const src = codeOnly(GAME);
-  // begin() always starts at the bottom; the clock moves it.
-  expect(src).toContain("const begin = () => {\n    setLevel('easy');");
-  expect(src).toContain('const ups = LEVEL_UP_AT_SECONDS.map((t) =>');
-  expect(src).toContain('ups.forEach((u) => clearTimeout(u));');
-  // The level is said on screen, and a level-up is announced.
+  expect(src).toContain('const level = levelForScore(tally.score);');
+  expect(src).not.toContain('LEVEL_UP_AT_SECONDS');
+  // The level is said on screen, and a level-up is announced, with the plate re-clamped there -
+  // in the event handler, not in an effect body.
   expect(src).toContain('data-testid="craving-level"');
-  expect(src).toContain('`Level up! Level ${levelNumber(next)} — faster now`');
-  // And the plate is re-clamped at the narrower width, in the timer - not in an effect body.
-  expect(src).toContain('setPlate((p) => clampPlate(p, LEVELS[next].plateWidthPct));');
+  expect(src).toContain('`Level up! Level ${up} — faster now`');
+  expect(src).toContain('setPlate((p) => clampPlate(p, levelRules(up).plateWidthPct));');
+  // A dropped dish is said too.
+  expect(src).toContain('`Missed ${name} — −1 life`');
 });
 
 /* ── 04-Oct-2026: the emoji follows the dish, a long name wraps, the drops wobble ───────────── */

@@ -12,18 +12,16 @@ import {
   ENEMY,
   ENEMY_PENALTY,
   FRESH_SCORE,
-  LEVEL_UP_AT_SECONDS,
-  LEVELS,
+  POINTS_PER_LEVEL,
   ROUTE_KIND,
   cravingSuggestions,
   clampPlate,
   dropIsEnemy,
   isCaught,
-  levelAt,
-  levelNumber,
+  levelForScore,
+  levelRules,
   scoreLanding,
   type CravingItem,
-  type CravingLevel,
   type CravingPhase,
   type CravingRoute,
   type CravingScore,
@@ -54,10 +52,10 @@ import {
  * WHAT FALLS (03-Oct-2026, revised 04-Oct-2026)
  *   Every available dish on the menu of the table's own kind - a Non-veg order drops the Non-veg
  *   dishes, a Veg order the Veg ones (`cravingPool`) - each as an emoji and its name, and one germ
- *   to avoid. A dish on the plate scores; the germ costs points and one of three lives. The game
- *   starts on Level 1 and climbs by itself every 10 seconds: faster, busier, more germs, a
- *   smaller plate, and more points a dish (`LEVELS`, `levelAt`). Shown on the order-placed screen
- *   only.
+ *   to avoid. A dish on the plate scores 10; a dish that falls past, or a germ on the plate,
+ *   costs one of five lives. There is no clock (04-Oct-2026: "do not stop"): the game runs until
+ *   the lives are gone, and every 100 points is a new level - faster, busier, more germs, a
+ *   smaller plate (`levelForScore`, `levelRules`). Shown on the order-placed screen only.
  *
  * WHAT IT NEVER DOES
  *   It sends nothing, stores nothing on the server, and reads nothing the phone did not already
@@ -126,10 +124,14 @@ export function CravingGame({
     [route, menu, orderedIds]
   );
 
-  /** Where the game has climbed to. Set by the clock (`levelAt`), never chosen by the guest. */
-  const [level, setLevel] = React.useState<CravingLevel>('easy');
-  const rules = LEVELS[level];
   const [tally, setTally] = React.useState<CravingScore>(FRESH_SCORE);
+  /* The latest tally, for the next landing to build on. Two drops can land in one frame; reading
+     the rendered `tally` would let the second overwrite the first. Written only in event
+     handlers - never inside a state updater, which React 19 runs twice. */
+  const tallyRef = React.useRef<CravingScore>(FRESH_SCORE);
+  /** Where the game has climbed to - the SCORE's, never chosen by the guest and never the clock's. */
+  const level = levelForScore(tally.score);
+  const rules = levelRules(level);
   /** What the last landing did, said once under the area ("+10 Biryani", "Germ! −15"). */
   const [lastEvent, setLastEvent] = React.useState('');
   const [falling, setFalling] = React.useState<Falling[]>([]);
@@ -149,28 +151,15 @@ export function CravingGame({
   const playing = phase === 'playing';
 
   /*
-    THE CLOCK - one effect owning the end of the game and the two level-ups, so there is exactly
-    one cleanup and no way for one timer to survive the others. A guest who walks away mid-game
-    unmounts this component and leaves nothing running. It does not depend on the level: a
-    level-up must never restart the 30 s stop.
+    THE CLOCK - for the reduced-motion game only (04-Oct-2026). The falling game has none: it
+    runs until the lives are gone ("do not stop"). The tap game drops nothing, so nothing can be
+    missed and lives alone might never end it; it keeps the 30 s stop.
   */
   React.useEffect(() => {
-    if (!playing) return;
+    if (!playing || !reduced) return;
     const stop = setTimeout(() => setPhase('done'), CRAVING_SECONDS * 1000);
-    const ups = LEVEL_UP_AT_SECONDS.map((t) =>
-      setTimeout(() => {
-        const next = levelAt(t);
-        setLevel(next);
-        // The plate narrows as the game climbs; keep it wholly inside the area at its new width.
-        setPlate((p) => clampPlate(p, LEVELS[next].plateWidthPct));
-        setLastEvent(`Level up! Level ${levelNumber(next)} — faster now`);
-      }, t * 1000)
-    );
-    return () => {
-      clearTimeout(stop);
-      ups.forEach((u) => clearTimeout(u));
-    };
-  }, [playing, setPhase]);
+    return () => clearTimeout(stop);
+  }, [playing, reduced, setPhase]);
 
   /*
     THE SPAWNER - its own effect, keyed on the level, because each level drops at its own pace.
@@ -188,11 +177,11 @@ export function CravingGame({
       // 10-90% keeps a whole item inside the area at 320px, where it is narrowest.
       const left = 10 + Math.random() * 80;
       setFalling((cur) => [...cur, { key, item, left }]);
-    }, LEVELS[level].spawnMs);
+    }, levelRules(level).spawnMs);
     return () => clearInterval(spawn);
   }, [playing, reduced, level]);
 
-  /* Three germs and the round is over - the rule the lives counter promises. An effect, not a
+  /* Out of lives and the round is over - the rule the lives counter promises. An effect, not a
      line inside the score updater: React 19 runs updaters twice, and a side effect there would
      end the game twice. */
   React.useEffect(() => {
@@ -200,7 +189,7 @@ export function CravingGame({
   }, [playing, tally.lives, setPhase]);
 
   const begin = () => {
-    setLevel('easy');
+    tallyRef.current = FRESH_SCORE;
     setTally(FRESH_SCORE);
     setLastEvent('');
     setFalling([]);
@@ -218,9 +207,20 @@ export function CravingGame({
   };
 
   const record = (kind: 'food' | 'enemy', onPlate: boolean, name: string) => {
-    setTally((s) => scoreLanding(s, kind, onPlate, level));
-    if (onPlate) {
-      setLastEvent(kind === 'food' ? `+${CATCH_POINTS * levelNumber(level)} ${name}` : `${ENEMY.name}! −${ENEMY_PENALTY}`);
+    const before = tallyRef.current;
+    const next = scoreLanding(before, kind, onPlate);
+    if (next === before) return; // a germ that fell past: nothing happened
+    tallyRef.current = next;
+    setTally(next);
+    const up = levelForScore(next.score);
+    if (up > levelForScore(before.score)) {
+      // The plate narrows as the game climbs; keep it wholly inside the area at its new width.
+      setPlate((p) => clampPlate(p, levelRules(up).plateWidthPct));
+      setLastEvent(`Level up! Level ${up} — faster now`);
+    } else if (kind === 'food') {
+      setLastEvent(onPlate ? `+${CATCH_POINTS} ${name}` : `Missed ${name} — −1 life`);
+    } else {
+      setLastEvent(`${ENEMY.name}! −${ENEMY_PENALTY} and −1 life`);
     }
   };
 
@@ -243,7 +243,7 @@ export function CravingGame({
         <SectionLabel>Catch Your Craving</SectionLabel>
         <p className="m-0 type-body font-semibold">Catch the food. Avoid the bad item!</p>
         <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]" data-testid="craving-offer-items">
-          {`Every ${ROUTE_KIND[route]} dish on tonight's menu falls — but never the ${ENEMY.emoji}. It gets faster as you go.`}
+          {`Every ${ROUTE_KIND[route]} dish on tonight's menu falls — never catch the ${ENEMY.emoji}, never drop a dish. ${CRAVING_LIVES} lives; every ${POINTS_PER_LEVEL} points it gets faster.`}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <Button data-testid="craving-start" size="sm" onClick={begin}>
@@ -266,7 +266,7 @@ export function CravingGame({
           {/* Why it stopped early, when it did: three germs end the round before the clock. */}
           {tally.lives === 0 ? (
             <p className="m-0 mb-1 type-caption font-semibold text-[var(--error)]" data-testid="craving-out">
-              Three germs on the plate — that round is over.
+              Out of lives — that round is over.
             </p>
           ) : null}
           {/* "Nice catch!" only for a catch: after a Skip or an empty plate it sat above "the
@@ -275,11 +275,12 @@ export function CravingGame({
             <>
               <p className="m-0 type-h3">Nice catch! 🍽️</p>
               <p className="m-0 mt-0.5 type-body font-semibold tabular-nums" data-testid="craving-final-score">
-                {`${tally.score} points · reached Level ${levelNumber(level)}`}
+                {`${tally.score} points · reached Level ${level}`}
               </p>
               <p className="m-0 mt-0.5 type-caption text-[var(--text-muted)]" data-testid="craving-score">
                 {`You caught ${tally.caught} ${tally.caught === 1 ? 'dish' : 'dishes'}`}
-                {tally.germs > 0 ? ` and ${tally.germs} ${tally.germs === 1 ? 'germ' : 'germs'}.` : '.'}
+                {tally.germs > 0 ? ` and ${tally.germs} ${tally.germs === 1 ? 'germ' : 'germs'}` : ''}
+                {tally.missed > 0 ? `, and let ${tally.missed} fall.` : '.'}
               </p>
             </>
           ) : (
@@ -334,7 +335,7 @@ export function CravingGame({
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>
           {'Catch Your Craving · '}
-          <span data-testid="craving-level">{`Level ${levelNumber(level)}`}</span>
+          <span data-testid="craving-level">{`Level ${level}`}</span>
         </SectionLabel>
         <span className="flex items-center gap-3 type-caption tabular-nums">
           <span data-testid="craving-lives" aria-label={`${tally.lives} of ${CRAVING_LIVES} lives left`}>

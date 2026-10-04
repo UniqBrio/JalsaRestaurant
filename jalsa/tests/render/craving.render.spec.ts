@@ -14,11 +14,11 @@
  * FAIL-FIRST EVIDENCE (18-Sep-2026) — recorded in TEST_SUMMARY.md.
  */
 import { test, expect } from '@playwright/test';
-import { LEVELS, plateReach } from '../../src/lib/craving';
+import { levelRules, plateReach } from '../../src/lib/craving';
 
-/* Revised 03-Oct-2026: the plate's width is the level's. Easy has the widest plate, so it is the
+/* Revised 03-Oct-2026 (and 04-Oct-2026, levels now from the score): the plate's width is the level's. Level 1 has the widest plate, so it is the
    one that reaches furthest towards the edges - the case this spec exists to measure. */
-const PLATE_WIDTH_PCT = LEVELS.easy.plateWidthPct;
+const PLATE_WIDTH_PCT = levelRules(1).plateWidthPct;
 const PLATE_REACH_PCT = plateReach(PLATE_WIDTH_PCT);
 
 /** Every width the requester named. */

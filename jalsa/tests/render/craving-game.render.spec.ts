@@ -1,6 +1,7 @@
 /**
  * Catch Your Craving on the order-placed screen, mounted for real (03-Oct-2026; revised
- * 04-Oct-2026 - one Play, levels that climb by themselves, the menu of the table's kind falls).
+ * 04-Oct-2026 - one Play, the menu of the table's kind falls, and - second round - no clock: five
+ * lives, a dropped dish costs one, and every 100 points is a faster level).
  *
  * The REAL CravingGame (tests/render/mounts/craving.entry.tsx) is bundled and mounted on a page
  * carrying the application's stylesheet, for a NON-VEG table and a menu of every kind. The spec
@@ -9,7 +10,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { bundleForBrowser } from '../support/mount';
-import { CATCH_POINTS, ENEMY_PENALTY, LEVELS } from '../../src/lib/craving';
+import { CATCH_POINTS, CRAVING_LIVES, ENEMY_PENALTY, levelRules } from '../../src/lib/craving';
 
 const ENTRY = fileURLToPath(new URL('./mounts/craving.entry.tsx', import.meta.url));
 const MENU = [
@@ -48,6 +49,7 @@ test('the offer is "Catch Your Craving", names the kind that falls, and has one 
   await expect(offer).not.toContainText('Hungry while you wait?');
   await expect(offer).toContainText('Catch the food. Avoid the bad item!');
   await expect(page.getByTestId('craving-offer-items')).toContainText('Every Non-veg dish on tonight');
+  await expect(page.getByTestId('craving-offer-items')).toContainText('5 lives; every 100 points it gets faster.');
   await expect(page.getByTestId('craving-offer-items')).toContainText('🦠');
   await expect(page.getByTestId('craving-start')).toHaveText('Play');
   // No level picker: the guest does not choose one.
@@ -58,12 +60,18 @@ test('the offer is "Catch Your Craving", names the kind that falls, and has one 
   expect(h).toBeGreaterThanOrEqual(44);
 });
 
-test('only available dishes of the table\'s kind and the germ fall - and the game climbs to Level 2 by itself', async ({ page }) => {
+test('only available dishes of the table\'s kind and the germ fall, and a dish dropped past the plate costs a life', async ({ page }) => {
   test.setTimeout(45_000);
   await mount(page);
   await page.getByTestId('craving-start').click();
   await expect(page.getByTestId('craving-level')).toHaveText('Level 1');
-  await expect(page.getByTestId('craving-plate')).toHaveAttribute('style', new RegExp(`width: ${LEVELS.easy.plateWidthPct}%`));
+  await expect(page.getByTestId('craving-lives')).toHaveText(`Lives ${CRAVING_LIVES}`);
+  await expect(page.getByTestId('craving-plate')).toHaveAttribute('style', new RegExp(`width: ${levelRules(1).plateWidthPct}%`));
+  // Park the plate at the far left, so most dishes fall past it.
+  const box = (await page.getByTestId('craving-area').boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.up();
 
   const seen = new Set<string>();
   const durations = new Set<string>();
@@ -81,17 +89,13 @@ test('only available dishes of the table\'s kind and the germ fall - and the gam
     if (s === 'ENEMY') continue;
     expect(NON_VEG_AVAILABLE.some((n) => s.endsWith(n)), `"${s}" is an available Non-veg dish`).toBe(true);
   }
-  expect([...durations]).toEqual([`${LEVELS.easy.fallMs}ms`]);
+  expect([...durations]).toEqual([`${levelRules(1).fallMs}ms`]);
 
-  // Ten seconds in, it climbs on its own: Level 2, a narrower plate, faster drops.
-  await expect(page.getByTestId('craving-level')).toHaveText('Level 2', { timeout: 12_000 });
-  await expect(page.getByTestId('craving-event')).toContainText('Level up! Level 2');
-  await expect(page.getByTestId('craving-plate')).toHaveAttribute('style', new RegExp(`width: ${LEVELS.moderate.plateWidthPct}%`));
-  await expect(
-    page.locator(`[data-testid="craving-food"][style*="${LEVELS.moderate.fallMs}ms"], [data-testid="craving-enemy"][style*="${LEVELS.moderate.fallMs}ms"]`).first()
-  ).toBeAttached({ timeout: 3_000 });
+  // A dish that hit the floor took a life - and the game is still running.
+  await expect(page.getByTestId('craving-lives')).not.toHaveText(`Lives ${CRAVING_LIVES}`, { timeout: 10_000 });
+  await expect(page.getByTestId('craving-playing')).toBeVisible();
 
-  // The plate: a white oval, inside the area.
+  // The plate: maroon-rimmed, inside the area.
   const plate = await page.evaluate(() => {
     const p = document.querySelector('[data-testid="craving-plate"]') as HTMLElement;
     const a = document.querySelector('[data-testid="craving-area"]') as HTMLElement;
@@ -106,7 +110,7 @@ test('only available dishes of the table\'s kind and the germ fall - and the gam
 test.describe('reduced motion: the same rules, tapped', () => {
   test.use({ reducedMotion: 'reduce' });
 
-  test('a dish scores, the germ costs points and a life, three germs end it - and Play again starts another', async ({ page }) => {
+  test('dishes score, every 100 points is a new level, germs cost lives, five end it - and Play again starts another', async ({ page }) => {
     await mount(page);
     await page.getByTestId('craving-start').click();
     await expect(page.getByTestId('craving-reduced')).toBeVisible();
@@ -117,32 +121,39 @@ test.describe('reduced motion: the same rules, tapped', () => {
     const score = page.getByTestId('craving-live-score');
     const lives = page.getByTestId('craving-lives');
     await expect(score).toHaveText('0 points');
-    await expect(lives).toHaveText('Lives 3');
+    await expect(lives).toHaveText(`Lives ${CRAVING_LIVES}`);
 
     await page.getByTestId('craving-tap-n1').click();
     await page.getByTestId('craving-tap-n2').click();
     await expect(score).toHaveText(`${2 * CATCH_POINTS} points`);
     await expect(page.getByTestId('craving-event')).toHaveText(`+${CATCH_POINTS} Mutton Biryani`);
 
-    await page.getByTestId('craving-tap-enemy').click();
-    await expect(score).toHaveText(`${Math.max(0, 2 * CATCH_POINTS - ENEMY_PENALTY)} points`);
-    await expect(lives).toHaveText('Lives 2');
-    await expect(page.getByTestId('craving-event')).toHaveText(`Germ! −${ENEMY_PENALTY}`);
+    // Eight more dishes: 100 points, and the game climbs to Level 2 by itself.
+    for (let i = 0; i < 8; i++) await page.getByTestId('craving-tap-n3').click();
+    await expect(score).toHaveText('100 points');
+    await expect(page.getByTestId('craving-level')).toHaveText('Level 2');
+    await expect(page.getByTestId('craving-event')).toHaveText('Level up! Level 2 — faster now');
 
     await page.getByTestId('craving-tap-enemy').click();
-    await page.getByTestId('craving-tap-enemy').click();
+    await expect(score).toHaveText(`${100 - ENEMY_PENALTY} points`);
+    await expect(lives).toHaveText(`Lives ${CRAVING_LIVES - 1}`);
+    await expect(page.getByTestId('craving-event')).toHaveText(`Germ! −${ENEMY_PENALTY} and −1 life`);
+
+    for (let i = 1; i < CRAVING_LIVES; i++) await page.getByTestId('craving-tap-enemy').click();
     await expect(page.getByTestId('craving-done')).toBeVisible();
-    await expect(page.getByTestId('craving-out')).toHaveText('Three germs on the plate — that round is over.');
-    await expect(page.getByTestId('craving-final-score')).toHaveText('0 points · reached Level 1');
-    await expect(page.getByTestId('craving-score')).toHaveText('You caught 2 dishes and 3 germs.');
+    await expect(page.getByTestId('craving-out')).toHaveText('Out of lives — that round is over.');
+    await expect(page.getByTestId('craving-final-score')).toHaveText('25 points · reached Level 1');
+    await expect(page.getByTestId('craving-score')).toHaveText('You caught 10 dishes and 5 germs.');
 
-    // Play again starts a fresh game, back on Level 1.
+    // Play again starts a fresh game, back on Level 1 with five lives.
     await expect(page.getByTestId('craving-again')).toHaveText('Play again');
     await page.getByTestId('craving-again').click();
     await expect(page.getByTestId('craving-playing')).toBeVisible();
     await expect(page.getByTestId('craving-level')).toHaveText('Level 1');
     await expect(page.getByTestId('craving-live-score')).toHaveText('0 points');
+    await expect(page.getByTestId('craving-lives')).toHaveText(`Lives ${CRAVING_LIVES}`);
   });
+
 });
 
 test('the game never widens the page at 320px', async ({ page }) => {

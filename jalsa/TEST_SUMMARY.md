@@ -4,6 +4,18 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-04 - Catch Your Craving runs until the lives are gone; the score sets the speed
+
+**The owner:** "why is the game getting stopped when a level is reached - do not stop. On missing a craving cut a life as well, make it 5, and as the points increase the speed increases."
+
+**Changes:** no clock for the falling game (the 30 s stop - which is what ended it on Level 3 - now applies to the reduced-motion tap game only, where nothing can be missed); `CRAVING_LIVES` 3 → 5; a dish dropped past the plate costs a life (a germ let past costs nothing); points a flat 10; level = 1 + ⌊score / 100⌋, without end; `levelRules(n)` tightens fall time, spawn rate, germ share and plate width each level down to floors (1.2 s, 0.45 s, 40 %, 14 %); the tally is built in event handlers from a ref so two landings in one frame both count; level-up and "Missed X — −1 life" said under the area; end card "Out of lives — that round is over."
+
+**Rungs:** `tests/unit/craving.unit.spec.ts` 67 (superseded in place: the clock, three fixed levels, level-scaled points, three lives; new: score→level table, every level harder than the last down to the floors, a dropped dish costs a life); `tests/render/craving-game.render.spec.ts` (a dish dropped past a parked plate costs a life and play continues; ten taps reach Level 2 by score; five germs end it; Play again restores five lives).
+
+**Results (04-Oct):** typecheck 0 · lint 0 · audit:all 10/10 · unit 1487 passed · render 289 passed. NOT OBSERVED FAILING on the pre-change tree: the endless-play render case (the old game would have stopped at 30 s, beyond this case's window).
+
+---
+
 ## 2026-10-04 - Catch Your Craving: a picture per dish, two-line names, a decorated plate
 
 **The owner, from the live game:** curries and fried items all fell as the same emoji (Mutton Masala / Shuka / Chettinadu → 🍖); the plate looked plain; long names ran off the edge.

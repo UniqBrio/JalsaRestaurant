@@ -189,10 +189,22 @@ export const ENEMY = { emoji: '🦠', name: 'Germ' } as const;
 
 /* ── Levels and points ─────────────────────────────────────────────────────────────────────── */
 
-export type CravingLevel = 'easy' | 'moderate' | 'hard';
+/*
+ * 04-Oct-2026, second round, the owner: "why is the game getting stopped when a level is reached -
+ * do not stop. On missing a craving we can cut a life as well, make it 5, and as the points
+ * increase the speed increases."
+ *
+ * SUPERSEDES the three fixed levels (Easy / Moderate / Hard, chosen and then climbed by the clock)
+ * and the 30-second game. Now: no clock. Play runs until the five lives are gone (or Skip). The
+ * level is the SCORE's - one every 100 points, without end - and every level is a little faster,
+ * busier, germier and has a smaller plate, each with a floor so it stays playable rather than
+ * becoming impossible.
+ */
+
+/** A level, from 1. Unbounded: the game climbs as long as the guest keeps catching. */
+export type CravingLevel = number;
 
 export interface LevelRules {
-  label: string;
   /** How long one drop takes to fall, ms. Shorter is harder to reach. */
   fallMs: number;
   /** How often something is released, ms. Shorter is busier. */
@@ -203,71 +215,66 @@ export interface LevelRules {
   plateWidthPct: number;
 }
 
-/**
- * Three levels, and every one of them changes play - speed, density, how many germs, and how
- * wide the plate is. None is a colour change. The numbers are ordered (asserted in
- * craving.unit.spec.ts), so "Hard" can never quietly become easier than "Moderate".
- *
- * 04-Oct-2026: the guest no longer CHOOSES a level ("it's not like the user should select that"):
- * every game starts on the first and climbs on its own as it runs (`levelAt`).
- */
-export const LEVELS: Record<CravingLevel, LevelRules> = {
-  easy: { label: 'Easy', fallMs: 3200, spawnMs: 1100, enemyChance: 0.15, plateWidthPct: 28 },
-  moderate: { label: 'Moderate', fallMs: 2500, spawnMs: 850, enemyChance: 0.25, plateWidthPct: 22 },
-  hard: { label: 'Hard', fallMs: 1800, spawnMs: 600, enemyChance: 0.35, plateWidthPct: 17 },
-};
-
-export const LEVEL_ORDER: readonly CravingLevel[] = ['easy', 'moderate', 'hard'];
-
-/** The seconds into a game at which the next level begins - 10 s each, over a 30 s game. */
-export const LEVEL_UP_AT_SECONDS: readonly number[] = [10, 20];
-
-/** The level a game is on, `elapsed` seconds in. It only ever climbs. */
-export function levelAt(elapsed: number): CravingLevel {
-  const passed = LEVEL_UP_AT_SECONDS.filter((t) => elapsed >= t).length;
-  return LEVEL_ORDER[Math.min(passed, LEVEL_ORDER.length - 1)]!;
-}
-
-/** "Level 2" - the number the guest sees, from 1. */
-export const levelNumber = (level: CravingLevel): number => LEVEL_ORDER.indexOf(level) + 1;
-
 /** Points for a dish on the plate. */
 export const CATCH_POINTS = 10;
 /** Points lost for a germ on the plate. */
 export const ENEMY_PENALTY = 15;
-/** Germs a guest may catch before the game ends early. */
-export const CRAVING_LIVES = 3;
+/** Lives a game starts with. A germ on the plate, or a dish that falls past it, costs one. */
+export const CRAVING_LIVES = 5;
+/** Every this many points is the next level - ten dishes, give or take a germ. */
+export const POINTS_PER_LEVEL = 100;
+
+/** The level a score has reached. */
+export function levelForScore(score: number): CravingLevel {
+  return 1 + Math.floor(Math.max(0, score) / POINTS_PER_LEVEL);
+}
+
+/**
+ * What a level plays like. Level 1 is gentle; each level after it is faster, busier, has more
+ * germs and a smaller plate - down to a floor on each, so a long game gets hard, never unfair.
+ */
+export function levelRules(level: CravingLevel): LevelRules {
+  const n = Math.max(1, Math.floor(level)) - 1;
+  return {
+    fallMs: Math.max(1200, 3200 - n * 250),
+    spawnMs: Math.max(450, 1100 - n * 80),
+    enemyChance: Math.min(0.4, 0.15 + n * 0.03),
+    plateWidthPct: Math.max(14, 28 - n * 2),
+  };
+}
 
 export interface CravingScore {
   score: number;
   lives: number;
   caught: number;
   germs: number;
+  /** Dishes that fell past the plate. */
+  missed: number;
 }
 
-export const FRESH_SCORE: CravingScore = { score: 0, lives: CRAVING_LIVES, caught: 0, germs: 0 };
+export const FRESH_SCORE: CravingScore = { score: 0, lives: CRAVING_LIVES, caught: 0, germs: 0, missed: 0 };
 
 /**
  * What one landing does to the score. Pure, so the whole points table is tested without a
- * browser. A miss changes nothing; a dish adds; a germ costs points (never below zero) and a life.
- *
- * 04-Oct-2026: a dish is worth more as the game climbs - 10 on Level 1, 20 on Level 2, 30 on
- * Level 3 - so holding on through the faster levels is where the score is made.
+ * browser.
+ *   a dish on the plate     +10
+ *   a dish that falls past  a life (04-Oct-2026: "on missing a craving we can cut a life")
+ *   a germ on the plate     −15 (never below zero) and a life
+ *   a germ that falls past  nothing - avoiding it is the point
  */
-export function scoreLanding(
-  s: CravingScore,
-  landed: 'food' | 'enemy',
-  onPlate: boolean,
-  level: CravingLevel = 'easy'
-): CravingScore {
+export function scoreLanding(s: CravingScore, landed: 'food' | 'enemy', onPlate: boolean): CravingScore {
+  if (landed === 'food') {
+    return onPlate
+      ? { ...s, score: s.score + CATCH_POINTS, caught: s.caught + 1 }
+      : { ...s, lives: Math.max(0, s.lives - 1), missed: s.missed + 1 };
+  }
   if (!onPlate) return s;
-  if (landed === 'food') return { ...s, score: s.score + CATCH_POINTS * levelNumber(level), caught: s.caught + 1 };
   return { ...s, score: Math.max(0, s.score - ENEMY_PENALTY), lives: Math.max(0, s.lives - 1), germs: s.germs + 1 };
 }
 
 /** Whether the next drop is the germ. `roll` is a 0..1 random number, passed in so it is testable. */
 export function dropIsEnemy(level: CravingLevel, roll: number): boolean {
-  return roll < LEVELS[level].enemyChance;
+  return roll < levelRules(level).enemyChance;
 }
 
 /* ── What is suggested at the end ──────────────────────────────────────────────────────────── */
@@ -336,9 +343,10 @@ export function cravingSuggestions(
 /**
  * How long a round of this lasts, and how often food appears.
  *
- * 30 SECONDS, inside the 20–30 the requester asked for. It is deliberately not a number the
- * component owns: the test that proves the game stops reads it from here, so "it ends" and "it
- * ends when we said" cannot drift apart. (24 until 04-Oct-2026: three 10-second levels need 30.)
+ * 30 SECONDS - and since 04-Oct-2026 only for the REDUCED-MOTION game, where nothing falls, so
+ * nothing can be missed and lives alone would never end it. The falling game has no clock: it
+ * runs until the lives are gone ("do not stop"). It is deliberately not a number the component
+ * owns: the test that proves the tap game stops reads it from here.
  */
 export const CRAVING_SECONDS = 30;
 /**
@@ -357,7 +365,7 @@ export const CRAVING_MAX_PLAYS = 5;
  * IT IS ONE NUMBER BECAUSE THREE THINGS DEPEND ON IT AND THEY MUST AGREE. The first version
  * clamped the plate's CENTRE to 92%, which put its right edge outside the area;
  * `craving.render.spec.ts` measured it and refused it. 03-Oct-2026: the width now comes from the
- * level (`LEVELS[level].plateWidthPct`), so every function here takes it rather than a constant.
+ * level (`levelRules(level).plateWidthPct`), so every function here takes it rather than a constant.
  */
 export const plateReach = (widthPct: number): number => widthPct / 2;
 
