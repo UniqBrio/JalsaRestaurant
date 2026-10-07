@@ -2,6 +2,17 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-07 - Cancel order & free table; takeaway photo - PASS except G8 (no database here)
+
+Request: `requests/2026-10-07-takeaway-photo-and-order-cancel.md`.
+
+- New: `jalsa/tests/unit/order-cancel.db.unit.spec.ts` (10, PGlite: atomic void + free, kitchen rounds and waiting tickets cancelled, phones let go, one audit row; gone / changed / not_here change nothing; constraints; EXECUTE service_role only). FAIL-FIRST observed: `function cancel_bill_and_free(...) does not exist`.
+- New: `jalsa/tests/unit/order-cancel.unit.spec.ts` (17, round rig over the real mutations + pure rules + source pins). FAIL-FIRST observed: bundle cannot import `cancelOrderAndFreeTable`. NOT OBSERVED FAILING on their own: the closeBill / requestPayment void cases (bundle cannot build on the old tree).
+- New: `jalsa/tests/render/order-cancel.render.spec.ts` (9, real dialog and photo picker, both themes, 390 px, double tap sends once, a 3000x2250 photo sent as JPEG <= 1 MB). FAIL-FIRST observed: module not found.
+- Superseded in place (dated note): `jalsa/tests/unit/menu-routing-25sep.unit.spec.ts` item 23 accept literal.
+- Results: tsc OK, lint OK, audit:all 10/10, unit 1514 passed, render 298 passed. `npm run gate`: G1-G7, G9-G12 PASS; G8 FAIL - 16 = 4 specs x 4 viewports that need a reachable seeded database (reachability, guest-journey, guest-total-visibility, closure-upsell-tip); this container has none, as in CI, which runs only the degraded spec.
+- Migration `20261007090000` applied nowhere yet.
+
 ## Application run - jalsa - 2026-10-04 - Catch Your Craving runs until the lives are gone; the score sets the speed
 
 **The owner:** "why is the game getting stopped when a level is reached - do not stop. On missing a craving cut a life as well, make it 5, and as the points increase the speed increases."

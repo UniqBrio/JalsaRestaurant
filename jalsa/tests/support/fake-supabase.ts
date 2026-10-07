@@ -16,7 +16,8 @@
 
 export interface FakeQuery {
   table: string;
-  op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' | 'rpc';
+  /** `upload` / `remove` are Storage calls (07-Oct-2026): `table` is `storage:<bucket>`, `cols` the key(s). */
+  op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' | 'rpc' | 'upload' | 'remove';
   cols: string;
   filters: Array<[string, string, unknown]>;
   body: unknown;
@@ -198,9 +199,19 @@ async function run(q: FakeQuery): Promise<Answer> {
   return { data: q.op === 'rpc' ? answer : rows, error: null, count: rows.length };
 }
 
+const storageCall = (bucket: string, op: 'upload' | 'remove', keys: string, body: unknown) =>
+  run({ table: `storage:${bucket}`, op, cols: keys, filters: [], body, single: false, maybe: false, head: false });
+
 const client = {
   from: (table: string) => new Builder(table),
   rpc: (name: string, args: unknown) => new Builder(name, 'rpc', args),
+  // Storage, for the takeaway photo (07-Oct-2026): recorded and answered like any other call.
+  storage: {
+    from: (bucket: string) => ({
+      upload: (key: string, _bytes: unknown, opts?: unknown) => storageCall(bucket, 'upload', key, opts ?? null),
+      remove: (keys: string[]) => storageCall(bucket, 'remove', keys.join(','), null),
+    }),
+  },
 };
 
 export function db() {

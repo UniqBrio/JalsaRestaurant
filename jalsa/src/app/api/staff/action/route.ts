@@ -11,6 +11,8 @@ import {
   completeRequest,
   ensureOpenBill,
   freeTable,
+  cancelOrderAndFreeTable,
+  OrderNotLive,
   clearTable,
   joinTableToBill,
   placeRound,
@@ -66,6 +68,8 @@ type Action =
     }
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'free-table'; tableId: string }
+  /* An order already with the kitchen, cancelled and its table freed together (07-Oct-2026). */
+  | { action: 'cancel-free-table'; billId: string; tableId: string; reason?: string; note?: string }
   | { action: 'clear-table'; tableId: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
   | { action: 'assign-waiter'; billId: string; staffId: string | null }
@@ -158,6 +162,7 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       return ok({ done: true });
 
     case 'close-bill': {
+      // A cancelled order is refused in words (07-Oct-2026), never closed as if it were paid.
       const result = await closeBill({
         billId: input.billId,
         mode: input.mode,
@@ -166,7 +171,11 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           ? { discountType: input.discountType, discountValue: input.discountValue }
           : {}),
         actor,
+      }).catch((err: unknown) => {
+        if (err instanceof OrderNotLive) return err;
+        throw err;
       });
+      if (result instanceof OrderNotLive) return fail(409, { code: 'conflict', message: result.message });
       return ok(result);
     }
 
@@ -180,6 +189,24 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       // two eventually disagree.
       await freeTable({ tableId: input.tableId, actor });
       return ok({ done: true });
+
+    case 'cancel-free-table': {
+      // Guarded in cancelOrderAndFreeTable (both grants, the order's state, the table) and in the
+      // database function it calls, which does the whole change in one transaction.
+      try {
+        const done = await cancelOrderAndFreeTable({
+          billId: String(input.billId ?? ''),
+          tableId: String(input.tableId ?? ''),
+          reason: input.reason ?? null,
+          note: input.note ?? null,
+          actor,
+        });
+        return ok({ done: true, ...done });
+      } catch (err) {
+        if (err instanceof OrderNotLive) return fail(409, { code: 'conflict', message: err.message });
+        throw err;
+      }
+    }
 
     case 'clear-table':
       await clearTable({ tableId: input.tableId, actor });

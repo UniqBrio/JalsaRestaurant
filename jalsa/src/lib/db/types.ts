@@ -159,6 +159,9 @@ export interface Bill {
   /** Rupees, entered by a person for this order. A separate line on the bill, never an item, never
    *  taxed (GST is charged on the food only). */
   packagingCharge: number;
+  /** A takeaway's photo (07-Oct-2026): '/api/media/takeaway/<bill>/<uuid>.jpg', or ''. Served only
+   *  to signed-in staff who may see orders. Optional: a bill built by hand need not carry one. */
+  photoUrl?: string;
   kots: Kot[];
 }
 

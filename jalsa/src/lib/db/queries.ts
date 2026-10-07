@@ -151,7 +151,7 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
 const BILL_SELECT = `
   id, code, status, group_code, guests, occasion_type, occasion_name, occasion_source,
   discount_pct, discount_amount, tax_rate, payment_mode, payment_reference,
-  payment_requested_at, closed_at, opened_at, order_type, packaging_charge,
+  payment_requested_at, closed_at, opened_at, order_type, packaging_charge, photo_url,
   host_table:host_table_id (name),
   captain:captain_staff_id (id, name),
   waiter:waiter_staff_id (id, name),
@@ -315,6 +315,7 @@ function shapeBill(row: Record<string, unknown>): Bill {
     // with nothing for packaging.
     orderType: row.order_type === 'takeaway' ? 'takeaway' : 'dine_in',
     packagingCharge: Number(row.packaging_charge ?? 0),
+    photoUrl: (row.photo_url as string | null) ?? '',
     kots,
     lovedItemIds: ((row.guest_favourite ?? []) as Array<{ menu_item_id: string | null }>)
       .map((f) => f.menu_item_id)
@@ -460,6 +461,65 @@ export async function listClosedBillsBetween(from: string, to: string): Promise<
     .order('closed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+}
+
+/** A cancelled order, as the operational report lists it (07-Oct-2026). */
+export interface CancelledOrder {
+  id: string;
+  code: string;
+  tables: string;
+  orderType: string;
+  cancelledAt: string;
+  /** What the order came to (food after discount, tax, packaging; never the tip). Not income. */
+  amount: number;
+  reason: string;
+  note: string;
+  by: string;
+  fromStatus: string;
+  rounds: number;
+}
+
+/**
+ * Orders CANCELLED in a range, by when they were cancelled (07-Oct-2026).
+ *
+ * Read on their own, never mixed into `listClosedBillsBetween`: a cancelled order was not paid,
+ * so it must never reach a revenue, GST, payment-mix or dish figure. It is shown beside them, as
+ * what it is.
+ */
+export async function listCancelledBillsBetween(from: string, to: string): Promise<CancelledOrder[]> {
+  const restaurantId = await currentRestaurantId();
+  const { start, end } = dayWindow(from, to);
+  const { data, error } = await db()
+    .from('bill')
+    .select(
+      'id, code, order_type, cancelled_at, cancelled_total, cancel_reason, cancel_note, cancelled_by_label, cancelled_from_status, bill_table ( dining_table:table_id (name) ), kot ( id )'
+    )
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'void')
+    .gte('cancelled_at', start.toISOString())
+    .lt('cancelled_at', end.toISOString())
+    .order('cancelled_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    const names = ((row.bill_table as Array<{ dining_table: { name: string } | null }> | null) ?? [])
+      .map((bt) => bt.dining_table?.name)
+      .filter((n): n is string => !!n)
+      .sort();
+    return {
+      id: row.id as string,
+      code: row.code as string,
+      tables: row.order_type === 'takeaway' ? TAKEAWAY_LABEL : names.join(' + ') || '—',
+      orderType: row.order_type as string,
+      cancelledAt: row.cancelled_at as string,
+      amount: Number(row.cancelled_total ?? 0),
+      reason: (row.cancel_reason as string) ?? '',
+      note: (row.cancel_note as string) ?? '',
+      by: (row.cancelled_by_label as string) ?? '',
+      fromStatus: (row.cancelled_from_status as string) ?? '',
+      rounds: ((row.kot as unknown[] | null) ?? []).length,
+    };
+  });
 }
 
 /**

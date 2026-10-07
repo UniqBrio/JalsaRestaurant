@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { Button } from './button';
+import { cn } from '@/lib/cn';
 import { imageProblem } from '@/lib/media';
+import { shrinkToJpeg } from '@/lib/image-shrink';
 
 /**
  * Choose a PNG or JPEG of 1 MB or less, see it, replace it, remove it (items 23 and 32).
@@ -19,6 +21,9 @@ export function ImagePicker({
   testId,
   label,
   disabled = false,
+  photo = false,
+  remove,
+  onSaved,
 }: {
   value: string;
   onChange: (url: string) => void;
@@ -26,31 +31,73 @@ export function ImagePicker({
   testId: string;
   label: string;
   disabled?: boolean;
+  /**
+   * A PHOTO rather than an artwork file (07-Oct-2026, takeaway orders): any image the phone can
+   * read, a "Take photo" button that opens the camera where the device has one, and the picture
+   * made small enough to send (`image-shrink.ts`). The server's check is unchanged.
+   */
+  photo?: boolean;
+  /** Removing goes to the server and may fail; without it, Remove only clears the value. */
+  remove?: () => Promise<void>;
+  /** Told after a save or a removal went through, for the screen's own confirmation. */
+  onSaved?: (what: 'saved' | 'removed') => void;
 }) {
   const [problem, setProblem] = React.useState<string | null>(null);
-  const [busy, setBusy] = React.useState(false);
+  const [busy, setBusy] = React.useState<'upload' | 'remove' | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const cameraRef = React.useRef<HTMLInputElement>(null);
+
+  const reset = () => {
+    if (inputRef.current) inputRef.current.value = '';
+    if (cameraRef.current) cameraRef.current.value = '';
+  };
 
   const choose = async (file: File | undefined): Promise<void> => {
     setProblem(null);
     if (!file) return;
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bytes = new Uint8Array(await file.arrayBuffer());
+    // A photo that is not already a PNG or JPEG of 1 MB or less is redrawn as one.
+    if (photo && imageProblem(bytes) !== null) {
+      setBusy('upload');
+      const shrunk = await shrinkToJpeg(file);
+      setBusy(null);
+      if (shrunk) bytes = new Uint8Array(shrunk);
+    }
     const why = imageProblem(bytes);
     if (why) {
       setProblem(why);
-      if (inputRef.current) inputRef.current.value = '';
+      reset();
       return;
     }
-    setBusy(true);
+    setBusy('upload');
     try {
       let binary = '';
       for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       onChange(await upload(btoa(binary)));
+      onSaved?.('saved');
     } catch (err: unknown) {
       setProblem(err instanceof Error ? err.message : 'That image could not be saved. Try again.');
     } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = '';
+      setBusy(null);
+      reset();
+    }
+  };
+
+  const takeAway = async (): Promise<void> => {
+    setProblem(null);
+    if (!remove) {
+      onChange('');
+      return;
+    }
+    setBusy('remove');
+    try {
+      await remove();
+      onChange('');
+      onSaved?.('removed');
+    } catch (err: unknown) {
+      setProblem(err instanceof Error ? err.message : 'That image could not be removed. Try again.');
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -63,45 +110,77 @@ export function ImagePicker({
             src={value}
             alt={label}
             data-testid={`${testId}-preview`}
-            className="h-16 w-16 rounded-[var(--radius-md)] object-cover"
+            className={photo ? 'h-24 w-24 rounded-[var(--radius-md)] object-cover' : 'h-16 w-16 rounded-[var(--radius-md)] object-cover'}
           />
         ) : (
-          <span className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)] type-caption text-[var(--text-muted)]">
-            No image
+          <span
+            className={cn(
+              'flex items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)] type-caption text-[var(--text-muted)]',
+              photo ? 'h-24 w-24' : 'h-16 w-16'
+            )}
+          >
+            {photo ? 'No photo' : 'No image'}
           </span>
         )}
         <input
           ref={inputRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept={photo ? 'image/*' : 'image/png,image/jpeg'}
           className="sr-only"
           aria-label={label}
           data-testid={`${testId}-file`}
-          disabled={disabled || busy}
+          disabled={disabled || busy !== null}
           onChange={(e) => void choose(e.target.files?.[0])}
         />
+        {photo ? (
+          /* `capture` opens the camera on a phone; a computer without one simply offers its files. */
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            aria-label={`${label} - take a photo`}
+            data-testid={`${testId}-camera`}
+            disabled={disabled || busy !== null}
+            onChange={(e) => void choose(e.target.files?.[0])}
+          />
+        ) : null}
+        {photo ? (
+          <Button
+            data-testid={`${testId}-take`}
+            size="sm"
+            variant="secondary"
+            disabled={disabled || busy !== null}
+            onClick={() => cameraRef.current?.click()}
+          >
+            Take photo
+          </Button>
+        ) : null}
         <Button
           data-testid={`${testId}-choose`}
           size="sm"
           variant="secondary"
-          disabled={disabled || busy}
+          disabled={disabled || busy !== null}
           onClick={() => inputRef.current?.click()}
         >
-          {busy ? 'Uploading…' : value ? 'Replace' : 'Choose image'}
+          {busy === 'upload' ? 'Uploading…' : value ? 'Replace' : photo ? 'Choose photo' : 'Choose image'}
         </Button>
         {value ? (
           <Button
             data-testid={`${testId}-remove`}
             size="sm"
             variant="ghost"
-            disabled={disabled || busy}
-            onClick={() => onChange('')}
+            disabled={disabled || busy !== null}
+            onClick={() => void takeAway()}
           >
-            Remove
+            {busy === 'remove' ? 'Removing…' : 'Remove'}
           </Button>
         ) : null}
       </div>
-      <p className="m-0 type-caption text-[var(--text-muted)]">PNG or JPEG, 1 MB at most.</p>
+      <p className="m-0 type-caption text-[var(--text-muted)]">
+        {photo ? 'From the camera or the gallery. A large photo is made smaller before it is sent.' : 'PNG or JPEG, 1 MB at most.'}
+      </p>
       {problem ? (
         <p
           role="alert"

@@ -43,3 +43,20 @@ export type MediaFolder = 'menu' | 'brand';
 export const MEDIA_URL = /^\/api\/media\/(menu|brand)\/[0-9a-f-]{36}\.(png|jpg)$/;
 
 export const isMediaUrl = (url: string): boolean => MEDIA_URL.test(url);
+
+/**
+ * A takeaway order's photo (07-Oct-2026): `/api/media/takeaway/<bill uuid>/<uuid>.jpg`.
+ *
+ * NOT PUBLIC, unlike `menu/` and `brand/`: an order's photo is the restaurant's business, not a
+ * guest's. The serving route answers it only to a signed-in staff member or owner who may see
+ * orders, for a bill of their own restaurant whose photo it is now. Same private bucket, same
+ * PNG/JPEG and 1 MB rule - no second bucket.
+ */
+export const TAKEAWAY_PHOTO_URL = /^\/api\/media\/takeaway\/([0-9a-f-]{36})\/[0-9a-f-]{36}\.(png|jpg)$/;
+
+export const isTakeawayPhotoUrl = (url: string): boolean => TAKEAWAY_PHOTO_URL.test(url);
+
+/** The bill a takeaway photo URL belongs to, or null when it is not one. */
+export function takeawayPhotoBill(url: string): string | null {
+  return TAKEAWAY_PHOTO_URL.exec(url)?.[1] ?? null;
+}

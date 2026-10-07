@@ -308,8 +308,13 @@ export function readReportAnswer<R>(ok: boolean, body: unknown): { report: R | n
  * "Nothing in this range". Decided from a report that ARRIVED, never from a missing one: a
  * report that was not read is a problem, and says so (RC-015).
  */
-export function rangeIsEmpty(report: { summary: { bills: number }; expenses: readonly unknown[] }): boolean {
-  return report.summary.bills === 0 && report.expenses.length === 0;
+export function rangeIsEmpty(report: {
+  summary: { bills: number };
+  expenses: readonly unknown[];
+  /** Cancelled orders (07-Oct-2026): a range with only cancellations still has something to show. */
+  cancelled?: readonly unknown[];
+}): boolean {
+  return report.summary.bills === 0 && report.expenses.length === 0 && !(report.cancelled?.length ?? 0);
 }
 
 /* ── The empty state's words ───────────────────────────────────────────── */

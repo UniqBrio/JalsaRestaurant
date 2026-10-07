@@ -2040,3 +2040,93 @@ export async function uploadImage(input: { folder: MediaFolder; base64: string; 
   if (error) throw new Error(`The image could not be stored: ${error.message}`);
   return { url: `/api/media/${key}` };
 }
+
+/** A takeaway photo that cannot be taken - said in words, as a 409 (07-Oct-2026). */
+export class PhotoRefused extends Error {}
+
+/**
+ * Add, replace or remove a takeaway order's photo (07-Oct-2026).
+ *
+ * The bill id is the screen's, so it is checked, never trusted: this restaurant's, a takeaway,
+ * and still running (open or asked to pay) - a settled or cancelled order's photo is history and
+ * stays as it was. The bytes are checked HERE whatever the phone checked (`imageProblem`: the file's
+ * own signature, 1 MB), and stored in the existing private `media` bucket under a key this
+ * function makes - `takeaway/<bill>/<uuid>` - so no path from the screen is ever used. A replaced
+ * or removed photo's file is deleted, best effort: the order no longer points at it either way.
+ * Same grant as placing a takeaway (`orders.create`).
+ */
+export async function setTakeawayPhoto(input: {
+  billId: string;
+  /** The new photo, base64; null removes the current one. */
+  base64: string | null;
+  actor: Actor;
+}): Promise<{ photoUrl: string }> {
+  demand(input.actor, 'orders.create');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(input.billId ?? ''))) throw new PhotoRefused('That order could not be found. Reload and try again.');
+
+  let bytes: Uint8Array | null = null;
+  if (input.base64 !== null) {
+    if (typeof input.base64 !== 'string' || input.base64.length > Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 4) {
+      throw new PhotoRefused(IMAGE_MESSAGES.tooBig(Math.floor(((typeof input.base64 === 'string' ? input.base64.length : 0) * 3) / 4)));
+    }
+    bytes = new Uint8Array(Buffer.from(input.base64, 'base64'));
+    const problem = imageProblem(bytes);
+    if (problem) throw new PhotoRefused(problem);
+  }
+
+  const restaurantId = await currentRestaurantId();
+  const { data: row, error: readErr } = await db()
+    .from('bill')
+    .select('id, code, order_type, status, photo_url')
+    .eq('id', input.billId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  if (!row || row.order_type !== 'takeaway') throw new PhotoRefused('Only a takeaway order carries a photo.');
+  if (row.status !== 'open' && row.status !== 'payment_requested') {
+    throw new PhotoRefused(`${row.code as string} is no longer running. Its photo can no longer change.`);
+  }
+  const before = (row.photo_url as string) ?? '';
+  if (bytes === null && !before) return { photoUrl: '' };
+
+  let photoUrl = '';
+  let key: string | null = null;
+  if (bytes) {
+    const kind = sniffImage(bytes)!;
+    key = `takeaway/${input.billId}/${randomUUID()}.${kind === 'png' ? 'png' : 'jpg'}`;
+    const { error: upErr } = await db().storage.from('media').upload(key, bytes, { contentType: IMAGE_CONTENT_TYPE[kind], upsert: false });
+    if (upErr) {
+      console.warn('[takeaway-photo] the photo could not be stored', input.billId, upErr.message);
+      throw new PhotoRefused('The photo could not be saved. Try again.');
+    }
+    photoUrl = `/api/media/${key}`;
+  }
+
+  const { data: changed, error } = await db()
+    .from('bill')
+    .update({ photo_url: photoUrl })
+    .eq('id', input.billId)
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['open', 'payment_requested'])
+    .eq('photo_url', before)
+    .select('id');
+  if (error) throw error;
+  if ((changed ?? []).length !== 1) {
+    // Someone else changed it, or the order closed, in between: this photo is not used.
+    if (key) await db().storage.from('media').remove([key]);
+    throw new PhotoRefused(`${row.code as string} changed while you were adding the photo. Reload and try again.`);
+  }
+  const oldKey = before.startsWith('/api/media/takeaway/') ? before.slice('/api/media/'.length) : null;
+  if (oldKey) {
+    const { error: rmErr } = await db().storage.from('media').remove([oldKey]);
+    if (rmErr) console.warn('[takeaway-photo] an old photo could not be deleted', oldKey, rmErr.message);
+  }
+
+  await audit({
+    action: 'Bill',
+    detail: `${row.code as string} takeaway photo ${!before ? 'added' : photoUrl ? 'replaced' : 'removed'}`,
+    actor: input.actor,
+    billId: input.billId,
+  });
+  return { photoUrl };
+}
