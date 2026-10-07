@@ -4,6 +4,17 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-07 - Cancel & free / takeaway photo, after review - PASS (unit, render, audits)
+
+Fixes from the code, permission and copy reviews (request file, REVIEW section).
+
+- `tests/unit/order-cancel.db.unit.spec.ts` 13 passed (new: round count seen, tip removed + audited, failed ticket cancelled, triggers refuse a round / table / ticket on a dead bill; cross-restaurant case now uses a real second restaurant). Dated supersession notes on the helper, a test name and the cross-restaurant case. FAIL-FIRST: whole file fails at the first call against 678c0d9's migration; the new cases NOT OBSERVED FAILING on their own (serial file stops first).
+- `tests/unit/order-cancel.unit.spec.ts` 20 passed (new: the doors called for real - provisional PIN 403 on both routes, media route 404/no-store for signed out, provisional, no orders.view, other bill, replaced URL; 200 private for the current photo; dish photo still public). FAIL-FIRST observed for the provisional case with the route checks removed: Expected 403, Received 409.
+- `tests/render/order-cancel.render.spec.ts` 9 passed (photo-unreadable message superseded in place, dated).
+- Full: unit 1520 passed; render 298 passed; tsc, lint, audit:all 10/10 OK. G8 unchanged (needs a database).
+
+---
+
 ## 2026-10-07 - Cancel order & free table; takeaway photo - PASS except G8 (no database here)
 
 Request: `requests/2026-10-07-takeaway-photo-and-order-cancel.md`.

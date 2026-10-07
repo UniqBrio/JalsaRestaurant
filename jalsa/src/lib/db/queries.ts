@@ -509,13 +509,13 @@ export async function listCancelledBillsBetween(from: string, to: string): Promi
     return {
       id: row.id as string,
       code: row.code as string,
-      tables: row.order_type === 'takeaway' ? TAKEAWAY_LABEL : names.join(' + ') || '—',
+      tables: row.order_type === 'takeaway' ? TAKEAWAY_LABEL : names.join(', ') || '—',
       orderType: row.order_type as string,
       cancelledAt: row.cancelled_at as string,
       amount: Number(row.cancelled_total ?? 0),
       reason: (row.cancel_reason as string) ?? '',
       note: (row.cancel_note as string) ?? '',
-      by: (row.cancelled_by_label as string) ?? '',
+      by: (row.cancelled_by_label as string) || '—',
       fromStatus: (row.cancelled_from_status as string) ?? '',
       rounds: ((row.kot as unknown[] | null) ?? []).length,
     };

@@ -156,13 +156,15 @@ test('A and B: an order completed or cancelled by someone else is refused in wor
   // C: the table now holds a different order.
   expect(by('cancel, the database says not_here').threw).toBe(`OrderNotLive: ${ORDER_CANCEL_MESSAGES.notHere}`);
   // A takeaway is at no table; this action is for tables.
-  expect(by('cancel, a takeaway').threw).toMatch(/^OrderNotLive: /);
+  expect(by('cancel, a takeaway').threw).toBe(`OrderNotLive: ${ORDER_CANCEL_MESSAGES.changed}`);
   expect(writes(by('cancel, a takeaway'))).toEqual([]);
 });
 
 test('a cancelled order can never be closed as paid, nor asked to pay', () => {
   const closed = by('close a cancelled order');
-  expect(closed.threw).toBe('OrderNotLive: This order was cancelled - there is no payment to record.');
+  // SUPERSEDED 07-Oct-2026 (copy review, same day): the message was "This order was cancelled -
+  // there is no payment to record." - now an em-dash, with the next step.
+  expect(closed.threw).toBe('OrderNotLive: This order was cancelled — there is no payment to record. Reload to see the floor as it is now.');
   expect(writes(closed)).toEqual([]);
 
   // Cancelled between the read and the write: the conditional write changed nothing, and no
@@ -190,7 +192,8 @@ test('a photo needs orders.create, a takeaway of this restaurant, still running'
   expect(by('photo on a dine-in order').threw).toBe('PhotoRefused: Only a takeaway order carries a photo.');
   expect(by('photo on another restaurant').threw).toBe('PhotoRefused: Only a takeaway order carries a photo.');
   expect(by('photo on another restaurant').log[0]!.filters).toContain('eq:restaurant_id="r1"');
-  expect(by('photo on a settled takeaway').threw).toMatch(/no longer running/);
+  // SUPERSEDED 07-Oct-2026 (copy review, same day): matched /no longer running/.
+  expect(by('photo on a settled takeaway').threw).toMatch(/is already settled or cancelled, so its photo can no longer be changed/);
   for (const name of ['photo on a dine-in order', 'photo on another restaurant', 'photo on a settled takeaway']) {
     expect(writes(by(name)), name).toEqual([]);
   }
@@ -301,4 +304,78 @@ test('the media route serves a takeaway photo only to signed-in staff who may se
   expect(fn).not.toContain('public');
   // Checked BEFORE the public pattern, so a takeaway key can never fall through to it.
   expect(s.indexOf('if (photoBill) return takeawayPhoto(key, photoBill);')).toBeLessThan(s.indexOf('if (!MEDIA_URL.test('));
+});
+
+/* ── The doors, called for real (permission review, 07-Oct-2026) ─────────────────────────────
+   FAIL-FIRST: with the two route checks removed, the provisional case got past the door and was
+   answered by the action itself - "Expected: 403, Received: 409" (observed 07-Oct-2026). The media cases were written after the
+   route existed: NOT OBSERVED FAILING - they pin the 404s the source pins above describe. */
+
+interface DoorResult {
+  name: string;
+  status: number;
+  cache: string | null;
+  body: string;
+  log: string[];
+  threw: string | null;
+}
+const DOORS = fileURLToPath(new URL('../support/rounds/order-cancel-doors.scenarios.ts', import.meta.url));
+let doors: DoorResult[] = [];
+const door = (name: string): DoorResult => {
+  const r = doors.find((x) => x.name === name);
+  expect(r, `scenario "${name}" ran`).toBeDefined();
+  return r!;
+};
+
+test.describe('the doors', () => {
+  test.beforeAll(async () => {
+    doors = await runScenario<DoorResult[]>(DOORS);
+  });
+
+  test('an issued (provisional) PIN reaches neither action, on either route - rule 5 at the door', () => {
+    for (const name of ['staff cancel, provisional PIN', 'owner cancel, provisional PIN', 'owner photo, provisional PIN']) {
+      const r = door(name);
+      expect(r.threw, name).toBeNull();
+      expect(r.status, name).toBe(403);
+      expect(r.body, name).toContain('Choose your own PIN first');
+      // Nothing past the identity check: no bill read, no rpc, no write.
+      expect(r.log.filter((l) => !l.startsWith('staff')), name).toEqual([]);
+    }
+    expect(door('staff cancel, signed out').status).toBe(401);
+    expect(door('staff cancel, no grants').status).toBe(403);
+    expect(door('staff cancel, no grants').log.some((l) => l.startsWith('bill') || l.includes('rpc'))).toBe(false);
+  });
+
+  test('a takeaway photo answers 404, never cached, to everyone but signed-in staff with orders.view for its current URL', () => {
+    for (const name of [
+      'photo, signed out',
+      'photo, provisional PIN',
+      'photo, no orders.view',
+      'photo, not this restaurant or not a takeaway',
+      'photo, an old (replaced) URL',
+    ]) {
+      const r = door(name);
+      expect(r.threw, name).toBeNull();
+      expect(r.status, name).toBe(404);
+      expect(r.cache, name).toBe('no-store');
+      expect(r.log.includes('storage:media:download'), `${name}: no bytes read`).toBe(false);
+    }
+    // Signed out: no bill is even read.
+    expect(door('photo, signed out').log.some((l) => l.startsWith('bill'))).toBe(false);
+    const ok = door('photo, signed in with orders.view');
+    expect(ok.status).toBe(200);
+    expect(ok.cache).toBe('private, no-store');
+    const dish = door('a dish photo stays public');
+    expect(dish.status).toBe(200);
+    expect(dish.cache).toContain('public');
+  });
+});
+
+test('the rounds the person saw travel to the database; a payment request that lost a race writes nothing more (code review, 07-Oct-2026)', () => {
+  expect(writes(by('cancel, with the rounds the person saw'))[0]!.body).toMatchObject({ p_expected_rounds: 1 });
+  expect(writes(by('cancel'))[0]!.body).toMatchObject({ p_expected_rounds: null });
+  const lost = writes(by('guest asks to pay, cancelled in between'));
+  // The conditional write matched nothing: no notices, no "entered the closure queue".
+  expect(lost.map((l) => `${l.table}:${l.op}`)).toEqual(['bill:update']);
+  expect(lost[0]!.filters).toContain('eq:status="open"');
 });

@@ -222,6 +222,7 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
           {selected.orderType === 'takeaway' ? (
             data.grants.includes('orders.create') && ['open', 'payment_requested'].includes(selected.status) ? (
               <ImagePicker
+                key={selected.id}
                 photo
                 value={selected.photoUrl}
                 onChange={() => undefined}

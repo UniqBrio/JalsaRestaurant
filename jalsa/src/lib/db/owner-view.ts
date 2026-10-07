@@ -5,7 +5,7 @@ import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { placeLabel } from '@/lib/takeaway';
-import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
+import { BILL_STATUS, KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
   billTotals,
@@ -269,9 +269,10 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     id: b.id,
     code: b.code,
     status: b.status,
-    // A cancelled order read "Open" here (07-Oct-2026): 'void' fell through to the default.
+    // A void bill read "Open" here (07-Oct-2026): 'void' fell through to the default. "Void" is
+    // the staff word for it (status.ts); guests see "Cancelled".
     statusLabel:
-      b.status === 'payment_requested' ? 'Payment requested' : b.status === 'closed' ? 'Closed' : b.status === 'void' ? 'Cancelled' : 'Open',
+      b.status === 'payment_requested' ? 'Payment requested' : b.status === 'closed' ? 'Closed' : b.status === 'void' ? BILL_STATUS.void.staff : 'Open',
     tone: b.status === 'payment_requested' ? 'primary' : b.status === 'closed' ? 'success' : 'neutral',
     spine: {
       captain: b.captain,

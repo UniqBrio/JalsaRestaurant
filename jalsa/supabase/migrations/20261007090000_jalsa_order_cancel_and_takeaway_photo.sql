@@ -20,17 +20,20 @@
 --   impossible, the way `bill_closure_is_attributed` does for a closure.
 --
 --   cancel_bill_and_free(...) does the whole thing as ONE transaction, holding the bill's row lock:
---     - the bill must still be open or payment requested, at the version the screen read, and
---       still sit on the table that was tapped - otherwise nothing changes and the caller is told
---       which ('gone': completed or already cancelled; 'changed': something moved since it was
---       read; 'not_here': that table now holds a different order). Two people pressing at once:
+--     - the bill must still be open or payment requested, unchanged since the server read it
+--       (`version`), with the number of rounds the person saw when they opened the dialog, and
+--       still on the table that was tapped - otherwise nothing changes and the caller is told
+--       which ('gone': completed or already cancelled; 'changed': moved since read, or a round
+--       the person never saw; 'not_here': that table now holds a different order). Two people pressing at once:
 --       the second waits on the lock, then sees 'void' and gets 'gone'. A new party's order on
 --       the same table is a different bill id, so it can never be the one released.
 --     - the bill is voided with the cancellation stamped; closed_at stays empty (it was not paid);
 --     - rounds still in the kitchen (new / preparing / ready) are marked cancelled, so no
 --       kitchen or runner screen treats them as work; served and picked-up rounds stay history;
---     - KOT tickets still WAITING to print are cancelled (the bridge lists only 'queued'), so a
---       cancelled order's ticket cannot come out of the kitchen printer later;
+--     - tickets still WAITING to print, or FAILED, are cancelled (the bridge lists only 'queued'),
+--       and a trigger refuses to queue any ticket for a void bill again (retry, reprint, print
+--       elsewhere), so a cancelled order's ticket cannot come out of the kitchen printer later;
+--     - an uncollected tip leaves the tips ledger (its amount is in the audit line);
 --     - every table of the bill is released and marked cleared by this person (free at once);
 --     - the phones at those tables are let go (as Mark free does), so the next scan is a fresh
 --       welcome; their attribution and hearts are kept (SET NULL / the bill's own FK);
@@ -45,8 +48,9 @@
 --
 -- ACCESS: called only by this application's server with the secret key (rule 3); EXECUTE is
 -- revoked from everyone else, like `redirect_print_job` (20261002120000).
--- SAFE ON A LIVE DATABASE: new nullable / defaulted columns, two checks every existing row
--- satisfies (no row has a cancellation or a photo yet), and a new function. No row is changed.
+-- SAFE ON A LIVE DATABASE: new nullable / defaulted columns, checks every existing row satisfies
+-- (no row has a cancellation or a photo yet), new functions, and three BEFORE triggers that refuse
+-- only writes to a closed or void bill - which no application path makes. No row is changed.
 -- =============================================================================
 
 begin;
@@ -94,7 +98,8 @@ create or replace function public.cancel_bill_and_free(
   p_actor_label      text,
   p_reason           text,
   p_note             text,
-  p_total            numeric
+  p_total            numeric,
+  p_expected_rounds  int
 )
 returns text
 language plpgsql
@@ -106,6 +111,7 @@ declare
   tids      uuid[];
   kots      int;
   stopped   int;
+  tipped    numeric;
   now_      timestamptz := now();
 begin
   select * into b
@@ -119,8 +125,15 @@ begin
   if b.status::text not in ('open', 'payment_requested') then
     return 'gone';
   end if;
-  -- The order the screen read is the order being cancelled - not one a round later.
+  -- The order is the one the server read a moment ago (the amount recorded is its amount)...
   if b.version <> p_expected_version then
+    return 'changed';
+  end if;
+  -- ...and has the rounds the PERSON saw when they opened the dialog: a round sent since then is
+  -- 'changed', so nobody cancels food they never saw ordered. Rounds, not the version: a ticket
+  -- printing moves the version every few seconds and would refuse every cancellation.
+  if p_expected_rounds is not null
+     and (select count(*) from public.kot where bill_id = p_bill_id) <> p_expected_rounds then
     return 'changed';
   end if;
   -- The tapped table still holds THIS order. A new party's order is another bill id.
@@ -155,11 +168,19 @@ begin
    where bill_id = p_bill_id and status in ('new', 'preparing', 'ready');
   get diagnostics stopped = row_count;
 
+  -- Waiting AND failed tickets: a failed one could otherwise be retried onto paper later. One a
+  -- bridge is printing this second is left to finish - paper already moving cannot be taken back.
   update public.print_job
      set status = 'cancelled',
          completed_at = now_,
          last_error = 'Order cancelled before this ticket printed - not printed.'
-   where bill_id = p_bill_id and status = 'queued';
+           || case when last_error <> '' then ' Before that: ' || last_error else '' end
+   where bill_id = p_bill_id and status in ('queued', 'failed');
+
+  -- A tip added on the guest's phone was never collected: it leaves the tips ledger, so it can
+  -- never be settled out of the drawer. Its amount is kept in the audit line below.
+  select coalesce(sum(amount), 0) into tipped from public.tip where bill_id = p_bill_id and settled_at is null;
+  delete from public.tip where bill_id = p_bill_id and settled_at is null;
 
   update public.bill_table
      set released_at = now_, cleared_at = now_, cleared_by = p_actor_label
@@ -178,10 +199,11 @@ begin
     'Order cancelled',
     b.code || ' cancelled while ' || replace(b.status::text, '_', ' ')
       || ' (' || kots || case when kots = 1 then ' round' else ' rounds' end
-      || ', ' || stopped || ' still in the kitchen stopped). Bill ' || b.status::text || ' -> void; table '
+      || ', ' || stopped || ' still in the kitchen stopped). Bill ' || replace(b.status::text, '_', ' ') || ' -> void; table '
       || coalesce(tables, '') || ' occupied -> free. Reason: ' || p_reason
       || case when coalesce(p_note, '') <> '' then ' - ' || p_note else '' end
-      || '. Nothing was charged; the order is kept.',
+      || '. Nothing was charged; the order is kept.'
+      || case when tipped > 0 then ' A tip of Rs ' || tipped || ' was not collected and left the tips ledger.' else '' end,
     p_bill_id,
     p_table_id,
     p_actor_staff_id,
@@ -192,9 +214,69 @@ begin
 end;
 $$;
 
-revoke execute on function public.cancel_bill_and_free(uuid, uuid, uuid, bigint, uuid, text, text, text, numeric)
+revoke execute on function public.cancel_bill_and_free(uuid, uuid, uuid, bigint, uuid, text, text, text, numeric, int)
   from public, anon, authenticated;
-grant execute on function public.cancel_bill_and_free(uuid, uuid, uuid, bigint, uuid, text, text, text, numeric)
+grant execute on function public.cancel_bill_and_free(uuid, uuid, uuid, bigint, uuid, text, text, text, numeric, int)
   to service_role;
+
+-- -----------------------------------------------------------------------------
+-- Nothing new reaches a cancelled order, whichever request gets there second (review, 07-Oct).
+--
+-- A round, a joined table or a ticket is written after its route has read the bill - several
+-- reads later. A cancellation committing in that gap would leave a round cooking (and printing)
+-- for an order that no longer exists, or a table held by a void bill that nothing can release.
+-- So the database refuses them: each insert takes a share lock on its bill - waiting for a
+-- cancellation holding the row - and then requires the bill to be live. A ticket may be queued
+-- (printed, retried, redirected, reprinted) for anything except a void bill.
+-- -----------------------------------------------------------------------------
+create or replace function public.refuse_child_of_dead_bill()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  st text;
+begin
+  select status::text into st from public.bill where id = new.bill_id for share;
+  if st is not null and st not in ('open', 'payment_requested') then
+    raise exception 'That order is no longer open (%). Reload the page.', st using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.refuse_ticket_for_void_bill()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.bill_id is not null and new.status::text = 'queued'
+     and exists (select 1 from public.bill where id = new.bill_id and status = 'void') then
+    raise exception 'That order was cancelled - its tickets are not printed.' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+do $$
+begin
+  if not exists (select 1 from pg_trigger where tgname = 'kot_needs_live_bill') then
+    create trigger kot_needs_live_bill before insert on public.kot
+      for each row execute function public.refuse_child_of_dead_bill();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'bill_table_needs_live_bill') then
+    create trigger bill_table_needs_live_bill before insert on public.bill_table
+      for each row execute function public.refuse_child_of_dead_bill();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'print_job_not_for_void_bill') then
+    create trigger print_job_not_for_void_bill before insert or update of status on public.print_job
+      for each row execute function public.refuse_ticket_for_void_bill();
+  end if;
+end;
+$$;
+
+revoke execute on function public.refuse_child_of_dead_bill() from public, anon, authenticated;
+revoke execute on function public.refuse_ticket_for_void_bill() from public, anon, authenticated;
 
 commit;

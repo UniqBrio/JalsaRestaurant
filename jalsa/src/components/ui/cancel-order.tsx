@@ -24,6 +24,8 @@ export interface CancelTarget {
   billId: string;
   tableId: string;
   tableName: string;
+  /** The rounds the tile showed when the dialog opened - sent, so a round added since is refused. */
+  rounds: number;
 }
 
 export function CancelOrderDialog({
@@ -97,6 +99,7 @@ export function CancelOrderDialog({
               tableId: t.tableId,
               reason,
               note,
+              rounds: t.rounds,
             });
             toast.show(orderCancelledMessage(out.tables?.length ? out.tables : [t.tableName]), { tone: 'success' });
           } finally {

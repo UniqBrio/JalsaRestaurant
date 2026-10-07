@@ -2084,7 +2084,7 @@ export async function setTakeawayPhoto(input: {
   if (readErr) throw readErr;
   if (!row || row.order_type !== 'takeaway') throw new PhotoRefused('Only a takeaway order carries a photo.');
   if (row.status !== 'open' && row.status !== 'payment_requested') {
-    throw new PhotoRefused(`${row.code as string} is no longer running. Its photo can no longer change.`);
+    throw new PhotoRefused(`${row.code as string} is already settled or cancelled, so its photo can no longer be changed.`);
   }
   const before = (row.photo_url as string) ?? '';
   if (bytes === null && !before) return { photoUrl: '' };
@@ -2093,7 +2093,7 @@ export async function setTakeawayPhoto(input: {
   let key: string | null = null;
   if (bytes) {
     const kind = sniffImage(bytes)!;
-    key = `takeaway/${input.billId}/${randomUUID()}.${kind === 'png' ? 'png' : 'jpg'}`;
+    key = `takeaway/${row.id as string}/${randomUUID()}.${kind === 'png' ? 'png' : 'jpg'}`;
     const { error: upErr } = await db().storage.from('media').upload(key, bytes, { contentType: IMAGE_CONTENT_TYPE[kind], upsert: false });
     if (upErr) {
       console.warn('[takeaway-photo] the photo could not be stored', input.billId, upErr.message);

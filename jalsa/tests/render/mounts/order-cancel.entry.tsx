@@ -47,7 +47,7 @@ function Harness() {
   };
   return (
     <div style={{ padding: 16 }}>
-      <button type="button" data-testid="open-cancel" onClick={() => setTarget({ billId: 'b1', tableId: 't1', tableName: '12' })}>
+      <button type="button" data-testid="open-cancel" onClick={() => setTarget({ billId: 'b1', tableId: 't1', tableName: '12', rounds: 2 })}>
         open
       </button>
       <CancelOrderDialog

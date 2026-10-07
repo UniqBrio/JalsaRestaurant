@@ -65,13 +65,13 @@ test('"Other" asks for its few words before anything is sent, then sends the rea
   await page.getByTestId('open-cancel').click();
   await page.getByTestId('staff-cancel-order-reason-other').click();
   await page.getByTestId('staff-cancel-order-confirm').click();
-  await expect(page.getByTestId('staff-cancel-order')).toContainText('Say in a few words why, for "Other".');
+  await expect(page.getByTestId('staff-cancel-order')).toContainText('Add a few words on why you chose "Other".');
   expect(await sent(page)).toEqual([]);
   await page.getByTestId('staff-cancel-order-note').fill('Guest felt unwell');
   await page.getByTestId('staff-cancel-order-confirm').click();
   await expect(page.getByText('Order cancelled successfully. Table 12 is now free.')).toBeVisible();
   expect(await sent(page)).toEqual([
-    { action: 'cancel-free-table', billId: 'b1', tableId: 't1', reason: 'Other', note: 'Guest felt unwell' },
+    { action: 'cancel-free-table', billId: 'b1', tableId: 't1', reason: 'Other', note: 'Guest felt unwell', rounds: 2 },
   ]);
   await expect(page.getByTestId('staff-cancel-order')).toHaveCount(0);
 });
@@ -138,7 +138,11 @@ test('photo: a file that is not a picture is refused with the reason, and nothin
     mimeType: 'application/pdf',
     buffer: Buffer.from('%PDF-1.4 not a picture'),
   });
-  await expect(page.getByTestId('owner-takeaway-photo-problem')).toContainText('Only PNG or JPEG images can be used.');
+  // SUPERSEDED 07-Oct-2026 (copy review, same day): this expected the file-type message "Only PNG
+  // or JPEG images can be used." A PHOTO that cannot be redrawn now says what to do with a camera.
+  await expect(page.getByTestId('owner-takeaway-photo-problem')).toContainText(
+    'That photo could not be read. Take it again, or choose a JPEG from the gallery.'
+  );
   expect(await page.evaluate(() => window.__uploads)).toEqual([]);
 });
 

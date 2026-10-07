@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Button } from './button';
 import { cn } from '@/lib/cn';
 import { imageProblem } from '@/lib/media';
-import { shrinkToJpeg } from '@/lib/image-shrink';
+import { PHOTO_UNREADABLE, shrinkToJpeg } from '@/lib/image-shrink';
 
 /**
  * Choose a PNG or JPEG of 1 MB or less, see it, replace it, remove it (items 23 and 32).
@@ -61,7 +61,12 @@ export function ImagePicker({
       setBusy('upload');
       const shrunk = await shrinkToJpeg(file);
       setBusy(null);
-      if (shrunk) bytes = new Uint8Array(shrunk);
+      if (!shrunk) {
+        setProblem(PHOTO_UNREADABLE);
+        reset();
+        return;
+      }
+      bytes = new Uint8Array(shrunk);
     }
     const why = imageProblem(bytes);
     if (why) {
@@ -140,7 +145,7 @@ export function ImagePicker({
             accept="image/*"
             capture="environment"
             className="sr-only"
-            aria-label={`${label} - take a photo`}
+            aria-label={`${label} — take a photo`}
             data-testid={`${testId}-camera`}
             disabled={disabled || busy !== null}
             onChange={(e) => void choose(e.target.files?.[0])}

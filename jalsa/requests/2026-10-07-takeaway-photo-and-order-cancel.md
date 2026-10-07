@@ -65,6 +65,36 @@
 5. **Where is it recorded?** `docs/registers/RBAC_MATRIX.md` (three rows, 07-Oct-2026); the audit log
    ("Order cancelled"; "Bill … takeaway photo added/replaced/removed").
 
+## REVIEW (07-Oct-2026: code, permission and copy reviewers) - what changed
+- **Tip:** an uncollected tip on a cancelled order left in the tips ledger could be settled out of the
+  drawer. The function now removes unsettled tips for the bill and records the amount in the audit line.
+- **Races:** a round, a joined table or a ticket written after its route read the bill could land on a
+  cancelled one (a ticket printing for food nobody wants; a table held by a void bill nothing can
+  release). Three BEFORE triggers now refuse a `kot` or `bill_table` insert unless the bill is live
+  (taking a share lock, so they wait for a cancellation in progress), and refuse queuing any ticket
+  for a void bill (retry, reprint, print elsewhere). Failed tickets are cancelled with the waiting ones.
+- **What the person saw:** the version check only covered the server's own read. The dialog now sends
+  the round count the tile showed; a round sent since is 'changed'. Rounds, not the version, because a
+  ticket printing moves the version every few seconds.
+- **Payment request race:** `requestPayment` now checks its conditional write matched a row before
+  raising notices and the audit line.
+- **Rule 5 at the door:** both action routes now refuse an issued (provisional) PIN with 403 - before,
+  only the pages did, so any action (this one included) was reachable through the API.
+- **Smaller:** the audit reads "payment requested -> void"; the owner console's void label is the
+  canonical `BILL_STATUS.void` ("Void"); the photo key is built from the database's bill id; the photo
+  picker resets per order; a photo that cannot be redrawn says what to do; em-dashes match neighbours.
+- **Tests:** the media route and the provisional refusal are now called for real (round rig), and the
+  cross-restaurant case uses a real second restaurant.
+
+## COPY CANDIDATES (shipped strings - not changed without the owner)
+- Mark free's sheet ("…that is a payment or a void, not a floor operation") and `freeTable`'s refusal
+  ("Record the payment or void the bill…") now name the wrong next step for a table with food: there is
+  a floor action for it. Suggested: "…use Cancel order & free table, or record the payment."
+- Kept as the owner asked, recorded as exceptions: "Are you sure you want to continue?" (ConfirmDialog
+  standard says never ask that); "completed" for what the app calls Closed/Paid; "Cancel" beside
+  "Cancel Order & Free Table".
+- "Packaging charges" vs "Packaging Charges" casing differs across screens (pre-existing).
+
 ## NOT DONE / OPEN
 - **Migration not applied anywhere.** `20261007090000_jalsa_order_cancel_and_takeaway_photo.sql` must
   reach an environment **before** this code: the bill read now selects `photo_url`, so every screen that
@@ -73,6 +103,8 @@
 - No cancellation slip is printed (see KOT printing above).
 - Takeaway orders cannot be cancelled with this action (it is a table action); their existing route is
   unchanged.
+- A guest phone at the table after a cancellation lands on a fresh welcome (its session is let go, as
+  Mark free does) - it says nothing about the cancellation.
 - The gate's functional tier (G8) is red in this container for the four specs that need a reachable,
   seeded database (no database here; CI runs only the degraded spec for the same reason). Everything
   else is green.

@@ -116,12 +116,13 @@ async function run(name: string, w: World, call: () => Promise<unknown>) {
   }
 }
 
-const cancel = (grants: string[], extra: { reason?: string; note?: string; billId?: string } = {}) => () =>
+const cancel = (grants: string[], extra: { reason?: string; note?: string; billId?: string; rounds?: number } = {}) => () =>
   cancelOrderAndFreeTable({
     billId: extra.billId ?? BILL,
     tableId: TABLE,
     reason: extra.reason ?? 'Customer emergency',
     note: extra.note ?? '',
+    ...(extra.rounds !== undefined ? { expectedRounds: extra.rounds } : {}),
     actor: actor(grants),
   });
 
@@ -154,6 +155,8 @@ const results = [
   ),
   await run('guest asks to pay on a cancelled order', { status: 'void' }, () => requestPayment(BILL)),
   await run('guest asks to pay on an open order', {}, () => requestPayment(BILL)),
+  await run('cancel, with the rounds the person saw', {}, cancel(BOTH, { rounds: 1 })),
+  await run('guest asks to pay, cancelled in between', { updated: 0 }, () => requestPayment(BILL)),
 
   await run('photo without orders.create', { orderType: 'takeaway' }, photo([], B64_JPEG)),
   await run('photo on a dine-in order', {}, photo(['orders.create'], B64_JPEG)),

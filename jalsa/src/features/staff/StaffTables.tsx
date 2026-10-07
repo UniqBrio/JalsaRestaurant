@@ -135,7 +135,7 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
                   size="sm"
                   disabled={busy}
                   className="mt-1 w-full text-[var(--error)]"
-                  onClick={() => t.billId && setCancelling({ billId: t.billId, tableId: t.id, tableName: t.name })}
+                  onClick={() => t.billId && setCancelling({ billId: t.billId, tableId: t.id, tableName: t.name, rounds: t.roundCount })}
                 >
                   {ORDER_CANCEL_COPY.action}
                 </Button>

@@ -11,6 +11,9 @@
 import { MAX_IMAGE_BYTES } from './media';
 
 export const MAX_SIDE = 1600;
+
+/** When a picture the phone handed over could not be redrawn as a JPEG of 1 MB or less. */
+export const PHOTO_UNREADABLE = 'That photo could not be read. Take it again, or choose a JPEG from the gallery.';
 const QUALITIES = [0.85, 0.75, 0.6, 0.5] as const;
 
 /** Width and height scaled to fit `max` on the long side, never enlarged. */

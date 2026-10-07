@@ -1354,11 +1354,15 @@ export async function requestPayment(billId: string): Promise<void> {
   // Already waiting: a second tap raises no second pair of notifications (item 37).
   if (bill.status === 'payment_requested') return;
 
-  await db()
+  const { data: asked } = await db()
     .from('bill')
     .update({ status: 'payment_requested', payment_requested_at: new Date().toISOString() })
     .eq('id', billId)
-    .eq('status', 'open');
+    .eq('status', 'open')
+    .select('id');
+  // Changed in between - cancelled, closed or already asked: no notices and no audit line for a
+  // request that did not happen (review, 07-Oct-2026).
+  if (!asked || asked.length === 0) return;
 
   await raisePaymentNotices(bill);
 
@@ -1455,7 +1459,7 @@ export async function closeBill(input: {
   }
   // A cancelled order was not paid, and recording a payment on it would turn a cancellation into
   // takings (07-Oct-2026). Its row was only ever guarded against 'closed'.
-  if (bill.status === 'void') throw new OrderNotLive('This order was cancelled - there is no payment to record.');
+  if (bill.status === 'void') throw new OrderNotLive('This order was cancelled — there is no payment to record. Reload to see the floor as it is now.');
 
   /* ONE discount, stored both ways plus the way it was entered.
      The two boxes on the closure screens are two views of the same figure, so exactly one of
@@ -1505,7 +1509,7 @@ export async function closeBill(input: {
     // same as above) or cancelled it (refused) - and either way this request records nothing.
     const now_ = await getBill(input.billId);
     if (now_?.status === 'closed') return { payable: billTotals(now_).payable };
-    throw new OrderNotLive('This order was cancelled - there is no payment to record.');
+    throw new OrderNotLive('This order was cancelled — there is no payment to record. Reload to see the floor as it is now.');
   }
 
   const closed = await getBill(input.billId);
@@ -1675,6 +1679,9 @@ export async function cancelOrderAndFreeTable(input: {
   tableId: string;
   reason?: string | null;
   note?: string | null;
+  /** How many rounds the person saw on the tile when they opened the dialog. A round sent since
+   *  then makes it 'changed' - nobody cancels food they never saw ordered. */
+  expectedRounds?: number | null;
   actor: Actor;
 }): Promise<{ billCode: string; tables: string[] }> {
   for (const g of ORDER_CANCEL_GRANTS) demand(input.actor, g);
@@ -1698,7 +1705,7 @@ export async function cancelOrderAndFreeTable(input: {
   if (!bill || (bill.status !== 'open' && bill.status !== 'payment_requested')) {
     throw new OrderNotLive(ORDER_CANCEL_MESSAGES.gone);
   }
-  if (bill.orderType !== 'dine_in') throw new OrderNotLive(ORDER_CANCEL_MESSAGES.notHere);
+  if (bill.orderType !== 'dine_in') throw new OrderNotLive(ORDER_CANCEL_MESSAGES.changed);
   const totals = billTotals(bill);
 
   const { data: outcome, error } = await db().rpc('cancel_bill_and_free', {
@@ -1713,6 +1720,10 @@ export async function cancelOrderAndFreeTable(input: {
     // What the order came to without the tip (staff money, never the order's): food after
     // discount, plus tax and packaging. Recorded, never counted as income.
     p_total: totals.payable - totals.tip,
+    p_expected_rounds:
+      typeof input.expectedRounds === 'number' && Number.isInteger(input.expectedRounds) && input.expectedRounds >= 0
+        ? input.expectedRounds
+        : null,
   });
   if (error) throw error;
   if (outcome === 'gone') throw new OrderNotLive(ORDER_CANCEL_MESSAGES.gone);

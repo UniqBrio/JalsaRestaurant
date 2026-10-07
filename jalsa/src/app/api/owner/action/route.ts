@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
-import { actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
+import { PROVISIONAL_REFUSAL, actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
 import { withState } from '@/lib/db/action-echo';
 import { buildOwnerPayload } from '@/lib/db/owner-view';
 import { publicConfig } from '@/lib/config';
@@ -99,7 +99,7 @@ type Action =
   | { action: 'set-packaging'; billId: string; packagingCharge: number | string }
   | { action: 'free-table'; tableId: string }
   /* An order already with the kitchen, cancelled and its table freed together (07-Oct-2026). */
-  | { action: 'cancel-free-table'; billId: string; tableId: string; reason?: string; note?: string }
+  | { action: 'cancel-free-table'; billId: string; tableId: string; reason?: string; note?: string; rounds?: number }
   /* A takeaway's photo: add or replace (`base64`), or remove (`remove: true`) (07-Oct-2026). */
   | { action: 'takeaway-photo'; billId: string; base64?: string; remove?: boolean }
   | { action: 'clear-table'; tableId: string }
@@ -215,6 +215,8 @@ type Action =
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
+  // Rule 5, at the door and not only on the page (07-Oct-2026): see the staff action route.
+  if (staff.provisional) return fail(403, { code: 'forbidden', message: PROVISIONAL_REFUSAL });
   const result = await perform(staff, await body<Action>(req));
   // The answer carries the console as it now stands (`action-echo.ts`). Unlike a captain, an
   // owner can change THEIR OWN standing — a permission, a PIN, removal — so the console is built
@@ -337,6 +339,7 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           tableId: String(input.tableId ?? ''),
           reason: input.reason ?? null,
           note: input.note ?? null,
+          expectedRounds: typeof input.rounds === 'number' ? input.rounds : null,
           actor,
         });
         return ok({ done: true, ...done });

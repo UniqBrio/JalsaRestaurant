@@ -42,8 +42,8 @@ export const ORDER_CANCEL_COPY = {
 export const ORDER_CANCEL_MESSAGES = {
   gone: 'This order has already been cancelled or completed.',
   changed: 'Unable to cancel the order. The order may have already been completed or changed by another user.',
-  notHere: 'Unable to cancel the order. This table now holds a different order - reload and check it again.',
-  otherNeedsNote: 'Say in a few words why, for "Other".',
+  notHere: 'Unable to cancel the order. This table now holds a different order — reload and check it again.',
+  otherNeedsNote: 'Add a few words on why you chose "Other".',
 } as const;
 
 export function orderCancelledMessage(tables: readonly string[]): string {
