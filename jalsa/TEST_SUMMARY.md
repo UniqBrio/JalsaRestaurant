@@ -4,6 +4,13 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-08 - Captain's floor: action buttons over other tiles (fix)
+
+- New: `tests/render/staff-floor-actions.render.spec.ts` (3: 390px light, 390px dark, 608px) - the real FloorScreen with A1/A2 (1 round), A5 (6 rounds), A7 (Mark free). FAIL-FIRST observed on 1a0e229: 'staff-cancel-order-A1 overlaps tile A5' in all three; passing after the fix.
+- Full: tsc PASS, lint PASS, audit:all 10/10, unit 1520 passed, render 301 passed (298 + 3).
+
+---
+
 ## 2026-10-07 - Cancel & free / takeaway photo, after review - PASS (unit, render, audits)
 
 Fixes from the code, permission and copy reviews (request file, REVIEW section).
