@@ -119,6 +119,8 @@ export function ConfirmDialog({
   onReasonChange,
   testId,
   busy,
+  keepLabel = 'Keep it',
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -132,6 +134,10 @@ export function ConfirmDialog({
   onReasonChange?: (r: string) => void;
   testId: string;
   busy?: boolean;
+  /** The way out, where the request names one (07-Oct-2026). "Keep it" everywhere else. */
+  keepLabel?: string;
+  /** Below the reasons - a short free-text detail a reason needs ("Other"). */
+  children?: React.ReactNode;
 }) {
   return (
     <Sheet
@@ -143,7 +149,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button data-testid={`${testId}-keep`} variant="ghost" onClick={() => onOpenChange(false)}>
-            Keep it
+            {keepLabel}
           </Button>
           <Button data-testid={`${testId}-confirm`} variant={tone} onClick={onConfirm} disabled={busy}>
             {confirmLabel}
@@ -180,6 +186,7 @@ export function ConfirmDialog({
             </div>
           </fieldset>
         ) : null}
+        {children}
       </div>
     </Sheet>
   );

@@ -13,6 +13,8 @@ import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import type { OwnerPayload } from '@/lib/db/owner-view';
 import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { CancelOrderDialog, type CancelTarget } from '@/components/ui/cancel-order';
+import { ORDER_CANCEL_COPY, tableIsCancellable } from '@/lib/order-cancel';
 import { NewDishOffer } from '@/components/ui/new-dish';
 import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { readWelcomeDrinks, welcomeDrinksToOffer, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
@@ -40,6 +42,9 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
      with it, which is the whole of what was asked for. */
   const [freeing, setFreeing] = React.useState<(typeof data.floor)[number] | null>(null);
   const canFree = data.grants.includes('tables.free');
+  /* Cancel an order the kitchen already has and free its table (07-Oct-2026): both grants, and
+     only on a table with rounds - the tables Mark free is never offered on. */
+  const [cancelling, setCancelling] = React.useState<CancelTarget | null>(null);
   /* "Needs clearing" is the other way a table leaves the floor's attention, and it was shown
      here with no way out (28-Sep-2026): clearing lived only in the captain's To clear list.
      Same verb, same grant, same words as there. */
@@ -321,6 +326,19 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                 </Button>
               ) : null}
 
+              {t.billId && tableIsCancellable(t, data.grants) ? (
+                <Button
+                  data-testid={`owner-cancel-order-${t.name}`}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  className="mt-1 w-full text-[var(--error)]"
+                  onClick={() => t.billId && setCancelling({ billId: t.billId, tableId: t.id, tableName: t.name, rounds: t.roundCount })}
+                >
+                  {ORDER_CANCEL_COPY.action}
+                </Button>
+              ) : null}
+
               {canClear && t.clearing ? (
                 <Button
                   data-testid={`owner-clear-table-${t.name}`}
@@ -379,6 +397,16 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
           operation.
         </p>
       </Sheet>
+
+      <CancelOrderDialog
+        target={cancelling}
+        onClose={() => setCancelling(null)}
+        endpoint="/api/owner/action"
+        send={send}
+        runBusy={runBusy}
+        busy={busy}
+        testId="owner-cancel-order"
+      />
 
       <section>
         <SectionLabel>Suggestions from guests</SectionLabel>

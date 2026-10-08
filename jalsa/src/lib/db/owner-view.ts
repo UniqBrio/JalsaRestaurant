@@ -5,7 +5,7 @@ import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { placeLabel } from '@/lib/takeaway';
-import { KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
+import { BILL_STATUS, KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
   billTotals,
@@ -67,6 +67,8 @@ export interface OwnerBillView {
   place: string;
   /** A takeaway's packaging charge, rupees. Never taxed. */
   packagingCharge: number;
+  /** A takeaway's photo, served only to signed-in staff (07-Oct-2026); '' when there is none. */
+  photoUrl: string;
   groupCode: string | null;
   guests: number;
   openedAt: string;
@@ -175,6 +177,9 @@ export interface OwnerPayload {
      *  Decided HERE, from the same rule freeTable enforces, so the screen never offers an
      *  action the server is about to refuse (Standard 5.6). */
     freeable: boolean;
+    /** Rounds sent on this table's order - what "Cancel order & free table" is offered on
+     *  (`tableIsCancellable`, 07-Oct-2026). */
+    roundCount: number;
     /** Released by a closure and not yet reset. The waitlist must not seat onto one. */
     clearing: { releasedAtIso: string; billCode: string; guests: number; waitedMinutes: number } | null;
   }>;
@@ -264,7 +269,10 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     id: b.id,
     code: b.code,
     status: b.status,
-    statusLabel: b.status === 'payment_requested' ? 'Payment requested' : b.status === 'closed' ? 'Closed' : 'Open',
+    // A void bill read "Open" here (07-Oct-2026): 'void' fell through to the default. "Void" is
+    // the staff word for it (status.ts); guests see "Cancelled".
+    statusLabel:
+      b.status === 'payment_requested' ? 'Payment requested' : b.status === 'closed' ? 'Closed' : b.status === 'void' ? BILL_STATUS.void.staff : 'Open',
     tone: b.status === 'payment_requested' ? 'primary' : b.status === 'closed' ? 'success' : 'neutral',
     spine: {
       captain: b.captain,
@@ -277,6 +285,7 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
     orderType: b.orderType,
     place: placeLabel(b),
     packagingCharge: b.packagingCharge,
+    photoUrl: b.orderType === 'takeaway' ? (b.photoUrl ?? '') : '',
     groupCode: b.groupCode,
     guests: b.guests,
     openedAt: timeLabel(b.openedAt),
@@ -497,6 +506,7 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
           : 'Off the floor',
       totalLabel: t.total > 0 ? rupees(t.total) : '—',
       freeable: tableIsFreeable(t),
+      roundCount: t.billId ? t.roundCount : 0,
       clearing: t.clearing,
     })),
 

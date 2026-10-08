@@ -4,6 +4,72 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-07 - Cancel & free / takeaway photo, after review - PASS (unit, render, audits)
+
+Fixes from the code, permission and copy reviews (request file, REVIEW section).
+
+- `tests/unit/order-cancel.db.unit.spec.ts` 13 passed (new: round count seen, tip removed + audited, failed ticket cancelled, triggers refuse a round / table / ticket on a dead bill; cross-restaurant case now uses a real second restaurant). Dated supersession notes on the helper, a test name and the cross-restaurant case. FAIL-FIRST: whole file fails at the first call against 678c0d9's migration; the new cases NOT OBSERVED FAILING on their own (serial file stops first).
+- `tests/unit/order-cancel.unit.spec.ts` 20 passed (new: the doors called for real - provisional PIN 403 on both routes, media route 404/no-store for signed out, provisional, no orders.view, other bill, replaced URL; 200 private for the current photo; dish photo still public). FAIL-FIRST observed for the provisional case with the route checks removed: Expected 403, Received 409.
+- `tests/render/order-cancel.render.spec.ts` 9 passed (photo-unreadable message superseded in place, dated).
+- Full: unit 1520 passed; render 298 passed; tsc, lint, audit:all 10/10 OK. G8 unchanged (needs a database).
+
+---
+
+## 2026-10-07 - Cancel order & free table; takeaway photo - PASS except G8 (no database here)
+
+Request: `requests/2026-10-07-takeaway-photo-and-order-cancel.md`.
+
+- New: `tests/unit/order-cancel.db.unit.spec.ts` (10, PGlite: atomic void + free, kitchen rounds and waiting tickets cancelled, phones let go, one audit row; gone / changed / not_here change nothing; constraints; EXECUTE service_role only). FAIL-FIRST observed: `function cancel_bill_and_free(...) does not exist`.
+- New: `tests/unit/order-cancel.unit.spec.ts` (17, round rig over the real mutations + pure rules + source pins). FAIL-FIRST observed: bundle cannot import `cancelOrderAndFreeTable`. NOT OBSERVED FAILING on their own: the closeBill / requestPayment void cases (bundle cannot build on the old tree).
+- New: `tests/render/order-cancel.render.spec.ts` (9, real dialog and photo picker, both themes, 390 px, double tap sends once, a 3000x2250 photo sent as JPEG <= 1 MB). FAIL-FIRST observed: module not found.
+- Superseded in place (dated note): `tests/unit/menu-routing-25sep.unit.spec.ts` item 23 accept literal.
+- Results: tsc OK, lint OK, audit:all 10/10, unit 1514 passed, render 298 passed. `npm run gate`: G1-G7, G9-G12 PASS; G8 FAIL - 16 = 4 specs x 4 viewports that need a reachable seeded database (reachability, guest-journey, guest-total-visibility, closure-upsell-tip); this container has none, as in CI, which runs only the degraded spec.
+- Migration `20261007090000` applied nowhere yet.
+
+---
+
+## Gate run - 2026-10-07 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 53s total - slowest G8 Functional / integration (2m 13s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (61ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (51ms)
+- **G3 Theme assets present per theme** - PASS (64ms)
+- **G4 No hard-coded colours** - PASS (80ms)
+- **G5 Types** - PASS (2.7s)
+- **G6 Lint** - PASS (18.4s)
+- **G7 Unit + pure specs** - PASS (1m 15s)
+- **G8 Functional / integration** - FAIL (2m 13s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (62ms)
+- **G10 Backward compatibility (fixtures)** - PASS (4.0s)
+- **G11 Wide tables are configurable** - PASS (61ms)
+- **G12 Installable as an application** - PASS (78ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## 2026-10-04 - Catch Your Craving runs until the lives are gone; the score sets the speed
 
 **The owner:** "why is the game getting stopped when a level is reached - do not stop. On missing a craving cut a life as well, make it 5, and as the points increase the speed increases."

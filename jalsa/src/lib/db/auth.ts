@@ -73,6 +73,9 @@ export async function currentStaff(surface: Surface): Promise<SignedInStaff | nu
   return { ...session, provisional, grants: new Grants(keys) };
 }
 
+/** What an issued (provisional) PIN is told by every action route: it opens one screen only (rule 5). */
+export const PROVISIONAL_REFUSAL = 'Choose your own PIN first — an issued PIN opens that screen and nothing else.';
+
 /** The signed-in person as an Actor, for the mutation layer. */
 export function actorFor(staff: SignedInStaff): Actor {
   return { staffId: staff.staffId, label: staff.name, grants: staff.grants };

@@ -48,6 +48,14 @@ it — `tableIsFreeable` and `freeTable` both refuse the moment a round exists, 
 floor grid must never be able to write off a bill. That refusal is the boundary; the permission
 only decides who may do the safe half.
 
+> **Superseded in part, 07-Oct-2026.** `tables.free` alone still cannot reach a bill with food on it.
+> Held **together with** `orders.cancel_after`, it now can: "Cancel order & free table" voids a running
+> order - rounds served or not, asked to pay or not - and frees its tables. That is a 100% write-off of
+> food already made, with no discount grant and no `bill.void` (which covers CLOSED bills only), so it
+> is a money power: the owner grants the pair to a person only deliberately. It is never silent: the
+> bill keeps every line, who, when, why and the order value (`cancelled_total`), one audit row is
+> written in the same transaction, and Reports → All orders lists it. Mark free itself is unchanged.
+
 Enforced in `src/lib/db/mutations.ts` (`freeTable` → `demand(actor, 'tables.free')`), offered in
 `src/features/owner/sections/Dashboard.tsx` and `src/features/staff/StaffTables.tsx`, granted to
 the owner by `supabase/migrations/20260912100000_jalsa_free_a_table.sql`.
@@ -120,6 +128,12 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | Reports — **People loved items** (`rep.products`, added 03-Oct-2026 — `/api/owner/favourites`, Reports → Guest insights; hearted dishes counted in parties, no guest identity) | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Reports — **How guests found Jalsa, also on Reports → Guest insights** (`rep.sales`, unchanged — `/api/owner/heard`; the card is shown on the tab only to a holder, so a `rep.products`-only holder sees the tab with People loved items alone) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Owner console — **search the console's screens** (added 03-Oct-2026): no grant of its own. It lists only screens the person's grants open (a Settings panel needs `set.tables` and the panel's own grant) and opening one still passes the console's section gate; it grants nothing | — | — | — | — | — |
+| Tables — **Cancel order & free table** on a table whose order has rounds (`tables.free` **and** `orders.cancel_after`, both demanded in `cancelOrderAndFreeTable` before any read; added 07-Oct-2026 — captain floor and owner Dashboard floor, `/api/staff/action` and `/api/owner/action` `cancel-free-table`. The bill is voided and kept, never deleted; the database function `cancel_bill_and_free` (service_role only) checks the bill is this restaurant's, still open or asked to pay, unchanged since read, and still on the tapped table. No preset but Owner holds both; the owner grants them per person) | ✅ grants, by owner | ❌ | ❌ | ❌ | ✅ |
+| Orders — **add, replace or remove a takeaway's photo** (`orders.create`, added 07-Oct-2026 — `/api/owner/action` `takeaway-photo`, owner console → Live orders; the order must be this restaurant's takeaway, open or asked to pay; the server checks the bytes and makes the storage key) | ✅ grant, no button | ❌ | ❌ | ❌ | ✅ |
+| Orders — **see a takeaway's photo** (`orders.view`, added 07-Oct-2026 — `/api/media/takeaway/…` answers only a signed-in, non-provisional owner or staff session holding it, for this restaurant's bill whose current photo it is; `private, no-store`. Guests and anyone signed out get 404) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| ~~Tables — Cancel order & free table … Captain "✅ grants, by owner"~~ **SUPERSEDED 07-Oct-2026 (permission review)**: the Captain cell of the 07-Oct row above read "✅ grants, by owner"; neither key is in the Captain preset, so the default is **❌** - only a captain given both keys by name has it | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Note, 07-Oct-2026 — **`orders.view` now also opens takeaway photo bytes** (not only "orders on assigned tables": a takeaway is at no table). Every preset holds it. Images of a parcel or slip, served only inside the console, never cached | — | — | — | — | — |
+| **Every staff and owner action route refuses an issued (provisional) PIN** (07-Oct-2026, permission review - rule 5 at the door, not only on the page): `/api/staff/action` and `/api/owner/action` answer 403 "Choose your own PIN first" before any action; choosing a PIN is `/api/staff/pin` and is unaffected | — | — | — | — | — |
 
 ---
 
@@ -137,6 +151,11 @@ fails if anyone adds it without changing this row.
 cancellation costs nothing and the captain owns it. After, it is food already cooked — a write-off,
 which is a money decision. `cancelItem` returns `{ outcome: 'escalated' }` rather than refusing, so
 the captain gets a designed "this needs Javeed" path instead of a dead button.
+
+> **Note, 07-Oct-2026.** `orders.cancel_after` is also one of the two keys of "Cancel order & free
+> table", which voids a whole order rather than one line. That action has **no** escalation path: a
+> person without both keys is not offered the button, and the server answers 403. The per-line
+> escalation above is unchanged.
 
 **Nobody but the owner may void a closed bill.** A closed bill is the accounting record. Voiding one
 is the only operation in this application that changes a number after the guest has left.

@@ -16,7 +16,8 @@
 
 export interface FakeQuery {
   table: string;
-  op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' | 'rpc';
+  /** `upload` / `remove` are Storage calls (07-Oct-2026): `table` is `storage:<bucket>`, `cols` the key(s). */
+  op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' | 'rpc' | 'upload' | 'remove' | 'download';
   cols: string;
   filters: Array<[string, string, unknown]>;
   body: unknown;
@@ -198,9 +199,27 @@ async function run(q: FakeQuery): Promise<Answer> {
   return { data: q.op === 'rpc' ? answer : rows, error: null, count: rows.length };
 }
 
+const storageCall = (bucket: string, op: 'upload' | 'remove' | 'download', keys: string, body: unknown) =>
+  run({ table: `storage:${bucket}`, op, cols: keys, filters: [], body, single: false, maybe: false, head: false });
+
 const client = {
   from: (table: string) => new Builder(table),
   rpc: (name: string, args: unknown) => new Builder(name, 'rpc', args),
+  // Storage, for the takeaway photo (07-Oct-2026): recorded and answered like any other call.
+  storage: {
+    from: (bucket: string) => ({
+      upload: (key: string, _bytes: unknown, opts?: unknown) => storageCall(bucket, 'upload', key, opts ?? null),
+      remove: (keys: string[]) => storageCall(bucket, 'remove', keys.join(','), null),
+      // The file's bytes as a Blob, like the real client; `{ __error }` or no rows is a miss.
+      download: async (key: string) => {
+        const a = (await storageCall(bucket, 'download', key, null)) as { data: unknown; error: unknown };
+        const rows = Array.isArray(a.data) ? a.data : [];
+        return a.error || rows.length === 0
+          ? { data: null, error: a.error ?? { message: 'Object not found' } }
+          : { data: new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])]), error: null };
+      },
+    }),
+  },
 };
 
 export function db() {
@@ -213,4 +232,13 @@ export async function currentRestaurantId(): Promise<string> {
 
 export function isConfigured(): boolean {
   return true;
+}
+
+/** The real `attempt`, minus the log: run, and say whether it threw (07-Oct-2026, the media route). */
+export async function attempt<T>(_context: string, run: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; detail?: string }> {
+  try {
+    return { ok: true, value: await run() };
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+  }
 }

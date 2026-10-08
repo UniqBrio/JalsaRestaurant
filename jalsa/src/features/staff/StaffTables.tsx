@@ -23,6 +23,8 @@ import type { Tone } from '@/lib/status';
 import type { StaffScreenProps } from './StaffApp';
 import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
+import { CancelOrderDialog, type CancelTarget } from '@/components/ui/cancel-order';
+import { ORDER_CANCEL_COPY, tableIsCancellable } from '@/lib/order-cancel';
 import { NewDishOffer } from '@/components/ui/new-dish';
 import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { isFirstOrder, welcomeDrinksToOffer } from '@/lib/welcome-drinks';
@@ -65,6 +67,9 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
      than never offering it (Standard 5.6). */
   const canFree = data.grants.includes('tables.free');
   const [freeing, setFreeing] = React.useState<(typeof data.tables)[number] | null>(null);
+  /* An order the kitchen already has, cancelled and the table freed together (07-Oct-2026). Offered
+     only where both grants are held and rounds exist - exactly where Mark free is NOT offered. */
+  const [cancelling, setCancelling] = React.useState<CancelTarget | null>(null);
 
   return (
     <div className="flex flex-col gap-4" data-testid="staff-floor">
@@ -122,6 +127,19 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
                   Mark free
                 </Button>
               ) : null}
+
+              {t.billId && tableIsCancellable(t, data.grants) ? (
+                <Button
+                  data-testid={`staff-cancel-order-${t.name}`}
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  className="mt-1 w-full text-[var(--error)]"
+                  onClick={() => t.billId && setCancelling({ billId: t.billId, tableId: t.id, tableName: t.name, rounds: t.roundCount })}
+                >
+                  {ORDER_CANCEL_COPY.action}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -161,6 +179,16 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
           already gone to the kitchen this will be refused — that is a payment or a void, not a floor operation.
         </p>
       </Sheet>
+
+      <CancelOrderDialog
+        target={cancelling}
+        onClose={() => setCancelling(null)}
+        endpoint="/api/staff/action"
+        send={send}
+        runBusy={runBusy}
+        busy={busy}
+        testId="staff-cancel-order"
+      />
 
       <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Amber means the kitchen has work, green means a round is ready. A bell is an unanswered request, ◆ a grouped

@@ -129,6 +129,23 @@ interface RangeReport {
     orderType?: 'dine_in' | 'takeaway';
   }>;
   expenses: Array<{ id: string; spentOn: string; category: string; note: string; amount: number; enteredBy: string }>;
+  /** Orders cancelled in the range (07-Oct-2026). Never in any figure above. Absent from an older server. */
+  cancelled?: Array<{
+    id: string;
+    code: string;
+    tables: string;
+    cancelledAt: string;
+    cancelledOn: string;
+    /** Date and time in the restaurant's clock, from the server. */
+    cancelledAtLabel: string;
+    amount: number;
+    amountLabel: string;
+    reason: string;
+    note: string;
+    by: string;
+    fromStatus: string;
+    rounds: number;
+  }>;
   /** The actual last bill closed before this range, for the empty Today state. */
   lastBillBefore: LastBillBefore | null;
 }
@@ -848,7 +865,53 @@ function OrdersPanel({ report }: { report: RangeReport }) {
         &ldquo;Placed by&rdquo; is recorded on every round as it is created and cannot be reconstructed afterwards — it
         is what makes &ldquo;is the QR actually being used?&rdquo; answerable at all.
       </p>
+      <CancelledOrders rows={report.cancelled ?? []} />
     </section>
+  );
+}
+
+/**
+ * Orders cancelled in the range (07-Oct-2026): which, where, for how much, when, why and by whom.
+ * Listed on their own and in no total - a cancelled order was not paid, so it is not takings and
+ * carries no GST. The amount is what the order came to when it was cancelled.
+ */
+function CancelledOrders({ rows }: { rows: NonNullable<RangeReport['cancelled']> }) {
+  return (
+    <div className="mt-6" data-testid="owner-rep-cancelled">
+      <SectionLabel>Cancelled orders · {rows.length}</SectionLabel>
+      <DataTable
+        rows={rows}
+        rowKey={(c) => c.id}
+        defaultSort={{ key: 'when', direction: 'desc' }}
+        exportName="jalsa-cancelled-orders"
+        emptyTitle="No orders cancelled in this range"
+        emptyNote="An order cancelled after it reached the kitchen appears here with its reason and who cancelled it."
+        searchPlaceholder="Search bill, table, reason or person"
+        testId="owner-cancelled-ledger"
+        columns={[
+          { key: 'bill', header: 'Bill', cell: (c) => <span className="font-semibold">{c.code}</span>, value: (c) => c.code },
+          { key: 'table', header: 'Table', cell: (c) => c.tables, value: (c) => c.tables },
+          {
+            key: 'when',
+            header: 'Cancelled',
+            cell: (c) => c.cancelledAtLabel,
+            value: (c) => c.cancelledAt,
+          },
+          {
+            key: 'reason',
+            header: 'Reason',
+            cell: (c) => (c.note ? `${c.reason} — ${c.note}` : c.reason),
+            value: (c) => `${c.reason} ${c.note}`,
+          },
+          { key: 'by', header: 'Cancelled by', cell: (c) => c.by, value: (c) => c.by, secondary: true },
+          { key: 'rounds', header: 'Rounds', cell: (c) => c.rounds, value: (c) => c.rounds, align: 'right', secondary: true },
+          { key: 'amount', header: 'Order value', cell: (c) => c.amountLabel, value: (c) => c.amount, align: 'right' },
+        ]}
+      />
+      <p className="m-0 mt-2 type-caption leading-relaxed text-[var(--text-muted)]">
+        Not counted in sales, GST or any total above: nothing was paid. Every line of each order is kept.
+      </p>
+    </div>
   );
 }
 

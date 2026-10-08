@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
-import { actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
+import { PROVISIONAL_REFUSAL, actorFor, currentStaff, type SignedInStaff } from '@/lib/db/auth';
 import { withState } from '@/lib/db/action-echo';
 import { buildOwnerPayload } from '@/lib/db/owner-view';
 import { publicConfig } from '@/lib/config';
@@ -11,6 +11,8 @@ import {
   completeRequest,
   detachTableFromBill,
   freeTable,
+  cancelOrderAndFreeTable,
+  OrderNotLive,
   clearTable,
   ensureOpenBill,
   placeRound,
@@ -63,6 +65,8 @@ import {
   writeEmployment,
   writeIdentity,
   writeSetting,
+  PhotoRefused,
+  setTakeawayPhoto,
 } from '@/lib/db/owner-mutations';
 
 type Action =
@@ -94,6 +98,10 @@ type Action =
   | { action: 'takeaway-round'; billId: string; lines: Array<{ menuItemId: string; qty: number }> }
   | { action: 'set-packaging'; billId: string; packagingCharge: number | string }
   | { action: 'free-table'; tableId: string }
+  /* An order already with the kitchen, cancelled and its table freed together (07-Oct-2026). */
+  | { action: 'cancel-free-table'; billId: string; tableId: string; reason?: string; note?: string; rounds?: number }
+  /* A takeaway's photo: add or replace (`base64`), or remove (`remove: true`) (07-Oct-2026). */
+  | { action: 'takeaway-photo'; billId: string; base64?: string; remove?: boolean }
   | { action: 'clear-table'; tableId: string }
   | { action: 'reassign-bill-staff'; billId: string; role: 'captain' | 'waiter'; staffId: string | null }
   | { action: 'reply-suggestion'; suggestionId: string; reply: string }
@@ -207,6 +215,8 @@ type Action =
 export const POST = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
+  // Rule 5, at the door and not only on the page (07-Oct-2026): see the staff action route.
+  if (staff.provisional) return fail(403, { code: 'forbidden', message: PROVISIONAL_REFUSAL });
   const result = await perform(staff, await body<Action>(req));
   // The answer carries the console as it now stands (`action-echo.ts`). Unlike a captain, an
   // owner can change THEIR OWN standing — a permission, a PIN, removal — so the console is built
@@ -233,18 +243,23 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
   const actor = actorFor(staff);
 
   switch (input.action) {
-    case 'close-bill':
-      return ok(
-        await closeBill({
-          billId: input.billId,
-          mode: input.mode,
-          ...(input.reference ? { reference: input.reference } : {}),
-          ...(input.discountType && input.discountValue
-            ? { discountType: input.discountType, discountValue: input.discountValue }
-            : {}),
-          actor,
-        })
-      );
+    case 'close-bill': {
+      // A cancelled order is refused in words (07-Oct-2026), never closed as if it were paid.
+      const closed = await closeBill({
+        billId: input.billId,
+        mode: input.mode,
+        ...(input.reference ? { reference: input.reference } : {}),
+        ...(input.discountType && input.discountValue
+          ? { discountType: input.discountType, discountValue: input.discountValue }
+          : {}),
+        actor,
+      }).catch((err: unknown) => {
+        if (err instanceof OrderNotLive) return err;
+        throw err;
+      });
+      if (closed instanceof OrderNotLive) return fail(409, { code: 'conflict', message: closed.message });
+      return ok(closed);
+    }
 
     case 'change-qty':
       await changeQty({ kotItemId: input.kotItemId, qty: input.qty, actor });
@@ -314,6 +329,25 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       // two eventually disagree.
       await freeTable({ tableId: input.tableId, actor });
       return ok({ done: true });
+
+    case 'cancel-free-table': {
+      // Guarded in cancelOrderAndFreeTable (both grants, the order's state, the table) and in the
+      // database function it calls, which does the whole change in one transaction.
+      try {
+        const done = await cancelOrderAndFreeTable({
+          billId: String(input.billId ?? ''),
+          tableId: String(input.tableId ?? ''),
+          reason: input.reason ?? null,
+          note: input.note ?? null,
+          expectedRounds: typeof input.rounds === 'number' ? input.rounds : null,
+          actor,
+        });
+        return ok({ done: true, ...done });
+      } catch (err) {
+        if (err instanceof OrderNotLive) return fail(409, { code: 'conflict', message: err.message });
+        throw err;
+      }
+    }
 
     case 'takeaway': {
       /* The same round the floor places - `placeRound` - on a bill at no table. Permissions are
@@ -464,6 +498,23 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           actor,
         })
       );
+
+    case 'takeaway-photo': {
+      // Every check is setTakeawayPhoto's: the grant, the order (this restaurant's, a takeaway,
+      // running), the bytes, and the storage key it makes itself.
+      try {
+        return ok(
+          await setTakeawayPhoto({
+            billId: String(input.billId ?? ''),
+            base64: input.remove ? null : typeof input.base64 === 'string' ? input.base64 : '',
+            actor,
+          })
+        );
+      } catch (err) {
+        if (err instanceof PhotoRefused) return fail(409, { code: 'conflict', message: err.message });
+        throw err;
+      }
+    }
 
     case 'upload-image':
       return ok(

@@ -68,7 +68,15 @@ test('item 23: the server checks the bytes again, stores a fresh name, and only 
 
 test('item 23: the photo is chosen in Add Item, shown on the menu and in the guest tile', () => {
   expect(code('src/features/owner/sections/MenuSection.tsx')).toContain('testId="owner-item-image"');
-  expect(code('src/components/ui/image-picker.tsx')).toContain('accept="image/png,image/jpeg"');
+  /* SUPERSEDED 07-Oct-2026 (takeaway photo): this asserted the literal `accept="image/png,image/jpeg"`.
+     The picker gained a `photo` mode that accepts any image the phone can read and redraws it as a
+     JPEG of 1 MB or less (`image-shrink.ts`); every artwork picker - the dish photo here - still
+     offers PNG or JPEG only, and the server's byte check is unchanged. */
+  expect(code('src/components/ui/image-picker.tsx')).toContain("accept={photo ? 'image/*' : 'image/png,image/jpeg'}");
+  const menu = code('src/features/owner/sections/MenuSection.tsx');
+  const dishPicker = menu.slice(menu.indexOf('testId="owner-item-image"'), menu.indexOf('/>', menu.indexOf('testId="owner-item-image"')));
+  expect(dishPicker.length, 'the dish picker was found').toBeGreaterThan(20);
+  expect(dishPicker).not.toMatch(/^\s*photo\b/m);
   expect(code('src/features/guest/GuestOrdering.tsx')).toContain('src={item.imageUrl}');
 });
 

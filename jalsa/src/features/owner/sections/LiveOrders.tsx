@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
+import { ImagePicker } from '@/components/ui/image-picker';
 import { Card, Chip, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
 import { PrintTargets } from '@/components/ui/print';
@@ -213,6 +214,47 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
                 </Button>
               ) : null}
             </div>
+          ) : null}
+
+          {/* A takeaway's photo - a parcel, a handwritten slip (07-Oct-2026). Added, replaced and
+              removed while the order is running, by whoever may place takeaways; seen by anyone
+              who sees this order, and by nobody outside the console (`/api/media` checks). */}
+          {selected.orderType === 'takeaway' ? (
+            data.grants.includes('orders.create') && ['open', 'payment_requested'].includes(selected.status) ? (
+              <ImagePicker
+                key={selected.id}
+                photo
+                value={selected.photoUrl}
+                onChange={() => undefined}
+                label={`Photo for ${selected.code}`}
+                testId="owner-takeaway-photo"
+                upload={async (base64) =>
+                  (
+                    await send<{ photoUrl: string }>('/api/owner/action', {
+                      action: 'takeaway-photo',
+                      billId: selected.id,
+                      base64,
+                    })
+                  ).photoUrl
+                }
+                remove={async () => {
+                  await send('/api/owner/action', { action: 'takeaway-photo', billId: selected.id, remove: true });
+                }}
+                onSaved={(what) =>
+                  toast.show(what === 'saved' ? `${selected.code}: photo saved` : `${selected.code}: photo removed`, {
+                    tone: 'success',
+                  })
+                }
+              />
+            ) : selected.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- a stored upload of unknown size, served by our own route
+              <img
+                src={selected.photoUrl}
+                alt={`Photo for ${selected.code}`}
+                data-testid="owner-takeaway-photo-view"
+                className="h-24 w-24 rounded-[var(--radius-md)] object-cover"
+              />
+            ) : null
           ) : null}
 
           {/* Correcting a takeaway's packaging charge before it is paid - the same validation and

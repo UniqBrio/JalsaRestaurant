@@ -6,6 +6,7 @@ import {
   billTotals,
   lastClosedBillBefore,
   listClosedBillsBetween,
+  listCancelledBillsBetween,
   listExpensesBetween,
   readAllSettings,
 } from '@/lib/db/queries';
@@ -13,7 +14,7 @@ import { rupees } from '@/lib/money';
 import { placeLabel } from '@/lib/takeaway';
 import { FOOD_TYPE, KOT_SOURCE_LABEL, type FoodType } from '@/lib/status';
 import { checkRange, summarise, type GstSide, type RangeBill, type RangeExpense } from '@/lib/report-range';
-import { dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
+import { dateTimeLabelIn, dayIn, nowForRangeCheck, shortDayLabel } from '@/lib/restaurant-time';
 
 /** Money formatted once, on the server, like every other figure this route sends. */
 function sideLabels(side: GstSide): { grossLabel: string; netLabel: string; taxLabel: string; packagingLabel: string } {
@@ -78,12 +79,14 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
     return fail(400, { code: 'validation', message: verdict.problem });
   }
 
-  const [bills, expenses, settings, lastBefore] = await Promise.all([
+  const [bills, expenses, settings, lastBefore, cancelled] = await Promise.all([
     listClosedBillsBetween(from, to),
     listExpensesBetween(from, to),
     readAllSettings(),
     // The actual last bill before this range, for the empty state's "Last bill" line (A1).
     lastClosedBillBefore(from),
+    // Cancelled orders: shown, never summed into takings or GST (07-Oct-2026).
+    listCancelledBillsBetween(from, to),
   ]);
 
   const tax = (settings.tax ?? {}) as { rate?: number };
@@ -278,6 +281,12 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
       };
     }),
     expenses,
+    cancelled: cancelled.map((c) => ({
+      ...c,
+      cancelledOn: dayIn(new Date(c.cancelledAt)),
+      cancelledAtLabel: dateTimeLabelIn(c.cancelledAt),
+      amountLabel: rupees(c.amount),
+    })),
     lastBillBefore: lastBefore
       ? {
           code: lastBefore.code,
