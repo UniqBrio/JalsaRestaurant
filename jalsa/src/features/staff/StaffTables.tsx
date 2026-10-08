@@ -82,14 +82,17 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
       ) : (
         <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
           {live.map((t) => (
-            <li key={t.id}>
+            /* A column: the tile takes the cell's spare height and its buttons sit UNDER it. The
+               tile used to be `h-full`, which gave it the whole cell and pushed any button out of
+               the cell and over the tile below (08-Oct-2026, staff-floor-actions.render.spec). */
+            <li key={t.id} className="flex flex-col gap-1">
               <button
                 data-testid={`staff-table-${t.name}`}
                 type="button"
                 onClick={() => t.billId && go('table', t.billId)}
 
                 className={cn(
-                  'flex h-full w-full flex-col gap-1 rounded-[var(--radius-lg)] p-3.5 text-left shadow-[var(--shadow-card)] transition-transform',
+                  'flex w-full flex-1 flex-col gap-1 rounded-[var(--radius-lg)] p-3.5 text-left shadow-[var(--shadow-card)] transition-transform',
                   'hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]',
                   toneSurface(t.tone)
                 )}
@@ -121,7 +124,7 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
                   variant="ghost"
                   size="sm"
                   disabled={busy}
-                  className="mt-1 w-full"
+                  className="w-full"
                   onClick={() => setFreeing(t)}
                 >
                   Mark free
@@ -134,7 +137,7 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
                   variant="ghost"
                   size="sm"
                   disabled={busy}
-                  className="mt-1 w-full text-[var(--error)]"
+                  className="w-full text-[var(--error)]"
                   onClick={() => t.billId && setCancelling({ billId: t.billId, tableId: t.id, tableName: t.name, rounds: t.roundCount })}
                 >
                   {ORDER_CANCEL_COPY.action}
