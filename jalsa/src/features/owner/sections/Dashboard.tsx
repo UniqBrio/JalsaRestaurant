@@ -689,7 +689,7 @@ export function NewRoundSheet({
           await send('/api/owner/action', { action: 'takeaway-photo', billId: res.billId, base64: pendingPhoto });
         } catch (err: unknown) {
           toast.show(
-            `The order was sent, but its photo was not saved${err instanceof Error ? ` - ${err.message}` : ''}. Add it again from Add items.`,
+            `The order was sent, but its photo was not saved. ${err instanceof Error ? `${err.message} ` : ''}To add it, open the order and tap Add items.`,
             { tone: 'error' }
           );
         }

@@ -58,3 +58,11 @@
 ## EVIDENCE
 `tests/unit/corrections-12oct.unit.spec.ts` (11) and `tests/render/corrections-12oct.render.spec.ts` (10),
 fail-first observed against the previous `src/`. Results in `TEST_SUMMARY.md`.
+
+## REVIEW (12-Oct-2026: copy reviewer) - what changed
+- The photo-failure toast read "... not saved - The photo could not be saved. Try again.. Add it again from
+  Add items." (double full stop, two competing next steps). Now: "The order was sent, but its photo was not
+  saved. <reason> To add it, open the order and tap Add items."
+- The delete confirmation now also says the dish leaves any guest's order not yet sent, and that the Off
+  switch is in the Available column.
+- Freeze rule: no shipped string was reworded; the moved photo strings are word for word.

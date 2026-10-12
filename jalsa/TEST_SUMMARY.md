@@ -4,6 +4,18 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-12 - Copy review of the 12-Oct corrections - PASS (render 12/12, tsc, lint)
+
+- Photo-failure toast: the reason was spliced after a dash, giving "... not saved - The photo could not be saved. Try again.. Add it again from Add items." Now whole sentences: the reason, then "To add it, open the order and tap Add items."
+- Delete confirmation names the unsent-order effect and where the Off switch is (the Available column).
+- Freeze rule checked with `git diff 1a0e229 HEAD -- jalsa/src`: every removed visible string ("Photo for <code>", "<code>: photo saved/removed", "Edit") reappears word for word.
+- `tests/render/corrections-12oct.render.spec.ts` +2 cases (appended), 12 passed.
+
+FAIL-FIRST: tests/render/corrections-12oct.render.spec.ts "whole sentences" - against the pre-review copy, the exact toast text is not found (toBeVisible failed).
+FAIL-FIRST: tests/render/corrections-12oct.render.spec.ts "names every effect" - against the pre-review copy, Expected substring "... and from any guest's order not yet sent." not found.
+
+---
+
 ## 2026-10-12 - Takeaway photo in the dialog, a chevron on every dropdown, Delete on menu items - PASS except G8 (no database here)
 
 Request: `requests/2026-10-12-takeaway-photo-dialog-dropdown-icon-menu-delete.md`.

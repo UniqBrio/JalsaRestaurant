@@ -179,3 +179,32 @@ test('a refused delete keeps the dialog open and says why', async ({ page }) => 
   await expect(page.getByText('That item is no longer on the menu. Reload the page.')).toBeVisible();
   await expect(page.getByTestId('owner-item-delete-confirm')).toBeVisible();
 });
+
+/* ── Copy review, 12-Oct-2026 ──────────────────────────────────────────────────────────────── */
+
+test('a refused photo reads as whole sentences: the reason, then one way to add it', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => (window.__c12Answer = 'refuse-photo'));
+  await page.getByTestId('open-takeaway').click();
+  await page.getByTestId('owner-new-round-photo-file').setInputFiles({ name: 'parcel.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByTestId('owner-new-round-add-m1').click();
+  await page.getByTestId('owner-new-round-send').click();
+  // Before the copy review the reason was spliced in after a dash: "... not saved - The photo could
+  // not be saved. Try again.. Add it again from Add items." - a double full stop.
+  await expect(
+    page.getByText(
+      'The order was sent, but its photo was not saved. The photo could not be saved. Try again. To add it, open the order and tap Add items.',
+      { exact: true }
+    )
+  ).toBeVisible();
+});
+
+test('the delete confirmation names every effect: menus, unsent orders, and where the switch is', async ({ page }) => {
+  await mount(page, 1280);
+  await page.getByTestId('owner-delete-m1').click();
+  const dialog = page.getByTestId('owner-item-delete-confirm');
+  await expect(dialog).toContainText(
+    "Paneer Tikka is removed from the menu on every guest and captain screen, and from any guest's order not yet sent."
+  );
+  await expect(dialog).toContainText('To take it off only for a while, switch it Off in the Available column instead.');
+});

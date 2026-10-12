@@ -389,8 +389,9 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
         title={deleting ? `Delete ${deleting.name}?` : 'Delete item'}
         consequence={
           <>
-            <strong>{deleting?.name}</strong> is removed from the menu on every guest and captain screen. Orders and
-            bills that already have it keep it as they were. To take it off only for a while, switch it Off instead.
+            <strong>{deleting?.name}</strong> is removed from the menu on every guest and captain screen, and from any
+            guest&apos;s order not yet sent. Orders and bills that already have it keep it as they were. To take it off
+            only for a while, switch it Off in the Available column instead.
           </>
         }
         confirmLabel="Delete the item"
