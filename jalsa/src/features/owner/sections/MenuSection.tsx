@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Combobox } from '@/components/ui/combobox';
-import { Sheet } from '@/components/ui/sheet';
+import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { FOOD_TYPE, KOT_CLASSES, KOT_CLASS_LABEL, type FoodType } from '@/lib/status';
@@ -43,6 +43,8 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
     printerId: string;
   } | null>(null);
   const [newCategory, setNewCategory] = React.useState<{ name: string; printerId: string } | null>(null);
+  /** The dish whose Delete was tapped, waiting on the confirmation (12-Oct-2026). */
+  const [deleting, setDeleting] = React.useState<{ id: string; name: string } | null>(null);
   // Every machine that prints kitchen tickets - one that prints bills too included (02-Oct-2026).
   const kotPrinters = data.printers.filter((p) => printsKind(p, 'KOT'));
   const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
@@ -225,25 +227,38 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
               header: '',
               cell: (m) =>
                 canEdit ? (
-                  <Button
-                    data-testid={`owner-edit-${m.id}`}
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      setEditing({
-                        id: m.id,
-                        name: m.name,
-                        price: String(m.price),
-                        categoryId: m.categoryId,
-                        foodTypeId: m.foodTypeId,
-                        description: m.description,
-                        imageUrl: m.imageUrl,
-                        printerId: m.printerId ?? '',
-                      })
-                    }
-                  >
-                    Edit
-                  </Button>
+                  /* Delete sits beside Edit, and only deletes after the confirmation (12-Oct-2026). */
+                  <span className="flex items-center gap-1">
+                    <Button
+                      data-testid={`owner-edit-${m.id}`}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setEditing({
+                          id: m.id,
+                          name: m.name,
+                          price: String(m.price),
+                          categoryId: m.categoryId,
+                          foodTypeId: m.foodTypeId,
+                          description: m.description,
+                          imageUrl: m.imageUrl,
+                          printerId: m.printerId ?? '',
+                        })
+                      }
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      data-testid={`owner-delete-${m.id}`}
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setDeleting({ id: m.id, name: m.name })}
+                      className="text-[var(--error)]"
+                    >
+                      Delete
+                    </Button>
+                  </span>
                 ) : null,
             },
           ]}
@@ -364,6 +379,32 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
       ) : null}
 
       {canManageCategories ? <FoodTypesPanel data={data} send={send} runBusy={runBusy} busy={busy} /> : null}
+
+      {/* Nothing is deleted until the server confirms it: the dialog stays open and the toast says
+          why when it is refused. The console reloads after every action, so the row goes because
+          it is gone. */}
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={deleting ? `Delete ${deleting.name}?` : 'Delete item'}
+        consequence={
+          <>
+            <strong>{deleting?.name}</strong> is removed from the menu on every guest and captain screen. Orders and
+            bills that already have it keep it as they were. To take it off only for a while, switch it Off instead.
+          </>
+        }
+        confirmLabel="Delete the item"
+        onConfirm={() =>
+          deleting &&
+          runBusy(async () => {
+            await send('/api/owner/action', { action: 'delete-item', id: deleting.id });
+            toast.show(`${deleting.name} deleted`, { tone: 'success' });
+            setDeleting(null);
+          })
+        }
+        testId="owner-item-delete-confirm"
+        busy={busy}
+      />
 
       <Sheet
         open={editing !== null}

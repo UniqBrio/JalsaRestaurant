@@ -96,14 +96,47 @@ export const Textarea = React.forwardRef<
   );
 });
 
+/**
+ * The downward chevron every dropdown wears (12-Oct-2026): the Select below and the Combobox's
+ * toggle. Without it a closed dropdown is a box with a word in it - read as text, not as a list
+ * to open. Drawn in the text colour, so it follows both themes with no colour of its own.
+ */
+export function ChevronDown({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+/*
+ * `appearance-none` takes the browser's own arrow away (it is drawn differently on every engine
+ * and ignores the theme), so the chevron is drawn here instead, in the `pr-9` kept free for it.
+ * Before 12-Oct-2026 nothing was drawn there, and every select read as a text box.
+ * `className` sizes the control - it lands on the wrapper, which the select fills.
+ */
 export const Select = React.forwardRef<
   HTMLSelectElement,
   React.SelectHTMLAttributes<HTMLSelectElement> & { 'data-testid': string }
 >(function Select({ className, children, 'data-testid': testId, ...props }, ref) {
   return (
-    <select data-testid={testId} ref={ref} className={cn(controlClass, 'appearance-none pr-9', className)} {...props}>
-      {children}
-    </select>
+    <span className={cn('relative block w-full', className)}>
+      <select data-testid={testId} ref={ref} className={cn(controlClass, 'appearance-none pr-9')} {...props}>
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+    </span>
   );
 });
 
