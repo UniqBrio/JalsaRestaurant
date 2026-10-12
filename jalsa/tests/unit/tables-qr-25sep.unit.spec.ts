@@ -140,7 +140,9 @@ test('the QR image URL is versioned by the logo it is drawn with, and cached for
   const other = qrImageUrl('/api/owner/qr', { logo_url: '/api/media/brand/0f0f0f0f-0000-4000-8000-000000000000.png' }, { table: 'A5' });
   expect(plain).toMatch(/^\/api\/owner\/qr\?table=A5&v=[0-9a-f]{8}$/);
   expect(other).not.toBe(plain);
-  expect(qrImageUrl('/api/owner/review-qr', { logo_url: '/brand/jalsa-badge.png' })).toMatch(/^\/api\/owner\/review-qr\?v=[0-9a-f]{8}$/);
+  /* SUPERSEDED 12-Oct-2026: called `qrImageUrl('/api/owner/review-qr', { logo_url })` with no link -
+     the review code's URL is now versioned by the link it encodes too, which the call must name. */
+  expect(qrImageUrl('/api/owner/review-qr', { logo_url: '/brand/jalsa-badge.png' }, {}, 'https://g.page/r/x/review')).toMatch(/^\/api\/owner\/review-qr\?v=[0-9a-f]{8}$/);
   expect(qrImageUrl('/api/owner/qr', {}, { poster: 'block' })).toMatch(/^\/api\/owner\/qr\?poster=block&v=[0-9a-f]{8}$/);
   // No screen builds a code URL by hand any more: a bare path would sidestep the version.
   for (const f of ['src/features/owner/sections/SettingsSection.tsx', 'src/features/owner/TableStandSheet.tsx']) {

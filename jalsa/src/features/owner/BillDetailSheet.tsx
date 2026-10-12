@@ -12,6 +12,7 @@ import { billShareText, whatsAppNumber, whatsAppShareUrl, type WhatsAppTemplate 
 import { Field, Input } from '@/components/ui/field';
 import type { RestaurantIdentity } from '@/lib/restaurant-identity';
 import type { OwnerBillView } from '@/lib/db/owner-view';
+import { printOnPaper } from '@/lib/paper';
 
 /**
  * The bill, in full, opened from a list.
@@ -95,9 +96,9 @@ export function BillDetailSheet({
           <Button data-testid="owner-bill-detail-close" variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {/* `window.print()` and not a link: the sheet is already on screen and the print
+          {/* `printOnPaper()` (window.print, in the light theme) and not a link: the sheet is already on screen and the print
               stylesheet in globals.css makes it the only thing on the page. */}
-          <Button data-testid="owner-bill-print" variant="secondary" onClick={() => window.print()}>
+          <Button data-testid="owner-bill-print" variant="secondary" onClick={() => printOnPaper()}>
             Print
           </Button>
           {reprint && bill.status === 'closed' ? (

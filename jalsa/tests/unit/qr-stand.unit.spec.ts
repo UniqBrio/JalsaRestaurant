@@ -103,7 +103,9 @@ test('the stand prints as two pages and hides the console behind it', () => {
   expect(CSS).toContain('.j-print-break {');
   expect(CSS).toContain('break-before: page;');
   expect(STAND, 'print is a button, not a link').toContain('data-testid="owner-stand-print"');
-  expect(STAND).toContain('onClick={() => window.print()}');
+  /* SUPERSEDED 12-Oct-2026: asserted `onClick={() => window.print()}`; every Print button now goes
+     through `printOnPaper()` (src/lib/paper.ts), which prints in the light theme. */
+  expect(STAND).toContain('onClick={() => printOnPaper()}');
 });
 
 test('the scan instructions are the owner’s words, unparaphrased', () => {
@@ -123,7 +125,9 @@ test('the scan instructions are the owner’s words, unparaphrased', () => {
 test('the back carries the review code, or says why it cannot', () => {
   /* SUPERSEDED 26-Sep-2026: asserted the bare `src="/api/owner/review-qr"`; the URL now carries the
      logo version (src/lib/qr-url.ts). */
-  expect(STAND).toContain("src={qrImageUrl('/api/owner/review-qr', restaurant)}");
+  /* SUPERSEDED 12-Oct-2026: asserted `qrImageUrl('/api/owner/review-qr', restaurant)`; the review link
+     is now part of the code's URL (src/lib/qr-url.ts). */
+  expect(STAND).toContain("src={qrImageUrl('/api/owner/review-qr', restaurant, {}, reviewUrl)}");
   expect(STAND, 'a missing link is named, not silently blank').toContain('data-testid="owner-stand-no-review"');
   expect(STAND).toContain('Customer engagement');
   // The two images are generated vectors; the optimiser is bypassed on purpose and says so.

@@ -4,6 +4,19 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-12 - Print both faces prints the stand; the review code follows the review link - PASS except G8 (unchanged)
+
+- Print: the modal's Tailwind v4 `translate` was never reset on paper (only `transform`), so the dialog printed shifted up-left by half its size - title and front face off the page, back face where the front should be. A `translate: none` beside `transform: none` is folded away by the CSS build; it is now its own rule under a distinct selector. A printable panel with page breaks prints as a column, without the dialog's title. Every Print button goes through `printOnPaper()` (light theme on paper, the person's theme back on `afterprint`).
+- Review QR: the image URL's version hashed only the logo, so a code for the seeded placeholder link (`https://g.page/r/jalsa-hosur/review`) stayed on screen for an hour after the real link was saved. The review link is now in the version, and required by the builder's type.
+- New: `tests/render/print-stand.render.spec.ts` (5, the real TableStandSheet laid out for print and printed to PDF by Chromium), `tests/unit/review-qr-cache.unit.spec.ts` (3). Superseded in place with dated notes: `qr-stand` (2 pins), `tables-qr-25sep` (review call), `guest-reports-25sep` (review href).
+- Full: unit + render 1856 passed; tsc, lint OK; audit:all 10/10.
+
+FAIL-FIRST: tests/render/print-stand.render.spec.ts - against the previous `src/`, 4 of 5 fail: translate Expected "none", Received "-50% -50%" (both widths); the dark-theme print printed in dark; the printOnPaper pin.
+NOT OBSERVED FAILING: tests/render/print-stand.render.spec.ts light-theme print - printing from light was already light.
+FAIL-FIRST: tests/unit/review-qr-cache.unit.spec.ts - against the previous `qr-url.ts`, the URLs for the placeholder and the real link were identical (`/api/owner/review-qr?v=6e909450`).
+
+---
+
 ## 2026-10-12 - Code review of the 12-Oct corrections - PASS except G8 (unchanged)
 
 - Fixed: a gone dish answered the generic 500 (now 409 in words, `MenuItemRefused`); an edit saved over a deleted dish answered "saved"; welcome drinks saved a deleted dish's id; the dish photo left in storage; a disabled select's chevron at full strength.

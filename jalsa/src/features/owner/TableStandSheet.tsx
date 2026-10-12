@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { billName, restaurantIdentity } from '@/lib/restaurant-identity';
 import { qrImageUrl } from '@/lib/qr-url';
+import { printOnPaper } from '@/lib/paper';
 
 /**
  * TableStandSheet — the two faces of the tabletop stand, previewed and printed from Settings.
@@ -79,9 +80,9 @@ export function TableStandSheet({
           <Button data-testid="owner-stand-close" variant="ghost" onClick={onClose}>
             Close
           </Button>
-          {/* window.print() and not a link: the sheet is already on screen and the print
+          {/* printOnPaper() (window.print, in the light theme) and not a link: the sheet is already on screen and the print
               stylesheet makes it the only thing on the page, one face per sheet of paper. */}
-          <Button data-testid="owner-stand-print" variant="primary" onClick={() => window.print()}>
+          <Button data-testid="owner-stand-print" variant="primary" onClick={() => printOnPaper()}>
             Print both faces
           </Button>
         </>
@@ -147,7 +148,7 @@ export function TableStandSheet({
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element -- the same generated vector as the front. */}
                 <img
-                  src={qrImageUrl('/api/owner/review-qr', restaurant)}
+                  src={qrImageUrl('/api/owner/review-qr', restaurant, {}, reviewUrl)}
                   alt="QR code for the Google review page, with the Jalsa badge in the centre"
                   width={260}
                   height={260}

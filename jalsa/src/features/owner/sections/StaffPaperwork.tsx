@@ -26,6 +26,7 @@ import {
 import type { StaffMember } from '@/lib/db/types';
 import type { OwnerSectionProps } from '../OwnerConsole';
 import { todayIn } from '@/lib/restaurant-time';
+import { printOnPaper } from '@/lib/paper';
 
 /**
  * Staff paperwork — offer letter, experience certificate, payslip.
@@ -280,7 +281,7 @@ export function StaffPaperwork({
           <Button
             data-testid="owner-paperwork-print"
             disabled={missing.length > 0}
-            onClick={() => window.print()}
+            onClick={() => printOnPaper()}
           >
             {missing.length ? 'Fill the blanks first' : 'Print or save as PDF'}
           </Button>

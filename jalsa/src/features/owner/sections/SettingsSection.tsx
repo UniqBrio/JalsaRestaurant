@@ -1554,7 +1554,7 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </Button>
           {savedReview === review.url ? (
             <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-qr">
-              <a data-testid="owner-engage-review-qr-link" href={qrImageUrl('/api/owner/review-qr', data.restaurant)} target="_blank" rel="noopener noreferrer">
+              <a data-testid="owner-engage-review-qr-link" href={qrImageUrl('/api/owner/review-qr', data.restaurant, {}, savedReview)} target="_blank" rel="noopener noreferrer">
                 Review QR code
               </a>
             </Button>
