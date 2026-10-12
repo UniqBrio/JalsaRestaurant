@@ -108,3 +108,17 @@
 - The gate's functional tier (G8) is red in this container for the four specs that need a reachable,
   seeded database (no database here; CI runs only the degraded spec for the same reason). Everything
   else is green.
+
+## FOLLOW-UP (08-Oct-2026) - captain's floor: action buttons drawn over other tiles
+Seen in production right after deploy (owner's screenshot): on the captain's floor, "Cancel order &
+free table" under A1 was hidden behind A5, A2's fell into the empty slot, A5's lay across the legend.
+**Root cause:** each floor tile was `h-full` inside its grid cell, so the tile took the cell's whole
+height and any button after it spilled out of the cell. Not new - "Mark free" has the same structure -
+but tables with rounds are the common case, so the new button made it visible at once. The owner's
+Dashboard floor does not use `h-full` and was not affected.
+**Fix:** the cell is a column (`flex flex-col gap-1`), the tile `flex-1`; buttons sit under their
+own tile. `StaffTables.tsx` only.
+**Rung:** `tests/render/staff-floor-actions.render.spec.ts` mounts the real FloorScreen with the
+screenshot's floor and asserts every button is under its own tile and over no other tile, button or
+the legend (390 px light/dark, 608 px). Observed failing before the fix ("staff-cancel-order-A1
+overlaps tile A5"), passing after.
