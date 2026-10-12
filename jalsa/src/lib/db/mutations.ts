@@ -19,6 +19,7 @@ import { captainMayAssignWaiter } from '@/lib/status';
 import { QUEUE_CLOSED } from '@/lib/queue-closed';
 import { PAYMENT_NOTICE, PAYMENT_NOTICE_KINDS, noticesToRaise, paymentNoticeNote } from '@/lib/payment-notice';
 import { ORDER_CANCEL_GRANTS, ORDER_CANCEL_MESSAGES, orderCancelReason } from '@/lib/order-cancel';
+import { TABLE_MOVE_GRANT, TABLE_MOVE_MESSAGES } from '@/lib/table-move';
 import {
   printsKind,
   resolvePrinter,
@@ -1731,6 +1732,62 @@ export async function cancelOrderAndFreeTable(input: {
   if (outcome !== 'cancelled') throw new OrderNotLive(ORDER_CANCEL_MESSAGES.changed);
 
   return { billCode: bill.code, tables: bill.tables };
+}
+
+/**
+ * Move a running order to another, FREE table - "the party at A1 wants to sit at A2" (12-Oct-2026).
+ *
+ * WHY THE DATABASE DOES IT
+ *   `move_bill_to_table` moves the bill's table, the rounds still to come, the party's phones and
+ *   their open requests, and writes the audit row, in ONE transaction under the bill's row lock and
+ *   the destination's. As separate writes, a failure halfway could leave an order on two tables or
+ *   on none, and two moves into one table at once could both succeed.
+ *
+ * WHAT IT TRUSTS FROM THE SCREEN
+ *   Only three ids, as "this order, on the table I tapped, to the table I chose": the order must be
+ *   this restaurant's and still running, still on that table, and the destination this
+ *   restaurant's, on the floor and free. Otherwise nothing changes and the person is told why.
+ */
+export async function moveOrderToTable(input: {
+  billId: string;
+  fromTableId: string;
+  toTableId: string;
+  actor: Actor;
+}): Promise<{ billCode: string; from: string; to: string }> {
+  demand(input.actor, TABLE_MOVE_GRANT);
+  if (![input.billId, input.fromTableId, input.toTableId].every((id) => UUID_RE.test(String(id ?? '')))) {
+    throw new OrderNotLive(TABLE_MOVE_MESSAGES.notHere);
+  }
+  const restaurantId = await currentRestaurantId();
+  const [billRes, tablesRes] = await Promise.all([
+    db().from('bill').select('code').eq('id', input.billId).eq('restaurant_id', restaurantId).maybeSingle(),
+    db().from('dining_table').select('id,name').eq('restaurant_id', restaurantId).in('id', [input.fromTableId, input.toTableId]),
+  ]);
+  if (billRes.error) throw billRes.error;
+  if (tablesRes.error) throw tablesRes.error;
+  if (!billRes.data) throw new OrderNotLive(TABLE_MOVE_MESSAGES.gone);
+  const nameOf = (id: string): string =>
+    ((tablesRes.data ?? []).find((t) => t.id === id)?.name as string | undefined) ?? '';
+
+  const { data: outcome, error } = await db().rpc('move_bill_to_table', {
+    p_restaurant_id: restaurantId,
+    p_bill_id: input.billId,
+    p_from_table_id: input.fromTableId,
+    p_to_table_id: input.toTableId,
+    p_actor_staff_id: input.actor.staffId,
+    p_actor_label: input.actor.label,
+  });
+  if (error) throw error;
+  const refusal: Record<string, string> = {
+    gone: TABLE_MOVE_MESSAGES.gone,
+    not_here: TABLE_MOVE_MESSAGES.notHere,
+    same: TABLE_MOVE_MESSAGES.same,
+    unavailable: TABLE_MOVE_MESSAGES.unavailable,
+    taken: TABLE_MOVE_MESSAGES.taken,
+    needs_clearing: TABLE_MOVE_MESSAGES.needsClearing,
+  };
+  if (outcome !== 'moved') throw new OrderNotLive(refusal[String(outcome)] ?? TABLE_MOVE_MESSAGES.notHere);
+  return { billCode: billRes.data.code as string, from: nameOf(input.fromTableId), to: nameOf(input.toTableId) };
 }
 
 /**

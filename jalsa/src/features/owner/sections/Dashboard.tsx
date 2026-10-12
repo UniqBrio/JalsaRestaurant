@@ -16,6 +16,8 @@ import { MetricTile, type OwnerSectionProps } from '../OwnerConsole';
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
 import { CancelOrderDialog, type CancelTarget } from '@/components/ui/cancel-order';
 import { ORDER_CANCEL_COPY, tableIsCancellable } from '@/lib/order-cancel';
+import { MoveTableDialog, type MoveTarget } from '@/components/ui/move-table';
+import { TABLE_MOVE_COPY, tableIsMovable, tableMoveTargets } from '@/lib/table-move';
 import { NewDishOffer } from '@/components/ui/new-dish';
 import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { readWelcomeDrinks, welcomeDrinksToOffer, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
@@ -47,6 +49,8 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
   /* Cancel an order the kitchen already has and free its table (07-Oct-2026): both grants, and
      only on a table with rounds - the tables Mark free is never offered on. */
   const [cancelling, setCancelling] = React.useState<CancelTarget | null>(null);
+  /* A party changing tables, their order with them (12-Oct-2026): free tables only. */
+  const [moving, setMoving] = React.useState<MoveTarget | null>(null);
   /* "Needs clearing" is the other way a table leaves the floor's attention, and it was shown
      here with no way out (28-Sep-2026): clearing lived only in the captain's To clear list.
      Same verb, same grant, same words as there. */
@@ -341,6 +345,19 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
                 </Button>
               ) : null}
 
+              {tableIsMovable(t, data.grants) ? (
+                <Button
+                  data-testid={`owner-move-table-${t.name}`}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  className="mt-1 w-full"
+                  onClick={() => t.billId && setMoving({ billId: t.billId, tableId: t.id, tableName: t.name })}
+                >
+                  {TABLE_MOVE_COPY.action}
+                </Button>
+              ) : null}
+
               {canClear && t.clearing ? (
                 <Button
                   data-testid={`owner-clear-table-${t.name}`}
@@ -408,6 +425,17 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
         runBusy={runBusy}
         busy={busy}
         testId="owner-cancel-order"
+      />
+
+      <MoveTableDialog
+        target={moving}
+        freeTables={moving ? tableMoveTargets(data.floor, moving.tableId) : []}
+        onClose={() => setMoving(null)}
+        endpoint="/api/owner/action"
+        send={send}
+        runBusy={runBusy}
+        busy={busy}
+        testId="owner-move-table"
       />
 
       <section>

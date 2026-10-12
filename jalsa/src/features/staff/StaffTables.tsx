@@ -25,6 +25,8 @@ import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/ca
 import { WelcomeDrinksOffer } from '@/components/ui/welcome-drinks';
 import { CancelOrderDialog, type CancelTarget } from '@/components/ui/cancel-order';
 import { ORDER_CANCEL_COPY, tableIsCancellable } from '@/lib/order-cancel';
+import { MoveTableDialog, type MoveTarget } from '@/components/ui/move-table';
+import { TABLE_MOVE_COPY, tableIsMovable, tableMoveTargets } from '@/lib/table-move';
 import { NewDishOffer } from '@/components/ui/new-dish';
 import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { isFirstOrder, welcomeDrinksToOffer } from '@/lib/welcome-drinks';
@@ -70,6 +72,9 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
   /* An order the kitchen already has, cancelled and the table freed together (07-Oct-2026). Offered
      only where both grants are held and rounds exist - exactly where Mark free is NOT offered. */
   const [cancelling, setCancelling] = React.useState<CancelTarget | null>(null);
+  /* The party changing tables, their order with them (12-Oct-2026). Offered on a table holding an
+     order, to a person with `tables.transfer`; only free tables are offered to move to. */
+  const [moving, setMoving] = React.useState<MoveTarget | null>(null);
 
   return (
     <div className="flex flex-col gap-4" data-testid="staff-floor">
@@ -143,6 +148,19 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
                   {ORDER_CANCEL_COPY.action}
                 </Button>
               ) : null}
+
+              {tableIsMovable(t, data.grants) ? (
+                <Button
+                  data-testid={`staff-move-table-${t.name}`}
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  className="w-full"
+                  onClick={() => t.billId && setMoving({ billId: t.billId, tableId: t.id, tableName: t.name })}
+                >
+                  {TABLE_MOVE_COPY.action}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -191,6 +209,17 @@ export function FloorScreen({ data, go, goFreeTable, send, runBusy, busy }: Staf
         runBusy={runBusy}
         busy={busy}
         testId="staff-cancel-order"
+      />
+
+      <MoveTableDialog
+        target={moving}
+        freeTables={moving ? tableMoveTargets(data.tables, moving.tableId) : []}
+        onClose={() => setMoving(null)}
+        endpoint="/api/staff/action"
+        send={send}
+        runBusy={runBusy}
+        busy={busy}
+        testId="staff-move-table"
       />
 
       <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">

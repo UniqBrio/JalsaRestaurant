@@ -390,6 +390,32 @@ h6 {
     box-shadow: none !important;
   }
 
+  /* Tailwind v4 centres the modal with the `translate` PROPERTY, not `transform`. Resetting only
+     `transform` left a centred dialog shifted up and left by half its own size on paper: the title
+     and the stand's front face printed off the page (12-Oct-2026). Its own rule ON PURPOSE: in the
+     rule above, the CSS minifier folds `transform: none; translate: none` into one
+     `transform: translate3d(0,0,0)` and drops the `translate` reset, and it merges any second rule
+     with the SAME selector back into that one - so this selector is deliberately spelled
+     differently (`div[role]`). Pinned by tests/render/print-stand.render.spec.ts. */
+  body:has(.j-print-root) div[role='dialog'] {
+    translate: none !important;
+  }
+
+  /* A printable panel made of PAGES (it carries a `j-print-break`, e.g. the two faces of a table
+     stand) prints one page after another. On screen the faces sit side by side in a grid, and a
+     page break inside a grid row moves the whole row - both faces - to the next page, leaving the
+     first sheet empty (12-Oct-2026). On paper it is a column; and the dialog's own title is the
+     console's, not the card's, so it does not print. */
+  .j-print-root:has(> .j-print-break) {
+    display: block !important;
+  }
+  .j-print-root:has(> .j-print-break) > * + * {
+    margin-top: 0 !important;
+  }
+  body:has(.j-print-root > .j-print-break) [role='dialog'] > header {
+    display: none !important;
+  }
+
   /* The sheet's body scrolls on screen. On paper there is nothing to scroll, and an
      `overflow-y: auto` box prints only the slice that happened to be visible. */
   body:has(.j-print-root) [role='dialog'] > div {

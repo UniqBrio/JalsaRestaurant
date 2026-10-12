@@ -1222,14 +1222,15 @@ function WelcomeDrinksPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
       </div>
       <Button
         data-testid="owner-welcome-save"
-        disabled={busy || (enabled && itemIds.length === 0)}
+        // Counted from the drinks still on the menu: a deleted dish's id is not a drink (12-Oct-2026).
+        disabled={busy || (enabled && chosen.length === 0)}
         className="self-start"
         onClick={() =>
           runBusy(async () => {
             await send('/api/owner/action', {
               action: 'write-setting',
               key: 'welcomeDrinks',
-              value: { enabled, itemIds },
+              value: { enabled, itemIds: chosen.map((m) => m.id) },
             });
             toast.show(
               enabled ? `Welcome drinks on — ${chosen.map((m) => m.name).join(', ')}` : 'Welcome drinks off',
@@ -1553,7 +1554,7 @@ function EngagementPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
           </Button>
           {savedReview === review.url ? (
             <Button asChild size="sm" variant="ghost" data-testid="owner-engage-review-qr">
-              <a data-testid="owner-engage-review-qr-link" href={qrImageUrl('/api/owner/review-qr', data.restaurant)} target="_blank" rel="noopener noreferrer">
+              <a data-testid="owner-engage-review-qr-link" href={qrImageUrl('/api/owner/review-qr', data.restaurant, {}, savedReview)} target="_blank" rel="noopener noreferrer">
                 Review QR code
               </a>
             </Button>

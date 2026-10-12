@@ -4,6 +4,46 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-12 - Move a running order to another table - PASS except G8 (unchanged)
+
+Request: `requests/2026-10-12-move-order-to-table.md`. Migration `20261012090000` applied nowhere yet; the guest page falls back if it is missing.
+
+- New: `tests/unit/table-move.db.unit.spec.ts` (8, PGlite, every migration), `tests/unit/table-move.unit.spec.ts` (14, the real mutation, both routes, the guest context, `lastClosedOnTable`), `tests/render/table-move.render.spec.ts` (5, the real captain floor, both themes, 390 px). `tests/support/fake-supabase.ts` gains an optional error `__code`.
+- Full: unit + render 1886 passed; tsc, lint OK; audit:all 10/10.
+
+FAIL-FIRST: tests/unit/table-move.db.unit.spec.ts - without the migration: `function move_bill_to_table(unknown, unknown, unknown, unknown, unknown, unknown) does not exist`.
+FAIL-FIRST: tests/unit/table-move.unit.spec.ts - against the previous `src/`: `Cannot find module '.../src/lib/table-move'`; the receipt case alone against the previous `lastClosedOnTable` returned the moved-away bill (Expected null).
+NOT OBSERVED FAILING: tests/unit/table-move.unit.spec.ts "a database without the migration" - written with the fallback it pins.
+FAIL-FIRST: tests/render/table-move.render.spec.ts - against the previous `src/`, 4 of 5 fail waiting for `staff-move-table-A1`.
+NOT OBSERVED FAILING: tests/render/table-move.render.spec.ts "without the grant there is no Move button" - there was no button for anybody.
+
+---
+
+## 2026-10-12 - Print both faces prints the stand; the review code follows the review link - PASS except G8 (unchanged)
+
+- Print: the modal's Tailwind v4 `translate` was never reset on paper (only `transform`), so the dialog printed shifted up-left by half its size - title and front face off the page, back face where the front should be. A `translate: none` beside `transform: none` is folded away by the CSS build; it is now its own rule under a distinct selector. A printable panel with page breaks prints as a column, without the dialog's title. Every Print button goes through `printOnPaper()` (light theme on paper, the person's theme back on `afterprint`).
+- Review QR: the image URL's version hashed only the logo, so a code for the seeded placeholder link (`https://g.page/r/jalsa-hosur/review`) stayed on screen for an hour after the real link was saved. The review link is now in the version, and required by the builder's type.
+- New: `tests/render/print-stand.render.spec.ts` (5, the real TableStandSheet laid out for print and printed to PDF by Chromium), `tests/unit/review-qr-cache.unit.spec.ts` (3). Superseded in place with dated notes: `qr-stand` (2 pins), `tables-qr-25sep` (review call), `guest-reports-25sep` (review href).
+- Full: unit + render 1856 passed; tsc, lint OK; audit:all 10/10.
+
+FAIL-FIRST: tests/render/print-stand.render.spec.ts - against the previous `src/`, 4 of 5 fail: translate Expected "none", Received "-50% -50%" (both widths); the dark-theme print printed in dark; the printOnPaper pin.
+NOT OBSERVED FAILING: tests/render/print-stand.render.spec.ts light-theme print - printing from light was already light.
+FAIL-FIRST: tests/unit/review-qr-cache.unit.spec.ts - against the previous `qr-url.ts`, the URLs for the placeholder and the real link were identical (`/api/owner/review-qr?v=6e909450`).
+
+---
+
+## 2026-10-12 - Code review of the 12-Oct corrections - PASS except G8 (unchanged)
+
+- Fixed: a gone dish answered the generic 500 (now 409 in words, `MenuItemRefused`); an edit saved over a deleted dish answered "saved"; welcome drinks saved a deleted dish's id; the dish photo left in storage; a disabled select's chevron at full strength.
+- `tests/unit/corrections-12oct.unit.spec.ts` 16 passed (+3 real-route cases via `menu-item-doors.scenarios.ts`, +2 guards; two assertions superseded in place with dated notes). `tests/render/corrections-12oct.render.spec.ts` 14 passed (+2).
+- Full: unit + render 1848 passed; tsc, lint OK; audit:all 10/10; guard:test 15/15.
+
+FAIL-FIRST: tests/unit/corrections-12oct.unit.spec.ts "the owner route, called for real" - against the pre-review `src/`: delete of a gone dish Expected 409, Received 500; a malformed id Expected 409, Received 200; the edit of a deleted dish failed (answered as saved); welcome-drinks pin not found.
+NOT OBSERVED FAILING: tests/unit/corrections-12oct.unit.spec.ts "no bare select element anywhere" - a guard that already held.
+NOT OBSERVED FAILING: tests/render/corrections-12oct.render.spec.ts T5 cases (Remove on Add items, refused takeaway) - written after the behaviour existed; they pin paths that were only source-pinned.
+
+---
+
 ## 2026-10-12 - Copy review of the 12-Oct corrections - PASS (render 12/12, tsc, lint)
 
 - Photo-failure toast: the reason was spliced after a dash, giving "... not saved - The photo could not be saved. Try again.. Add it again from Add items." Now whole sentences: the reason, then "To add it, open the order and tap Add items."

@@ -10,6 +10,14 @@
  *   through twenty tables from twenty renders.
  *
  *   A hash, not the URL itself, so the address stays short and carries no path of the upload.
+ *
+ * AND WHAT THE CODE SAYS IS AN INPUT TOO (12-Oct-2026)
+ *   The review code encodes the owner's Google review link, and `v` hashed only the logo. A stand
+ *   or the Settings preview opened while the database still held the seeded placeholder
+ *   (`https://g.page/r/jalsa-hosur/review`, not a real page) kept that picture for an hour after
+ *   the real link was saved - a code that opens Google's error instead of the review page. The
+ *   review link is now hashed into `v` with the logo, and the review path cannot be named without
+ *   it (the overload below), so the same omission cannot be made again by a new screen.
  */
 export type QrImagePath = '/api/owner/qr' | '/api/owner/review-qr';
 
@@ -23,12 +31,24 @@ function fnv1a(text: string): string {
   return h.toString(16).padStart(8, '0');
 }
 
+/** The review code: `reviewUrl` is the saved link it encodes - required, it is in the picture. */
+export function qrImageUrl(
+  path: '/api/owner/review-qr',
+  restaurant: Record<string, unknown>,
+  params: Record<string, string>,
+  reviewUrl: string
+): string;
+export function qrImageUrl(path: '/api/owner/qr', restaurant: Record<string, unknown>, params?: Record<string, string>): string;
 export function qrImageUrl(
   path: QrImagePath,
   restaurant: Record<string, unknown>,
-  params: Record<string, string> = {}
+  params: Record<string, string> = {},
+  reviewUrl?: string
 ): string {
   const q = new URLSearchParams(params);
-  q.set('v', fnv1a(typeof restaurant.logo_url === 'string' ? restaurant.logo_url : ''));
+  const logo = typeof restaurant.logo_url === 'string' ? restaurant.logo_url : '';
+  // The logo alone keeps every table code's URL exactly as it was; the review link joins it only
+  // for the review code.
+  q.set('v', fnv1a(reviewUrl === undefined ? logo : `${logo}\n${reviewUrl.trim()}`));
   return `${path}?${q.toString()}`;
 }

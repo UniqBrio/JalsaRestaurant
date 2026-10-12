@@ -13,6 +13,7 @@ import {
 } from './queries';
 import { readCart } from './mutations';
 import type { Bill } from './types';
+import { isSchemaFault } from '@/lib/db-errors';
 
 /**
  * guest - resolving what a scanned QR should show.
@@ -30,7 +31,8 @@ import type { Bill } from './types';
  * tabs, lose signal and hand the phone to whoever is paying.
  */
 
-export type GuestPhase = 'welcome' | 'live' | 'recently_paid' | 'table_inactive';
+/** `moved` (12-Oct-2026): this phone's order was moved to another table by staff - go there. */
+export type GuestPhase = 'welcome' | 'live' | 'recently_paid' | 'table_inactive' | 'moved';
 
 /**
  * The session row a request is holding, once it has read it.
@@ -65,6 +67,8 @@ export interface GuestContext {
   heardAbout: string;
   /** This phone said "Not now" to the question (02-Oct-2026). */
   heardDismissed: boolean;
+  /** Set on `moved`: the table this phone's order now sits at. */
+  movedTo?: string;
 }
 
 /**
@@ -114,7 +118,7 @@ function phaseFor(
   open: Bill | null,
   closed: { closedAt: string | null } | null,
   rescanMinutes: number
-): Exclude<GuestPhase, 'table_inactive'> {
+): Exclude<GuestPhase, 'table_inactive' | 'moved'> {
   if (open) return 'live';
   if (closed?.closedAt) {
     const ageMinutes = (Date.now() - new Date(closed.closedAt).getTime()) / 60000;
@@ -157,6 +161,28 @@ async function persistGuestToken(token: string): Promise<void> {
   }
 }
 
+const SESSION_COLUMNS = 'id,table_id,bill_id,heard_about,heard_dismissed_at';
+
+/**
+ * This phone's session, with where staff moved it from (12-Oct-2026) when the database has that.
+ *
+ * WHY THE FALLBACK: `moved_from_table_id` arrives with migration 20261012090000. Merging deploys
+ * the code; the migration is applied by hand, sometimes later. Without the fallback, every guest
+ * page would fail in that gap - a broken QR on every table. Missing the column, the phone is read
+ * as it always was and simply cannot have been moved (nothing could have moved it).
+ */
+async function readSessionByToken(token: string) {
+  const full = await db()
+    .from('guest_session')
+    .select(`${SESSION_COLUMNS},moved_from_table_id,bill:bill_id(status),now_at:table_id(name)`)
+    .eq('token', token)
+    .maybeSingle();
+  if (full.error && isSchemaFault(full.error)) {
+    return db().from('guest_session').select(SESSION_COLUMNS).eq('token', token).maybeSingle();
+  }
+  return full;
+}
+
 /**
  * Resolve the guest context for a table, creating the session row if this phone is new.
  *
@@ -176,10 +202,42 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
   const [table, allSettings, { data: existing }] = await Promise.all([
     findTableByName(tableName),
     settings,
-    db().from('guest_session').select('id,table_id,bill_id,heard_about,heard_dismissed_at').eq('token', token).maybeSingle(),
+    readSessionByToken(token),
   ]);
   if (!table) return null;
   const rescanMinutes = rescanFrom(allSettings);
+
+  /* MOVED BY STAFF (12-Oct-2026). The party's order was moved from this table to another
+     (`move_bill_to_table`), and this phone is still on this table's page. It is sent to its
+     order's table rather than shown this table's welcome - where its next order would have opened
+     a second bill. Only while that order is running, and only for the table it was moved FROM, so
+     a phone deliberately taken to a new table still starts fresh there, as it always has. */
+  const moveFacts = (existing ?? null) as {
+    moved_from_table_id?: string | null;
+    bill?: { status?: string } | null;
+    now_at?: { name?: string } | null;
+  } | null;
+  const movedFrom = moveFacts?.moved_from_table_id ?? null;
+  const movedBill = moveFacts?.bill;
+  const nowAt = moveFacts?.now_at;
+  if (
+    existing &&
+    movedFrom === table.id &&
+    existing.table_id !== table.id &&
+    (movedBill?.status === 'open' || movedBill?.status === 'payment_requested') &&
+    nowAt?.name
+  ) {
+    return {
+      phase: 'moved',
+      movedTo: nowAt.name,
+      sessionId: null,
+      table,
+      bill: null,
+      rescanMinutes,
+      heardAbout: '',
+      heardDismissed: false,
+    };
+  }
 
   if (!table.active) {
     return { phase: 'table_inactive', sessionId: null, table, bill: null, rescanMinutes, heardAbout: '', heardDismissed: false };
@@ -201,7 +259,11 @@ export async function resolveGuest(tableName: string, prefetch: GuestPrefetch = 
     openBillForTable(table.id),
     lastClosedOnTable(table.id),
     reuse
-      ? db().from('guest_session').update({ last_seen_at: new Date().toISOString() }).eq('id', existing.id)
+      ? db()
+          .from('guest_session')
+          // Arrived at the table its order was moved to: the redirect has done its work.
+          .update({ last_seen_at: new Date().toISOString(), ...(movedFrom ? { moved_from_table_id: null } : {}) })
+          .eq('id', existing.id)
       : // A phone that walks to a different table gets a different SESSION - reusing the row would
         // carry the old table's cart onto the new table's bill. It keeps the same TOKEN, though:
         // rotating the token would mean writing a cookie, and this function runs inside a server

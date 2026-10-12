@@ -394,8 +394,18 @@ export async function lastClosedOnTable(tableId: string): Promise<{ billId: stri
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  const bill = (data as { bill?: { id: string; closed_at: string | null } | null } | null)?.bill;
-  return bill ? { billId: bill.id, closedAt: bill.closed_at ?? null } : null;
+  const row = data as { released_at?: string | null; bill?: { id: string; closed_at: string | null } | null } | null;
+  const bill = row?.bill;
+  if (!bill) return null;
+  /* Paid HERE, or not at all (12-Oct-2026). A bill moved to another table released this one long
+     before it was paid; its later closure is that other table's receipt, and showing it to the
+     next guest who scans here would hand a stranger somebody else's bill. A closure releases its
+     tables at the closing time itself (`release_tables_on_close`), so "released before closed"
+     is exactly "left this table first". */
+  if (bill.closed_at && row?.released_at && new Date(row.released_at).getTime() < new Date(bill.closed_at).getTime()) {
+    return null;
+  }
+  return { billId: bill.id, closedAt: bill.closed_at ?? null };
 }
 
 export async function listOpenBills(): Promise<Bill[]> {

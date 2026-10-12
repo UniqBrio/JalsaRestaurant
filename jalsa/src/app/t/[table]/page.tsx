@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NotConfiguredState, UnreachableState } from '@/components/ui/states';
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
@@ -36,6 +37,8 @@ export default async function GuestTablePage({ params }: { params: Promise<{ tab
   const loaded = await attempt('guest.page', () => buildGuestPayload(table));
   if (!loaded.ok) return <UnreachableState surface="guest" {...(loaded.detail ? { detail: loaded.detail } : {})} />;
   if (!loaded.value) return <UnknownTable name={table} />;
+  // Staff moved this phone's order to another table (12-Oct-2026): open that table's page.
+  if (loaded.value.phase === 'moved' && loaded.value.movedTo) redirect(`/t/${encodeURIComponent(loaded.value.movedTo)}`);
 
   return <GuestApp table={table} initial={loaded.value} />;
 }
