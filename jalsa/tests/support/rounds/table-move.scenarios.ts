@@ -4,7 +4,7 @@
  * (`buildGuestPayload`) and `lastClosedOnTable`, against fake-supabase, and reports what each did.
  */
 import { moveOrderToTable } from '@/lib/db/mutations';
-import { lastClosedOnTable } from '@/lib/db/queries';
+import { getBill, lastClosedOnTable } from '@/lib/db/queries';
 import { buildGuestPayload } from '@/lib/db/guest-view';
 import { POST as staffAction } from '@/app/api/staff/action/route';
 import { POST as ownerAction } from '@/app/api/owner/action/route';
@@ -27,6 +27,8 @@ interface World {
   session?: Record<string, unknown> | null;
   /** The database before 20261012090000: no `moved_from_table_id` column. */
   unmigrated?: boolean;
+  /** The whole bill row `getBill` reads, when a scenario needs one. */
+  billRow?: Record<string, unknown>;
   /** lastClosedOnTable's row. */
   lastReleased?: { released_at: string; bill: { id: string; closed_at: string | null } } | null;
 }
@@ -41,7 +43,7 @@ function responder(w: World, log: Log) {
       case 'staff_permission':
         return (w.grants ?? ['tables.transfer', 'orders.view']).map((perm_key) => ({ perm_key, staff_id: 'st1' }));
       case 'bill':
-        return [{ code: 'B-0412' }];
+        return w.billRow ? [w.billRow] : [{ code: 'B-0412' }];
       case 'dining_table': {
         const byName = q.filters.find(([k, c]) => k === 'ilike' && c === 'name');
         if (byName) {
@@ -118,6 +120,42 @@ const movedSession = (status: string, overrides: Record<string, unknown> = {}) =
   ...overrides,
 });
 
+/** A paid bill that was moved: on A1 until 12:00, paid on A2 at 13:00. */
+const movedThenPaid = {
+  id: BILL,
+  code: 'B-0412',
+  status: 'closed',
+  group_code: null,
+  guests: 2,
+  occasion_type: null,
+  occasion_name: null,
+  occasion_source: null,
+  discount_pct: 0,
+  discount_amount: 0,
+  tax_rate: 5,
+  payment_mode: 'Cash',
+  payment_reference: '',
+  payment_requested_at: null,
+  closed_at: '2026-10-12T13:00:00.000Z',
+  opened_at: '2026-10-12T11:00:00.000Z',
+  order_type: 'dine_in',
+  packaging_charge: 0,
+  photo_url: '',
+  host_table: { name: 'A2' },
+  captain: null,
+  waiter: null,
+  closed_by: null,
+  discount_by: null,
+  bill_table: [
+    { released_at: '2026-10-12T12:00:00.000Z', dining_table: { id: A1, name: 'A1' } },
+    { released_at: '2026-10-12T13:00:00.000Z', dining_table: { id: A2, name: 'A2' } },
+  ],
+  tip: [],
+  guest_favourite: [],
+  version: 3,
+  kot: [],
+};
+
 const results = [
   await run('move without tables.transfer', {}, move(['orders.view'])),
   await run('move with ids that are not ids', {}, move(['tables.transfer'], { to: "1' or '1'='1" })),
@@ -152,5 +190,6 @@ const results = [
     { lastReleased: { released_at: '2026-10-12T13:00:00.000Z', bill: { id: BILL, closed_at: '2026-10-12T13:00:00.000Z' } } },
     () => lastClosedOnTable(A1)
   ),
+  await run('a paid bill that was moved', { billRow: movedThenPaid }, () => getBill(BILL)),
 ];
 process.stdout.write(`${JSON.stringify(results)}\n`);

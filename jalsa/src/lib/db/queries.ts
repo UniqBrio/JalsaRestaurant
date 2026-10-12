@@ -227,8 +227,17 @@ function shapeBill(row: Record<string, unknown>): Bill {
   // the same rule `openBillForTable` uses. A closed or void bill keeps every table it had, for
   // the record.
   const live = row.status === 'open' || row.status === 'payment_requested';
+  /* A closed bill lists the tables it was PAID at (12-Oct-2026): a table it was moved away from was
+     released before the closure, and listing it would make a moved bill read as a group of two.
+     A closure releases its tables at the closing time itself, so "released before closed" is
+     exactly "left first". */
+  const closedAtMs = row.status === 'closed' && row.closed_at ? new Date(row.closed_at as string).getTime() : null;
   const tables = memberships
-    .filter((m) => !live || !m.released_at)
+    .filter((m) =>
+      live
+        ? !m.released_at
+        : closedAtMs === null || !m.released_at || new Date(m.released_at).getTime() >= closedAtMs
+    )
     .map((m) => m.dining_table?.name ?? '')
     .filter(Boolean)
     .sort();

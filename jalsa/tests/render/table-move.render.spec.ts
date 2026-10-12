@@ -82,8 +82,10 @@ for (const theme of ['light', 'dark'] as const) {
 
     await button.click();
     const dialog = page.getByTestId('staff-move-table');
-    await expect(dialog).toContainText("Move table A1's order");
-    await expect(dialog).toContainText('Move to');
+    // SUPERSEDED 12-Oct-2026 (copy review, same day): asserted "Move table A1's order", the heading 'Move to'
+    // and the toast 'B-0412 moved from A1 to A2. A1 needs clearing.'
+    await expect(dialog).toContainText('Move the order on table A1?');
+    await expect(dialog).toContainText('Free right now');
     // Free and cleared, no phone with an unsent order, on the floor, not itself: A2 and A7 only.
     const chips = await dialog.locator('[data-testid^="staff-move-table-reason-"]').allTextContents();
     expect(chips).toEqual(['A2', 'A7']);
@@ -94,7 +96,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByTestId('staff-move-table-confirm')).toHaveText('Move to A2');
     expect(await sent(page)).toEqual([]);
     await page.getByTestId('staff-move-table-confirm').click();
-    await expect(page.getByText('B-0412 moved from A1 to A2. A1 needs clearing.')).toBeVisible();
+    await expect(page.getByText('B-0412 moved to table A2. Table A1 needs clearing.')).toBeVisible();
     await expect(dialog).toHaveCount(0);
     expect(await sent(page)).toEqual([{ action: 'move-table', billId: 'b-A1', fromTableId: 't-A1', toTableId: 't-A2' }]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

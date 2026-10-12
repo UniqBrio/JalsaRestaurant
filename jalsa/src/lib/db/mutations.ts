@@ -1777,6 +1777,9 @@ export async function moveOrderToTable(input: {
     p_actor_staff_id: input.actor.staffId,
     p_actor_label: input.actor.label,
   });
+  // Seated or scanned onto the destination in the same instant: the one-open-bill index decides,
+  // and the loser is told the table is taken rather than shown a raw error (code review).
+  if (error && (error as { code?: string }).code === '23505') throw new OrderNotLive(TABLE_MOVE_MESSAGES.taken);
   if (error) throw error;
   const refusal: Record<string, string> = {
     gone: TABLE_MOVE_MESSAGES.gone,

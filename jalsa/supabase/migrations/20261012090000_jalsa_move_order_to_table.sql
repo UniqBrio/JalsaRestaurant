@@ -18,30 +18,38 @@
 --     - the bill's membership moves: its row for the old table is released (left NOT cleared, so the
 --       old table shows "Needs clearing" for the plates left on it), and the new table joins - a row
 --       the bill once had there (moved back) is reused, never duplicated;
---     - rounds not yet at the table (new / preparing / ready / picked up) now belong to the new
---       table, so every kitchen and runner screen - and any ticket still waiting to print, which is
---       composed from the round when a printer claims it - says the new table. Served and cancelled
---       rounds stay where they happened: history;
---     - the party's phones (sessions on this bill at the old table) move with it and remember where
---       they came from, so a phone still showing the old table's page is sent to the new one;
+--     - every round of the order placed at the old table now belongs to the new one (rounds are
+--       read as "the party that ate it" - see the update below), so every kitchen and runner screen
+--       - and any ticket still waiting to print, which is composed from the round when a printer
+--       claims it - says the new table. Lines, prices and statuses do not change;
+--     - the party's phones move with it and remember where they came from, so a phone still showing
+--       the old table's page is sent to the new one;
 --     - open requests from the old table for this bill ("Bill requested", "Water" ...) follow it;
 --     - the bill's host table becomes the new table when it was the old one;
---     - one audit row records it, in the same transaction.
---   Nothing is deleted. The bill keeps its code, rounds, lines, discount, tip and captain.
+--     - one audit row ("Order moved") records it, in the same transaction.
+--   Nothing is deleted. The bill keeps its code, rounds, lines, discount, tip and captain. One thing is
+--   overwritten: moved BACK to a table it was on before, the bill's earlier row there is reused (the
+--   key is bill + table), so that earlier stay's join and clearing stamps are replaced; the audit log
+--   keeps both moves.
 --
 --   Captains may do it by default (owner's choice): `tables.transfer`, which every owner already
---   holds, is granted to every existing Captain here and added to the Captain preset in code.
+--   holds, is granted to this restaurant's existing Captains here (except one the owner revoked
+--   it from - see the grant below) and added to the Captain preset in code.
 --
 -- ACCESS: called only by this application's server with the secret key (rule 3); EXECUTE is
 -- revoked from everyone else, like cancel_bill_and_free (20261007090000).
--- SAFE ON A LIVE DATABASE: one new nullable column, a new function, and permission rows added
--- (never replaced) for captains. No existing row changes.
+-- SAFE ON A LIVE DATABASE: one new nullable column, a new function, permission rows added (never
+-- replaced) for this restaurant's captains, and one audit line naming them. No existing row changes.
 -- =============================================================================
 
 begin;
 
 alter table public.guest_session
-  add column if not exists moved_from_table_id uuid references public.dining_table(id) on delete set null;
+  -- NOT a foreign key, on purpose (code review, 12-Oct-2026): a second key from guest_session to
+  -- dining_table makes every unhinted embed between the two ambiguous to PostgREST (PGRST201) - the
+  -- guest poll's change stamp embeds `guest_session` from `dining_table` and would fail on every
+  -- poll, silently. A table deleted later leaves an id that simply never matches again.
+  add column if not exists moved_from_table_id uuid;
 
 create or replace function public.move_bill_to_table(
   p_restaurant_id  uuid,
@@ -97,9 +105,20 @@ begin
   ) then
     return 'needs_clearing';
   end if;
+  -- Phones HOLDING the destination - exactly the floors' rule (`phonesHoldingTables`), so the screen
+  -- never offers a table this refuses (reviews, 12-Oct-2026): a phone with no order yet and an
+  -- unsent cart (a stranger's cart would be looking at this bill), or a phone on another running
+  -- order (a table detached from a group leaves its phones behind; they would re-point to this bill).
   if exists (
-    select 1 from public.guest_session s join public.guest_cart_line c on c.session_id = s.id
+    select 1 from public.guest_session s
      where s.table_id = p_to_table_id
+       and (
+         (s.bill_id is null and exists (select 1 from public.guest_cart_line c where c.session_id = s.id))
+         or exists (
+           select 1 from public.bill ob
+            where ob.id = s.bill_id and ob.id <> p_bill_id and ob.status::text in ('open', 'payment_requested')
+         )
+       )
   ) then
     return 'taken';
   end if;
@@ -115,15 +134,30 @@ begin
   on conflict (bill_id, table_id) do update
     set released_at = null, cleared_at = null, cleared_by = '', joined_at = now_;
 
-  update public.kot
-     set table_id = p_to_table_id
+  -- EVERY round of this order placed at the old table moves - served ones too (code review,
+  -- 12-Oct-2026). `kot.table_id` is read as "the party that ate it": separating a table from a group
+  -- moves that table's rounds to its own bill (`detachTableFromBill`), so food left at the old table
+  -- would stay on the group and be paid for by the wrong party. The kitchen sees the new table on
+  -- every round still to come; the audit line counts those.
+  select count(*)::int into moved
+    from public.kot
    where bill_id = p_bill_id and table_id = p_from_table_id
      and status in ('new', 'preparing', 'ready', 'picked_up');
-  get diagnostics moved = row_count;
+  update public.kot
+     set table_id = p_to_table_id
+   where bill_id = p_bill_id and table_id = p_from_table_id;
 
+  -- The party's phones: those on this order, and those that scanned the old table while this order
+  -- was being started and have not been back since (they carry no bill yet - a phone in a pocket),
+  -- which would otherwise wake on the old table's welcome and open a second bill there (code review).
+  -- A phone moved twice before it opened the middle table keeps the FIRST table as its marker, the
+  -- one it is still showing; the marker is cleared when the phone arrives.
   update public.guest_session
-     set table_id = p_to_table_id, moved_from_table_id = p_from_table_id
-   where table_id = p_from_table_id and bill_id = p_bill_id;
+     set table_id = p_to_table_id,
+         bill_id = p_bill_id,
+         moved_from_table_id = coalesce(moved_from_table_id, p_from_table_id)
+   where table_id = p_from_table_id
+     and (bill_id = p_bill_id or (bill_id is null and last_seen_at >= b.opened_at - interval '30 minutes'));
 
   update public.table_request
      set table_id = p_to_table_id
@@ -137,10 +171,10 @@ begin
   insert into public.audit_entry (restaurant_id, action, detail, bill_id, table_id, actor_staff_id, actor_label)
   values (
     p_restaurant_id,
-    'Table moved',
+    'Order moved',
     b.code || ' moved from ' || coalesce(from_name, 'its table') || ' to ' || dest.name
-      || case when moved > 0 then ' - ' || moved || case when moved = 1 then ' round' else ' rounds' end
-           || ' still to come now go to ' || dest.name
+      || case when moved > 0 then ' (' || moved || case when moved = 1 then ' round' else ' rounds' end
+           || ' still to come now at ' || dest.name || ')'
          else '' end,
     p_bill_id,
     p_to_table_id,
@@ -155,12 +189,57 @@ $$;
 revoke execute on function public.move_bill_to_table(uuid, uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.move_bill_to_table(uuid, uuid, uuid, uuid, uuid, text) to service_role;
 
--- Captains move a party by default (owner's choice, 12-Oct-2026). Added, never replaced: a person
--- whose grant was set by hand keeps what the owner set.
-insert into public.staff_permission (staff_id, perm_key, granted, granted_by)
-select st.id, 'tables.transfer', true, 'setup'
-  from public.staff st
- where st.role = 'Captain'
-on conflict (staff_id, perm_key) do nothing;
+-- Captains move a party by default (owner's choice, 12-Oct-2026), at this restaurant only.
+--   - A captain who already holds it is untouched (`on conflict do nothing`).
+--   - A captain the owner REVOKED it from is skipped. A revocation is not a row - Module access
+--     deletes a person's rows and re-inserts the granted ones - so the only record of one is the
+--     audit line it writes ("<name> — … revoked: … tables.transfer …"), and that is what is read
+--     (permission review, 12-Oct-2026). Nobody could have revoked it for a reason before today:
+--     nothing used it; a box simply left unticked when saving is not a revocation.
+--   - It is a confidential grant, so it is written to the audit log, by name, like any other.
+do $$
+declare
+  r       uuid;
+  granted text;
+begin
+  select id into r from public.restaurant where slug = 'jalsa-hosur';
+  if r is null then
+    return;
+  end if;
+
+  with eligible as (
+    select st.id
+      from public.staff st
+     where st.restaurant_id = r
+       and st.role = 'Captain'
+       and not exists (
+         select 1 from public.audit_entry a
+          where a.restaurant_id = r
+            and a.action = 'Permission'
+            and a.detail like st.name || ' — %'
+            and a.detail like '%revoked: %tables.transfer%'
+       )
+  ), added as (
+    insert into public.staff_permission (staff_id, perm_key, granted, granted_by)
+    select id, 'tables.transfer', true, 'setup' from eligible
+    on conflict (staff_id, perm_key) do nothing
+    returning staff_id
+  )
+  select string_agg(st.name, ', ' order by st.name) into granted
+    from added join public.staff st on st.id = added.staff_id;
+
+  if granted is not null then
+    insert into public.audit_entry (restaurant_id, action, detail, actor_label, confidential)
+    values (
+      r,
+      'Permission',
+      'Captains — granted: tables.transfer (move an order to another table, the owner''s choice of 12-Oct-2026): '
+        || granted,
+      'setup',
+      true
+    );
+  end if;
+end;
+$$;
 
 commit;
