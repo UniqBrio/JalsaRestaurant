@@ -130,6 +130,14 @@ test('a database without the migration yet still serves every guest page, as bef
   expect(reads.map((l) => l.cols.includes('moved_from_table_id'))).toEqual([true, false]);
 });
 
+test('a paid bill that was moved lists the table it was paid at, not a group of two', () => {
+  // FAIL-FIRST (observed 12-Oct-2026, `queries.ts` at fcf5b8e): Received ['A1', 'A2'] - the paid
+  // bill read as a group of two.
+  const r = by('a paid bill that was moved');
+  expect(r.threw).toBeNull();
+  expect((r.out as { tables: string[] }).tables).toEqual(['A2']);
+});
+
 test("the next guest at the old table never sees the moved party's receipt", () => {
   expect(by('receipt of an order moved away and paid later').out).toBeNull();
   expect(by('receipt of an order paid here').out).toMatchObject({ billId: '11111111-1111-4111-8111-111111111111' });
@@ -174,5 +182,6 @@ test('captains may move a party by default; waiters, chefs and cashiers may not'
 });
 
 test('the confirmation says where the order went and that the old table needs clearing', () => {
-  expect(tableMovedMessage('B-0412', 'A1', 'A2')).toBe('B-0412 moved from A1 to A2. A1 needs clearing.');
+  // SUPERSEDED 12-Oct-2026 (copy review, same day): asserted 'B-0412 moved from A1 to A2. A1 needs clearing.'
+  expect(tableMovedMessage('B-0412', 'A1', 'A2')).toBe('B-0412 moved to table A2. Table A1 needs clearing.');
 });

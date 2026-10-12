@@ -49,7 +49,9 @@ test('a void bill no longer holds a table on the floor; an open one holds only t
   const open = q.slice(q.indexOf('export async function listOpenBills'), q.indexOf('export async function listClosedBillsToday'));
   expect(open).toContain(".in('status', ['open', 'payment_requested'])");
   expect(open).not.toContain(".neq('status', 'closed')");
-  expect(q).toContain(".filter((m) => !live || !m.released_at)");
+  /* SUPERSEDED 12-Oct-2026 (table move): asserted `.filter((m) => !live || !m.released_at)`. The live
+     branch is unchanged; a CLOSED bill now drops a table it was moved away from before it was paid. */
+  expect(q).toContain("live\n        ? !m.released_at\n        : closedAtMs === null");
 });
 
 test('Mark free leaves the table Free, not "needs clearing" - it stamps cleared_at', () => {

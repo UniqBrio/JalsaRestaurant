@@ -16,27 +16,27 @@ export const TABLE_MOVE_GRANT = 'tables.transfer';
 
 export const TABLE_MOVE_COPY = {
   action: 'Move to another table',
-  title: (from: string) => `Move table ${from}'s order`,
-  body: 'Everything on this order moves to the table you choose: the bill, the rounds still to come and the guests’ phones. Served rounds stay in the record as they were.',
-  pick: 'Move to',
+  title: (from: string) => `Move the order on table ${from}?`,
+  body: 'Everything on this order moves to the table you choose: the bill, all its rounds and the guests’ phones. Nothing on the bill changes.',
+  pick: 'Free right now',
   confirm: (to: string) => `Move to ${to}`,
   confirmNone: 'Choose a table',
   keep: 'Cancel',
-  noFreeTable: 'No table is free right now. A table shows here once it is free and cleared.',
+  noFreeTable: 'No table can take this order right now. A table shows here once it is free, cleared, and no guest’s phone is ordering at it.',
 } as const;
 
 /** What the person is told. Never a database message. */
 export const TABLE_MOVE_MESSAGES = {
-  gone: 'This order has already been paid or cancelled.',
+  gone: 'This order has already been cancelled or completed — reload and check the table again.',
   notHere: 'This table now holds a different order — reload and check it again.',
-  same: 'Choose a different table.',
-  unavailable: 'That table is not on the floor any more. Choose another.',
+  same: 'The order is already on that table. Choose a different one.',
+  unavailable: 'That table is not in service. Choose another.',
   taken: 'That table is no longer free. Choose another.',
   needsClearing: 'That table still needs clearing. Clear it first, or choose another.',
 } as const;
 
 export function tableMovedMessage(billCode: string, from: string, to: string): string {
-  return `${billCode} moved from ${from} to ${to}. ${from} needs clearing.`;
+  return `${billCode} moved to table ${to}. Table ${from} needs clearing.`;
 }
 
 /** The floor's view of a table, as both floors already carry it. */

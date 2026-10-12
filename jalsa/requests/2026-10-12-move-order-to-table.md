@@ -11,8 +11,10 @@ wants to sit in A2 — migrate all orders to A2."
 - **Free tables only.** The destination must have no order, nothing waiting to be cleared, and no phone
   holding an unsent order. Combining two live bills is not this action (joining tables already refuses it).
 - **Owner and captains.** The existing grant `tables.transfer` ("Move a bill to another table", defined
-  since the first permission set and never used until now). Added to the Captain preset; the migration
-  grants it to every existing Captain (added, never replacing a grant the owner set by hand).
+  since the first permission set and never used until now - so no existing meaning changes). Added to the
+  Captain preset; the migration grants it to this restaurant's existing Captains, never to one the owner
+  revoked it from (a revocation leaves only its audit line, which is what is read), and writes one
+  confidential audit line naming them. It is the first confidential key in a non-owner preset.
 - **The kitchen is told by its screens** ("you decide" — senior call): rounds still to come say the new
   table on every kitchen and runner screen, and a ticket still waiting to print comes out with the new
   table (tickets are composed from the round when a printer claims them). No extra slip is printed —
@@ -21,13 +23,16 @@ wants to sit in A2 — migrate all orders to A2."
 ## WHAT A MOVE DOES (`move_bill_to_table`, one transaction)
 - The bill's live table becomes the new one; the old table is released and shows **Needs clearing**
   (plates are usually left behind). A row the bill once had on the destination is reused.
-- Rounds new / preparing / ready / picked up go to the new table; served and cancelled rounds stay
-  where they happened.
+- Every round of the order placed at the old table goes to the new table, served ones included:
+  `kot.table_id` is read as "the party that ate it" (separating a table from a group moves those rounds),
+  so food left recorded at the old table would be billed to the wrong party. Lines, prices and statuses
+  do not change. Superseded 12-Oct-2026 (code review, same day): this said served and cancelled rounds
+  stay where they happened.
 - The party's phones move with it and remember where they came from: a phone still showing the old
   table's page is sent to the new table's page (server redirect on load, client redirect on the next
   poll). A phone a guest carries to another table themselves still starts fresh, as before.
 - Open requests from the old table for this bill follow it; the bill's host table becomes the new one.
-- One audit row: "B-0412 moved from A1 to A2 - 1 round still to come now go to A2".
+- One audit row, "Order moved": "B-0412 moved from A1 to A2 (1 round still to come now at A2)".
 - Refused in words, changing nothing: already paid or cancelled; the tapped table no longer holds it;
   same table; destination off the floor, taken, needing clearing, or with a phone's unsent order.
 
@@ -42,14 +47,39 @@ wants to sit in A2 — migrate all orders to A2."
 1. **Who can do it?** Holders of `tables.transfer`: every owner (since setup) and every captain (preset +
    this migration). Waiters, chefs and cashiers only if the owner grants it by name.
 2. **What changes when the grant is off?** No Move button; the server refuses (403) before any read.
-3. **Can it reach another party's data?** No: the bill and both tables are read and locked scoped to the
-   restaurant; the destination must be free, so no other party's phone is on it (an unsent cart there
-   refuses the move); a moved phone is redirected only while its own order is running.
+3. **Can it reach another party's data?** No more than the table-anchored model already allows. The bill
+   and both tables are read and locked scoped to the restaurant (tested against a second restaurant). The
+   destination must have no phone HOLDING it (the floors' rule: an unsent cart with no order, or a phone on
+   another running order). A phone that merely scanned it earlier and holds nothing is not refused: on its
+   next poll it sees the order now there - as it would see any new order opened on that table. A moved
+   phone is redirected only while its own order is running. (Corrected 12-Oct-2026, permission review:
+   this said "no other party's phone is on it".)
 4. **What does the database enforce?** The one-open-bill-per-table index, the row locks, the dead-bill
    triggers (20261007090000), EXECUTE for service_role only; RLS unchanged.
-5. **Where is it recorded?** `docs/registers/RBAC_MATRIX.md` (12-Oct-2026 rows); the audit log ("Table moved").
+5. **Where is it recorded?** `docs/registers/RBAC_MATRIX.md` (12-Oct-2026 rows); the audit log ("Order moved").
 
 ## EVIDENCE
 `tests/unit/table-move.db.unit.spec.ts` (8, PGlite), `tests/unit/table-move.unit.spec.ts` (14, real
 mutation, both routes, guest context), `tests/render/table-move.render.spec.ts` (5, real captain floor).
 Results in `TEST_SUMMARY.md`.
+
+## REVIEW (12-Oct-2026: copy, permission and code reviewers) - what changed
+- Copy: the dialog title, chip heading ("Free right now", the floor's own words), the refusals (the cancel
+  dialog's "cancelled or completed", "not in service"), the toast ("Table A1 needs clearing") and the audit
+  line ("Order moved", bracketed count) now use the app's existing words.
+- Permission: the captain grant is scoped to this restaurant, skips a captain the owner revoked it from,
+  and is written to the audit log; a phone moved twice keeps the first table as its marker; tested
+  against a second restaurant.
+- Code: `moved_from_table_id` is NOT a foreign key - a second key from guest_session to dining_table would
+  have made the guest poll's unhinted embed ambiguous to PostgREST and silently disabled its "unchanged"
+  answer for every phone; served rounds move too (see above); party phones that scanned the old table
+  around when the order started, with no order yet, come along; the destination rule is exactly the
+  floors' (`phonesHoldingTables`); a move racing a seating gets "no longer free", not a raw error; a paid
+  moved bill lists the table it was paid at.
+- Weighed, not built: a round sent at the very instant of a move can still land on the old table (both
+  round paths read the table, then insert); a trigger requiring `kot.table_id` to be a live table of the
+  bill would close it but needs its own refusal path on three round routes - the window is one database
+  round trip, and staff see the stray round on the old tile. Moving a bill back to a table it was on
+  reuses its old row (key bill + table), replacing that earlier stay's stamps; the audit log keeps both.
+- Not tested here: the row locks under two real connections (PGlite has one), and the guest client's
+  `location.replace` on the poll path (the server redirect and the `moved` phase are tested).

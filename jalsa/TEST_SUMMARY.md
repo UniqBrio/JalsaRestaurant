@@ -4,6 +4,20 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-12 - Move to another table: copy, permission and code reviews - PASS except G8 (unchanged)
+
+Request: `requests/2026-10-12-move-order-to-table.md` (REVIEW section). Migration `20261012090000` revised before it was applied anywhere.
+
+- Copy: dialog title, chip heading, refusals, toast and audit line in the app's existing words. Permission: the captain grant scoped to this restaurant, skipping a captain the owner revoked it from, audited; a twice-moved phone keeps its first table; a second-restaurant test. Code: `moved_from_table_id` is not a foreign key (a second key would have made the guest poll's PostgREST embed ambiguous - its "unchanged" answer silently off for every phone); served rounds move too (a later detach would have billed the wrong party); not-yet-linked party phones come along; the destination rule is the floors' rule; a racing seat gets "no longer free"; a paid moved bill lists only the table it was paid at.
+- `tests/unit/table-move.db.unit.spec.ts` 16 passed (+8; one assertion superseded in place: served rounds), `tests/unit/table-move.unit.spec.ts` 15 (+1), `tests/render/table-move.render.spec.ts` 5 (copy assertions superseded in place). `mark-free-a5` pin superseded in place (closed-bill filter).
+- Full: unit + render 1895 passed; tsc, lint OK; audit:all 10/10.
+
+FAIL-FIRST: tests/unit/table-move.db.unit.spec.ts - against the first committed migration: phones of another running order 'moved' (Expected 'taken'); moved twice left the marker on the middle table; a revoked captain was granted again (Expected false, Received true). Against the migration before the code review: the pocketed phone stayed behind; a cart on a paid order was refused 'taken'; two foreign keys from guest_session to dining_table (Expected 1, Received 2).
+NOT OBSERVED FAILING: tests/unit/table-move.db.unit.spec.ts other-restaurant and paid-order cases - held already; now pinned.
+FAIL-FIRST: tests/unit/table-move.unit.spec.ts paid-moved-bill case - against `queries.ts` at fcf5b8e, Received ['A1', 'A2'].
+
+---
+
 ## 2026-10-12 - Move a running order to another table - PASS except G8 (unchanged)
 
 Request: `requests/2026-10-12-move-order-to-table.md`. Migration `20261012090000` applied nowhere yet; the guest page falls back if it is missing.
