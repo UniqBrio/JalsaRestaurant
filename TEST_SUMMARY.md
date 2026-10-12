@@ -11,6 +11,10 @@ Request: `jalsa/requests/2026-10-12-takeaway-photo-dialog-dropdown-icon-menu-del
 - Results: tsc OK, lint OK, audit:all 10/10, guard:test 15/15, unit + render 1839 passed. `npm run gate`: G1-G7, G9-G12 PASS; G8 FAIL - the same journeys that need a reachable seeded database (guest-journey, guest-total-visibility, closure-upsell-tip); re-run with `src/` stashed, they fail identically at `guest-welcome`.
 - No migration.
 
+FAIL-FIRST: jalsa/tests/unit/corrections-12oct.unit.spec.ts - with `src/` stashed to the previous tree, beforeAll fails: `No matching export in "src/lib/db/owner-mutations.ts" for import "deleteMenuItem"`; no case passes.
+FAIL-FIRST: jalsa/tests/render/corrections-12oct.render.spec.ts - with `src/` stashed to the previous tree, 10 of 10 fail: `owner-new-round-photo-take` not found (takeaway), the Select chevron not visible (dropdowns), `owner-delete-m1` not found (menu delete).
+NOT OBSERVED FAILING: jalsa/tests/unit/corrections-12oct.unit.spec.ts schema pin and "no bare select element" - guards that already held before this change; they fail only when a later change breaks what this one relies on.
+
 ---
 
 ## Application run - jalsa - 2026-10-07 - Cancel & free / takeaway photo, after review - PASS (unit, render, audits)
