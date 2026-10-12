@@ -127,6 +127,33 @@ export async function upsertMenuItem(input: {
 }
 
 /**
+ * Delete a menu item, after the owner has confirmed it (12-Oct-2026).
+ *
+ * Nothing already ordered changes: every round snapshots the dish's name, price and food type,
+ * and its link becomes empty (`kot_item.menu_item_id on delete set null`), as does a guest's
+ * heart (`guest_favourite`). A guest's unsent cart line for it goes with it (`on delete
+ * cascade`) - a dish that is no longer sold cannot be sent. The edit grant, the one that adds
+ * and edits a dish.
+ */
+export async function deleteMenuItem(input: { id: string; actor: Actor }): Promise<{ name: string }> {
+  demand(input.actor, 'menu.item_edit');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: gone, error } = await db()
+    .from('menu_item')
+    .delete()
+    .eq('id', input.id)
+    .eq('restaurant_id', restaurantId)
+    .select('name');
+  if (error) throw error;
+  const name = (gone ?? [])[0]?.name as string | undefined;
+  if (!name) throw new Error('That item is no longer on the menu. Reload the page.');
+
+  await audit({ action: 'Menu item', detail: `${name} deleted`, actor: input.actor });
+  return { name };
+}
+
+/**
  * Put a category under a top-level one, making it a sub-menu - or back to the top (I3).
  *
  * One level only. The database trigger `menu_category_one_level` is the rule (a parent is

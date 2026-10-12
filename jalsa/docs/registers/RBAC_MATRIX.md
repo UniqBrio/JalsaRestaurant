@@ -134,6 +134,8 @@ rung: `tests/unit/discount-both-ways.unit.spec.ts`
 | ~~Tables — Cancel order & free table … Captain "✅ grants, by owner"~~ **SUPERSEDED 07-Oct-2026 (permission review)**: the Captain cell of the 07-Oct row above read "✅ grants, by owner"; neither key is in the Captain preset, so the default is **❌** - only a captain given both keys by name has it | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Note, 07-Oct-2026 — **`orders.view` now also opens takeaway photo bytes** (not only "orders on assigned tables": a takeaway is at no table). Every preset holds it. Images of a parcel or slip, served only inside the console, never cached | — | — | — | — | — |
 | **Every staff and owner action route refuses an issued (provisional) PIN** (07-Oct-2026, permission review - rule 5 at the door, not only on the page): `/api/staff/action` and `/api/owner/action` answer 403 "Choose your own PIN first" before any action; choosing a PIN is `/api/staff/pin` and is unaffected | — | — | — | — | — |
+| Menu — **delete a menu item** (`menu.item_edit`, added 12-Oct-2026 — Delete beside Edit on owner console → Menu, behind a confirmation; `/api/owner/action` `delete-item`, demanded in `deleteMenuItem` before any write; scoped to this restaurant. Orders and bills keep the dish by snapshot) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Orders — **add, replace or remove a takeaway's photo, as moved on 12-Oct-2026** (`orders.create`, unchanged — now in the Takeaway dialog: a new takeaway's photo is saved to its bill once `takeaway` returns it; Add items saves straight away. Live orders shows it only; supersedes the screen named in the 07-Oct row above) | ✅ grant, no button | ❌ | ❌ | ❌ | ✅ |
 
 ---
 

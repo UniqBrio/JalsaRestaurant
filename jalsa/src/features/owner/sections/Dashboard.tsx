@@ -7,6 +7,7 @@ import { Card, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { FirstRunState } from '@/components/ui/states';
 import { Sheet } from '@/components/ui/sheet';
+import { ImagePicker } from '@/components/ui/image-picker';
 import { useToast } from '@/components/ui/toast';
 import { packagingProblem, parsePackaging, rupees, totalBill, totalsRows } from '@/lib/money';
 import { TAKEAWAY_LABEL } from '@/lib/takeaway';
@@ -18,6 +19,7 @@ import { ORDER_CANCEL_COPY, tableIsCancellable } from '@/lib/order-cancel';
 import { NewDishOffer } from '@/components/ui/new-dish';
 import { afterDishSaved, canAddDish, type NewDishSaved } from '@/lib/new-dish';
 import { readWelcomeDrinks, welcomeDrinksToOffer, type WelcomeDrinksConfig } from '@/lib/welcome-drinks';
+import { IMAGE_CONTENT_TYPE, sniffImage } from '@/lib/media';
 
 /**
  * Screen 22 — the dashboard, and the landing screen.
@@ -550,7 +552,7 @@ export function Dashboard({ data, go, send, runBusy, busy }: OwnerSectionProps) 
 export type RoundTarget =
   | { kind: 'table'; table: OwnerPayload['floor'][number] }
   | { kind: 'takeaway' }
-  | { kind: 'takeaway-more'; billId: string; code: string };
+  | { kind: 'takeaway-more'; billId: string; code: string; photoUrl?: string };
 
 /** The GST rate the takeaway review totals with, from the `tax` setting. Food only: packaging is
  *  never taxed. */
@@ -560,6 +562,13 @@ export const taxFor = (tax: Record<string, unknown> | undefined): { rate: number
 
 export const targetKey = (t: RoundTarget | null): string =>
   !t ? 'none' : t.kind === 'table' ? t.table.id : t.kind === 'takeaway' ? 'takeaway' : `more-${t.billId}`;
+
+/** A photo held in the browser, shown before it has anywhere to be stored. '' for none. */
+const photoDataUrl = (base64: string): string => {
+  if (!base64) return '';
+  const kind = sniffImage(Uint8Array.from(atob(base64.slice(0, 16)), (c) => c.charCodeAt(0)));
+  return kind ? `data:${IMAGE_CONTENT_TYPE[kind]};base64,${base64}` : '';
+};
 
 export function NewRoundSheet({
   target,
@@ -596,6 +605,14 @@ export function NewRoundSheet({
   const [packagingText, setPackagingText] = React.useState('');
   const table = target?.kind === 'table' ? target.table : null;
   const takeaway = target?.kind === 'takeaway';
+  /* THE TAKEAWAY'S PHOTO IS CHOSEN IN THIS DIALOG (12-Oct-2026), not on the order afterwards.
+     A new takeaway has no bill to store it under yet, so the photo is held here (as base64, shown
+     from a data URL) and saved to the bill the moment `takeaway` returns one. More items for a
+     takeaway already open: the bill exists, so the photo is saved straight away, as before. */
+  const [pendingPhoto, setPendingPhoto] = React.useState('');
+  const [morePhoto, setMorePhoto] = React.useState(target?.kind === 'takeaway-more' ? (target.photoUrl ?? '') : '');
+  const canPhoto = grants.includes('orders.create');
+  const pendingPhotoUrl = photoDataUrl(pendingPhoto);
 
   const filtered = menu.filter((m) => {
     const q = query.trim().toLowerCase();
@@ -665,6 +682,18 @@ export function NewRoundSheet({
             });
       onClose();
       toast.show(`${res.kotCode} sent to the kitchen · ${TAKEAWAY_LABEL}`, { tone: 'success' });
+      // The order is placed whatever happens to the photo; a photo that could not be saved is said
+      // in words, and can be chosen again from Add items on the order.
+      if (target.kind === 'takeaway' && pendingPhoto) {
+        try {
+          await send('/api/owner/action', { action: 'takeaway-photo', billId: res.billId, base64: pendingPhoto });
+        } catch (err: unknown) {
+          toast.show(
+            `The order was sent, but its photo was not saved. ${err instanceof Error ? `${err.message} ` : ''}To add it, open the order and tap Add items.`,
+            { tone: 'error' }
+          );
+        }
+      }
       go('orders', res.billId);
     });
 
@@ -798,6 +827,58 @@ export function NewRoundSheet({
                 GST is charged on the food only, not on the packaging charge.
               </p>
             ) : null}
+          </Card>
+        ) : null}
+
+        {/* A takeaway's photo - a parcel, a handwritten slip (07-Oct-2026) - in this dialog since
+            12-Oct-2026. Camera or gallery, preview, replace, remove: the same ImagePicker. */}
+        {canPhoto && target?.kind === 'takeaway' ? (
+          <Card className="flex flex-col gap-2" data-testid="owner-new-round-photo-card">
+            <SectionLabel className="mb-0">Photo</SectionLabel>
+            <ImagePicker
+              photo
+              value={pendingPhotoUrl}
+              onChange={(url) => {
+                if (!url) setPendingPhoto('');
+              }}
+              label="Photo for this takeaway"
+              testId="owner-new-round-photo"
+              disabled={busy}
+              upload={async (base64) => {
+                setPendingPhoto(base64);
+                return photoDataUrl(base64);
+              }}
+            />
+          </Card>
+        ) : null}
+        {canPhoto && target?.kind === 'takeaway-more' ? (
+          <Card className="flex flex-col gap-2" data-testid="owner-new-round-photo-card">
+            <SectionLabel className="mb-0">Photo</SectionLabel>
+            <ImagePicker
+              photo
+              value={morePhoto}
+              onChange={setMorePhoto}
+              label={`Photo for ${target.code}`}
+              testId="owner-new-round-photo"
+              disabled={busy}
+              upload={async (base64) =>
+                (
+                  await send<{ photoUrl: string }>('/api/owner/action', {
+                    action: 'takeaway-photo',
+                    billId: target.billId,
+                    base64,
+                  })
+                ).photoUrl
+              }
+              remove={async () => {
+                await send('/api/owner/action', { action: 'takeaway-photo', billId: target.billId, remove: true });
+              }}
+              onSaved={(what) =>
+                toast.show(what === 'saved' ? `${target.code}: photo saved` : `${target.code}: photo removed`, {
+                  tone: 'success',
+                })
+              }
+            />
           </Card>
         ) : null}
       </div>

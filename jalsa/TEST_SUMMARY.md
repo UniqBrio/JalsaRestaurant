@@ -4,6 +4,71 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-12 - Copy review of the 12-Oct corrections - PASS (render 12/12, tsc, lint)
+
+- Photo-failure toast: the reason was spliced after a dash, giving "... not saved - The photo could not be saved. Try again.. Add it again from Add items." Now whole sentences: the reason, then "To add it, open the order and tap Add items."
+- Delete confirmation names the unsent-order effect and where the Off switch is (the Available column).
+- Freeze rule checked with `git diff 1a0e229 HEAD -- jalsa/src`: every removed visible string ("Photo for <code>", "<code>: photo saved/removed", "Edit") reappears word for word.
+- `tests/render/corrections-12oct.render.spec.ts` +2 cases (appended), 12 passed.
+
+FAIL-FIRST: tests/render/corrections-12oct.render.spec.ts "whole sentences" - against the pre-review copy, the exact toast text is not found (toBeVisible failed).
+FAIL-FIRST: tests/render/corrections-12oct.render.spec.ts "names every effect" - against the pre-review copy, Expected substring "... and from any guest's order not yet sent." not found.
+
+---
+
+## 2026-10-12 - Takeaway photo in the dialog, a chevron on every dropdown, Delete on menu items - PASS except G8 (no database here)
+
+Request: `requests/2026-10-12-takeaway-photo-dialog-dropdown-icon-menu-delete.md`.
+
+- New: `tests/unit/corrections-12oct.unit.spec.ts` (11, the REAL `deleteMenuItem` on the round rig + route, screen and schema pins). FAIL-FIRST observed (`src/` stashed): the scenario bundle cannot import `deleteMenuItem`, so no case passes; each pinned string checked absent from the old tree. NOT OBSERVED FAILING, by design: the schema pin and "no bare select element" (guards that already held).
+- New: `tests/render/corrections-12oct.render.spec.ts` (10, the REAL Takeaway dialog, Menu section, Select and Combobox, both themes, 390 px). FAIL-FIRST observed (`src/` stashed): all 10 fail, each at its own correction.
+- Results: tsc OK, lint OK, audit:all 10/10, guard:test 15/15, unit + render 1839 passed. `npm run gate`: G1-G7, G9-G12 PASS; G8 FAIL - the same journeys that need a reachable seeded database (guest-journey, guest-total-visibility, closure-upsell-tip); re-run with `src/` stashed, they fail identically at `guest-welcome`.
+- No migration.
+
+---
+
+## Gate run - 2026-10-12 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 4m 08s total - slowest G8 Functional / integration (2m 13s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (54ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (58ms)
+- **G3 Theme assets present per theme** - PASS (50ms)
+- **G4 No hard-coded colours** - PASS (103ms)
+- **G5 Types** - PASS (13.8s)
+- **G6 Lint** - PASS (17.7s)
+- **G7 Unit + pure specs** - PASS (1m 19s)
+- **G8 Functional / integration** - FAIL (2m 13s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (80ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.7s)
+- **G11 Wide tables are configurable** - PASS (64ms)
+- **G12 Installable as an application** - PASS (78ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
 ## 2026-10-08 - Captain's floor: action buttons over other tiles (fix)
 
 - New: `tests/render/staff-floor-actions.render.spec.ts` (3: 390px light, 390px dark, 608px) - the real FloorScreen with A1/A2 (1 round), A5 (6 rounds), A7 (Mark free). FAIL-FIRST observed on 1a0e229: 'staff-cancel-order-A1 overlaps tile A5' in all three; passing after the fix.

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { cn } from '@/lib/cn';
-import { controlClass } from './field';
+import { ChevronDown, controlClass } from './field';
 
 /**
  * Combobox — the ONE searchable picker in Jalsa.
@@ -323,7 +323,9 @@ export function Combobox({
             }}
             className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-body)] disabled:opacity-45"
           >
-            <span className="type-caption leading-none">˅</span>
+            {/* The same chevron as every Select (12-Oct-2026); the text caret it replaces was too
+                small to read as a dropdown. Turned over while the list is open. */}
+            <ChevronDown className={cn('transition-transform', open && 'rotate-180')} />
           </button>
         </div>
       </PopoverPrimitive.Anchor>
