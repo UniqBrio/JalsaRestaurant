@@ -63,6 +63,7 @@ import {
   upsertTable,
   deleteTable,
   deleteMenuItem,
+  MenuItemRefused,
   writeEmployment,
   writeIdentity,
   writeSetting,
@@ -445,6 +446,7 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
         );
       } catch (err) {
         if (err instanceof FoodTypeRefused) return fail(400, { code: 'validation', message: err.message });
+        if (err instanceof MenuItemRefused) return fail(409, { code: 'conflict', message: err.message });
         throw err;
       }
 
@@ -536,7 +538,12 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       return ok({ done: true });
 
     case 'delete-item':
-      return ok(await deleteMenuItem({ id: String(input.id ?? ''), actor }));
+      try {
+        return ok(await deleteMenuItem({ id: String(input.id ?? ''), actor }));
+      } catch (err) {
+        if (err instanceof MenuItemRefused) return fail(409, { code: 'conflict', message: err.message });
+        throw err;
+      }
 
     case 'delete-table':
       return ok(await deleteTable({ id: input.id, actor }));

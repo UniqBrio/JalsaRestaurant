@@ -2,6 +2,18 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-12 - Code review of the 12-Oct corrections - PASS except G8 (unchanged)
+
+- Fixed: a gone dish answered the generic 500 (now 409 in words, `MenuItemRefused`); an edit saved over a deleted dish answered "saved"; welcome drinks saved a deleted dish's id; the dish photo left in storage; a disabled select's chevron at full strength.
+- `jalsa/tests/unit/corrections-12oct.unit.spec.ts` 16 passed (+3 real-route cases via `menu-item-doors.scenarios.ts`, +2 guards; two assertions superseded in place with dated notes). `jalsa/tests/render/corrections-12oct.render.spec.ts` 14 passed (+2).
+- Full: unit + render 1848 passed; tsc, lint OK; audit:all 10/10; guard:test 15/15.
+
+FAIL-FIRST: jalsa/tests/unit/corrections-12oct.unit.spec.ts "the owner route, called for real" - against the pre-review `src/`: delete of a gone dish Expected 409, Received 500; a malformed id Expected 409, Received 200; the edit of a deleted dish failed (answered as saved); welcome-drinks pin not found.
+NOT OBSERVED FAILING: jalsa/tests/unit/corrections-12oct.unit.spec.ts "no bare select element anywhere" - a guard that already held.
+NOT OBSERVED FAILING: jalsa/tests/render/corrections-12oct.render.spec.ts T5 cases (Remove on Add items, refused takeaway) - written after the behaviour existed; they pin paths that were only source-pinned.
+
+---
+
 ## Application run - jalsa - 2026-10-12 - Copy review of the 12-Oct corrections - PASS (render 12/12, tsc, lint)
 
 - Photo-failure toast: the reason was spliced after a dash, giving "... not saved - The photo could not be saved. Try again.. Add it again from Add items." Now whole sentences: the reason, then "To add it, open the order and tap Add items."

@@ -66,3 +66,32 @@ fail-first observed against the previous `src/`. Results in `TEST_SUMMARY.md`.
 - The delete confirmation now also says the dish leaves any guest's order not yet sent, and that the Off
   switch is in the Available column.
 - Freeze rule: no shipped string was reworded; the moved photo strings are word for word.
+
+## REVIEW (12-Oct-2026: code reviewer) - what changed, and what was weighed and left
+- **Fixed — a gone dish read "try again".** `deleteMenuItem` threw a plain Error, which the route turns
+  into the generic 500. Now `MenuItemRefused`, answered 409 with "That item is no longer on the menu.
+  Reload the page."; a malformed id is refused before the database is asked. Proven through the real
+  route (`menu-item-doors.scenarios.ts`).
+- **Fixed — an edit saved over a deleted dish.** `upsertMenuItem` now reads the dish scoped to the
+  restaurant and refuses (409) when it is gone, and asserts its update touched one row; before, it
+  answered "saved", audited "edited", and skipped the price-grant check (no `before` row).
+- **Fixed — welcome drinks.** Saving counts and stores only drinks still on the menu, so a deleted dish
+  cannot leave "on" with nothing to offer.
+- **Fixed — the dish photo** is removed from storage with the dish (best effort, and never a file
+  another dish still shows).
+- **Fixed — a disabled select** dims its chevron with it (`peer-disabled`).
+- **Tests widened:** no bare select element anywhere under `src/`; Add items with an existing photo and
+  Remove; a refused takeaway keeps its photo unsent; the harness uses the production `targetKey`.
+- **Weighed, not built — the cost of a delete.** Emptying the links rewrites every past line of the
+  dish (`updated_at`, its bills' `version`) and holds the floor counter for the length of the delete.
+  Nothing reads either for money or reports, the bill trigger fires only on a status change, and this
+  is a rare owner action; an index on `kot_item.menu_item_id` would shorten the scan, not the rewrite,
+  and would need a migration on every environment. Recorded here and in `deleteMenuItem`.
+  ("Nothing already ordered changes" above means nothing READS differently.)
+- **Weighed, not built — a guest or captain racing the delete.** A guest adding the dish, or a captain
+  switching it, in the seconds before their next poll gets the generic "try again"; the dish then
+  disappears from their screen. Not worth new code.
+- **Decision for the owner — photo once payment is asked.** The photo is now changed only in the
+  Takeaway dialog, which (like the packaging charge) is offered while the takeaway is open. Before, the
+  Live-orders picker also allowed it after the guest asked to pay; the server still would. Recorded in
+  RBAC_MATRIX; restoring it is a small follow-up if wanted.

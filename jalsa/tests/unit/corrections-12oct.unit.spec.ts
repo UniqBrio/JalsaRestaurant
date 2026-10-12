@@ -72,7 +72,9 @@ test('a delete removes this restaurant\'s item only, and is audited by name', ()
 
 test('an item already gone is said in words, and nothing is audited', () => {
   const r = by('delete, already gone');
-  expect(r.threw).toBe('Error: That item is no longer on the menu. Reload the page.');
+  // SUPERSEDED 12-Oct-2026 (code review): asserted 'Error: That item ...' - a plain Error, which the
+  // route turned into the generic 500 "try again". Now its own class, answered 409 in words.
+  expect(r.threw).toBe('MenuItemRefused: That item is no longer on the menu. Reload the page.');
   expect(r.log.some((l) => l.table === 'audit_entry')).toBe(false);
 });
 
@@ -116,7 +118,10 @@ test('the shared Select draws the chevron in the space it keeps free for it', ()
   const field = read('src/components/ui/field.tsx');
   const start = field.indexOf('export const Select');
   const select = field.slice(start, field.indexOf('\n});\n', start));
-  expect(select).toContain("'appearance-none pr-9'");
+  // SUPERSEDED 12-Oct-2026 (code review): asserted "'appearance-none pr-9'"; the select is now the
+  // chevron's `peer`, so a disabled select dims its chevron with it.
+  expect(select).toContain("'peer appearance-none pr-9'");
+  expect(select).toContain('peer-disabled:opacity-45');
   expect(select).toContain('<ChevronDown className="pointer-events-none absolute right-3');
 });
 
@@ -166,4 +171,72 @@ test('the order detail in Live orders shows the photo and no longer edits it', (
   expect(live).toContain('data-testid="owner-takeaway-photo-view"');
   // Add items opens the dialog with the order's current photo in it.
   expect(live).toContain("kind: 'takeaway-more', billId: selected.id, code: selected.code, photoUrl: selected.photoUrl");
+});
+
+/* ── Code review, 12-Oct-2026 ──────────────────────────────────────────────────────────────────
+   FAIL-FIRST (observed 12-Oct-2026, before the review fixes): "delete, already gone" through the
+   real route answered 500 "Something on our side failed. Nothing you did was lost — try again.";
+   "edit, deleted from another screen" answered 200 and audited "Paneer Tikka edited". */
+
+interface DoorResult {
+  name: string;
+  status: number;
+  body: string;
+  log: string[];
+  threw: string | null;
+}
+const DOORS = fileURLToPath(new URL('../support/rounds/menu-item-doors.scenarios.ts', import.meta.url));
+
+test.describe('the owner route, called for real', () => {
+  let doors: DoorResult[] = [];
+  const door = (name: string): DoorResult => {
+    const r = doors.find((x) => x.name === name);
+    expect(r, `scenario "${name}" ran`).toBeDefined();
+    return r!;
+  };
+  test.beforeAll(async () => {
+    doors = await runScenario<DoorResult[]>(DOORS);
+  });
+
+  test('deleting a dish that is already gone answers 409 in words, not "try again"', () => {
+    const r = door('delete, already gone');
+    expect(r.threw).toBeNull();
+    expect(r.status).toBe(409);
+    expect(JSON.parse(r.body)).toMatchObject({ code: 'conflict', message: 'That item is no longer on the menu. Reload the page.' });
+    expect(r.log).not.toContain('audit_entry:insert');
+  });
+
+  test('an id that is not an id is refused in words before the database is asked', () => {
+    const r = door('delete, not an id');
+    expect(r.status).toBe(409);
+    expect(r.log).not.toContain('menu_item:delete');
+  });
+
+  test('saving an edit of a dish deleted on another screen is refused, never reported saved', () => {
+    const r = door('edit, deleted from another screen');
+    expect(r.status).toBe(409);
+    expect(JSON.parse(r.body)).toMatchObject({ message: 'That item is no longer on the menu. Reload the page.' });
+    expect(r.log).not.toContain('menu_item:update');
+    expect(r.log).not.toContain('audit_entry:insert');
+  });
+});
+
+test('no bare select element anywhere in the application - every dropdown is the shared Select', async () => {
+  // Supersedes nothing: widens the 11-file check above to every component (code review, T2).
+  const { readdirSync, statSync } = await import('node:fs');
+  const walk = (dir: string): string[] =>
+    readdirSync(`${APP}${dir}`).flatMap((f) => {
+      const p = `${dir}/${f}`;
+      return statSync(`${APP}${p}`).isDirectory() ? walk(p) : p.endsWith('.tsx') ? [p] : [];
+    });
+  const files = walk('src');
+  expect(files.length).toBeGreaterThan(50);
+  const offenders = files.filter((f) => f !== 'src/components/ui/field.tsx' && /<select[\s>]/.test(read(f)));
+  expect(offenders).toEqual([]);
+});
+
+test('welcome drinks are saved from the drinks still on the menu, so a deleted dish is never a drink', () => {
+  const ui = read('src/features/owner/sections/SettingsSection.tsx');
+  expect(ui).toContain('disabled={busy || (enabled && chosen.length === 0)}');
+  expect(ui).toContain('value: { enabled, itemIds: chosen.map((m) => m.id) },');
 });

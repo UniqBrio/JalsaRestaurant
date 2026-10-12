@@ -74,13 +74,21 @@ export async function upsertMenuItem(input: {
   };
 
   if (input.id) {
-    const { data: before } = await db().from('menu_item').select('name,price').eq('id', input.id).maybeSingle();
+    const { data: before } = await db()
+      .from('menu_item')
+      .select('name,price')
+      .eq('id', input.id)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle();
+    // Deleted from another screen while this one was editing it (12-Oct-2026, review): said in words,
+    // never "saved" for a row that is not there.
+    if (!before) throw new MenuItemRefused(MENU_ITEM_GONE);
     const priceChanged = before && Number(before.price) !== input.price;
     // A price change is a different act from an edit, and a confidential one. It is checked
     // separately so a person who may fix a typo cannot quietly reprice the biryani.
     if (priceChanged) demand(input.actor, 'menu.price_edit');
 
-    const { error } = await db()
+    const { data: changed, error } = await db()
       .from('menu_item')
       .update({
         name: input.name,
@@ -93,8 +101,10 @@ export async function upsertMenuItem(input: {
         ...extras,
       })
       .eq('id', input.id)
-      .eq('restaurant_id', restaurantId);
+      .eq('restaurant_id', restaurantId)
+      .select('id');
     if (error) throw error;
+    if ((changed ?? []).length !== 1) throw new MenuItemRefused(MENU_ITEM_GONE);
 
     await audit({
       action: priceChanged ? 'Price' : 'Menu item',
@@ -129,14 +139,21 @@ export async function upsertMenuItem(input: {
 /**
  * Delete a menu item, after the owner has confirmed it (12-Oct-2026).
  *
- * Nothing already ordered changes: every round snapshots the dish's name, price and food type,
- * and its link becomes empty (`kot_item.menu_item_id on delete set null`), as does a guest's
- * heart (`guest_favourite`). A guest's unsent cart line for it goes with it (`on delete
+ * Nothing already ordered READS differently: every round snapshots the dish's name, price and
+ * food type, and its link becomes empty (`kot_item.menu_item_id on delete set null`), as does a
+ * guest's heart (`guest_favourite`). A guest's unsent cart line for it goes with it (`on delete
  * cascade`) - a dish that is no longer sold cannot be sent. The edit grant, the one that adds
  * and edits a dish.
+ *
+ * WHAT IT COSTS (review, 12-Oct-2026): emptying those links is an UPDATE of every line the dish
+ * ever sold, so their `updated_at` and their bills' `version` move (nothing reads either for
+ * money or reports), and the floor's change counter is held for the length of the delete. For a
+ * rare owner action on one restaurant's history that is a moment, not an outage; it is recorded
+ * in the request file rather than designed around.
  */
 export async function deleteMenuItem(input: { id: string; actor: Actor }): Promise<{ name: string }> {
   demand(input.actor, 'menu.item_edit');
+  if (!UUID.test(String(input.id ?? ''))) throw new MenuItemRefused(MENU_ITEM_GONE);
   const restaurantId = await currentRestaurantId();
 
   const { data: gone, error } = await db()
@@ -144,14 +161,30 @@ export async function deleteMenuItem(input: { id: string; actor: Actor }): Promi
     .delete()
     .eq('id', input.id)
     .eq('restaurant_id', restaurantId)
-    .select('name');
+    .select('name,image_url');
   if (error) throw error;
-  const name = (gone ?? [])[0]?.name as string | undefined;
-  if (!name) throw new Error('That item is no longer on the menu. Reload the page.');
+  const row = (gone ?? [])[0] as { name?: string; image_url?: string } | undefined;
+  if (!row?.name) throw new MenuItemRefused(MENU_ITEM_GONE);
+  const name = row.name;
+
+  // The dish's photo goes with it - best effort, as a replaced takeaway photo does: the dish is
+  // already deleted, and a file left behind is untidy, not wrong. Never a file another dish shows.
+  const { count: sharing } = row.image_url
+    ? await db().from('menu_item').select('id', { count: 'exact', head: true }).eq('image_url', row.image_url)
+    : { count: 0 };
+  if (row.image_url && isMediaUrl(row.image_url) && sharing === 0) {
+    const { error: rmErr } = await db().storage.from('media').remove([row.image_url.replace('/api/media/', '')]);
+    if (rmErr) console.warn('[menu-delete] the dish photo could not be removed', input.id, rmErr.message);
+  }
 
   await audit({ action: 'Menu item', detail: `${name} deleted`, actor: input.actor });
   return { name };
 }
+
+/** A menu write refused in words (12-Oct-2026): the route answers 409 with the message. */
+export class MenuItemRefused extends Error {}
+const MENU_ITEM_GONE = 'That item is no longer on the menu. Reload the page.';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Put a category under a top-level one, making it a sub-menu - or back to the top (I3).

@@ -6,7 +6,7 @@
  */
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { NewRoundSheet, type RoundTarget } from '../../../src/features/owner/sections/Dashboard';
+import { NewRoundSheet, targetKey, type RoundTarget } from '../../../src/features/owner/sections/Dashboard';
 import { MenuSection } from '../../../src/features/owner/sections/MenuSection';
 import { Select } from '../../../src/components/ui/field';
 import { Combobox } from '../../../src/components/ui/combobox';
@@ -17,7 +17,7 @@ import type { OwnerSectionProps } from '../../../src/features/owner/OwnerConsole
 declare global {
   interface Window {
     __c12Sent: Array<Record<string, unknown>>;
-    __c12Answer: 'ok' | 'refuse-photo' | 'refuse-delete';
+    __c12Answer: 'ok' | 'refuse-photo' | 'refuse-delete' | 'refuse-takeaway';
   }
 }
 
@@ -56,6 +56,7 @@ function Harness() {
     await new Promise((r) => setTimeout(r, 50));
     if (payload.action === 'takeaway-photo' && window.__c12Answer === 'refuse-photo') throw new Error('The photo could not be saved. Try again.');
     if (payload.action === 'delete-item' && window.__c12Answer === 'refuse-delete') throw new Error('That item is no longer on the menu. Reload the page.');
+    if (payload.action === 'takeaway' && window.__c12Answer === 'refuse-takeaway') throw new Error('Nothing was sent — Paneer Tikka is off the menu.');
     if (payload.action === 'takeaway') return { kotCode: 'KOT-7', billCode: 'TK-3', billId: 'bill-new', refused: [] };
     if (payload.action === 'takeaway-photo') return { photoUrl: DOT };
     return { done: true, kotCode: 'KOT-8', billId: 'bill-more' };
@@ -81,9 +82,16 @@ function Harness() {
       >
         more
       </button>
+      <button
+        type="button"
+        data-testid="open-takeaway-more-photo"
+        onClick={() => setTarget({ kind: 'takeaway-more', billId: 'bill-more', code: 'TK-2', photoUrl: DOT })}
+      >
+        more with photo
+      </button>
       <span data-testid="went">{went}</span>
       <NewRoundSheet
-        key={target ? target.kind : 'none'}
+        key={targetKey(target)}
         target={target}
         onClose={() => setTarget(null)}
         menu={menu}

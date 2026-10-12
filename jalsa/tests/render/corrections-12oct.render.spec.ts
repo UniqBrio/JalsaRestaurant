@@ -208,3 +208,30 @@ test('the delete confirmation names every effect: menus, unsent orders, and wher
   );
   await expect(dialog).toContainText('To take it off only for a while, switch it Off in the Available column instead.');
 });
+
+/* ── Code review, 12-Oct-2026 (T5) ─────────────────────────────────────────────────────────────
+   NOT OBSERVED FAILING: written after the behaviour existed - they pin paths the review found
+   only source-pinned (an existing photo removed from Add items; a refused takeaway). */
+
+test('Add items shows the order\'s photo, and Remove sends the removal for that order', async ({ page }) => {
+  await mount(page);
+  await page.getByTestId('open-takeaway-more-photo').click();
+  await expect(page.getByTestId('owner-new-round-photo-preview')).toBeVisible();
+  await page.getByTestId('owner-new-round-photo-remove').click();
+  await expect(page.getByTestId('owner-new-round-photo-preview')).toHaveCount(0);
+  expect(await sent(page)).toEqual([{ action: 'takeaway-photo', billId: 'bill-more', remove: true }]);
+  await expect(page.getByText('TK-2: photo removed')).toBeVisible();
+});
+
+test('a refused takeaway sends no photo and keeps it in the dialog', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => (window.__c12Answer = 'refuse-takeaway'));
+  await page.getByTestId('open-takeaway').click();
+  await page.getByTestId('owner-new-round-photo-file').setInputFiles({ name: 'parcel.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByTestId('owner-new-round-add-m1').click();
+  await page.getByTestId('owner-new-round-send').click();
+  await expect(page.getByText('Nothing was sent — Paneer Tikka is off the menu.')).toBeVisible();
+  expect((await sent(page)).map((p) => p.action)).toEqual(['takeaway']);
+  await expect(page.getByTestId('owner-new-round-photo-preview')).toBeVisible();
+  await expect(page.getByTestId('went')).toHaveText('');
+});

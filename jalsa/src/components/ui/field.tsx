@@ -132,10 +132,10 @@ export const Select = React.forwardRef<
 >(function Select({ className, children, 'data-testid': testId, ...props }, ref) {
   return (
     <span className={cn('relative block w-full', className)}>
-      <select data-testid={testId} ref={ref} className={cn(controlClass, 'appearance-none pr-9')} {...props}>
+      <select data-testid={testId} ref={ref} className={cn(controlClass, 'peer appearance-none pr-9')} {...props}>
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] peer-disabled:opacity-45" />
     </span>
   );
 });
