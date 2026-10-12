@@ -12,6 +12,7 @@ import {
   ensureOpenBill,
   freeTable,
   cancelOrderAndFreeTable,
+  moveOrderToTable,
   OrderNotLive,
   clearTable,
   joinTableToBill,
@@ -70,6 +71,8 @@ type Action =
   | { action: 'free-table'; tableId: string }
   /* An order already with the kitchen, cancelled and its table freed together (07-Oct-2026). */
   | { action: 'cancel-free-table'; billId: string; tableId: string; reason?: string; note?: string; rounds?: number }
+  /* A running order moved to another, free table - "A1 wants to sit at A2" (12-Oct-2026). */
+  | { action: 'move-table'; billId: string; fromTableId: string; toTableId: string }
   | { action: 'clear-table'; tableId: string }
   | { action: 'set-availability'; itemId: string; available: boolean; reason?: string }
   | { action: 'assign-waiter'; billId: string; staffId: string | null }
@@ -192,6 +195,25 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       // two eventually disagree.
       await freeTable({ tableId: input.tableId, actor });
       return ok({ done: true });
+
+    case 'move-table': {
+      // Guarded in moveOrderToTable (the grant, the ids) and in the database function it calls,
+      // which moves the order and refuses a table that is not free, in one transaction.
+      try {
+        return ok({
+          done: true,
+          ...(await moveOrderToTable({
+            billId: String(input.billId ?? ''),
+            fromTableId: String(input.fromTableId ?? ''),
+            toTableId: String(input.toTableId ?? ''),
+            actor,
+          })),
+        });
+      } catch (err) {
+        if (err instanceof OrderNotLive) return fail(409, { code: 'conflict', message: err.message });
+        throw err;
+      }
+    }
 
     case 'cancel-free-table': {
       // Guarded in cancelOrderAndFreeTable (both grants, the order's state, the table) and in the

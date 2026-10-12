@@ -2,6 +2,21 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-12 - Move a running order to another table - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-12-move-order-to-table.md`. Migration `20261012090000` applied nowhere yet; the guest page falls back if it is missing.
+
+- New: `jalsa/tests/unit/table-move.db.unit.spec.ts` (8, PGlite, every migration), `jalsa/tests/unit/table-move.unit.spec.ts` (14, the real mutation, both routes, the guest context, `lastClosedOnTable`), `jalsa/tests/render/table-move.render.spec.ts` (5, the real captain floor, both themes, 390 px). `tests/support/fake-supabase.ts` gains an optional error `__code`.
+- Full: unit + render 1886 passed; tsc, lint OK; audit:all 10/10.
+
+FAIL-FIRST: jalsa/tests/unit/table-move.db.unit.spec.ts - without the migration: `function move_bill_to_table(unknown, unknown, unknown, unknown, unknown, unknown) does not exist`.
+FAIL-FIRST: jalsa/tests/unit/table-move.unit.spec.ts - against the previous `src/`: `Cannot find module '.../src/lib/table-move'`; the receipt case alone against the previous `lastClosedOnTable` returned the moved-away bill (Expected null).
+NOT OBSERVED FAILING: jalsa/tests/unit/table-move.unit.spec.ts "a database without the migration" - written with the fallback it pins.
+FAIL-FIRST: jalsa/tests/render/table-move.render.spec.ts - against the previous `src/`, 4 of 5 fail waiting for `staff-move-table-A1`.
+NOT OBSERVED FAILING: jalsa/tests/render/table-move.render.spec.ts "without the grant there is no Move button" - there was no button for anybody.
+
+---
+
 ## Application run - jalsa - 2026-10-12 - Print both faces prints the stand; the review code follows the review link - PASS except G8 (unchanged)
 
 - Print: the modal's Tailwind v4 `translate` was never reset on paper (only `transform`), so the dialog printed shifted up-left by half its size - title and front face off the page, back face where the front should be. A `translate: none` beside `transform: none` is folded away by the CSS build; it is now its own rule under a distinct selector. A printable panel with page breaks prints as a column, without the dialog's title. Every Print button goes through `printOnPaper()` (light theme on paper, the person's theme back on `afterprint`).

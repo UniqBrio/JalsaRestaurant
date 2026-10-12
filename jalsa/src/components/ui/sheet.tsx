@@ -120,6 +120,7 @@ export function ConfirmDialog({
   testId,
   busy,
   keepLabel = 'Keep it',
+  reasonsLabel = 'Why — recorded in the audit log',
   children,
 }: {
   open: boolean;
@@ -136,6 +137,8 @@ export function ConfirmDialog({
   busy?: boolean;
   /** The way out, where the request names one (07-Oct-2026). "Keep it" everywhere else. */
   keepLabel?: string;
+  /** The heading over the chips, where they are not reasons - the tables to move to (12-Oct-2026). */
+  reasonsLabel?: string;
   /** Below the reasons - a short free-text detail a reason needs ("Other"). */
   children?: React.ReactNode;
 }) {
@@ -161,9 +164,7 @@ export function ConfirmDialog({
         <div>{consequence}</div>
         {reasons?.length ? (
           <fieldset className="m-0 border-0 p-0">
-            <legend className="mb-2 type-eyebrow text-[var(--text-muted)]">
-              Why — recorded in the audit log
-            </legend>
+            <legend className="mb-2 type-eyebrow text-[var(--text-muted)]">{reasonsLabel}</legend>
             <div className="flex flex-wrap gap-2">
               {reasons.map((r) => (
                 <button

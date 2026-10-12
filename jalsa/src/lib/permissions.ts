@@ -195,6 +195,8 @@ export const ROLE_PRESETS: Record<string, readonly string[]> = {
     'tables.view',
     'tables.assign',
     'tables.qr',
+    // Move a party to a free table (12-Oct-2026, owner's choice): captains do it on the floor.
+    'tables.transfer',
     'tables.clear',
     'menu.view',
     'menu.availability',

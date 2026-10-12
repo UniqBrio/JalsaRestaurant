@@ -191,7 +191,12 @@ async function run(q: FakeQuery): Promise<Answer> {
   // `{ __error }` answers the way the real client reports a failure: `{ data: null, error }`,
   // with no throw - the shape code that forgets to check `error` gets wrong (added 26-Sep-2026).
   if (answer && typeof answer === 'object' && !Array.isArray(answer) && '__error' in answer) {
-    return { data: null, error: { message: String((answer as { __error: unknown }).__error) } } as unknown as Answer;
+    // `__code` (12-Oct-2026): a Postgres/PostgREST code, for code that tells a schema fault apart.
+    const code = (answer as { __code?: unknown }).__code;
+    return {
+      data: null,
+      error: { message: String((answer as { __error: unknown }).__error), ...(typeof code === 'string' ? { code } : {}) },
+    } as unknown as Answer;
   }
   const rows = Array.isArray(answer) ? answer : answer === null ? [] : [answer];
   if (q.head) return { data: null, error: null, count: rows.length };

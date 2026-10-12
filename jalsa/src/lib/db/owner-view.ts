@@ -5,7 +5,7 @@ import { timeLabelIn, todayWindow } from '@/lib/restaurant-time';
 import type { InvoiceBill } from '@/lib/invoice';
 import { rupees, totalsRows, type TotalsRow } from '@/lib/money';
 import { placeLabel } from '@/lib/takeaway';
-import { BILL_STATUS, KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type Tone, tableIsFreeable } from '@/lib/status';
+import { BILL_STATUS, KOT_SOURCE_LABEL, KOT_STATUS, TABLE_STATE, type FoodType, type TableState, type Tone, tableIsFreeable } from '@/lib/status';
 import type { SpineFields } from '@/components/ui/bill';
 import {
   billTotals,
@@ -182,6 +182,10 @@ export interface OwnerPayload {
     roundCount: number;
     /** Released by a closure and not yet reset. The waitlist must not seat onto one. */
     clearing: { releasedAtIso: string; billCode: string; guests: number; waitedMinutes: number } | null;
+    /** The derived state and the phones holding the table - what "Move to another table" offers
+     *  as a destination (`tableMoveTargets`, 12-Oct-2026). */
+    state: TableState;
+    phonesAttached: number;
   }>;
   openBills: OwnerBillView[];
   closedToday: OwnerBillView[];
@@ -508,6 +512,8 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
       freeable: tableIsFreeable(t),
       roundCount: t.billId ? t.roundCount : 0,
       clearing: t.clearing,
+      state: t.state,
+      phonesAttached: t.phonesAttached,
     })),
 
     openBills: openViews,

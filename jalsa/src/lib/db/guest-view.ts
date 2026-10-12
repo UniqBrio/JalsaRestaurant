@@ -95,6 +95,8 @@ export interface GuestRound {
 
 export interface GuestPayload {
   phase: GuestContext['phase'];
+  /** Set on `moved` (12-Oct-2026): the table this phone's order was moved to. */
+  movedTo?: string;
   table: { name: string; zone: string };
   restaurantName: string;
   /** How this party said they found Jalsa — '' until they answer. */
@@ -295,6 +297,7 @@ export async function assembleGuestPayload(ctx: GuestContext, prefetch: GuestPre
 
   return {
     phase: ctx.phase,
+    ...(ctx.movedTo ? { movedTo: ctx.movedTo } : {}),
     table: { name: ctx.table.name, zone: ctx.table.zone },
     restaurantName: copy.name ?? 'Jalsa Restaurant',
     heardAbout: ctx.heardAbout ?? '',

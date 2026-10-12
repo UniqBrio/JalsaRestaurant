@@ -270,6 +270,9 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
     flushCart,
   };
 
+  if (data.phase === 'moved' && data.movedTo) {
+    return <MovedTable from={data.table.name} to={data.movedTo} />;
+  }
   if (data.phase === 'table_inactive') {
     return <TableInactive table={data.table.name} callNumber={data.callNumber} />;
   }
@@ -424,6 +427,33 @@ function GuestHeader({
  * NOT A DEAD END (Standard 1.6). It states the situation, gives the fact needed next, and
  * offers the two things that still work: a person, and a phone number.
  */
+/**
+ * This phone's order was moved to another table by staff (12-Oct-2026). The page goes there at
+ * once; the words and the link are for the moment it takes, and for a browser that does not follow.
+ */
+function MovedTable({ from, to }: { from: string; to: string }) {
+  const href = `/t/${encodeURIComponent(to)}`;
+  React.useEffect(() => {
+    window.location.replace(href);
+  }, [href]);
+  return (
+    <main
+      className="mx-auto flex min-h-dvh w-full max-w-[26rem] flex-col justify-center gap-4 px-6 text-center"
+      data-testid="guest-table-moved"
+    >
+      <h1 className="type-h2 font-semibold">Your order is at table {to} now</h1>
+      <p className="m-0 type-body leading-relaxed text-[var(--text-muted)]">
+        The team moved your order from table {from} to table {to}. Everything you ordered is there.
+      </p>
+      <Button data-testid="guest-moved-open" asChild>
+        <a data-testid="guest-moved-open-link" href={href}>
+          Open table {to}
+        </a>
+      </Button>
+    </main>
+  );
+}
+
 function TableInactive({ table, callNumber }: { table: string; callNumber: string }) {
   return (
     <main
