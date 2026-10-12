@@ -62,6 +62,7 @@ import {
   upsertStaff,
   upsertTable,
   deleteTable,
+  deleteMenuItem,
   writeEmployment,
   writeIdentity,
   writeSetting,
@@ -117,6 +118,8 @@ type Action =
       imageUrl?: string;
       printerId?: string | null;
     }
+  /* A dish off the menu for good, after the confirmation (12-Oct-2026). */
+  | { action: 'delete-item'; id: string }
   | { action: 'add-category'; name: string; printerId?: string | null }
   | { action: 'add-food-type'; name: string; kotClass: string }
   | { action: 'update-food-type'; id: string; name: string; kotClass: string }
@@ -531,6 +534,9 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
         actor,
       });
       return ok({ done: true });
+
+    case 'delete-item':
+      return ok(await deleteMenuItem({ id: String(input.id ?? ''), actor }));
 
     case 'delete-table':
       return ok(await deleteTable({ id: input.id, actor }));

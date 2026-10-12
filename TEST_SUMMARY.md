@@ -2,6 +2,33 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-12 - Copy review of the 12-Oct corrections - PASS (render 12/12, tsc, lint)
+
+- Photo-failure toast: the reason was spliced after a dash, giving "... not saved - The photo could not be saved. Try again.. Add it again from Add items." Now whole sentences: the reason, then "To add it, open the order and tap Add items."
+- Delete confirmation names the unsent-order effect and where the Off switch is (the Available column).
+- Freeze rule checked with `git diff 1a0e229 HEAD -- jalsa/src`: every removed visible string ("Photo for <code>", "<code>: photo saved/removed", "Edit") reappears word for word.
+- `jalsa/tests/render/corrections-12oct.render.spec.ts` +2 cases (appended), 12 passed.
+
+FAIL-FIRST: jalsa/tests/render/corrections-12oct.render.spec.ts "whole sentences" - against the pre-review copy, the exact toast text is not found (toBeVisible failed).
+FAIL-FIRST: jalsa/tests/render/corrections-12oct.render.spec.ts "names every effect" - against the pre-review copy, Expected substring "... and from any guest's order not yet sent." not found.
+
+---
+
+## Application run - jalsa - 2026-10-12 - Takeaway photo in the dialog, a chevron on every dropdown, Delete on menu items - PASS except G8 (no database here)
+
+Request: `jalsa/requests/2026-10-12-takeaway-photo-dialog-dropdown-icon-menu-delete.md`.
+
+- New: `jalsa/tests/unit/corrections-12oct.unit.spec.ts` (11, the REAL `deleteMenuItem` on the round rig + route, screen and schema pins). FAIL-FIRST observed (`src/` stashed): the scenario bundle cannot import `deleteMenuItem`, so no case passes; each pinned string checked absent from the old tree. NOT OBSERVED FAILING, by design: the schema pin and "no bare select element" (guards that already held).
+- New: `jalsa/tests/render/corrections-12oct.render.spec.ts` (10, the REAL Takeaway dialog, Menu section, Select and Combobox, both themes, 390 px). FAIL-FIRST observed (`src/` stashed): all 10 fail, each at its own correction.
+- Results: tsc OK, lint OK, audit:all 10/10, guard:test 15/15, unit + render 1839 passed. `npm run gate`: G1-G7, G9-G12 PASS; G8 FAIL - the same journeys that need a reachable seeded database (guest-journey, guest-total-visibility, closure-upsell-tip); re-run with `src/` stashed, they fail identically at `guest-welcome`.
+- No migration.
+
+FAIL-FIRST: jalsa/tests/unit/corrections-12oct.unit.spec.ts - with `src/` stashed to the previous tree, beforeAll fails: `No matching export in "src/lib/db/owner-mutations.ts" for import "deleteMenuItem"`; no case passes.
+FAIL-FIRST: jalsa/tests/render/corrections-12oct.render.spec.ts - with `src/` stashed to the previous tree, 10 of 10 fail: `owner-new-round-photo-take` not found (takeaway), the Select chevron not visible (dropdowns), `owner-delete-m1` not found (menu delete).
+NOT OBSERVED FAILING: jalsa/tests/unit/corrections-12oct.unit.spec.ts schema pin and "no bare select element" - guards that already held before this change; they fail only when a later change breaks what this one relies on.
+
+---
+
 ## Application run - jalsa - 2026-10-07 - Cancel & free / takeaway photo, after review - PASS (unit, render, audits)
 
 Fixes from the code, permission and copy reviews (request file, REVIEW section).
