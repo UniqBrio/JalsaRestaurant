@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { IconAction } from '@/components/ui/icon-action';
 import { Card, Chip, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet';
@@ -359,10 +360,10 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
               cell: (e) =>
                 canExpense ? (
                   <span className="flex gap-1">
-                    <Button
+                    <IconAction
+                      kind="edit"
+                      label={`Edit ${e.category} ${rupees(e.amount)} from ${e.spentOn}`}
                       data-testid={`owner-edit-expense-${e.id}`}
-                      size="sm"
-                      variant="ghost"
                       onClick={() =>
                         setEditing({
                           id: e.id,
@@ -373,17 +374,13 @@ export function ExpensesSection({ data, send, runBusy, busy }: OwnerSectionProps
                           reason: '',
                         })
                       }
-                    >
-                      Edit
-                    </Button>
-                    <Button
+                    />
+                    <IconAction
+                      kind="delete"
+                      label={`Delete ${e.category} ${rupees(e.amount)} from ${e.spentOn}`}
                       data-testid={`owner-delete-expense-${e.id}`}
-                      size="sm"
-                      variant="ghost"
                       onClick={() => setDeleting(e)}
-                    >
-                      Delete
-                    </Button>
+                    />
                   </span>
                 ) : null,
             },

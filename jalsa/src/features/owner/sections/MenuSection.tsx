@@ -6,6 +6,7 @@ import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { DataTable } from '@/components/ui/data-table';
 import { Combobox } from '@/components/ui/combobox';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
+import { IconAction } from '@/components/ui/icon-action';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import { FOOD_TYPE, KOT_CLASSES, KOT_CLASS_LABEL, type FoodType } from '@/lib/status';
@@ -43,8 +44,12 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
     printerId: string;
   } | null>(null);
   const [newCategory, setNewCategory] = React.useState<{ name: string; printerId: string } | null>(null);
-  /** The dish whose Delete was tapped, waiting on the confirmation (12-Oct-2026). */
-  const [deleting, setDeleting] = React.useState<{ id: string; name: string } | null>(null);
+  /**
+   * The dish whose Delete was tapped, waiting on the confirmation (12-Oct-2026) - from its row or,
+   * since 13-Oct-2026, from the off-menu strip. `available` only words the confirmation: a dish
+   * already off is not told to switch itself Off instead.
+   */
+  const [deleting, setDeleting] = React.useState<{ id: string; name: string; available: boolean } | null>(null);
   // Every machine that prints kitchen tickets - one that prints bills too included (02-Oct-2026).
   const kotPrinters = data.printers.filter((p) => printsKind(p, 'KOT'));
   const routing = (data.settings.routing ?? {}) as { defaultStation?: string };
@@ -86,6 +91,7 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
             {closed.map((m) => (
               <span
                 key={m.id}
+                data-testid={`owner-off-menu-${m.id}`}
                 className="flex items-center gap-2 rounded-full bg-[var(--warning-surface)] px-3 py-1.5 type-caption font-semibold text-[var(--on-warning-surface)]"
               >
                 <FoodMark type={m.foodType} size={11} />
@@ -110,6 +116,19 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                   >
                     Put back
                   </button>
+                ) : null}
+                {/* Delete straight from here (13-Oct-2026): a dish off for good is deleted without
+                    being put back on every guest's phone first. The same confirmation as the row. */}
+                {canEdit ? (
+                  <IconAction
+                    kind="delete"
+                    label={`Delete ${m.name}`}
+                    data-testid={`owner-off-delete-${m.id}`}
+                    disabled={busy}
+                    onClick={() => setDeleting({ id: m.id, name: m.name, available: m.available })}
+                    // The chip's own ink: red on the warning tint is a pair nothing checks.
+                    className="-my-2 -mr-2 text-[var(--on-warning-surface)] hover:text-[var(--on-warning-surface)]"
+                  />
                 ) : null}
               </span>
             ))}
@@ -227,12 +246,13 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
               header: '',
               cell: (m) =>
                 canEdit ? (
-                  /* Delete sits beside Edit, and only deletes after the confirmation (12-Oct-2026). */
+                  /* Delete sits beside Edit, and only deletes after the confirmation (12-Oct-2026).
+                     Icons only, the words kept as their names (13-Oct-2026). */
                   <span className="flex items-center gap-1">
-                    <Button
+                    <IconAction
+                      kind="edit"
+                      label={`Edit ${m.name}`}
                       data-testid={`owner-edit-${m.id}`}
-                      size="sm"
-                      variant="ghost"
                       onClick={() =>
                         setEditing({
                           id: m.id,
@@ -245,19 +265,14 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                           printerId: m.printerId ?? '',
                         })
                       }
-                    >
-                      Edit
-                    </Button>
-                    <Button
+                    />
+                    <IconAction
+                      kind="delete"
+                      label={`Delete ${m.name}`}
                       data-testid={`owner-delete-${m.id}`}
-                      size="sm"
-                      variant="ghost"
                       disabled={busy}
-                      onClick={() => setDeleting({ id: m.id, name: m.name })}
-                      className="text-[var(--error)]"
-                    >
-                      Delete
-                    </Button>
+                      onClick={() => setDeleting({ id: m.id, name: m.name, available: m.available })}
+                    />
                   </span>
                 ) : null,
             },
@@ -390,8 +405,10 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
         consequence={
           <>
             <strong>{deleting?.name}</strong> is removed from the menu on every guest and captain screen, and from any
-            guest&apos;s order not yet sent. Orders and bills that already have it keep it as they were. To take it off
-            only for a while, switch it Off in the Available column instead.
+            guest&apos;s order not yet sent. Orders and bills that already have it keep it as they were.
+            {deleting?.available
+              ? ' To take it off only for a while, switch it Off in the Available column instead.'
+              : null}
           </>
         }
         confirmLabel="Delete the item"

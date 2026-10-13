@@ -94,7 +94,9 @@ test('Delete sits beside Edit on every menu row, and only the confirmation sends
   expect(del).toBeGreaterThan(edit);
   expect(ui.slice(edit, del)).not.toContain("key: '");
   // The button only opens the confirmation; the confirmation sends the delete.
-  expect(ui).toContain('onClick={() => setDeleting({ id: m.id, name: m.name })}');
+  // SUPERSEDED 13-Oct-2026 (Delete from the off-menu strip): asserted `setDeleting({ id: m.id, name: m.name })`.
+  // The pending delete also carries `available`, so a dish already off is not told to switch itself Off.
+  expect(ui).toContain('onClick={() => setDeleting({ id: m.id, name: m.name, available: m.available })}');
   const confirm = ui.indexOf('testId="owner-item-delete-confirm"');
   const send = ui.indexOf("{ action: 'delete-item', id: deleting.id }");
   expect(confirm).toBeGreaterThan(-1);

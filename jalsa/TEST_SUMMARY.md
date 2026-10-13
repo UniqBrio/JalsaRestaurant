@@ -4,6 +4,62 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-10-13 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 3m 34s total - slowest G7 Unit + pure specs (1m 35s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (64ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (59ms)
+- **G3 Theme assets present per theme** - PASS (53ms)
+- **G4 No hard-coded colours** - PASS (88ms)
+- **G5 Types** - PASS (3.5s)
+- **G6 Lint** - PASS (21.5s)
+- **G7 Unit + pure specs** - PASS (1m 35s)
+- **G8 Functional / integration** - FAIL (1m 29s)
+
+```
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/t/N3
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/t/A1
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/t/A7
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/staff
+      34 |     return route.fulfill({ status: 401, json: { error: { code: 'unauthenticated', message: 'Not tonight.' } } });
+    test-results/keyboard-signin.functional-e6c7d-visual-order-top-left-first-desktop/te
+... (truncated)
+```
+
+- **G9 Automation addressability** - PASS (68ms)
+- **G10 Backward compatibility (fixtures)** - PASS (4.6s)
+- **G11 Wide tables are configurable** - PASS (69ms)
+- **G12 Installable as an application** - PASS (127ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-13 - Delete a dish straight from the off-menu strip; Edit and Delete as icons only - PASS except G8 (unchanged)
+
+Request: `requests/2026-10-13-off-menu-delete-and-icon-actions.md`. No migration.
+
+- The off-menu strip ("Off the customer menu right now") offered only Put back; the server already deleted a dish whatever its availability. Each chip now has a Delete (bin) for `menu.item_edit`, opening the row's own confirmation - one write, nothing put back first; a dish already off is not told to switch itself Off.
+- Every Edit and Delete opener is the shared `IconAction` (Lucide pencil / bin, stroke 2.75, 44px), the word kept as accessible name and tooltip: Menu, Tables, Staff, Expenses, Printers, Print setup. Confirmations keep their words. Pattern JP-24.
+- New: `tests/unit/icon-actions.unit.spec.ts` (5, TypeScript parse of every component), `tests/render/icon-actions.render.spec.ts` (7, the real Menu section, both themes, 390 px and desktop). Superseded in place with dated notes: `corrections-12oct` unit (the pending delete carries `available`) and render (the word is the button's name).
+- Full: unit 1575 passed; render 324 passed, 8 failed - the `/staff` contrast cases of `jalsa-surfaces.render.spec.ts`, which fail identically on main without this change in this container. tsc, lint OK.
+
+FAIL-FIRST: tests/unit/icon-actions.unit.spec.ts - against the previous `src/` (IconAction moved aside): 4 of 5 fail - 10 text Edit/Delete buttons found (Expected []), no IconAction anywhere (Expected 1, Received 0), `icon-action.tsx` ENOENT, `owner-off-delete-` not in MenuSection.
+NOT OBSERVED FAILING: tests/unit/icon-actions.unit.spec.ts "the scan read the application" - a guard that the parse found files, elements and a planted offender; it held before the change by design.
+FAIL-FIRST: tests/render/icon-actions.render.spec.ts - against the previous `src/`: 6 of 7 fail - `owner-off-menu-m3` / `owner-off-delete-m3` not found (strip cases, both themes, grants), `owner-edit-m1` Expected "", Received "Edit" (both themes).
+NOT OBSERVED FAILING: tests/render/icon-actions.render.spec.ts "the Edit icon opens the editor" - Edit opened the editor before; it pins that the icon still does.
+
+---
+
 ## 2026-10-12 - Move to another table: copy, permission and code reviews - PASS except G8 (unchanged)
 
 Request: `requests/2026-10-12-move-order-to-table.md` (REVIEW section). Migration `20261012090000` revised before it was applied anywhere.
