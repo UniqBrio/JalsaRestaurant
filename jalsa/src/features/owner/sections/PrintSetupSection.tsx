@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { IconAction } from '@/components/ui/icon-action';
 import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Combobox } from '@/components/ui/combobox';
@@ -478,16 +479,13 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                   {/* Against the printer, as the Printers screen has it (30-Sep). The same
                       confirmation as the sheet's Delete, so there is one delete path. */}
                   {canEdit ? (
-                    <Button
+                    <IconAction
+                      kind="delete"
+                      label={`Delete ${p.name}`}
                       data-testid={`owner-print-row-delete-${p.id}`}
-                      size="sm"
-                      variant="ghost"
                       disabled={busy}
-                      className="text-[var(--error)]"
                       onClick={() => setDeleting({ ...p })}
-                    >
-                      Delete
-                    </Button>
+                    />
                   ) : null}
                 </div>
 
@@ -535,15 +533,15 @@ function PrintersPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         footer={
           <>
             {form?.id && canEdit ? (
-              <Button
+              <IconAction
+                kind="delete"
+                // The saved name, not the field being typed in (copy review, 13-Oct-2026).
+                label={`Delete ${data.printers.find((p) => p.id === form.id)?.name ?? form.name}`}
                 data-testid="owner-print-delete"
-                variant="ghost"
                 disabled={busy}
                 onClick={() => setDeleting(form)}
-                className="mr-auto text-[var(--error)]"
-              >
-                Delete
-              </Button>
+                className="mr-auto"
+              />
             ) : null}
             <Button data-testid="owner-print-cancel" variant="ghost" onClick={() => setForm(null)}>
               Cancel

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { cn } from '@/lib/cn';
 import { CHIP_NAV_WRAP } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
+import { IconAction } from '@/components/ui/icon-action';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet';
 import { Field, Input, SearchField, Select } from '@/components/ui/field';
@@ -274,14 +275,12 @@ export function StaffSection({ data, send, runBusy, busy, go, arg }: OwnerSectio
 
                       {canEdit ? (
                         <>
-                          <Button
+                          <IconAction
+                            kind="edit"
+                            label={`Edit ${p.name}`}
                             data-testid={`owner-edit-staff-${p.id}`}
-                            size="sm"
-                            variant="ghost"
                             onClick={() => setEditing({ id: p.id, name: p.name, role: p.role, mobile: p.mobile })}
-                          >
-                            Edit
-                          </Button>
+                          />
                           <Button
                             data-testid={`owner-remove-${p.id}`}
                             size="sm"

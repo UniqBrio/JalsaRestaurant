@@ -149,7 +149,9 @@ for (const theme of ['light', 'dark'] as const) {
     const del = await page.getByTestId('owner-delete-m1').boundingBox();
     expect(del!.x).toBeGreaterThan(edit!.x);
     expect(Math.abs(del!.y - edit!.y)).toBeLessThan(4);
-    await expect(page.getByTestId('owner-delete-m1')).toHaveText('Delete');
+    // SUPERSEDED 13-Oct-2026 (owner: "replace the edit and delete button with text with only edit and
+    // delete icon across app"): asserted toHaveText('Delete'). The word is now the button's name.
+    await expect(page.getByTestId('owner-delete-m1')).toHaveAccessibleName('Delete Paneer Tikka');
 
     await page.getByTestId('owner-delete-m1').click();
     const dialog = page.getByTestId('owner-item-delete-confirm');

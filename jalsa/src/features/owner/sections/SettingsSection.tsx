@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/cn';
 import { CHIP_NAV_WRAP, CHIP_NAV_STICKY_MD } from '@/lib/chip-nav';
 import { Button } from '@/components/ui/button';
+import { IconAction } from '@/components/ui/icon-action';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/field';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
@@ -848,16 +849,14 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
                     >
                       Stand
                     </Button>
-                    <Button
+                    <IconAction
+                      kind="edit"
+                      label={`Edit table ${t.name}`}
                       data-testid={`owner-edit-table-${t.name}`}
-                      size="sm"
-                      variant="ghost"
                       onClick={() =>
                         setEditing({ id: t.id, name: t.name, zone: t.zone, seats: String(t.seats), active: t.active })
                       }
-                    >
-                      Edit
-                    </Button>
+                    />
                   </div>
                 </li>
               ))}
@@ -883,19 +882,19 @@ function TablesPanel({ data, send, runBusy, busy }: OwnerSectionProps) {
         footer={
           <>
             {editing?.id ? (
-              <Button
+              <IconAction
+                kind="delete"
+                // The saved name, not the field being typed in (copy review, 13-Oct-2026).
+                label={`Delete table ${data.floor.find((t) => t.id === editing.id)?.name ?? editing.name}`}
                 data-testid="owner-table-delete"
-                variant="secondary"
-                className="mr-auto text-[var(--error)]"
+                className="mr-auto"
                 disabled={busy}
                 onClick={() => {
                   if (!editing.id) return;
                   setDeleting({ id: editing.id, name: editing.name });
                   setEditing(null);
                 }}
-              >
-                Delete
-              </Button>
+              />
             ) : null}
             <Button data-testid="owner-table-cancel" variant="ghost" onClick={() => setEditing(null)}>
               Cancel

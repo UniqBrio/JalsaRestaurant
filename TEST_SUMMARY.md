@@ -2,6 +2,58 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-13 - Icon actions: copy and code reviews - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-13-off-menu-delete-and-icon-actions.md` (REVIEW sections).
+
+- Copy: expense labels in the dialog's own words with the amount; sheet Deletes name the saved table or printer. Code: the other five screens rendered (both themes, 390/1280 px); exact colour tokens instead of "not transparent"; the scan widened to nested text, string literals, chips and links; the strip bin's hover in the chip's tint; error on surface-raised and surface-sunken added to the contrast policy (124 pairs, clean).
+- New: `jalsa/tests/render/icon-actions-screens.render.spec.ts` (20), `jalsa/tests/support/icon-action-probe.ts`. `icon-actions` unit and render tightened.
+- Full: unit + render 1919 passed; 8 failed - the `/staff` contrast cases that fail identically on main here; tsc, lint OK; audit:all 10/10 (contrast 124 pairs).
+
+FAIL-FIRST: jalsa/tests/render/icon-actions-screens.render.spec.ts - against `src/` at origin/main: 20 of 20 fail, `toHaveText` Expected "", Received "Edit" (12) / "Delete" (8).
+NOT OBSERVED FAILING: jalsa/tests/unit/icon-actions.unit.spec.ts widened scan - nothing in the tree uses the forms it now reads; its planted probe (six offenders, one named Remove) is what proves it fires.
+
+---
+
+## Application run - jalsa - 2026-10-13 - Delete a dish straight from the off-menu strip; Edit and Delete as icons only - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-13-off-menu-delete-and-icon-actions.md`. No migration.
+
+- The off-menu strip ("Off the customer menu right now") offered only Put back; the server already deleted a dish whatever its availability. Each chip now has a Delete (bin) for `menu.item_edit`, opening the row's own confirmation - one write, nothing put back first; a dish already off is not told to switch itself Off.
+- Every Edit and Delete opener is the shared `IconAction` (Lucide pencil / bin, stroke 2.75, 44px), the word kept as accessible name and tooltip: Menu, Tables, Staff, Expenses, Printers, Print setup. Confirmations keep their words. Pattern JP-24.
+- New: `jalsa/tests/unit/icon-actions.unit.spec.ts` (5, TypeScript parse of every component), `jalsa/tests/render/icon-actions.render.spec.ts` (7, the real Menu section, both themes, 390 px and desktop). Superseded in place with dated notes: `corrections-12oct` unit (the pending delete carries `available`) and render (the word is the button's name).
+- Full: unit 1575 passed; render 324 passed, 8 failed - the `/staff` contrast cases of `jalsa-surfaces.render.spec.ts`, which fail identically on main without this change in this container. tsc, lint OK.
+
+FAIL-FIRST: jalsa/tests/unit/icon-actions.unit.spec.ts - against the previous `src/` (IconAction moved aside): 4 of 5 fail - 10 text Edit/Delete buttons found (Expected []), no IconAction anywhere (Expected 1, Received 0), `icon-action.tsx` ENOENT, `owner-off-delete-` not in MenuSection.
+NOT OBSERVED FAILING: jalsa/tests/unit/icon-actions.unit.spec.ts "the scan read the application" - a guard that the parse found files, elements and a planted offender; it held before the change by design.
+FAIL-FIRST: jalsa/tests/render/icon-actions.render.spec.ts - against the previous `src/`: 6 of 7 fail - `owner-off-menu-m3` / `owner-off-delete-m3` not found (strip cases, both themes, grants), `owner-edit-m1` Expected "", Received "Edit" (both themes).
+NOT OBSERVED FAILING: jalsa/tests/render/icon-actions.render.spec.ts "the Edit icon opens the editor" - Edit opened the editor before; it pins that the icon still does.
+
+---
+
+## Gate run - 2026-10-13 - VERDICT: BLOCKED
+
+Steps: 8 pass, 0 fail, 4 blocked.
+Time: 4.3s total - slowest G10 Backward compatibility (fixtures) (3.7s).
+Application steps ran in starter
+
+- **G1 Theme artifacts in sync** - PASS (95ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (58ms)
+- **G3 Theme assets present per theme** - PASS (55ms)
+- **G4 No hard-coded colours** - PASS (70ms)
+- **G5 Types** - BLOCKED (-) - no local "tsc" in starter - not fetched from the registry on purpose. Run `npm install` in starter (provides typescript), or state why this class is unverified. - **22 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G6 Lint** - BLOCKED (-) - prerequisite G5 did not pass - **22 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G7 Unit + pure specs** - BLOCKED (-) - prerequisite G5 did not pass - **22 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G8 Functional / integration** - BLOCKED (-) - prerequisite G5 did not pass - **22 consecutive runs**: a verdict that never changes is not a signal; make this class runnable or accept it in writing
+- **G9 Automation addressability** - PASS (61ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.7s)
+- **G11 Wide tables are configurable** - PASS (91ms)
+- **G12 Installable as an application** - PASS (96ms)
+
+_One or more classes could NOT be verified. This is a decision for the owner, not a pass. Name the accepted IDs in writing or make the class runnable._
+
+---
+
 ## Application run - jalsa - 2026-10-12 - Move to another table: copy, permission and code reviews - PASS except G8 (unchanged)
 
 Request: `jalsa/requests/2026-10-12-move-order-to-table.md` (REVIEW section). Migration `20261012090000` revised before it was applied anywhere.

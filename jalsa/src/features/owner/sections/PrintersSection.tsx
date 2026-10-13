@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { IconAction } from '@/components/ui/icon-action';
 import { Card, Chip, Pill, SectionLabel } from '@/components/ui/atoms';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, Input } from '@/components/ui/field';
@@ -263,16 +264,13 @@ export function PrintersSection(props: OwnerSectionProps) {
                         </Button>
                       ) : null}
                       {canEdit ? (
-                        <Button
+                        <IconAction
+                          kind="delete"
+                          label={`Delete ${p.name}`}
                           data-testid={`owner-printers-delete-${p.id}`}
-                          size="sm"
-                          variant="ghost"
                           disabled={busy}
                           onClick={() => setDeleting(p)}
-                          className="text-[var(--error)]"
-                        >
-                          Delete
-                        </Button>
+                        />
                       ) : null}
                     </div>
                     {readiness.message ? (
