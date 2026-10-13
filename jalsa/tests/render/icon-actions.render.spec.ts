@@ -11,6 +11,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { bundleForBrowser } from '../support/mount';
+import { expectIconAction } from '../support/icon-action-probe';
 
 const ENTRY = fileURLToPath(new URL('./mounts/icon-actions.entry.tsx', import.meta.url));
 
@@ -57,6 +58,7 @@ for (const theme of ['light', 'dark'] as const) {
     const dialog = page.getByTestId('owner-item-delete-confirm');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('Delete Mutton Biryani?');
+    await expect(dialog).toContainText('Orders and bills that already have it keep it as they were.');
     // Already off: the dialog does not tell the owner to switch it Off instead.
     await expect(dialog).not.toContainText('switch it Off');
     expect(await sent(page)).toEqual([]);
@@ -95,27 +97,11 @@ test('without the grant to edit dishes the strip offers no Delete; with only tha
 for (const theme of ['light', 'dark'] as const) {
   test(`Edit and Delete on a menu row are icons with their words as name and tooltip (${theme})`, async ({ page }) => {
     await mount(page, { theme });
-    for (const [id, kind, name] of [
-      ['owner-edit-m1', 'Edit', 'Paneer Tikka'],
-      ['owner-delete-m1', 'Delete', 'Paneer Tikka'],
-      ['owner-off-delete-m3', 'Delete', 'Mutton Biryani'],
-    ] as const) {
-      const button = page.getByTestId(id);
-      await expect(button, id).toBeVisible();
-      // No word on the button...
-      await expect(button, id).toHaveText('');
-      // ...an icon drawn in a visible colour...
-      const icon = button.locator('svg');
-      await expect(icon, id).toBeVisible();
-      expect(await icon.evaluate((el) => getComputedStyle(el).color), id).not.toBe('rgba(0, 0, 0, 0)');
-      // ...the word kept as its name and tooltip...
-      await expect(button, id).toHaveAccessibleName(`${kind} ${name}`);
-      await expect(button, id).toHaveAttribute('title', `${kind} ${name}`);
-      // ...and still a 44px target.
-      const box = await button.boundingBox();
-      expect(box!.width, id).toBeGreaterThanOrEqual(44);
-      expect(box!.height, id).toBeGreaterThanOrEqual(44);
-    }
+    // The row's pencil in the muted ink, its bin in the error colour; the strip's bin in the off-menu
+    // chip's own ink (red on that tint is not a pair the contrast policy checks) - in this theme.
+    await expectIconAction(page, 'owner-edit-m1', 'Edit Paneer Tikka', '--text-muted');
+    await expectIconAction(page, 'owner-delete-m1', 'Delete Paneer Tikka', '--error');
+    await expectIconAction(page, 'owner-off-delete-m3', 'Delete Mutton Biryani', '--on-warning-surface');
     // Found by role and name, as a screen reader would.
     await expect(page.getByRole('button', { name: 'Edit Paneer Tikka' })).toBeVisible();
     // The confirmation keeps its words: a delete is carried out by a button that says so.

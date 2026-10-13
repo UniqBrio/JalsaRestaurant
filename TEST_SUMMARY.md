@@ -2,6 +2,19 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-13 - Icon actions: copy and code reviews - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-13-off-menu-delete-and-icon-actions.md` (REVIEW sections).
+
+- Copy: expense labels in the dialog's own words with the amount; sheet Deletes name the saved table or printer. Code: the other five screens rendered (both themes, 390/1280 px); exact colour tokens instead of "not transparent"; the scan widened to nested text, string literals, chips and links; the strip bin's hover in the chip's tint; error on surface-raised and surface-sunken added to the contrast policy (124 pairs, clean).
+- New: `jalsa/tests/render/icon-actions-screens.render.spec.ts` (20), `jalsa/tests/support/icon-action-probe.ts`. `icon-actions` unit and render tightened.
+- Full: unit + render 1919 passed; 8 failed - the `/staff` contrast cases that fail identically on main here; tsc, lint OK; audit:all 10/10 (contrast 124 pairs).
+
+FAIL-FIRST: jalsa/tests/render/icon-actions-screens.render.spec.ts - against `src/` at origin/main: 20 of 20 fail, `toHaveText` Expected "", Received "Edit" (12) / "Delete" (8).
+NOT OBSERVED FAILING: jalsa/tests/unit/icon-actions.unit.spec.ts widened scan - nothing in the tree uses the forms it now reads; its planted probe (six offenders, one named Remove) is what proves it fires.
+
+---
+
 ## Application run - jalsa - 2026-10-13 - Delete a dish straight from the off-menu strip; Edit and Delete as icons only - PASS except G8 (unchanged)
 
 Request: `jalsa/requests/2026-10-13-off-menu-delete-and-icon-actions.md`. No migration.

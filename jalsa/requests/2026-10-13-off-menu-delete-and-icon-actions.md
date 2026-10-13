@@ -51,7 +51,38 @@
 
 ## EVIDENCE
 `tests/unit/icon-actions.unit.spec.ts` (5: the TypeScript parser reads every component and refuses an
-Edit or Delete button carrying its word; every opener is `IconAction`; the strip shares the one delete
-path) and `tests/render/icon-actions.render.spec.ts` (7: the real Menu section, both themes, 390 px and
-desktop). Pattern JP-24 in `docs/registers/CANONICAL_PATTERNS.md`. Two 12-Oct pins superseded in place
+Edit or Delete opener carrying its word; every opener is `IconAction`; the strip shares the one delete
+path), `tests/render/icon-actions.render.spec.ts` (7: the real Menu section, both themes, 390 px and
+desktop) and `tests/render/icon-actions-screens.render.spec.ts` (20: Tables, Staff, Expenses, Printers,
+Print setup, both themes, 390 px and 1280 px). Pattern JP-24 in `docs/registers/CANONICAL_PATTERNS.md`. Two 12-Oct pins superseded in place
 with dated notes. Results and fail-first in `TEST_SUMMARY.md`.
+
+## REVIEW (13-Oct-2026: copy reviewer) - what changed
+- Expense labels read "Edit/Delete <category> <amount> from <date>", the words of the expense's own
+  delete dialog ("Gas ₹450 from 2026-10-12"), and two same-day entries of one category are told apart.
+- The Delete in the table and printer sheets names the SAVED table or printer, not the name field being
+  typed in (cleared, it read "Delete table ").
+- Candidates noted, not changed (shipped words): the expense opener says Delete while its dialog says
+  Remove; expense dates are ISO where the app's display format is DD-MMM-YYYY.
+
+## REVIEW (13-Oct-2026: code reviewer) - what changed, and what was weighed and left
+- **Fixed - five of six screens were never rendered.** `icon-actions-screens.render.spec.ts` mounts the
+  real Tables, Staff, Expenses, Printers and Print setup screens in both themes at 390 and 1280 px.
+- **Fixed - a colour assertion that could not fail** ("not transparent" - `currentColor` never is).
+  Every icon is now compared with its token resolved in the page's theme (`tests/support/icon-action-probe.ts`).
+- **Fixed - the scan was narrower than JP-24 said.** It now reads nested text and string literals in
+  expressions, and buttons, chips and links, for any words beginning Edit or Delete.
+- **Fixed - the strip's bin hovered in the grey ghost fill** on the yellow chip; it now takes the chip's
+  own tint, as Put back does.
+- **Fixed - two reachable pairs were missing from the contrast policy:** error on surface-raised (a
+  sheet's Delete) and error on surface-sunken (a Delete under the pointer). Both pass, both themes.
+- **Fixed - a whitespace-dependent pin** on `deleteMenuItem`, and a "does not contain" that would pass on
+  an empty dialog (a positive assertion is beside it now).
+- **Weighed, left - two buttons named "Delete <dish>"** for a dish that is off: the strip's and the row's.
+  Both delete the same dish through the same dialog, so the same name is true; a runner uses test ids.
+- **Weighed, left - the 44px bin is taller than the chip** (it overhangs by about 2px, invisible until
+  hovered or focused). Shrinking it would break the 44px touch floor; growing the chip would change
+  every chip for one button.
+- **For the owner - still words:** Remove (a staff member; a printer's computer mapping; a quick reply;
+  a waitlist entry; a photo), Configure, Preview, Put back. Another verb, so outside this ask; say if
+  any should be an icon too.

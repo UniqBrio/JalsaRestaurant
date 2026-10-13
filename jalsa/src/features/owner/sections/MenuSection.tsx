@@ -126,8 +126,9 @@ export function MenuSection({ data, send, runBusy, busy }: OwnerSectionProps) {
                     data-testid={`owner-off-delete-${m.id}`}
                     disabled={busy}
                     onClick={() => setDeleting({ id: m.id, name: m.name, available: m.available })}
-                    // The chip's own ink: red on the warning tint is a pair nothing checks.
-                    className="-my-2 -mr-2 text-[var(--on-warning-surface)] hover:text-[var(--on-warning-surface)]"
+                    // The chip's own ink, and its own tint on hover as Put back has: red on the warning tint, or
+                    // the grey hover disc, would be pairs nothing checks (code review, 13-Oct-2026).
+                    className="-my-2 -mr-2 text-[var(--on-warning-surface)] hover:bg-[var(--on-warning-surface)]/10 hover:text-[var(--on-warning-surface)]"
                   />
                 ) : null}
               </span>
