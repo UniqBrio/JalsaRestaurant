@@ -48,6 +48,7 @@ import {
   type RoutablePrinter,
 } from '@/lib/print-routing';
 import { rolesLabel, type PrinterRole } from '@/lib/printer-roles';
+import { printsAutomatically, SWITCH_LABEL } from '@/lib/print-choice';
 import { DefaultRolesField, PrinterRolesField } from '@/components/ui/printer-roles-field';
 import type { PrintJobRow, PrinterRow } from '@/lib/db/types';
 import { PrinterPreviewSheet } from '../PrinterPreviewSheet';
@@ -149,6 +150,9 @@ export function PrintSetupSection(props: OwnerSectionProps) {
 
 function OverviewPanel({
   data,
+  send,
+  runBusy,
+  busy,
   kotCount,
   billCount,
   failed,
@@ -163,12 +167,50 @@ function OverviewPanel({
 }) {
   const down = data.printers.filter((p) => p.enabled && !p.online);
   const off = data.printers.filter((p) => !p.enabled);
+  const toast = useToast();
+  const canEdit = data.grants.includes('set.printer');
+  const printCfg = (data.settings.print ?? {}) as Record<string, unknown>;
+
+  /* The two switches (22-Oct-2026). Each Save writes ONE key into the `print` setting, which
+     `writeSetting` merges - so turning one on or off never moves the other, or the templates and
+     the food-type split stored beside them. Neither chooses a printer: both print where Routing
+     already sends kitchen tickets and bills. */
+  const saveSwitch = (key: 'kotEnabled' | 'invoiceEnabled', on: boolean): void =>
+    runBusy(async () => {
+      await send('/api/owner/action', { action: 'write-setting', key: 'print', value: { [key]: on } });
+      toast.show(`${key === 'kotEnabled' ? SWITCH_LABEL.kot : SWITCH_LABEL.invoice}: ${on ? 'on' : 'off'}`, {
+        tone: 'success',
+      });
+    });
 
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
         Two kitchen machines and the counter bill printer. Everything here is about what physically comes out of them.
       </p>
+
+      <Card className="flex flex-col gap-1" data-testid="owner-print-switches">
+        <SectionLabel>Automatic printing</SectionLabel>
+        <Toggle
+          checked={printsAutomatically(printCfg, 'KOT')}
+          onCheckedChange={(v) => saveSwitch('kotEnabled', v)}
+          label={SWITCH_LABEL.kot}
+          consequence="On: every new KOT prints by itself. Off: you are asked for each new KOT, and a round from a guest's phone waits for someone to print it."
+          testId="owner-print-kot-enabled"
+          disabled={!canEdit || busy}
+        />
+        <Toggle
+          checked={printsAutomatically(printCfg, 'Invoice')}
+          onCheckedChange={(v) => saveSwitch('invoiceEnabled', v)}
+          label={SWITCH_LABEL.invoice}
+          consequence="On: the invoice prints by itself once a payment is recorded. Off: you are asked after each payment."
+          testId="owner-print-invoice-enabled"
+          disabled={!canEdit || busy}
+        />
+        <p className="m-0 type-caption leading-relaxed text-[var(--text-muted)]">
+          Both use the printers set up here — a printer set to print kitchen tickets and bills prints both.
+        </p>
+      </Card>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <MetricTile

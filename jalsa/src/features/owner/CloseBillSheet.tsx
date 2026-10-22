@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn';
 import { TotalsBlock } from '@/components/ui/bill';
 import { Field, Input } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
+import { usePrintAsk, type PrintAnswer } from '@/components/ui/print-ask';
 import { discountBothWays, rupees } from '@/lib/money';
 import { CashChangeField, cashProblem, payableAtClose } from '@/components/ui/cash-change';
 import {
@@ -68,6 +69,7 @@ export function CloseBillSheet({
   onClosed?: () => void;
 }) {
   const toast = useToast();
+  const printAsk = usePrintAsk();
   const [mode, setMode] = React.useState<string>(MODES[1]);
   const [reference, setReference] = React.useState('');
   /* ONE discount, two views, and which box was typed in. The pair is the same control the
@@ -131,7 +133,7 @@ export function CloseBillSheet({
             disabled={busy || problem !== null || tenderProblem !== null}
             onClick={() =>
               runBusy(async () => {
-                const res = await send<{ payable: number }>('/api/owner/action', {
+                const res = await send<{ payable: number } & PrintAnswer>('/api/owner/action', {
                   action: 'close-bill',
                   billId: bill.id,
                   mode,
@@ -150,6 +152,8 @@ export function CloseBillSheet({
                   }`,
                   { tone: 'success' }
                 );
+                // Only once the payment is recorded: invoice printing off asks now (22-Oct-2026).
+                printAsk.after(res, { kind: 'Invoice', billId: bill.id, code: bill.code });
                 onOpenChange(false);
                 onClosed?.();
               })

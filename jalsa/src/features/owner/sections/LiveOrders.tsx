@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, Chip, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
 import { PrintTargets } from '@/components/ui/print';
+import { usePrintAsk } from '@/components/ui/print-ask';
+import { KOT_ASK, neverPrinted } from '@/lib/print-choice';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, Input } from '@/components/ui/field';
@@ -48,6 +50,7 @@ const CANCEL_REASONS = [
 
 export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionProps) {
   const toast = useToast();
+  const printAsk = usePrintAsk();
   /* Takeaway (02-Oct-2026): a new one, or more items for one already open. The Dashboard's sheet
      and menu, not a second ordering screen. Both grants, as the server demands. */
   const [roundTarget, setRoundTarget] = React.useState<RoundTarget | null>(null);
@@ -448,6 +451,7 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
                         {k.printJobs.length === 0 && k.printStatus === 'failed' ? (
                           <Pill tone="error">Print failed</Pill>
                         ) : null}
+                        {neverPrinted(k) ? <Pill tone="neutral">Not printed</Pill> : null}
                         {k.reprintCount > 0 ? <Pill tone="neutral">Reprinted ×{k.reprintCount}</Pill> : null}
                         <Pill tone={k.tone}>{k.statusLabel}</Pill>
                       </div>
@@ -498,7 +502,21 @@ export function LiveOrders({ data, arg, send, runBusy, busy, go }: OwnerSectionP
                       ))}
                     </ul>
 
-                    {data.grants.includes('orders.reprint') ? (
+                    {/* A round KOT printing was off for (22-Oct-2026): its FIRST print, not a reprint -
+                        a different act, so a different button with its own name. */}
+                    {data.grants.includes('orders.reprint') && neverPrinted(k) ? (
+                      <Button
+                        data-testid={`owner-print-once-${k.id}`}
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2.5"
+                        disabled={busy || printAsk.printing}
+                        onClick={() => printAsk.printNow({ kind: 'KOT', kotId: k.id, code: k.code })}
+                      >
+                        {KOT_ASK.print}
+                      </Button>
+                    ) : null}
+                    {data.grants.includes('orders.reprint') && !neverPrinted(k) ? (
                       <Button
                         data-testid={`owner-reprint-${k.id}`}
                         size="sm"

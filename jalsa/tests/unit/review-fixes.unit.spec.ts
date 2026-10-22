@@ -106,7 +106,13 @@ test('S2: a takeaway whose round failed part-way keeps its bill when a round rea
   // (a count of KOT rows, and a read error that returned silently). It keyed on the wrong row - an
   // EMPTY KOT kept the bill - so it now counts the round's LINES, and this rung runs the real code.
   const after = by('round fails after its lines');
-  expect(after.threw).toMatch(/TK-1 may already be with the kitchen, but finishing it failed \(print_job insert failed\)\. Check Live orders before placing it again\./);
+  // Superseded 22-Oct-2026 (KOT and invoice print switches): this previously asserted that a
+  // print_job insert failing after the lines threw "TK-1 may already be with the kitchen, but
+  // finishing it failed (print_job insert failed). Check Live orders before placing it again."
+  // A print that cannot be written no longer fails the round at all - the order is placed, and
+  // the answer says its ticket did not print. The rung's point stands: the bill is kept.
+  expect(after.threw).toBeNull();
+  expect(after.out).toMatchObject({ kotCode: 'TK-1', print: 'failed' });
   expect(after.writes.some((w) => w.table === 'bill' && w.op === 'delete')).toBe(false);
   const before = by('round fails before its lines');
   expect(before.threw).not.toBeNull();

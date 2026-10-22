@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added — 22-Oct-2026 — Enable KOT Printing and Enable Invoice Printing
+
+- **Settings → Printers & machines → Overview** has two switches, **Enable KOT Printing** and **Enable Invoice Printing**. Both are on unless you turn them off, so printing works as before. Each switch works on its own: turning one on or off does not change the other. Both print on the printers you have already set up. A printer set to print kitchen tickets and bills prints both. There is no second printer setting.
+- **KOT printing on:** every new KOT prints by itself, with no question.
+- **KOT printing off:** after a round is sent, the screen asks **Do you want to print this KOT?** **Print KOT** prints that KOT only, once. **Skip** prints nothing. Neither changes the switch, so the next KOT asks again. A round from a guest's phone is not printed. It shows **Not printed**, and staff can use **Print KOT** on the round in place of Reprint.
+- **Invoice printing on:** the invoice prints by itself once the payment is recorded.
+- **Invoice printing off:** after the payment is recorded, the screen asks **Payment successful. Do you want to print the invoice?** **Print Invoice** prints that bill's invoice only, once. **Skip** prints nothing. The switch does not change, so the next payment asks again. An invoice is never printed for a bill that is open, waiting for payment, or cancelled.
+- A second tap, a retried request or a second screen never prints the same KOT or invoice twice. It is told the ticket was already sent.
+
+### Fixed — 22-Oct-2026 — A print problem no longer looks like a failed order or payment
+
+- If a KOT or an invoice could not be sent to the printer, the round or payment is still saved. Before, the screen said "did not go through", which invited a second tap. Now the screen says the order or payment went through and the ticket did not print. A round shows **Print failed**, with Reprint. Recording a payment also clears the counter's "Bill requested" notice, as it should.
+
 ### Added — 02-Oct-2026 — One printer for kitchen tickets and bills
 
 - **Settings → Printers → Configure** (and Map printer): **Use for** has two chips, **Kitchen tickets** and **Bills**. Choose one or both. A restaurant with a single printer sets both, and that printer prints every KOT and every bill.

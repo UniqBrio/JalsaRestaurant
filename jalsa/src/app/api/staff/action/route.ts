@@ -17,6 +17,8 @@ import {
   clearTable,
   joinTableToBill,
   placeRound,
+  printInvoiceOnce,
+  printKotOnce,
   reprintKot,
   reassignBillStaff,
   retryPrintJob,
@@ -55,6 +57,9 @@ type Action =
   | { action: 'advance-kot'; kotId: string; to: KotStatus }
   | { action: 'reprint'; kotId: string }
   | { action: 'retry-print'; jobId: string }
+  /* The one-time Print from the prompts shown while automatic printing is off (22-Oct-2026). */
+  | { action: 'print-kot'; kotId: string }
+  | { action: 'print-invoice'; billId: string }
   | { action: 'complete-request'; requestId: string }
   | {
       action: 'close-bill';
@@ -134,7 +139,15 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       /* The bill id, because this call may have CREATED it: a round placed on a free table opens
          its bill through `ensureOpenBill`, and without this the screen has nothing to open next
          and has to wait for the poll to notice. */
-      return ok({ kotCode: result.kotCode, refused: result.refused, billId: bill.id });
+      return ok({
+        kotCode: result.kotCode,
+        refused: result.refused,
+        billId: bill.id,
+        // Whether the round printed by itself or the screen should ask (22-Oct-2026).
+        kotId: result.kotId,
+        print: result.print,
+        ...(result.printProblem ? { printProblem: result.printProblem } : {}),
+      });
     }
 
     case 'change-qty':
@@ -162,6 +175,14 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
     // same authority over the same paper.
     case 'retry-print':
       return ok(await retryPrintJob({ jobId: input.jobId, actor }));
+
+    // Guarded in the mutations (the grant, a round never printed, a bill already paid); each is
+    // answered `already` rather than printed a second time.
+    case 'print-kot':
+      return ok(await printKotOnce({ kotId: String(input.kotId ?? ''), actor }));
+
+    case 'print-invoice':
+      return ok(await printInvoiceOnce({ billId: String(input.billId ?? ''), actor }));
 
     case 'complete-request':
       await completeRequest({ requestId: input.requestId, actor });

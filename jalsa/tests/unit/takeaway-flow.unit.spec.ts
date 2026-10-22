@@ -149,15 +149,20 @@ test('closing a takeaway charges the packaging once, after GST, and GST on the f
   const r = by('close, packaging 25, one printer for both');
   expect(r.threw).toBeNull();
   // 340 food + 17 GST (5% of 340) + 25 packaging = 382. Packaging is not an item and not taxed.
-  expect(r.out).toEqual({ payable: 382 });
+  // Superseded 22-Oct-2026 (KOT and invoice print switches): this previously asserted exactly
+  // `{ payable: 382 }`. closeBill now also answers what became of the invoice - `print: 'queued'`
+  // with Enable Invoice Printing on (its default) - so the screen can ask when it is off.
+  expect(r.out).toEqual({ payable: 382, print: 'queued' });
 });
 
 test('the packaging charge never moves the GST - 0, 25 or 100, the GST is 5% of the food', () => {
   // Superseded 02-Oct-2026 (final GST rule): this previously asserted that a bill whose owner had
   // chosen "GST on packaging" closed at 383 - GST on (340 + 25). That choice no longer exists.
   // 340 + 17 = 357; + 25 = 382; + 100 = 457. The GST is 17 in all three.
-  expect(by('close, packaging 0').out).toEqual({ payable: 357 });
-  expect(by('close, packaging 100').out).toEqual({ payable: 457 });
+  // Superseded again 22-Oct-2026 (KOT and invoice print switches): these previously asserted
+  // exactly `{ payable }`; closeBill now also answers `print` (see the test above).
+  expect(by('close, packaging 0').out).toEqual({ payable: 357, print: 'queued' });
+  expect(by('close, packaging 100').out).toEqual({ payable: 457, print: 'queued' });
   // Payable less food less the one GST figure leaves exactly the packaging - included once.
   for (const [name, packaging] of [['close, packaging 0', 0], ['close, packaging 25, one printer for both', 25], ['close, packaging 100', 100]] as const) {
     const payable = (by(name).out as unknown as { payable: number }).payable;

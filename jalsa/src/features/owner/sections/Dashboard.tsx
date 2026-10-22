@@ -9,6 +9,7 @@ import { FirstRunState } from '@/components/ui/states';
 import { Sheet } from '@/components/ui/sheet';
 import { ImagePicker } from '@/components/ui/image-picker';
 import { useToast } from '@/components/ui/toast';
+import { usePrintAsk, type PrintAnswer } from '@/components/ui/print-ask';
 import { packagingProblem, parsePackaging, rupees, totalBill, totalsRows } from '@/lib/money';
 import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import type { OwnerPayload } from '@/lib/db/owner-view';
@@ -627,6 +628,7 @@ export function NewRoundSheet({
   tax: { rate: number };
 }) {
   const toast = useToast();
+  const printAsk = usePrintAsk();
   const [query, setQuery] = React.useState('');
   const [cart, setCart] = React.useState<Record<string, number>>({});
   // Typed exactly as entered; validated by the same function the server uses.
@@ -684,13 +686,18 @@ export function NewRoundSheet({
       if (!target) return;
       const payloadLines = lines.map(([menuItemId, qty]) => ({ menuItemId, qty }));
       if (target.kind === 'table') {
-        const res = await send<{ kotCode: string; refused: string[]; billId: string }>('/api/owner/action', {
-          action: 'add-round',
-          tableId: target.table.id,
-          lines: payloadLines,
-        });
+        const res = await send<{ kotCode: string; kotId: string; refused: string[]; billId: string } & PrintAnswer>(
+          '/api/owner/action',
+          {
+            action: 'add-round',
+            tableId: target.table.id,
+            lines: payloadLines,
+          }
+        );
         onClose();
         toast.show(`${res.kotCode} sent to the kitchen · ${target.table.name}`, { tone: 'success' });
+        // KOT printing off asks about THIS round, once (22-Oct-2026).
+        printAsk.after(res, { kind: 'KOT', kotId: res.kotId, code: res.kotCode, place: `Table ${target.table.name}` });
         // Straight to the bill this just opened, so the next thing the owner does — a
         // second round, the closure — is one tap away rather than a hunt on the floor.
         go('orders', res.billId);
@@ -698,18 +705,19 @@ export function NewRoundSheet({
       }
       const res =
         target.kind === 'takeaway'
-          ? await send<{ kotCode: string; billCode: string; billId: string }>('/api/owner/action', {
+          ? await send<{ kotCode: string; kotId?: string; billCode: string; billId: string } & PrintAnswer>('/api/owner/action', {
               action: 'takeaway',
               lines: payloadLines,
               packagingCharge: packaging,
             })
-          : await send<{ kotCode: string; billId: string }>('/api/owner/action', {
+          : await send<{ kotCode: string; kotId?: string; billId: string } & PrintAnswer>('/api/owner/action', {
               action: 'takeaway-round',
               billId: target.billId,
               lines: payloadLines,
             });
       onClose();
       toast.show(`${res.kotCode} sent to the kitchen · ${TAKEAWAY_LABEL}`, { tone: 'success' });
+      if (res.kotId) printAsk.after(res, { kind: 'KOT', kotId: res.kotId, code: res.kotCode, place: TAKEAWAY_LABEL });
       // The order is placed whatever happens to the photo; a photo that could not be saved is said
       // in words, and can be chosen again from Add items on the order.
       if (target.kind === 'takeaway' && pendingPhoto) {
