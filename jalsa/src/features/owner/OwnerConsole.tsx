@@ -7,6 +7,7 @@ import { useLiveData } from '@/hooks/useLiveData';
 import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { DeniedState, OfflineBanner, PartialNotice } from '@/components/ui/states';
+import { PrintAskProvider } from '@/components/ui/print-ask';
 import type { OwnerPayload } from '@/lib/db/owner-view';
 import { Dashboard } from './sections/Dashboard';
 import { LiveOrders } from './sections/LiveOrders';
@@ -151,7 +152,7 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
       router.refresh();
     });
 
-  return (
+  const shell = (
     // `data-density="dense"` is the ONE place this surface opts into the tighter body and
     // caption steps (Reusable Design Standard 10.2 — layout follows density, not device). It is
     // set on the shell rather than per element so that nothing has to remember; headings and
@@ -251,6 +252,13 @@ export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
         )}
       </main>
     </div>
+  );
+
+  // The print prompt outlives the section that sent the round or took the payment (print-ask.tsx).
+  return (
+    <PrintAskProvider endpoint="/api/owner/action" send={send} grants={data.grants}>
+      {shell}
+    </PrintAskProvider>
   );
 }
 

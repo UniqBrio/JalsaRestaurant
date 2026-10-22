@@ -2,6 +2,22 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-22 - Enable KOT Printing / Enable Invoice Printing on one shared printer - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-22-kot-and-invoice-print-switches.md`. No migration.
+
+- Two switches in the existing `print` setting (`kotEnabled`, `invoiceEnabled`, default ON), on Settings → Printers & machines → Overview. OFF: nothing is queued and the screen that placed the round or recorded the payment asks; Print KOT / Print Invoice print that ticket once (a conditional claim on the round; a fixed first-invoice job id) and write no setting. A print that cannot be written no longer fails a saved round or a recorded payment.
+- New: `jalsa/tests/unit/print-switches.unit.spec.ts` (36, real mutations, stateful fake), `jalsa/tests/unit/print-switches.db.unit.spec.ts` (8, PGlite), `jalsa/tests/render/print-ask.render.spec.ts` (11), `jalsa/tests/render/print-switches.render.spec.ts` (9). Superseded in place with dated notes: `review-fixes` S2, `takeaway-flow` closing totals.
+- Full: unit 1619 passed; render 372 passed; tsc, lint OK; audit:all 10/10 (root 11/11); guard:test 15/15. Gate run - 2026-10-22: G1-G7, G9-G12 PASS; G8 FAIL - the three journeys that need a reachable seeded database (guest-journey, guest-total-visibility, closure-upsell-tip); re-run with `src/` stashed, they fail identically at `guest-welcome`.
+- NOT verified: physical printing. No real printer or print bridge was exercised; the tests prove which jobs are written, once, and when.
+
+FAIL-FIRST: jalsa/tests/unit/print-switches.unit.spec.ts - with `src/` stashed to the previous tree, beforeAll fails: `No matching export in "src/lib/db/mutations.ts" for import "printKotOnce"` (and `printInvoiceOnce`); no case passes. Defects injected one at a time and reverted: KOT switch ignored - 8 fail (KOT OFF asks, every round asks, Skip sends nothing, independence); the round claim without its `print_status` condition - 2 fail (tapped twice / same instant: two jobs; a round that printed by itself printed again); no fixed first-invoice id - 2 fail (two jobs for one bill at the same instant).
+FAIL-FIRST: jalsa/tests/render/print-ask.render.spec.ts - with both client guards removed (the in-flight ref and the disabled Print), "Print KOT tapped twice sends ONE request" fails: two `print-kot` requests sent. Against the previous `src/` the mount cannot bundle (`print-ask.tsx` absent).
+FAIL-FIRST: jalsa/tests/render/print-switches.render.spec.ts - against the previous `src/` all 9 fail: `owner-print-switches` not found.
+NOT OBSERVED FAILING: jalsa/tests/unit/print-switches.db.unit.spec.ts - it pins database facts this change relies on and did not add (the `cancelled` label on `kot.print_status`, the conditional update, the primary key); they held before the change.
+
+---
+
 ## Application run - jalsa - 2026-10-13 - Icon actions: copy and code reviews - PASS except G8 (unchanged)
 
 Request: `jalsa/requests/2026-10-13-off-menu-delete-and-icon-actions.md` (REVIEW sections).

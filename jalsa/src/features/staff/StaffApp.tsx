@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import { useLiveData } from '@/hooks/useLiveData';
 import { useToast } from '@/components/ui/toast';
 import { OfflineBanner, PartialNotice } from '@/components/ui/states';
+import { PrintAskProvider } from '@/components/ui/print-ask';
 import type { StaffPayload } from '@/lib/db/staff-view';
 import { FloorScreen, TableScreen, AddItemsScreen } from './StaffTables';
 import { ReadyScreen, KotsScreen, ClearScreen, RequestsScreen, MeScreen } from './StaffLists';
@@ -124,7 +125,7 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
       router.refresh();
     });
 
-  return (
+  const shell = (
     // The floor is an operational surface, so it takes the dense body/caption steps — see the
     // note on the owner shell and the typography block in src/app/globals.css. Headings, buttons
     // and touch targets are identical to the guest's.
@@ -233,6 +234,13 @@ export function StaffApp({ initial }: { initial: StaffPayload }) {
         })}
       </nav>
     </div>
+  );
+
+  // The print prompt outlives the screen that sent the round or took the payment (print-ask.tsx).
+  return (
+    <PrintAskProvider endpoint="/api/staff/action" send={send} grants={data.grants}>
+      {shell}
+    </PrintAskProvider>
   );
 }
 

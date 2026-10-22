@@ -5,6 +5,8 @@ import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/button';
 import { Card, FoodMark, Pill, SectionLabel } from '@/components/ui/atoms';
 import { PrintTargets } from '@/components/ui/print';
+import { usePrintAsk } from '@/components/ui/print-ask';
+import { KOT_ASK, neverPrinted } from '@/lib/print-choice';
 import { FirstRunState } from '@/components/ui/states';
 import { useToast } from '@/components/ui/toast';
 import { PERMISSION_GROUPS, permissionLabel } from '@/lib/permissions';
@@ -119,6 +121,7 @@ export function ReadyScreen({ data, go, send, runBusy, busy }: StaffScreenProps)
 
 export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
+  const printAsk = usePrintAsk();
   const rows = data.bills
     .flatMap((b) => b.kots.map((k) => ({ k, b })))
     .sort((x, y) => y.k.code.localeCompare(x.k.code));
@@ -149,6 +152,7 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
                   {k.printJobs.length === 0 && k.printStatus === 'failed' ? (
                     <Pill tone="error">Print failed</Pill>
                   ) : null}
+                  {neverPrinted(k) ? <Pill tone="neutral">Not printed</Pill> : null}
                   <Pill tone={k.tone}>{k.statusWord}</Pill>
                 </div>
               </div>
@@ -179,7 +183,19 @@ export function KotsScreen({ data, go, send, runBusy, busy }: StaffScreenProps) 
                 }
               />
               <div className="mt-2.5 flex flex-wrap gap-2">
-                {data.grants.includes('orders.reprint') ? (
+                {/* A round KOT printing was off for (22-Oct-2026): its FIRST print, not a reprint. */}
+                {data.grants.includes('orders.reprint') && neverPrinted(k) ? (
+                  <Button
+                    data-testid={`staff-kot-print-once-${k.id}`}
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy || printAsk.printing}
+                    onClick={() => printAsk.printNow({ kind: 'KOT', kotId: k.id, code: k.code })}
+                  >
+                    {KOT_ASK.print}
+                  </Button>
+                ) : null}
+                {data.grants.includes('orders.reprint') && !neverPrinted(k) ? (
                   <Button
                     data-testid={`staff-kot-reprint-${k.id}`}
                     size="sm"

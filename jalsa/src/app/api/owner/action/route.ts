@@ -25,6 +25,8 @@ import {
   replyToSuggestion,
   reprintKot,
   printElsewhere,
+  printInvoiceOnce,
+  printKotOnce,
   reprintBill,
   retryPrintJob,
   setItemAvailability,
@@ -87,6 +89,9 @@ type Action =
   | { action: 'change-qty'; kotItemId: string; qty: number }
   | { action: 'cancel-item'; kotItemId: string; reason: string }
   | { action: 'reprint'; kotId: string }
+  /* The one-time Print from the prompts shown while automatic printing is off (22-Oct-2026). */
+  | { action: 'print-kot'; kotId: string }
+  | { action: 'print-invoice'; billId: string }
   | { action: 'complete-request'; requestId: string }
   | { action: 'join-table'; billId: string; tableId: string }
   | { action: 'add-round'; tableId: string; lines: Array<{ menuItemId: string; qty: number }> }
@@ -279,6 +284,14 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
       await reprintKot({ kotId: input.kotId, actor });
       return ok({ done: true });
 
+    // Guarded in the mutations (the grant, a round never printed, a bill already paid); each is
+    // answered `already` rather than printed a second time.
+    case 'print-kot':
+      return ok(await printKotOnce({ kotId: String(input.kotId ?? ''), actor }));
+
+    case 'print-invoice':
+      return ok(await printInvoiceOnce({ billId: String(input.billId ?? ''), actor }));
+
     case 'complete-request':
       await completeRequest({ requestId: input.requestId, actor });
       return ok({ done: true });
@@ -327,7 +340,14 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
         });
       }
       // The bill id, because this call may have created it.
-      return ok({ kotCode: placed.kotCode, refused: placed.refused, billId: bill.id });
+      return ok({
+        kotCode: placed.kotCode,
+        refused: placed.refused,
+        billId: bill.id,
+        kotId: placed.kotId,
+        print: placed.print,
+        ...(placed.printProblem ? { printProblem: placed.printProblem } : {}),
+      });
     }
 
     case 'free-table':
@@ -407,7 +427,14 @@ async function perform(staff: SignedInStaff, input: Action): Promise<NextRespons
           message: `Nothing was sent — ${placed.refused.join(', ')} ${placed.refused.length === 1 ? 'is' : 'are'} off the menu.`,
         });
       }
-      return ok({ kotCode: placed.kotCode, refused: placed.refused, billId: bill.id });
+      return ok({
+        kotCode: placed.kotCode,
+        refused: placed.refused,
+        billId: bill.id,
+        kotId: placed.kotId,
+        print: placed.print,
+        ...(placed.printProblem ? { printProblem: placed.printProblem } : {}),
+      });
     }
 
     case 'set-packaging':

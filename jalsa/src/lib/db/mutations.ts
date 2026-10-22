@@ -30,6 +30,13 @@ import {
   type RoutablePrinter,
   type RoutingDecision,
 } from '@/lib/print-routing';
+import {
+  PRINT_SWITCH_DEFAULTS,
+  printsAutomatically,
+  type PrintOnceResult,
+  type PrintOutcome,
+} from '@/lib/print-choice';
+import { firstInvoiceJobId } from '@/lib/print-job-id';
 import { billTotals, chargeableLines, getBill, openBillForTable, readSettings } from './queries';
 import { BILL_STAFF_COLUMN, type Bill } from './types';
 
@@ -309,7 +316,16 @@ export async function placeTakeaway(input: {
   source: 'captain' | 'owner';
   actor: Actor;
   note?: string;
-}): Promise<{ billId: string; billCode: string; kotCode: string; refused: string[] }> {
+}): Promise<{
+  billId: string;
+  billCode: string;
+  kotCode: string;
+  refused: string[];
+  /** The round's print, as `placeRound` answers it (22-Oct-2026) - absent when nothing was sent. */
+  kotId?: string;
+  print?: PrintOutcome;
+  printProblem?: string;
+}> {
   demand(input.actor, 'orders.create');
   demand(input.actor, 'orders.add_items');
   if (input.lines.length === 0) throw new Error('Choose at least one item for the takeaway.');
@@ -366,7 +382,15 @@ export async function placeTakeaway(input: {
     actor: input.actor,
     billId,
   });
-  return { billId, billCode: code, kotCode: placed.kotCode, refused: placed.refused };
+  return {
+    billId,
+    billCode: code,
+    kotCode: placed.kotCode,
+    refused: placed.refused,
+    kotId: placed.kotId,
+    print: placed.print,
+    ...(placed.printProblem ? { printProblem: placed.printProblem } : {}),
+  };
 }
 
 /**
@@ -452,7 +476,7 @@ export async function placeRound(input: {
   source: 'guest' | 'captain' | 'owner';
   actor: Actor;
   note?: string;
-}): Promise<{ kotCode: string; kotId: string; refused: string[] }> {
+}): Promise<{ kotCode: string; kotId: string; refused: string[]; print: PrintOutcome; printProblem?: string }> {
   if (input.source !== 'guest') demand(input.actor, 'orders.add_items');
   if (input.lines.length === 0) throw new Error('A round with no items is not a round.');
 
@@ -477,9 +501,11 @@ export async function placeRound(input: {
       .in('id', ids),
     routablePrinters(restaurantId, 'KOT', { strict: true }),
     readSettings('routing', { defaultStation: '' } as { defaultStation: string }),
-    readSettings('print', { splitByFoodType: false }),
+    readSettings('print', { splitByFoodType: false, kotEnabled: PRINT_SWITCH_DEFAULTS.kotEnabled }),
   ]);
   if (itemErr) throw itemErr;
+  // Enable KOT Printing (22-Oct-2026). Read in the same round as the split, from the same key.
+  const autoPrint = printsAutomatically(printSettings, 'KOT');
 
   const parentNameOf = (item: { menu_category: unknown }): string =>
     (item.menu_category as { parent?: { name: string } | null } | null)?.parent?.name ?? '';
@@ -505,7 +531,9 @@ export async function placeRound(input: {
   }
 
   if (accepted.length === 0) {
-    return { kotCode: '', kotId: '', refused };
+    // Nothing was placed, so nothing was printed or is to be asked about: every caller refuses an
+    // empty `kotId` before it reads `print`.
+    return { kotCode: '', kotId: '', refused, print: 'ask' };
   }
 
   /* THE ROUTING DECISION FOR EACH LINE, taken now and snapshot on the line (items 25, 26, 30).
@@ -539,7 +567,9 @@ export async function placeRound(input: {
       placed_by_label: input.actor.label,
       note: input.note ?? '',
       status: 'new',
-      print_status: 'queued',
+      // KOT printing off: nothing is queued, and the round says so - `cancelled` with no job is
+      // "never sent to a printer" (`neverPrinted`), the state the one-time Print claims from.
+      print_status: autoPrint ? 'queued' : 'cancelled',
     })
     .select('id')
     .single();
@@ -579,21 +609,43 @@ export async function placeRound(input: {
    * were written on consecutive lines. Both are still awaited, so the round is not reported
    * placed until both have landed.
    */
-  await Promise.all([
-    queuePrint({
-      kind: 'KOT',
-      kotId: kot.id as string,
-      billId: input.billId,
-      actor: input.actor,
-      items: accepted.map(({ item }, i) => ({
-        category: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
-        foodType: item.food_type as FoodType,
-        route: routes[i] ?? null,
-      })),
-      // Read above, a moment ago, in the round that decided the routes: the ticket is split on
-      // the same printers the lines were routed to, and nobody reads them twice.
-      known: { printers: kotPrinters, splitByFoodType: printSettings.splitByFoodType === true },
-    }),
+  /*
+   * A PRINT THAT CANNOT BE SENT NEVER UN-PLACES THE ROUND (22-Oct-2026). The round and its lines
+   * are saved above. A failure to write the job used to fail the whole request, so the screen
+   * said "did not go through" over a round the kitchen had - and the next tap sent it twice. Now
+   * the round stands, it is marked failed (the "Print failed" pill and Reprint already handle a
+   * round with no job), and the screen is told in words.
+   */
+  const printing: Promise<{ print: PrintOutcome; printProblem?: string }> = !autoPrint
+    ? Promise.resolve({ print: 'ask' })
+    : queuePrint({
+        kind: 'KOT',
+        kotId: kot.id as string,
+        billId: input.billId,
+        actor: input.actor,
+        items: accepted.map(({ item }, i) => ({
+          category: (item.menu_category as unknown as { name: string } | null)?.name ?? '',
+          foodType: item.food_type as FoodType,
+          route: routes[i] ?? null,
+        })),
+        // Read above, a moment ago, in the round that decided the routes: the ticket is split on
+        // the same printers the lines were routed to, and nobody reads them twice.
+        known: { printers: kotPrinters, splitByFoodType: printSettings.splitByFoodType === true },
+      }).then(
+        (q): { print: PrintOutcome; printProblem?: string } =>
+          q.unassigned > 0 ? { print: 'failed', printProblem: NO_KOT_PRINTER } : { print: 'queued' },
+        async (err: unknown): Promise<{ print: PrintOutcome; printProblem?: string }> => {
+          console.error('[placeRound] the round is saved; its print job could not be written', err);
+          await db().from('kot').update({ print_status: 'failed' }).eq('id', kot.id as string).then(
+            () => undefined,
+            () => undefined
+          );
+          return { print: 'failed', printProblem: PRINT_NOT_SENT };
+        }
+      );
+
+  const [printed] = await Promise.all([
+    printing,
     audit({
       action: 'Order placed',
       detail: `${code} created — ${accepted.length === 1 ? '1 item' : `${accepted.length} items`}${
@@ -605,7 +657,7 @@ export async function placeRound(input: {
     }),
   ]);
 
-  return { kotCode: code, kotId: kot.id as string, refused };
+  return { kotCode: code, kotId: kot.id as string, refused, ...printed };
 }
 
 export async function changeQty(input: { kotItemId: string; qty: number; actor: Actor }): Promise<void> {
@@ -614,7 +666,7 @@ export async function changeQty(input: { kotItemId: string; qty: number; actor: 
 
   const { data: row, error } = await db()
     .from('kot_item')
-    .select('id,name,qty,kot:kot_id(id,code,status,bill_id,table_id)')
+    .select('id,name,qty,kot:kot_id(id,code,status,bill_id,table_id,print_status)')
     .eq('id', input.kotItemId)
     .single();
   if (error) throw error;
@@ -624,6 +676,7 @@ export async function changeQty(input: { kotItemId: string; qty: number; actor: 
     status: KotStatus;
     bill_id: string;
     table_id: string;
+    print_status?: string;
   };
 
   const { error: upErr } = await db()
@@ -638,8 +691,10 @@ export async function changeQty(input: { kotItemId: string; qty: number; actor: 
   if (upErr) throw upErr;
 
   // A ticket the kitchen already holds is now wrong on paper. Reprinting it - marked as a
-  // reprint - is the only thing that makes the paper and the screen agree again.
-  if (kitchenHasStarted(kot.status)) {
+  // reprint - is the only thing that makes the paper and the screen agree again. A round never
+  // sent to a printer (KOT printing off, 22-Oct-2026) has no paper to correct, and a REPRINT of
+  // it would be a first print nobody asked for.
+  if (kitchenHasStarted(kot.status) && kot.print_status !== 'cancelled') {
     await queuePrint({
       kind: 'KOT',
       kotId: kot.id,
@@ -829,6 +884,161 @@ export async function reprintKot(input: { kotId: string; actor: Actor }): Promis
   });
 }
 
+/* ── Print once, when automatic printing is off (22-Oct-2026) ──────────── */
+
+/* The words a screen shows when a print could not be sent. The round or the payment is saved. */
+const NO_KOT_PRINTER = 'No printer is set to print kitchen tickets. Under Printers, turn on Kitchen tickets for one.';
+const NO_INVOICE_PRINTER = 'No printer is set to print bills. Under Printers, turn on Bills for one.';
+const PRINT_NOT_SENT = 'It could not be sent to the printer just now. Try again from the round or the bill.';
+
+/** True for a Postgres unique violation - the database refusing a second copy of one ticket. */
+const isDuplicate = (err: unknown): boolean => (err as { code?: unknown } | null)?.code === '23505';
+
+/**
+ * Print KOT, from the "Do you want to print this KOT?" prompt or a round that was never printed.
+ *
+ * ONE ROUND, ONE FIRST PRINT. The round's own `print_status` is the claim: `cancelled` (never
+ * sent) becomes `queued` in ONE conditional update, and only the request that changed the row
+ * queues the tickets. A second tap, a retried request or a second screen finds nothing to claim
+ * and is told it was already sent - it writes nothing. A round that printed automatically was
+ * never `cancelled`, so it cannot be "printed once" again; that is Reprint, which says REPRINT.
+ *
+ * IT WRITES NO SETTING. Enable KOT Printing stays exactly as it was, so the next round asks too.
+ */
+export async function printKotOnce(input: { kotId: string; actor: Actor }): Promise<PrintOnceResult> {
+  // The authority over kitchen paper, the same as Reprint - the captain who sent the round and
+  // the kitchen that cooks it both hold it.
+  demand(input.actor, 'orders.reprint');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: kot, error } = await db()
+    .from('kot')
+    .select('id,code,bill_id,table_id,print_status')
+    .eq('id', input.kotId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!kot) throw new Error('That round no longer exists. Reload the page.');
+  if (kot.print_status !== 'cancelled') return { outcome: 'already', printerName: '' };
+
+  // Asked BEFORE the claim, so "nothing prints kitchen tickets" leaves the round still printable
+  // once a machine is switched on - rather than claimed, with nothing to show for it.
+  const [items, printers, settings] = await Promise.all([
+    kotPrintableItems(input.kotId),
+    routablePrinters(restaurantId, 'KOT', { strict: true }),
+    readSettings('print', { splitByFoodType: false }),
+  ]);
+  if (!printers.some((p) => p.enabled)) throw new Error(NO_KOT_PRINTER);
+  // A round with every line cancelled has nothing for the kitchen. Sent with no items, queuePrint
+  // would take the bill's path and print an empty ticket at the main kitchen.
+  if (items.length === 0) throw new Error(`Every item on ${kot.code as string} was cancelled — there is nothing to print.`);
+
+  const { data: claimed, error: claimErr } = await db()
+    .from('kot')
+    .update({ print_status: 'queued' })
+    .eq('id', input.kotId)
+    .eq('restaurant_id', restaurantId)
+    .eq('print_status', 'cancelled')
+    .select('id');
+  if (claimErr) throw claimErr;
+  if (!claimed?.length) return { outcome: 'already', printerName: '' };
+
+  let queued: Awaited<ReturnType<typeof queuePrint>>;
+  try {
+    queued = await queuePrint({
+      kind: 'KOT',
+      kotId: input.kotId,
+      billId: kot.bill_id as string,
+      actor: input.actor,
+      items,
+      known: { printers, splitByFoodType: settings.splitByFoodType === true },
+    });
+  } catch (err) {
+    // Hand the claim back ONLY if no ticket was written: then nothing can print, and the round
+    // must stay printable. Once a ticket exists, giving the claim back would let it print twice.
+    const { data: jobs } = await db().from('print_job').select('id').eq('kot_id', input.kotId);
+    if (!jobs?.length) {
+      await db().from('kot').update({ print_status: 'cancelled' }).eq('id', input.kotId).eq('print_status', 'queued');
+    }
+    throw err;
+  }
+
+  await audit({
+    action: 'Print',
+    detail: `${kot.code as string} printed once on request — KOT printing stays off`,
+    actor: input.actor,
+    billId: kot.bill_id as string,
+    tableId: (kot.table_id as string | null) ?? null,
+  });
+  return {
+    outcome: 'queued',
+    printerName: queued.printerNames.join(', '),
+    ...(queued.unassigned > 0 ? { printProblem: NO_KOT_PRINTER } : {}),
+  };
+}
+
+/**
+ * Print Invoice, from the "Payment successful. Do you want to print the invoice?" prompt.
+ *
+ * ONLY A PAID BILL. A bill that is open, waiting for payment or cancelled is refused before any
+ * write: an invoice for money not taken is the one printing mistake a guest can walk out with.
+ * ONLY ONCE. A first invoice already written - automatically at closing, or by an earlier tap -
+ * is answered `already`, and two taps at the same instant meet on `firstInvoiceJobId`.
+ * IT WRITES NO SETTING, and nothing on the bill: no payment, total, closure time or number.
+ */
+export async function printInvoiceOnce(input: { billId: string; actor: Actor }): Promise<PrintOnceResult> {
+  // The person who records the payment is the person this prompt is shown to.
+  demand(input.actor, 'bill.record_payment');
+  const restaurantId = await currentRestaurantId();
+
+  const { data: bill, error } = await db()
+    .from('bill')
+    .select('id,code,status')
+    .eq('id', input.billId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!bill) throw new Error('That bill no longer exists. Reload the page.');
+  if (bill.status !== 'closed') {
+    throw new Error('This bill has not been paid, so there is no invoice to print. Record the payment first.');
+  }
+
+  const { data: existing, error: jobErr } = await db()
+    .from('print_job')
+    .select('id')
+    .eq('bill_id', input.billId)
+    .eq('kind', 'Invoice')
+    .eq('is_reprint', false)
+    .limit(1);
+  if (jobErr) throw jobErr;
+  if (existing?.length) return { outcome: 'already', printerName: '' };
+
+  const printers = await routablePrinters(restaurantId, 'Invoice', { strict: true });
+  const decision = resolvePrinter({ purpose: 'Invoice', category: '', printers });
+  if (!decision.printer) throw new Error(NO_INVOICE_PRINTER);
+
+  try {
+    await queuePrint({
+      kind: 'Invoice',
+      billId: input.billId,
+      actor: input.actor,
+      known: { printers, splitByFoodType: false },
+      jobId: firstInvoiceJobId(input.billId),
+    });
+  } catch (err) {
+    if (isDuplicate(err)) return { outcome: 'already', printerName: '' };
+    throw err;
+  }
+
+  await audit({
+    action: 'Print',
+    detail: `${bill.code as string} invoice printed once on request at ${decision.printer.name} — invoice printing stays off`,
+    actor: input.actor,
+    billId: input.billId,
+  });
+  return { outcome: 'queued', printerName: decision.printer.name };
+}
+
 /* ── Printing ──────────────────────────────────────────────────────────── */
 
 /**
@@ -1016,7 +1226,12 @@ export async function queuePrint(input: {
   items?: readonly PrintableItem[];
   /** The printers and the split switch, when the caller has just read them (placeRound). */
   known?: { printers: RoutablePrinter[]; splitByFoodType: boolean };
-}): Promise<void> {
+  /**
+   * The id for a bill's ONE ticket, when the caller needs the database to refuse a second copy
+   * (`firstInvoiceJobId`, 22-Oct-2026). A duplicate insert fails on the primary key, whole.
+   */
+  jobId?: string;
+}): Promise<{ unassigned: number; printerNames: string[] }> {
   const restaurantId = await currentRestaurantId();
   const purpose = input.kind === 'KOT' ? 'KOT' : 'Invoice';
   // The design puts the veg/non-veg split on the Routing screen as a switch, separate from the
@@ -1035,7 +1250,8 @@ export async function queuePrint(input: {
     ? splitRound({ items: input.items, printers, splitByFoodType })
     : [billTicket(resolvePrinter({ purpose, category: '', printers }))];
 
-  const rows = tickets.map((t) => ({
+  const rows = tickets.map((t, i) => ({
+    ...(input.jobId && i === 0 && tickets.length === 1 ? { id: input.jobId } : {}),
     restaurant_id: restaurantId,
     printer_id: t.printerId,
     // Snapshots. The job must still say where it was sent after the machine is renamed, moved to
@@ -1067,6 +1283,12 @@ export async function queuePrint(input: {
   if (jobErr) throw jobErr;
 
   if (input.kotId) await syncKotPrintState(input.kotId);
+  // Tickets with no machine to go to: written already failed (`routing_rule: 'none'`), and a
+  // screen that just sent one should say so now rather than leave it to the History tab.
+  return {
+    unassigned: rows.filter((r) => !r.printer_id).length,
+    printerNames: [...new Set(rows.filter((r) => r.printer_id).map((r) => r.printer_name))],
+  };
 }
 
 /**
@@ -1447,7 +1669,7 @@ export async function closeBill(input: {
   discountType?: 'percentage' | 'amount';
   discountValue?: number;
   actor: Actor;
-}): Promise<{ payable: number }> {
+}): Promise<{ payable: number; print?: PrintOutcome; printProblem?: string }> {
   demand(input.actor, 'bill.record_payment');
   if (!input.actor.staffId) throw new PermissionDenied('bill.record_payment');
 
@@ -1536,10 +1758,31 @@ export async function closeBill(input: {
     billId: input.billId,
   });
 
-  await queuePrint({ kind: 'Invoice', billId: input.billId, actor: input.actor });
+  const printed = await invoiceAfterPayment(input.billId, input.actor);
   // Paid: the counter's "Bill requested" is done. The captain's stays until the table is seen to.
   await resolvePaymentNotices(input.billId, [PAYMENT_NOTICE.counter.kind]);
-  return { payable: totals.payable };
+  return { payable: totals.payable, ...printed };
+}
+
+/**
+ * The invoice of a bill closed a moment ago - only ever called AFTER the closing write landed.
+ *
+ * Enable Invoice Printing on: queued, as it always was. Off: nothing is queued and the screen
+ * asks (22-Oct-2026). Either way the payment is already recorded, so NOTHING here may throw: a
+ * printer problem used to fail the request after the money was taken, the screen said "did not go
+ * through", and the counter's notice was never resolved. It is answered in words instead.
+ */
+async function invoiceAfterPayment(billId: string, actor: Actor): Promise<{ print: PrintOutcome; printProblem?: string }> {
+  try {
+    const settings = await readSettings('print', { invoiceEnabled: PRINT_SWITCH_DEFAULTS.invoiceEnabled });
+    if (!printsAutomatically(settings, 'Invoice')) return { print: 'ask' };
+    const q = await queuePrint({ kind: 'Invoice', billId, actor, jobId: firstInvoiceJobId(billId) });
+    return q.unassigned > 0 ? { print: 'failed', printProblem: NO_INVOICE_PRINTER } : { print: 'queued' };
+  } catch (err) {
+    if (isDuplicate(err)) return { print: 'queued' };
+    console.error('[closeBill] the payment is recorded; its invoice could not be sent', err);
+    return { print: 'failed', printProblem: PRINT_NOT_SENT };
+  }
 }
 
 /* ── Groups ────────────────────────────────────────────────────────────── */

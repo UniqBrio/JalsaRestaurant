@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, Chip, ChipRow, FoodMark, Pill, SectionLabel, Stepper } from '@/components/ui/atoms';
 import { IdentitySpine, TotalsBlock } from '@/components/ui/bill';
 import { PrintTargets } from '@/components/ui/print';
+import { usePrintAsk, type PrintAnswer } from '@/components/ui/print-ask';
+import { KOT_ASK, neverPrinted } from '@/lib/print-choice';
 import { ConfirmDialog, Sheet } from '@/components/ui/sheet';
 import { FirstRunState } from '@/components/ui/states';
 import { Field, Input, SearchField } from '@/components/ui/field';
@@ -275,6 +277,7 @@ function toneSurface(tone: Tone): string {
 
 export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
+  const printAsk = usePrintAsk();
   const bill = data.bills.find((b) => b.id === selectedBillId) ?? null;
 
   const [qtyTarget, setQtyTarget] = React.useState<{
@@ -411,6 +414,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                     {k.printJobs.length === 0 && k.printStatus === 'failed' ? (
                       <Pill tone="error">Print failed</Pill>
                     ) : null}
+                    {neverPrinted(k) ? <Pill tone="neutral">Not printed</Pill> : null}
                     {k.reprintCount > 0 ? <Pill tone="neutral">Reprinted ×{k.reprintCount}</Pill> : null}
                     <Pill tone={k.tone}>{k.statusWord}</Pill>
                   </div>
@@ -527,7 +531,20 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                       {next.label}
                     </Button>
                   ) : null}
-                  {canReprint ? (
+                  {/* A round KOT printing was off for (22-Oct-2026): its FIRST print, not a reprint -
+                      a different act, so a different button with its own name. */}
+                  {canReprint && neverPrinted(k) ? (
+                    <Button
+                      data-testid={`staff-print-once-${k.id}`}
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy || printAsk.printing}
+                      onClick={() => printAsk.printNow({ kind: 'KOT', kotId: k.id, code: k.code })}
+                    >
+                      {KOT_ASK.print}
+                    </Button>
+                  ) : null}
+                  {canReprint && !neverPrinted(k) ? (
                     <Button
                       data-testid={`staff-reprint-${k.id}`}
                       size="sm"
@@ -718,7 +735,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                 runBusy(async () => {
                   // Only the box that was typed in, and which one it was. The server derives the
                   // other from the subtotal and takes the discount once.
-                  const res = await send<{ payable: number }>('/api/staff/action', {
+                  const res = await send<{ payable: number } & PrintAnswer>('/api/staff/action', {
                     action: 'close-bill',
                     billId: bill.id,
                     mode,
@@ -729,6 +746,8 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
                     `${bill.code} closed · ${rupees(res.payable)} ${mode.toLowerCase()}${bill.orderType === 'takeaway' ? '' : ` · ${bill.tables.length > 1 ? `${bill.tables.length} tables` : `Table ${bill.tables[0]}`} to be cleared`}`,
                     { tone: 'success' }
                   );
+                  // Only once the payment is recorded: invoice printing off asks now (22-Oct-2026).
+                  printAsk.after(res, { kind: 'Invoice', billId: bill.id, code: bill.code });
                   setClosing(false);
                   go('floor');
                 })
@@ -809,6 +828,7 @@ export function TableScreen({ data, go, selectedBillId, send, runBusy, busy }: S
 
 export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send, runBusy, busy }: StaffScreenProps) {
   const toast = useToast();
+  const printAsk = usePrintAsk();
   const bill = data.bills.find((b) => b.id === selectedBillId) ?? null;
   /* The walk-in path: a table tapped under Free right now has no bill yet, and gets one when
      the first round is sent. Only a table that is genuinely still free qualifies - if the poll
@@ -958,7 +978,7 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
                    this table through `ensureOpenBill` - which is how a walk-in starts - and
                    answers with the id, so the screen can open the table it just seated rather
                    than waiting for the next poll to notice it. */
-                const res = await send<{ kotCode: string; refused: string[]; billId: string }>(
+                const res = await send<{ kotCode: string; kotId: string; refused: string[]; billId: string } & PrintAnswer>(
                   '/api/staff/action',
                   {
                     action: 'add-round',
@@ -972,6 +992,13 @@ export function AddItemsScreen({ data, go, selectedBillId, selectedTableId, send
                   `${res.kotCode} sent to the kitchen · ${lines.length === 1 ? '1 line' : `${lines.length} lines`}`,
                   { tone: 'success' }
                 );
+                // KOT printing off asks about THIS round, once (22-Oct-2026).
+                printAsk.after(res, {
+                  kind: 'KOT',
+                  kotId: res.kotId,
+                  code: res.kotCode,
+                  place: bill ? bill.place : `Table ${freeTable?.name ?? ''}`,
+                });
                 go('table', res.billId);
               })
             }
