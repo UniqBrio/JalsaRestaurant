@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { body, fail, handler, ok } from '@/lib/route';
 import { signInWithPin } from '@/lib/db/auth';
 import { audit } from '@/lib/db/mutations';
@@ -55,15 +55,20 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
      surface named here is the one this cookie opens. */
   // Best-effort and never fatal: the person IS signed in (the cookie is written), so a failed
   // record must not turn their sign-in into an error.
-  try {
-    await audit({
-      action: 'Signed in',
-      detail: `${session.name} signed in on the ${surface === 'owner' ? 'owner console' : 'staff app'}`,
-      actor: { staffId: session.staffId, label: session.name },
-    });
-  } catch (err) {
-    logError('api', err, { url: req.url });
-  }
+  /* AFTER the answer, not before it (26-Oct-2026, requests/2026-10-26-navigation-latency.md): the
+     record was a whole database round between a correct PIN and the screen opening, and nothing the
+     person sees waits on it. `after` keeps the function alive until it lands; it is still written. */
+  after(async () => {
+    try {
+      await audit({
+        action: 'Signed in',
+        detail: `${session.name} signed in on the ${surface === 'owner' ? 'owner console' : 'staff app'}`,
+        actor: { staffId: session.staffId, label: session.name },
+      });
+    } catch (err) {
+      logError('api', err, { url: req.url });
+    }
+  });
   return ok({ name: session.name, role: session.role, initials: session.initials });
 });
 

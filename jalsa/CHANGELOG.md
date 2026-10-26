@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Faster — 26-Oct-2026 — Sign-in on a slow phone, and screens rebuilt for nothing (docs/audit/NAVIGATION_*)
+
+- **The PIN keypad shows when it is ready.** On a slow phone the keypad appears about a second before it works. Taps made in that second used to vanish without a sign, so a PIN could be sent with a digit missing — or not sent at all, and the screen just waited. The keys are now dimmed until they work, then light up. On a modelled Indian 4G phone, sign-ins that reached their screen went from 10 in 20 to 20 in 20, in each of three runs. Both keypads: signing in, and choosing your own PIN.
+- **The owner console and the captain's floor no longer rebuild themselves straight after opening.** Signing in, opening or refreshing either one used to load its whole screen a second time a few seconds later. In the console's first minute that is 76 database requests down to 22.
+- **An empty print check no longer makes every screen reload.** A once-a-minute check for stuck kitchen tickets moved the "something changed" counter even when it found nothing, so every open console and captain phone reloaded its whole screen each minute. It now only writes when there is something to fix.
+- **Signing in no longer waits for its own record.** The "signed in" entry in the audit log is still written, just after the screen opens rather than before.
+
 ### Security — 26-Oct-2026 — Audit fixes (docs/audit/)
 
 - **The shared setup PIN no longer signs anybody in.** `1234` (and `0000`, `1111`, `4321`) are refused at the keypad with the usual "That PIN did not work". Four accounts were still on `1234`; until the owner issues each of them a PIN (Staff → Generate PIN), they cannot sign in. Before this, anyone who typed `1234` could take one of those accounts over.

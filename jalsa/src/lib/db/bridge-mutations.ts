@@ -205,6 +205,22 @@ export async function sweepStaleClaims(input: {
 }): Promise<{ expired: number }> {
   const cutoff = new Date(Date.now() - (input.olderThanMinutes ?? 10) * 60_000).toISOString();
 
+  /* LOOK BEFORE WRITING (26-Oct-2026, requests/2026-10-26-navigation-latency.md, N-03). The change
+     counters are bumped by STATEMENT-level triggers, which fire for an UPDATE that matches no row. So
+     this sweep - nearly always finding nothing - moved the floor counter once a minute, and every owner
+     console and captain phone open rebuilt its whole screen for a change that did not happen (52 times
+     in production on 24-Oct). A read moves nothing; the update below still carries its own conditions,
+     so a claim that resolves between the two is simply not touched. */
+  const { data: stale, error: lookError } = await db()
+    .from('print_job')
+    .select('id')
+    .eq('restaurant_id', input.restaurantId)
+    .eq('status', 'processing')
+    .lt('claimed_at', cutoff)
+    .limit(1);
+  if (lookError) throw lookError;
+  if (!stale || stale.length === 0) return { expired: 0 };
+
   const { data, error } = await db()
     .from('print_job')
     .update({

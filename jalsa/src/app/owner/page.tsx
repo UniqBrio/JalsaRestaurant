@@ -3,6 +3,7 @@ import { NotConfiguredState, DeniedState, UnreachableState } from '@/components/
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
 import { publicConfig } from '@/lib/config';
 import { currentStaff } from '@/lib/db/auth';
+import { floorStamp, staffStamp } from '@/lib/db/change-stamp';
 import { buildOwnerPayload } from '@/lib/db/owner-view';
 import { PinSignIn } from '@/features/staff/PinSignIn';
 import { ChoosePin } from '@/features/staff/ChoosePin';
@@ -24,11 +25,14 @@ export default async function OwnerPage() {
     return <NotConfiguredState problem={configurationProblem() ?? 'Configuration could not be read.'} />;
   }
 
-  const session = await attempt('owner.page.session', () => currentStaff('owner'));
+  /* The floor counter is read beside the identity check - both come BEFORE the screen is built, as a
+     stamp must - so the client's first tick can ask "changed?" instead of rebuilding this screen
+     (26-Oct-2026, requests/2026-10-26-navigation-latency.md). `floorStamp` never throws: null = no stamp. */
+  const session = await attempt('owner.page.session', () => Promise.all([currentStaff('owner'), floorStamp()]));
   if (!session.ok)
     return <UnreachableState surface="owner" {...(session.detail ? { detail: session.detail } : {})} />;
 
-  const staff = session.value;
+  const [staff, floor] = session.value;
   if (!staff) return <PinSignIn surface="owner" />;
   if (staff.provisional) return <ChoosePin name={staff.name} surface="owner" />;
 
@@ -39,5 +43,5 @@ export default async function OwnerPage() {
   const loaded = await attempt('owner.page.payload', () => buildOwnerPayload(staff, publicConfig.qrOrigin));
   if (!loaded.ok) return <UnreachableState surface="owner" {...(loaded.detail ? { detail: loaded.detail } : {})} />;
 
-  return <OwnerConsole initial={loaded.value} />;
+  return <OwnerConsole initial={loaded.value} initialStamp={staffStamp(floor, staff)} />;
 }

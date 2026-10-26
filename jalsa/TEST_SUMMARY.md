@@ -7,6 +7,111 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-10-26 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.
+Time: 6m 01s total - slowest G8 Functional / integration (3m 15s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (56ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (62ms)
+- **G3 Theme assets present per theme** - PASS (49ms)
+- **G4 No hard-coded colours** - PASS (96ms)
+- **G5 Types** - PASS (23.0s)
+- **G6 Lint** - PASS (27.0s)
+- **G7 Unit + pure specs** - PASS (1m 52s)
+- **G8 Functional / integration** - FAIL (3m 15s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (93ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.9s)
+- **G11 Wide tables are configurable** - PASS (71ms)
+- **G12 Installable as an application** - PASS (95ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-26 - Navigation latency, round 2 - PASS except G8 (unchanged, identical to the baseline)
+
+Request: `requests/2026-10-26-navigation-latency.md`. Findings, measurements and plan: `docs/audit/NAVIGATION_*`. No migration.
+
+- N-01: both PIN keypads are marked `aria-disabled` (dimmed, focusable) until React is attached (`useInteractive`). India 4G sign-ins that opened, same data: owner 10/20 -> 20/20 x3, captain 10/20 -> 20/20 x3.
+- N-02: owner and staff pages serve their change stamp; the first poll asks instead of rebuilding. Owner console first minute: 76 calls / 2 rebuilds -> 22 / 0.
+- N-03: the stale-print sweep reads before it writes (an empty UPDATE moved the floor counter: statement-level triggers).
+- N-04: the sign-in audit record is written in `after()`.
+- The gate run two below this one is the keypad built with `disabled`: G8 gained 3 `keyboard-signin` failures (a key focused before hydration lost its focus). Fixed by `aria-disabled`; the newest run above is that fix: G8 back to exactly the baseline's 16.
+- Full: unit + render 2014 passed (before the aria change); new rungs + `signin` + `keyboard-signin` 68 passed after it; tsc, lint OK; audit:all 10/10.
+- G8: 16 failed, 80 passed - `diff` against the unmodified tree's failing set: identical (the four data journeys that need a seeded database).
+
+FAIL-FIRST: tests/unit/navigation-latency.unit.spec.ts - against the pre-fix `src/` (only the new `useInteractive.ts` present): 7 of 8 fail - N-02 `newCheck` (Expected -2/+2, the served stamp ignored), N-02 /owner and /staff "identity and stamp read together" Expected > -1 Received -1, N-02 apps Expected pattern `initialStamp`, N-03 sweep "no UPDATE when nothing is stale" Expected [] Received 1 update (+11 lines), N-04 Expected > -1 Received -1, N-01 keypads Expected substring "const interactive = useInteractive();" (the rung later moved from `disabled` to `aria-disabled`; the pre-fix keypads have neither, so it fails them for the same reason).
+NOT OBSERVED FAILING: tests/unit/navigation-latency.unit.spec.ts "N-01: a control is not interactive in the server-rendered page" - it exercises the new `useInteractive` module itself, which did not exist before; there is no earlier state for it to fail on.
+FAIL-FIRST: tests/render/navigation-latency.render.spec.ts - against the pre-fix `src/`: 1 of 3 fail - "a screen served with its stamp" Expected "/api/probe/state?since=f1", Received "/api/probe/state".
+NOT OBSERVED FAILING: tests/render/navigation-latency.render.spec.ts "served without a stamp" and "after a write ... still reads in full" - they pin behaviour this change keeps; they held before by design.
+
+---
+
+## Gate run - 2026-10-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 6m 16s total - slowest G8 Functional / integration (3m 32s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (83ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (61ms)
+- **G4 No hard-coded colours** - PASS (107ms)
+- **G5 Types** - PASS (22.8s)
+- **G6 Lint** - PASS (25.4s)
+- **G7 Unit + pure specs** - PASS (1m 51s)
+- **G8 Functional / integration** - FAIL (3m 32s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (87ms)
+- **G10 Backward compatibility (fixtures)** - PASS (4.3s)
+- **G11 Wide tables are configurable** - PASS (74ms)
+- **G12 Installable as an application** - PASS (99ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-10-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
 Time: 6m 32s total - slowest G8 Functional / integration (3m 29s).
 Application steps ran in .
 

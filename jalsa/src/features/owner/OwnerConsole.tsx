@@ -88,12 +88,13 @@ export const SECTIONS: Array<{ key: OwnerSection; label: string; permission: str
   { key: 'audit', label: 'Audit log', permission: 'audit.view' },
 ];
 
-export function OwnerConsole({ initial }: { initial: OwnerPayload }) {
+export function OwnerConsole({ initial, initialStamp = null }: { initial: OwnerPayload; initialStamp?: string | null }) {
   const router = useRouter();
   const toast = useToast();
   const { data, staleReason, send } = useLiveData<OwnerPayload>('/api/owner/state', initial, 8000, {
     // Ages, and printer health (its heartbeats move no stamp): read in full once a minute.
     fullEveryMs: 60_000,
+    initialStamp,
   });
 
   const [section, setSection] = React.useState<OwnerSection>('dashboard');

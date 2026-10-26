@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import type { Surface } from '@/lib/cookie-names';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/states';
+import { useInteractive } from '@/hooks/useInteractive';
 
 /**
  * The four-digit keypad.
@@ -27,6 +28,10 @@ export function PinSignIn({ surface }: { surface: Surface }) {
   const [pin, setPin] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  /* Marked unavailable until a tap can be answered (N-01): before that, a digit was thrown away silently.
+     `aria-disabled`, not `disabled`: a disabled key cannot take focus, and a keyboard user who focused a
+     key before the page was ready lost that focus (the gate's keyboard-parity spec, 26-Oct-2026). */
+  const interactive = useInteractive();
 
   const submit = React.useCallback(
     async (value: string) => {
@@ -148,10 +153,11 @@ export function PinSignIn({ surface }: { surface: Surface }) {
               key={k}
               type="button"
               disabled={busy}
+              aria-disabled={interactive ? undefined : true}
               onClick={() => press(k)}
 
               aria-label={k === '⌫' ? 'Delete the last digit' : k}
-              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] type-h2 font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
+              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] type-h2 font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] disabled:opacity-45 aria-disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
             >
               {k}
             </button>
