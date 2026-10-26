@@ -119,6 +119,15 @@ shipping a build where `pin_provisional` is ignored — that single line is the 
 mitigation. Rung: `set_own_pin` rejects the shared code (verified against the live database,
 10-Sep-2026: `old_owner_pin_rejected: 0, bad_pin_rejected: 0`).
 
+**26-Oct-2026 — this mitigation did not hold, and is replaced (audit SEC-01, SEC-02, SEC-08).** Kept above as
+written. A code shared by every account proves nothing about WHO typed it, and the one screen it opened accepted
+`1234` as the current PIN and offered "Skip for now" (added on request, 19-Sep) — so whoever typed it first, a
+stranger included, owned the account. On 26-Oct four live accounts (1 Cashier, 3 Waiters) were still on it
+(read-only count, production). Eight read routes also served a provisional session. Now: sign-in refuses the
+shared codes outright (`src/lib/setup-pins.ts`), every staff/owner route refuses a provisional session, and a
+person still on the code signs in with a PIN the owner issues. "Skip for now" remains, pending a decision
+(`docs/audit/SECURITY_REMEDIATION_PLAN.md`, SEC-08). Rungs: `tests/unit/security-audit-26oct.unit.spec.ts`.
+
 ---
 
 ### KL-2 — There is no printer transport, so no ticket is ever delivered

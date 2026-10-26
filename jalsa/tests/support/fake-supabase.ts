@@ -24,6 +24,8 @@ export interface FakeQuery {
   single: boolean;
   maybe: boolean;
   head: boolean;
+  /** `.range(from, to)` as asked, inclusive (26-Oct-2026) - so a scenario can answer by page. */
+  range?: [number, number];
 }
 
 export interface FakeCall {
@@ -145,7 +147,8 @@ class Builder {
   limit() {
     return this;
   }
-  range() {
+  range(from: number, to: number) {
+    this.q.range = [from, to];
     return this;
   }
   maybeSingle() {

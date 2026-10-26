@@ -470,16 +470,28 @@ export async function listClosedBillsBetween(from: string, to: string): Promise<
      which silently dropped every bill settled after midnight IST. See lib/restaurant-time.ts. */
   const { start, end } = dayWindow(from, to);
 
-  const { data, error } = await db()
-    .from('bill')
-    .select(BILL_SELECT)
-    .eq('restaurant_id', restaurantId)
-    .eq('status', 'closed')
-    .gte('closed_at', start.toISOString())
-    .lt('closed_at', end.toISOString())
-    .order('closed_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and a sales report built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('bill')
+      .select(BILL_SELECT)
+      .eq('restaurant_id', restaurantId)
+      .eq('status', 'closed')
+      .gte('closed_at', start.toISOString())
+      .lt('closed_at', end.toISOString())
+      .order('closed_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((r) => shapeBill(r));
 }
 
 /** A cancelled order, as the operational report lists it (07-Oct-2026). */
@@ -625,16 +637,28 @@ export async function listHeardAboutBetween(from: string, to: string): Promise<s
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */
 export async function listExpensesBetween(from: string, to: string): Promise<ExpenseRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('expense')
-    .select('id,spent_on,category,note,amount,entered_by')
-    .eq('restaurant_id', restaurantId)
-    .is('deleted_at', null)
-    .gte('spent_on', from)
-    .lte('spent_on', to)
-    .order('spent_on', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((e) => ({
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and an expenses-and-net report built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let at = 0; ; at += PAGE) {
+    const { data: page, error } = await db()
+      .from('expense')
+      .select('id,spent_on,category,note,amount,entered_by')
+      .eq('restaurant_id', restaurantId)
+      .is('deleted_at', null)
+      .gte('spent_on', from)
+      .lte('spent_on', to)
+      .order('spent_on', { ascending: false })
+      .order('id')
+      .range(at, at + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((e) => ({
     id: e.id as string,
     spentOn: e.spent_on as string,
     category: e.category as string,
@@ -938,15 +962,27 @@ export async function grantsFor(staffId: string): Promise<string[]> {
 
 export async function listTips(): Promise<TipRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('tip')
-    .select(
-      'id,amount,settled_at,created_at,staff:staff_id(id,name),bill:bill_id(code,bill_table(dining_table:table_id(name)))'
-    )
-    .eq('restaurant_id', restaurantId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((t) => {
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and a tip ledger built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('tip')
+      .select(
+        'id,amount,settled_at,created_at,staff:staff_id(id,name),bill:bill_id(code,bill_table(dining_table:table_id(name)))'
+      )
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((t) => {
     const bill = t.bill as unknown as { code?: string; bill_table?: Array<{ dining_table: RawRef }> } | null;
     const staff = t.staff as unknown as RawRef | null;
     return {
@@ -964,14 +1000,26 @@ export async function listTips(): Promise<TipRow[]> {
 
 export async function listExpenses(): Promise<ExpenseRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('expense')
-    .select('id,spent_on,category,note,amount,entered_by')
-    .eq('restaurant_id', restaurantId)
-    .is('deleted_at', null)
-    .order('spent_on', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((e) => ({
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and an expense ledger built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('expense')
+      .select('id,spent_on,category,note,amount,entered_by')
+      .eq('restaurant_id', restaurantId)
+      .is('deleted_at', null)
+      .order('spent_on', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((e) => ({
     id: e.id as string,
     spentOn: e.spent_on as string,
     category: e.category as string,

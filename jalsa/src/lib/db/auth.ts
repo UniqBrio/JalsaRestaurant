@@ -2,6 +2,7 @@ import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
 import { Grants } from '@/lib/permissions';
 import { readStaffSession, writeStaffSession, type StaffSession, type Surface } from '@/lib/sessions';
+import { isSharedSetupCode } from '@/lib/setup-pins';
 import { grantsFor } from './queries';
 import type { Actor } from './mutations';
 
@@ -26,6 +27,9 @@ export interface SignedInStaff extends StaffSession {
 
 export async function signInWithPin(pin: string, surface: Surface): Promise<StaffSession | null> {
   if (!/^\d{4}$/.test(pin)) return null;
+  // The shared setup code opens nothing (26-Oct-2026 audit, SEC-01; see setup-pins.ts). Refused
+  // with the same "no session" as any wrong PIN, so the keypad still names no account.
+  if (isSharedSetupCode(pin)) return null;
   const restaurantId = await currentRestaurantId();
   const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: pin });
   if (error) throw error;

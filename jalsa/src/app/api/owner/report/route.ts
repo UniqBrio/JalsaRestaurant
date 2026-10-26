@@ -1,7 +1,7 @@
 import { dailySeries, dailyTruncated, MAX_DAILY_POINTS } from '@/lib/report-daily';
 import { NextResponse } from 'next/server';
 import { fail, handler, ok } from '@/lib/route';
-import { currentStaff } from '@/lib/db/auth';
+import { PROVISIONAL_REFUSAL, currentStaff } from '@/lib/db/auth';
 import {
   billTotals,
   lastClosedBillBefore,
@@ -57,6 +57,9 @@ export const GET = handler(async (request: Request): Promise<NextResponse> => {
   if (!staff) {
     return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN to open the console.' });
   }
+  // Rule 5, on the reads as well as the writes (26-Oct-2026 audit, SEC-02): an issued PIN opens
+  // "choose your own PIN" and nothing else.
+  if (staff.provisional) return fail(403, { code: 'forbidden', message: PROVISIONAL_REFUSAL });
   if (!staff.grants.can('rep.sales')) {
     return fail(403, {
       code: 'forbidden',

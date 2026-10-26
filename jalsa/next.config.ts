@@ -37,6 +37,20 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        /* Every response (26-Oct-2026 audit, SEC-04). Nothing here is ever framed - not by this
+         * app, not by anyone - so a page that could be laid invisibly over a decoy was a
+         * clickjacking surface on the owner's console for no benefit. `frame-ancestors` is the
+         * whole CSP on purpose: a script policy needs per-request nonces for Next's inline
+         * scripts, and that is its own change (SECURITY_REMEDIATION_PLAN.md, SEC-11). */
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      {
         // The service worker must never be served from a stale cache, or a released fix can
         // sit unapplied on a guest's phone for as long as the old worker lives.
         source: '/sw.js',

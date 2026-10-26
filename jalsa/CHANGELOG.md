@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Security — 26-Oct-2026 — Audit fixes (docs/audit/)
+
+- **The shared setup PIN no longer signs anybody in.** `1234` (and `0000`, `1111`, `4321`) are refused at the keypad with the usual "That PIN did not work". Four accounts were still on `1234`; until the owner issues each of them a PIN (Staff → Generate PIN), they cannot sign in. Before this, anyone who typed `1234` could take one of those accounts over.
+- **An issued PIN opens only "Choose your own PIN" — now on every screen's data as well as its buttons.** The floor, the console, reports, table codes and the print-computer download refuse it too.
+- **Reports and ledgers are read in full.** The sales report, expenses and net, the tip ledger and the expense ledger stopped at the first 1,000 rows without saying so. They now read every row. Nothing changes until a range holds more than 1,000.
+- **Pages cannot be shown inside another site's frame**, and the browser is told not to guess file types or send full addresses to other sites.
+- An issued PIN is drawn from a secure random source; the entrance-queue cookie is sent over HTTPS only.
+- Next.js 16.4.2 and zod 4.6.7 (published security advisories, three of them critical for Next.js). `npm audit`: 0 vulnerabilities.
+
 ### Added — 22-Oct-2026 — Enable KOT Printing and Enable Invoice Printing
 
 - **Settings → Printers & machines → Overview** has two switches, **Enable KOT Printing** and **Enable Invoice Printing**. Both are on unless you turn them off, so printing works as before. Each switch works on its own: turning one on or off does not change the other. Both print on the printers you have already set up. A printer set to print kitchen tickets and bills prints both. There is no second printer setting.

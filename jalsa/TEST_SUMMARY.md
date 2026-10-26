@@ -4,6 +4,67 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-10-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 6m 32s total - slowest G8 Functional / integration (3m 29s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (59ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (58ms)
+- **G3 Theme assets present per theme** - PASS (51ms)
+- **G4 No hard-coded colours** - PASS (112ms)
+- **G5 Types** - PASS (23.7s)
+- **G6 Lint** - PASS (27.4s)
+- **G7 Unit + pure specs** - PASS (2m 06s)
+- **G8 Functional / integration** - FAIL (3m 29s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (72ms)
+- **G10 Backward compatibility (fixtures)** - PASS (4.1s)
+- **G11 Wide tables are configurable** - PASS (77ms)
+- **G12 Installable as an application** - PASS (96ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-26 - Authentication, performance and security audit - PASS except G8 (unchanged, identical to the baseline)
+
+Request: `requests/2026-10-26-auth-performance-security-audit.md`. Findings and evidence: `docs/audit/`. No migration.
+
+- SEC-01: the shared setup PIN (`1234`; also `0000`, `1111`, `4321`) is refused at sign-in. 4 live accounts were on it (read-only count, production).
+- SEC-02: rule 5 at the 8 read routes that lacked it; a ratchet over every route that reads a staff session.
+- SEC-04/05/06: anti-framing, nosniff and referrer headers; CSPRNG for issued PINs; `Secure` queue cookie.
+- SEC-07: next 16.4.2, zod 4.6.7, sharp 0.35.5, source-map-js 1.2.2, brace-expansion - `npm audit`: 0 vulnerabilities (was 1 critical, 4 high).
+- PERF-02: sales report, expenses and net, tip ledger, expense ledger are paged (they stopped at 1,000 rows).
+- Full: unit 1631 passed (1619 existing + 12 new, 0 failed). tsc, lint OK. audit:all 10/10. `next build` OK on 16.4.2 (same two warnings as on 16.3.4).
+- G8: 16 failed, 80 passed - the four data-journey specs that need a seeded database (`reachability`, `guest-journey`, `guest-total-visibility`, `closure-upsell-tip`) x4 viewports. The UNMODIFIED tree (69b25c5, same container, same env) gives 16 failed, 80 passed, and the two failing sets are identical (`diff`: no difference). Not caused by this change; recorded as OPS-02.
+
+FAIL-FIRST: tests/unit/security-audit-26oct.unit.spec.ts - against the pre-fix `src/` (with only the pure `setup-pins.ts` present): 6 of 7 fail - SEC-01 "signInWithPin refuses a shared setup code" Expected > -1, Received -1; SEC-02 ratchet "routes that serve a provisional (issued-PIN) session" Expected [], Received 8 routes; SEC-02 exact refusal missing in `staff/state`; SEC-04 "a header rule covering every path" Received undefined; SEC-05 Expected substring "String(randomInt(10000))"; SEC-06 cookie pattern not matched.
+NOT OBSERVED FAILING: tests/unit/security-audit-26oct.unit.spec.ts "SEC-01: the shared setup codes are exactly the ones set_own_pin refuses" - a parity check between the new module and the migration; the module did not exist before, so there was no earlier state for it to fail on.
+FAIL-FIRST: tests/unit/security-audit-26oct.unit.spec.ts PERF-02 (pinned) - against the pre-fix `queries.ts`: 3 of 3 failed, Expected substring "const PAGE = 1000;" (listClosedBillsBetween, listTips, and - through a signature too loose, which matched it first - listExpensesBetween). Signatures then tightened to `name(`; with bills and tips fixed, listExpenses and listExpensesBetween failed on their unpaged bodies (2 of 2) before they were paged.
+FAIL-FIRST: tests/unit/security-audit-26oct.unit.spec.ts PERF-02 (executed, tests/support/rounds/paging.scenarios.ts) - against the pre-fix `queries.ts`: "a report or ledger larger than one PostgREST page is read whole" Expected 2007, Received 1000.
+
+---
+
 ## Gate run - 2026-10-22 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.
