@@ -101,4 +101,6 @@ proven in CI, never here. `tests/cases/reference/README.md` lists them.
 | One idiom per concern | `docs/registers/CANONICAL_PATTERNS.md` |
 | Who may do what, and why | `docs/registers/RBAC_MATRIX.md` |
 | What is genuinely blocked | `docs/registers/KNOWN_LIMITATIONS.md` |
+| Audits and measured performance | `docs/audit/` |
+| Measuring a change: the local performance rig (Postgres + PostgREST + a gateway calibrated on production) | `scripts/perf/` — `suite.sh` measures one build; see `docs/audit/NAVIGATION_PERFORMANCE_TESTS.md` |
 | The framework this is built under | `../docs/00-OVERVIEW.md` |
