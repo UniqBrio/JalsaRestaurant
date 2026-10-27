@@ -16,6 +16,8 @@ application never speaks to Supabase — every table carries row-level security 
 policy**, so a browser holding the publishable key can read nothing at all. Reads and writes go
 through this application's own route handlers, which hold the secret key.
 
+**In the database, by privilege as well as by policy (27-Oct-2026, `20261027120000`).** Every table names who may reach it: `service_role` — the secret key, the server — holds SELECT/INSERT/UPDATE/DELETE on the tables it reaches (SELECT/UPDATE on `number_series`, nothing on `sign_in_attempt`); `anon` and `authenticated` hold nothing, so the publishable key is refused outright rather than shown zero rows. No grant comes from a default any more (JP-28).
+
 The UI withholds a control it cannot honour (Standard 5.6 — a button that silently does nothing is
 worse than an absent one), but a hidden button is a convenience, never a boundary. Both sides call
 the same `Grants.can`.

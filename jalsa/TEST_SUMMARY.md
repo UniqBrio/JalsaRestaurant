@@ -4,6 +4,62 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-10-27 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 5m 06s total - slowest G8 Functional / integration (2m 21s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (56ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (38ms)
+- **G3 Theme assets present per theme** - PASS (53ms)
+- **G4 No hard-coded colours** - PASS (97ms)
+- **G5 Types** - PASS (15.0s)
+- **G6 Lint** - PASS (18.3s)
+- **G7 Unit + pure specs** - PASS (2m 09s)
+- **G8 Functional / integration** - FAIL (2m 21s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (52ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.6s)
+- **G11 Wide tables are configurable** - PASS (69ms)
+- **G12 Installable as an application** - PASS (71ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-27 - Explicit Data API grants before Supabase's 30-Oct change - evidence for the gate run above
+
+Request: `requests/2026-10-27-supabase-data-api-grants.md`. Migration written, proven on PGlite and a disposable PostgreSQL 16, NOT applied to any Supabase project: `20261027120000_jalsa_explicit_data_api_grants.sql`.
+
+FAIL-FIRST: tests/unit/data-api-grants.db.unit.spec.ts - against the pre-fix tree (every migration but `20261027120000`), each case run alone: 11 of 17 fail - on a fresh project `service_role` holds nothing on `audit_entry` (nor any table) and nothing on `audit_entry_id_seq`; executed, `select ... from audit_entry` as service_role is `permission denied for table audit_entry`, and the real insert/trigger rung is refused the same way; on an existing project `anon` and `authenticated` hold every privilege on 30 tables, a probe table gets them too, their statements RESOLVE (RLS shows zero rows) instead of being refused, and the fresh and existing grants differ (836 lines). The 6 that pass pre-fix pass for stated reasons: the inventory and RLS rungs describe what was already true; on fresh PGlite nothing is granted by default, so "anon holds nothing" and "the next table is exposed to nobody" hold trivially there (both fail on the existing build); `sign_in_with_pin`/`next_number` and the RPC lock were already correct (20261003090000, 20261027100000) and are kept to stop an over-correction. (A first draft of the spec had 13/14 failing for a wrong reason - `bill_table` has no `id` column; the probe now uses a real column per table, and the two cases were extended to the existing build so they fail for the right one.)
+
+- Real PostgreSQL 16 (disposable cluster, `scripts/perf/bootstrap.sql` with no default grants): without the migration, 38/38 apply and `service_role` is refused `restaurant`, `audit_entry`, `menu_category`, `number_series`; with it, 39/39 apply, the server reads, inserts through the bigserial, updates through the INVOKER counter triggers, signs in and draws a bill number; `anon`/`authenticated` are refused; an identity insert needs no sequence grant (proven, rolled back); a second database built with the OLD defaults first ends with byte-identical privileges and no default ACL left in `public`.
+- Unit tier after the change: 1706 passed, 0 failed.
+- G8 (functional) against no database, before AND after the change, same command: 16 failed, 32 did not run, 80 passed; the failing set is identical, test for test (`reachability`, `guest-journey`, `guest-total-visibility`, `closure-upsell-tip` x desktop, desktop-wide, mobile, mobile-short) - every one needs the seeded database this container cannot reach. Pre-existing; not caused by this change, which touches no `src/` file and is applied nowhere the app reaches.
+- NOT RUN: the application through a real PostgREST against the migrated database (no Docker daemon; fetching a PostgREST binary was not permitted). The role probes use `set role`, the mechanism PostgREST uses per request.
+- audit:all 10/10, framework audit:all 11/11, guard:test 15/15. tsc, lint: PASS (G5, G6 above).
+
+---
+
 ## Gate run - 2026-10-27 - VERDICT: PASS
 
 Steps: 12 pass, 0 fail, 0 blocked.

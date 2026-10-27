@@ -11,7 +11,8 @@ create extension if not exists pgcrypto with schema extensions;
 create schema if not exists storage;
 create table if not exists storage.buckets (id text primary key, name text, public boolean default false,
   file_size_limit bigint, allowed_mime_types text[], created_at timestamptz default now());
-alter default privileges in schema public grant all on tables to service_role;
-alter default privileges in schema public grant all on sequences to service_role;
-alter default privileges in schema public grant all on functions to service_role;
+-- No default privileges on `public`: that is every Supabase project from 30-Oct-2026. The
+-- migrations grant service_role what the server uses (20261027120000_jalsa_explicit_data_api_grants),
+-- so a table that forgets its grant fails here as it would in production. Until 27-Oct-2026 this
+-- file granted all on tables, sequences and functions to service_role by default, which hid that.
 grant usage on schema public to anon, authenticated, service_role;

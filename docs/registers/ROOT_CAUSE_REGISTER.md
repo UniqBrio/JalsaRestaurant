@@ -59,6 +59,47 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-029 — Every Jalsa table reached the server only through a Supabase default that ends on 30-Oct-2026
+**Date:** 27-Oct-2026  ·  **Severity:** S1 (latent - reached no user)  ·  **Modules:** jalsa database (all 39 migrations), perf rig
+
+**Symptom** — Found by audit, not reported: Supabase announced that from 30-Oct-2026 new `public` tables are no
+longer granted to `anon`, `authenticated` or `service_role` by default (github.com/orgs/supabase/discussions/45329).
+Replaying every Jalsa migration on a database with no default grants, the server's role was refused its first read:
+`permission denied for table restaurant` on PostgreSQL 16, `... audit_entry` on PGlite. Production is not yet
+provisioned, so the first production database would have shown "We cannot reach the till just now" on every surface.
+
+**Root cause** — No migration ever granted a table to anybody. The server's only role, `service_role`, held its
+privileges on all 31 tables purely through the platform's default privileges, which nothing in the repository
+stated or tested - and the perf rig's `bootstrap.sql` re-created those defaults, so the one real-Postgres build of
+the migrations assumed the dependency too.
+
+**Fix** — `20261027120000_jalsa_explicit_data_api_grants.sql`: revoke-then-grant, so `service_role` holds exactly the
+verbs the server uses (30 tables CRUD, `number_series` SELECT/UPDATE, `audit_entry_id_seq` USAGE, `sign_in_attempt`
+nothing), `anon`/`authenticated` hold nothing, and `postgres`'s old default privileges in `public` are revoked; an
+existing and a fresh database end identical. The rig stops emulating the defaults.
+
+**Files** — `jalsa/supabase/migrations/20261027120000_jalsa_explicit_data_api_grants.sql`,
+`jalsa/tests/unit/data-api-grants.db.unit.spec.ts`, `jalsa/scripts/perf/bootstrap.sql`.
+
+**How to verify** — `npx playwright test tests/unit/data-api-grants.db.unit.spec.ts` (17 cases: both builds, every
+role executed). On a live project after applying: `select has_table_privilege('service_role','public.restaurant','select')`
+is true and the same for `anon` is false.
+
+**Recurrence risk** — Every future migration that creates a table, a `serial` column or a function the server calls.
+Searched every `create table`, `serial`, `grant`, `revoke` and `alter default privileges` in `jalsa/supabase/migrations`:
+32 tables, one `bigserial`, two identity columns, eight RPCs (each already granted to service_role, and revoked from PUBLIC/anon/authenticated, explicitly).
+
+**Prevention** — `jalsa/tests/unit/data-api-grants.db.unit.spec.ts` fails until a new table is classified and
+granted; JP-28 in `jalsa/docs/registers/CANONICAL_PATTERNS.md`; and the default-privilege revoke makes development
+and the rig refuse an ungranted table at once.
+
+**Process check** — Yes: the `.db` specs already replayed every migration with no default grants, but asserted only
+functions' privileges, never the tables'; and the rig emulated the dependency it should have exposed. Repaired here
+for this app (the spec and the rig); the framework-update workflow was not run - recorded as a candidate for the
+framework's migration checklist.
+
+---
+
 ## RC-028 — A guest's tap on + was lost when an earlier save answered between taps
 **Date:** 27-Oct-2026  ·  **Severity:** S3  ·  **Modules:** jalsa guest ordering (`GuestApp`, `cart-draft`)
 

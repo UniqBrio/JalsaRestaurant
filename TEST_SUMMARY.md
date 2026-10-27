@@ -2,6 +2,17 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-27 - Explicit Data API grants before Supabase's 30-Oct change - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-27-supabase-data-api-grants.md`. Migration `20261027120000_jalsa_explicit_data_api_grants.sql` written and proven on PGlite and a disposable PostgreSQL 16; NOT applied to any Supabase project (awaits the owner). Root cause: RC-029.
+
+- `service_role` gets explicit grants on exactly what the server uses; `anon`/`authenticated` get nothing; `postgres`'s old default privileges in `public` are revoked for the three API roles; an existing and a fresh database end identical. No `src/` change.
+- New: `jalsa/tests/unit/data-api-grants.db.unit.spec.ts` (17, PGlite, fresh and old-defaults builds, every role executed).
+- Full: unit 1706 passed; tsc, lint OK; audit:all 10/10 (root 11/11); guard:test 15/15. Gate run - 2026-10-27: G1-G7, G9-G12 PASS; G8 FAIL - 16 failed / 32 did not run / 80 passed, the identical set before and after the change (the journeys and `reachability` that need a reachable seeded database).
+- NOT verified: the application through a real PostgREST against the migrated database (no Docker daemon here).
+
+FAIL-FIRST: jalsa/tests/unit/data-api-grants.db.unit.spec.ts - against the pre-fix migrations, each case alone: 11 of 17 fail - on a fresh build `select ... from audit_entry` as service_role is `permission denied for table audit_entry`; on an old-defaults build anon/authenticated hold every privilege on 30 tables and their statements resolve (zero rows) instead of being refused. The 6 that pass pre-fix are stated in `jalsa/TEST_SUMMARY.md`.
+
 ## Application run - jalsa - 2026-10-22 - Enable KOT Printing / Enable Invoice Printing on one shared printer - PASS except G8 (unchanged)
 
 Request: `jalsa/requests/2026-10-22-kot-and-invoice-print-switches.md`. No migration.
