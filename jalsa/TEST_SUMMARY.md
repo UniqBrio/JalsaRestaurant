@@ -4,6 +4,26 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-27 - Performance, security validation and delivery, round 3 - interim (gate run follows)
+
+Request: `requests/2026-10-27-performance-security-delivery.md`. Report: `docs/audit/PERFORMANCE_OPTIMIZATION_REPORT.md`. Migrations written, proven on the rig and PGlite, NOT applied outside the rig: `20261027090000`, `20261027090100`, `20261027100000`.
+
+- The 16 G8 failures, against a seeded Postgres (the performance rig, functional tier on desktop, desktop-wide, mobile, mobile-short): 127/128 red twice on `guest-total-visibility` > `a tap lands on the row at once` (a real defect, RC-028); after the fix 128/128 x3; 128/128 again with the 27-Oct migrations applied and with them absent.
+- Unit + render before the page change: 2061 passed, 2 failed (both brittle pins superseded in place, below), 4 did not run (serial followers of one of them); the two re-run: 28 passed. After the page change, the two specs it touches: 22 passed.
+- tsc, lint: OK. npm audit (prod and all): 0.
+
+FAIL-FIRST: tests/unit/cart-draft-settle.unit.spec.ts - against the pre-fix GuestApp: 1 of 3 fail - "GuestApp settles a row only by its own write" (the unconditional `withoutDraft` drop matched). The functional rung `a tap lands on the row at once` was red 2 of 2 full runs on the rig before the fix (Expected "3", Received "2").
+NOT OBSERVED FAILING: tests/unit/cart-draft-settle.unit.spec.ts "an older write answering does not erase a newer tap" and "the write carrying the shown figure settles it" - they exercise the new `settleDraft`, which did not exist before.
+FAIL-FIRST: tests/unit/request-reduction.unit.spec.ts - against the pre-change tree: 5 of 14 fail - every read touched all five catalog tables (cold/unchanged/moved/floor-only rungs), the owner's full read took 3 rounds and read `bridge_discovered_printer`, the routes did not read `readVersions()` first.
+NOT OBSERVED FAILING: tests/unit/request-reduction.unit.spec.ts - the five cache-rule rungs (new module), "every read answered", "without a counter ... every read is fresh", the menu-shaping and the echo rungs - they pin behaviour the change keeps or a module that did not exist.
+FAIL-FIRST: tests/unit/change-counters-zero-rows.db.unit.spec.ts - with the two 27-Oct trigger migrations held back, each rung alone: 3 of 6 fail - statement triggers still call `bump_change_version`, seven zero-row statements moved the floor, the four functions have no search_path.
+NOT OBSERVED FAILING: tests/unit/change-counters-zero-rows.db.unit.spec.ts "every table and scope ... still moves the same scopes" and "a statement that changed rows moves exactly the scopes" pin preserved behaviour; "the documented rollback" holds trivially without the change (nothing to roll back).
+FAIL-FIRST: tests/unit/sign-in-throttle.db.unit.spec.ts - with `20261027100000` held back: the first rung fails (relation "sign_in_attempt" does not exist), 14 did not run (serial).
+FAIL-FIRST: tests/unit/sign-in-throttle.unit.spec.ts - against the pre-change auth, route and sessions: 3 fail (the scenario cannot build without `SignInThrottled`; the per-process window still in the route), 3 did not run; 2 pass (network-key, a new module).
+FAIL-FIRST: tests/unit/same-origin.unit.spec.ts - against the pre-change `handler()`: 1 of 4 fails (no `isCrossSiteWrite` before `await fn`); the three rule rungs exercise the new module.
+FAIL-FIRST: tests/render/data-table-first-rows.render.spec.ts - against the pre-change DataTable: 1 of 3 fails - the first commit held 57 rows (Expected 24); the other two pin the resulting table, which is unchanged by design.
+- Superseded in place (contract changes, dated notes in each file): `change-versions.db.unit` (counter function list), `table-move.db.unit` (assumed its migration was the newest), `security-audit-26oct.unit` SEC-01 (first database call is now `checkPin`), `navigation-latency.unit` N-02 (`readVersions`).
+
 ## Gate run - 2026-10-26 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.

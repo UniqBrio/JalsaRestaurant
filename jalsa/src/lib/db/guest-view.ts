@@ -162,10 +162,14 @@ const timeLabel = (iso: string): string => timeLabelIn(iso);
  * first render of `/t/[table]`, and the poll at `/api/guest/state`. Both may need a session
  * CREATED, so both must go through `resolveGuest`.
  */
-export async function buildGuestPayload(tableName: string): Promise<GuestPayload | null> {
+/** `catalog`: the catalog counter the route read first, for the catalog cache; null reads fresh. */
+export async function buildGuestPayload(
+  tableName: string,
+  catalog: string | null = null
+): Promise<GuestPayload | null> {
   // The menu and the settings key on nothing, so they are in flight before the table is even
   // looked up; `resolveGuest` adds the reads it can start once it knows the table and session.
-  const prefetch = startGuestReads();
+  const prefetch = startGuestReads(catalog);
   const ctx = await resolveGuest(tableName, prefetch);
   if (!ctx) return null;
   return assembleGuestPayload(ctx, prefetch);

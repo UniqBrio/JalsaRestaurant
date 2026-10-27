@@ -1,7 +1,9 @@
 import 'server-only';
 import { db, currentRestaurantId } from '@/lib/supabase/server';
+import { serverConfig } from '@/lib/config';
+import { networkKey } from '@/lib/network-key';
 import { Grants } from '@/lib/permissions';
-import { readStaffSession, writeStaffSession, type StaffSession, type Surface } from '@/lib/sessions';
+import { clientAddress, readStaffSession, writeStaffSession, type StaffSession, type Surface } from '@/lib/sessions';
 import { isSharedSetupCode } from '@/lib/setup-pins';
 import { grantsFor } from './queries';
 import type { Actor } from './mutations';
@@ -25,18 +27,25 @@ export interface SignedInStaff extends StaffSession {
   grants: Grants;
 }
 
+/** Too many PINs that did not work: refused before (or regardless of) the PIN, with the wait. */
+export class SignInThrottled extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super('Too many sign-in attempts');
+  }
+}
+
+/**
+ * A PIN, checked. Throws `SignInThrottled` when this network (or, for a network the restaurant has
+ * not used tonight, everyone together) has spent its allowance of PINs that did not work — the
+ * same answer whether this one was right or wrong. Rules: migration 20261027100000.
+ */
 export async function signInWithPin(pin: string, surface: Surface): Promise<StaffSession | null> {
   if (!/^\d{4}$/.test(pin)) return null;
   // The shared setup code opens nothing (26-Oct-2026 audit, SEC-01; see setup-pins.ts). Refused
   // with the same "no session" as any wrong PIN, so the keypad still names no account.
   if (isSharedSetupCode(pin)) return null;
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: pin });
-  if (error) throw error;
-
-  const row = (
-    data as Array<{ id: string; name: string; role: string; initials: string; provisional: boolean }> | null
-  )?.[0];
+  const row = await checkPin(restaurantId, pin, surface);
   if (!row) return null;
 
   const session: StaffSession = {
@@ -49,6 +58,71 @@ export async function signInWithPin(pin: string, surface: Surface): Promise<Staf
   };
   await writeStaffSession(surface, session);
   return session;
+}
+
+interface PinHolder {
+  id: string;
+  name: string;
+  role: string;
+  initials: string;
+  provisional: boolean;
+}
+
+/**
+ * The database's throttled check, one call (27-Oct-2026, P-5). Where the migration has not run
+ * yet, the function is missing: the old per-process limit and `verify_staff_pin` take over, the
+ * log says so, and the database is asked again five minutes later — so merging this code cannot
+ * break sign-in on a database that is behind.
+ */
+let throttleMissingUntil = 0;
+
+async function checkPin(restaurantId: string, pin: string, surface: Surface): Promise<PinHolder | null> {
+  if (Date.now() >= throttleMissingUntil) {
+    const { data, error } = await db().rpc('sign_in_with_pin', {
+      p_restaurant: restaurantId,
+      p_pin: pin,
+      p_net: await clientNetwork(),
+      p_surface: surface,
+    });
+    if (!error) {
+      const answer = data as { result: string; retry_after?: number; staff?: PinHolder } | null;
+      if (answer?.result === 'throttled') throw new SignInThrottled(answer.retry_after ?? 60);
+      return answer?.result === 'ok' && answer.staff ? answer.staff : null;
+    }
+    if (!isMissingFunction(error)) throw error;
+    throttleMissingUntil = Date.now() + 5 * 60_000;
+    console.warn('[auth] sign_in_with_pin is missing (migration 20261027100000): using the per-process limit');
+  }
+  legacyLimit();
+  const { data, error } = await db().rpc('verify_staff_pin', { p_restaurant: restaurantId, p_pin: pin });
+  if (error) throw error;
+  return (data as PinHolder[] | null)?.[0] ?? null;
+}
+
+/** PostgREST's "no such function", or Postgres's own. */
+function isMissingFunction(error: { code?: string }): boolean {
+  return error.code === 'PGRST202' || error.code === '42883';
+}
+
+/** The network this request came from, as the throttle's key (network-key.ts). */
+async function clientNetwork(): Promise<string> {
+  return networkKey(await clientAddress(), serverConfig().sessionSecret);
+}
+
+/**
+ * The limit that ran before the migration, kept for a database without it: ten attempts a minute
+ * per server process, everyone together. A speed bump, and only until the migration runs.
+ */
+const LEGACY_WINDOW_MS = 60_000;
+const LEGACY_MAX_ATTEMPTS = 10;
+const legacyAttempts: number[] = [];
+
+function legacyLimit(now: number = Date.now()): void {
+  while (legacyAttempts.length && now - (legacyAttempts[0] ?? 0) > LEGACY_WINDOW_MS) legacyAttempts.shift();
+  if (legacyAttempts.length >= LEGACY_MAX_ATTEMPTS) {
+    throw new SignInThrottled(Math.max(1, Math.ceil(((legacyAttempts[0] ?? now) + LEGACY_WINDOW_MS - now) / 1000)));
+  }
+  legacyAttempts.push(now);
 }
 
 /** The person signed in on this surface, with their live grants. Null when nobody is. */

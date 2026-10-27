@@ -71,3 +71,19 @@ breaking it (route errors log the URL, which carries no secret).
 3. Smoke on the preview first: sign in with a real PIN on both surfaces; `1234` is refused; owner console and
    reports load; a takeaway photo loads; response headers carry `X-Frame-Options: DENY`.
 4. Rollback = revert the merge commit; no data or schema to undo.
+
+---
+
+## Status, 27-Oct-2026 (round 3 — [PERFORMANCE_OPTIMIZATION_REPORT.md](PERFORMANCE_OPTIMIZATION_REPORT.md))
+
+The sections above stand as written on 26-Oct; this records what moved since.
+
+| Item | Status | Where |
+|---|---|---|
+| **SEC-03** PIN throttle | **Implemented as (a)**, with these numbers: failures only; per network (keyed hash, IPv6 /64) 5 per 15 min and 20 per day, 10 and 50 for a network with a correct PIN in the last 14 h; across untrusted networks 30 per 15 min on the staff keypad, 15 on the owner's; over a limit the answer is the same for a right and a wrong PIN; exact under concurrency. No device dimension (it is the one a guesser controls), no per-person lockout (a PIN names no person until it matches). **Migration `20261027100000` awaits approval**; until applied the old window stays, by design | `src/lib/db/auth.ts`, `supabase/migrations/20261027100000_jalsa_sign_in_throttle.sql`, rungs `sign-in-throttle.db.unit.spec.ts` (15), `sign-in-throttle.unit.spec.ts` (8) |
+| **SEC-14** Origin check | **Implemented**: `handler()` refuses a POST/PUT/PATCH/DELETE whose `Origin` (or, without one, `Sec-Fetch-Site`) names another site — before the route reads or writes anything. Header-less clients (the print bridge) are unaffected | `src/lib/same-origin.ts`, `src/lib/route.ts`, rung `same-origin.unit.spec.ts` |
+| **SEC-16** search_path | **Migration `20261027090100` written and proven; awaits approval** | `supabase/migrations/20261027090100_jalsa_trigger_functions_search_path.sql` |
+| **SEC-09** PIN collisions | **Unchanged — still needs your decision.** (b) "refuse an ambiguous match" fails closed but would lock out both holders of a shared PIN — the owner included — with no recovery inside the app; (a) changes the keypad. Neither was taken under the autonomous run mode | — |
+| **SEC-15** guest limits | Not started; the table it would reuse now exists in the throttle migration | — |
+| **SEC-17** dependency scan in CI | Not started. `npm audit` on 27-Oct: 0 advisories, production and development | — |
+| Residual, stated plainly | Four digits are four digits: an insider on the trusted wifi gets 50 guesses a day against ~27 PINs (≈13 % a day to hit one). The fixes are SEC-03 (c) — six digits — or enrolling devices. A WAF rule (SEC-03 b) remains a Vercel plan decision | — |

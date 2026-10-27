@@ -62,3 +62,37 @@
   The build reports the same two warnings as before the upgrade (`middleware` → `proxy` deprecation; dynamic
   filesystem tracing), so none is new.
 - **Rollback:** revert the merge. No data, schema or configuration to undo.
+
+---
+
+## Round 3 — 27-Oct-2026 ([PERFORMANCE_OPTIMIZATION_REPORT.md](PERFORMANCE_OPTIMIZATION_REPORT.md))
+
+### Application code
+| File | Change | Why |
+|---|---|---|
+| `src/lib/cart-draft.ts`, `src/features/guest/GuestApp.tsx` | `settleDraft`: a write's answer drops a row's draft only if it is still the figure that write carried, and never while a newer one waits to leave (JP-26) | A tap made while an earlier write was in flight was lost (functional spec red 2/2 on a real database) |
+| `src/lib/db/catalog-cache.ts` (new), `src/lib/db/queries.ts` | `catalogRead`; `listMenu`, `readAllSettings`, `readRestaurant` take the catalog counter (JP-27) | 4–6 calls per full read, every screen |
+| `src/lib/db/change-stamp.ts` | `readVersions()` (both counters, one read); `guestVersions()`; `floorStamp`/`guestStamp` delegate | The counter must be read before the rows it keys |
+| `src/app/api/{owner,staff,guest}/state/route.ts`, `src/app/{owner,staff}/page.tsx`, `src/lib/db/{owner,staff,guest}-view.ts`, `src/lib/db/guest.ts` | Pass the version read in the first round | — |
+| `src/app/api/owner/state/route.ts` | The stale-claim sweep runs beside the build | A serial round once a minute |
+| `src/lib/db/queries.ts` (`listPrintComputers`) | Discovered printers embedded in the PC read | A third serial round wherever a PC is paired (production) |
+| `src/lib/db/auth.ts`, `src/lib/network-key.ts` (new), `src/lib/sessions.ts` (`clientAddress`), `src/app/api/staff/session/route.ts` | Sign-in through `sign_in_with_pin` with a keyed network; `SignInThrottled` → 429 + `Retry-After`; fallback to the old window where the function is missing | SEC-03 / N-06 |
+| `src/lib/same-origin.ts` (new), `src/lib/route.ts` | `handler()` refuses cross-site writes | SEC-14 |
+| `src/components/ui/data-table.tsx` | First 24 rows in the opening commit, the rest deferred | Menu on a slow phone |
+
+### Migrations (none applied outside the rig)
+`20261027090000_jalsa_bump_only_when_rows_change.sql` · `20261027090100_jalsa_trigger_functions_search_path.sql` ·
+`20261027100000_jalsa_sign_in_throttle.sql` — register rows in `docs/registers/ENVIRONMENTS.md`; apply procedure in
+the report §6.
+
+### Tests
+New: `cart-draft-settle.unit`, `request-reduction.unit` (+ `rounds/catalog-cache.scenarios.ts`),
+`change-counters-zero-rows.db.unit`, `sign-in-throttle.db.unit`, `sign-in-throttle.unit` (+ `rounds/sign-in.scenarios.ts`),
+`same-origin.unit`, `data-table-first-rows.render` (+ `mounts/data-table.entry.tsx`). Superseded in place with dated
+notes (contract changes): `change-versions.db.unit` (the counter function list), `table-move.db.unit` (assumed its
+migration was the newest file), `security-audit-26oct.unit` SEC-01 (the first database call is now `checkPin`),
+`navigation-latency.unit` N-02 (`readVersions`). Support: `fake-sessions.ts` (`surfaceFrom`, `clientAddress`),
+`rounds/polling.scenarios.ts` (answers the two-counter read).
+
+### Registers
+`CANONICAL_PATTERNS.md` JP-26, JP-27 · `ENVIRONMENTS.md` three migration rows and a dated rig note.

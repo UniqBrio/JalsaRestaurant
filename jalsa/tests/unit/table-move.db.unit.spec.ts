@@ -301,8 +301,13 @@ test('the captain grant: this restaurant only, never to a captain the owner revo
   await fresh.exec(SUPABASE_PRELUDE);
   await fresh.exec(`alter default privileges in schema public grant all on tables to anon, authenticated;`);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && !f.startsWith('00000000000000')).sort();
-  const last = files.pop()!;
-  expect(last).toBe('20261012090000_jalsa_move_order_to_table.sql');
+  /* SUPERSEDED 27-Oct-2026: took `files.pop()` and asserted it was the move migration — true only
+     while it was the newest file. Later migrations exist (20261027*), so the rung finds it by name
+     and applies everything before it, then it, exactly as before. */
+  const at = files.indexOf('20261012090000_jalsa_move_order_to_table.sql');
+  expect(at).toBeGreaterThan(-1);
+  const last = files[at]!;
+  files.splice(at);
   for (const f of files) await fresh.exec(readFileSync(`${MIGRATIONS}/${f}`, 'utf8'));
 
   const home = (await fresh.query<{ id: string }>(`select id from restaurant where slug = 'jalsa-hosur'`)).rows[0]!.id;

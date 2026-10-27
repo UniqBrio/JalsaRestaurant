@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { OfflineBanner, PartialNotice } from '@/components/ui/states';
 import type { GuestPayload } from '@/lib/db/guest-view';
 import { useLiveData } from '@/hooks/useLiveData';
-import { draftedCount, effectiveQty, withDraft, withoutDraft, type CartDraft } from '@/lib/cart-draft';
+import { draftedCount, effectiveQty, settleDraft, withDraft, type CartDraft } from '@/lib/cart-draft';
 import { WelcomeScreen, MenuScreen, CartScreen } from './GuestOrdering';
 import { PlacedScreen, StatusScreen } from './GuestProgress';
 import { UpsellScreen, TipScreen, PayingScreen, FailedScreen, PaidScreen, InvoiceScreen } from './GuestClosure';
@@ -125,7 +125,7 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
    * the whole of "for adding an item, it is taking time" (12-Sep-2026): the number under the
    * guest's thumb was the last thing to move, and some of their taps were never anywhere.
    *
-   * The draft is an overlay, never a source. It is dropped the moment the write answers — on
+   * The draft is an overlay, never a source. It is dropped the moment the write carrying it answers — on
    * failure too, so a row that could not be saved snaps back to the truth rather than leaving
    * a phantom item on someone's bill.
    */
@@ -186,7 +186,9 @@ export function GuestApp({ table, initial }: { table: string; initial: GuestPayl
           toast.show(err instanceof Error ? err.message : 'That did not go through.', { tone: 'error' });
         })
         .then(() => {
-          setDraft((d) => withoutDraft(d, itemId));
+          // Settled only if nothing newer is waiting to go: a tap made while this write was in
+          // flight is a newer intention, and its own write settles it (settleDraft).
+          if (!unsent.current.has(itemId)) setDraft((d) => settleDraft(d, itemId, qty));
           inFlight.current.delete(p);
         });
       inFlight.current.add(p);

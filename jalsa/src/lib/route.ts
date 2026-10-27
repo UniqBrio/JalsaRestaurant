@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { SCHEMA_FAULT_MESSAGE, isSchemaFault } from './db-errors';
 import { PermissionDenied } from '@/lib/permissions';
 import { logError } from '@/lib/logger';
+import { isCrossSiteWrite } from '@/lib/same-origin';
 
 /**
  * route - the ONE shape every API answer takes, and the ONE place an exception becomes one.
@@ -46,6 +47,14 @@ export function handler(
   fn: (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<NextResponse>
 ) {
   return async (req: Request, ctx: { params: Promise<Record<string, string>> }): Promise<NextResponse> => {
+    // Before anything is read or written: a write another site's page sent is not this site's
+    // (SEC-14, same-origin.ts). Every state-changing route passes through here.
+    if (isCrossSiteWrite(req)) {
+      return fail(403, {
+        code: 'forbidden',
+        message: 'This request came from another site, so nothing was changed.',
+      });
+    }
     try {
       return await fn(req, ctx);
     } catch (err) {

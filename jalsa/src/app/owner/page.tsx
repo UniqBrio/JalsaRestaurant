@@ -3,7 +3,7 @@ import { NotConfiguredState, DeniedState, UnreachableState } from '@/components/
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
 import { publicConfig } from '@/lib/config';
 import { currentStaff } from '@/lib/db/auth';
-import { floorStamp, staffStamp } from '@/lib/db/change-stamp';
+import { readVersions, staffStamp } from '@/lib/db/change-stamp';
 import { buildOwnerPayload } from '@/lib/db/owner-view';
 import { PinSignIn } from '@/features/staff/PinSignIn';
 import { ChoosePin } from '@/features/staff/ChoosePin';
@@ -27,12 +27,14 @@ export default async function OwnerPage() {
 
   /* The floor counter is read beside the identity check - both come BEFORE the screen is built, as a
      stamp must - so the client's first tick can ask "changed?" instead of rebuilding this screen
-     (26-Oct-2026, requests/2026-10-26-navigation-latency.md). `floorStamp` never throws: null = no stamp. */
-  const session = await attempt('owner.page.session', () => Promise.all([currentStaff('owner'), floorStamp()]));
+     (26-Oct-2026, requests/2026-10-26-navigation-latency.md). `floorStamp` never throws: null = no stamp.
+     27-Oct-2026: `readVersions` — the same one read, now also the catalog counter, so the build below
+     may take the menu and settings from the catalog cache (catalog-cache.ts, JP-27). */
+  const session = await attempt('owner.page.session', () => Promise.all([currentStaff('owner'), readVersions()]));
   if (!session.ok)
     return <UnreachableState surface="owner" {...(session.detail ? { detail: session.detail } : {})} />;
 
-  const [staff, floor] = session.value;
+  const [staff, versions] = session.value;
   if (!staff) return <PinSignIn surface="owner" />;
   if (staff.provisional) return <ChoosePin name={staff.name} surface="owner" />;
 
@@ -40,8 +42,10 @@ export default async function OwnerPage() {
     return <DeniedState permission="the owner console" testId="owner-page-denied" />;
   }
 
-  const loaded = await attempt('owner.page.payload', () => buildOwnerPayload(staff, publicConfig.qrOrigin));
+  const loaded = await attempt('owner.page.payload', () =>
+    buildOwnerPayload(staff, publicConfig.qrOrigin, versions.catalog)
+  );
   if (!loaded.ok) return <UnreachableState surface="owner" {...(loaded.detail ? { detail: loaded.detail } : {})} />;
 
-  return <OwnerConsole initial={loaded.value} initialStamp={staffStamp(floor, staff)} />;
+  return <OwnerConsole initial={loaded.value} initialStamp={staffStamp(versions.floor, staff)} />;
 }

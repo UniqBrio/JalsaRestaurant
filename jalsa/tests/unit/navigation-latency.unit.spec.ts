@@ -55,13 +55,18 @@ for (const [surface, component] of [
   test(`N-02: /${surface} reads the stamp beside the identity check and serves it with the screen`, () => {
     const page = code(`src/app/${surface}/page.tsx`);
     // One round: identity and floor counter together, both BEFORE the screen is built.
-    const read = page.indexOf(`Promise.all([currentStaff('${surface}'), floorStamp()])`);
+    /* SUPERSEDED 27-Oct-2026: asserted `floorStamp()` and `staffStamp(floor, staff)`. The page now reads
+       `readVersions()` — the same single read, returning the catalog counter too, for the catalog cache
+       (requests/2026-10-27-performance-security-delivery.md, JP-27) — and stamps from `versions.floor`. */
+    const read = page.indexOf(`Promise.all([currentStaff('${surface}'), readVersions()])`);
     expect(read, 'identity and stamp read together').toBeGreaterThan(-1);
     expect(read).toBeLessThan(
       page.indexOf(surface === 'owner' ? 'buildOwnerPayload(staff' : 'buildStaffPayload(staff')
     );
     // The same person-bound stamp the route compares against.
-    expect(page).toContain(`<${component} initial={loaded.value} initialStamp={staffStamp(floor, staff)} />`);
+    expect(page).toContain(
+      `<${component} initial={loaded.value} initialStamp={staffStamp(versions.floor, staff)} />`
+    );
   });
 }
 

@@ -39,9 +39,14 @@ const world = { floor: 41, catalog: 3, billVersion: 7, migrated: true, sessionGo
 function respond(q: FakeQuery): unknown[] | Record<string, unknown> | null {
   const eq = (col: string) => q.filters.find(([k, c]) => k === 'eq' && c === col)?.[2];
   switch (q.table) {
-    case 'change_version':
+    case 'change_version': {
       if (!world.migrated) throw new Error('relation "public.change_version" does not exist');
+      // 27-Oct-2026: staff and owner read both counters in one call (`readVersions`), by `in`.
+      const scopes = q.filters.find(([k, c]) => k === 'in' && c === 'scope')?.[2] as string[] | undefined;
+      if (scopes)
+        return scopes.map((scope) => ({ scope, version: scope === 'catalog' ? world.catalog : world.floor }));
       return [{ version: eq('scope') === 'catalog' ? world.catalog : world.floor }];
+    }
     case 'staff':
       return eq('id')
         ? [{ id: eq('id'), active: true, removed_at: eq('id') === 'gone' ? iso : null, pin_provisional: false }]

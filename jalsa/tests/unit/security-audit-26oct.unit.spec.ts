@@ -76,7 +76,11 @@ test('SEC-01: a shared setup code never signs anybody in', () => {
   const fn = bodyOf('src/lib/db/auth.ts', 'export async function signInWithPin');
   const refusal = fn.indexOf('if (isSharedSetupCode(pin)) return null;');
   expect(refusal, 'signInWithPin refuses a shared setup code').toBeGreaterThan(-1);
-  expect(refusal).toBeLessThan(fn.indexOf("rpc('verify_staff_pin'"));
+  /* SUPERSEDED 27-Oct-2026: compared against `rpc('verify_staff_pin'` inside signInWithPin. The PIN
+     is now checked by `checkPin` (the throttled `sign_in_with_pin`, falling back to
+     verify_staff_pin), so the database is first asked at that call. */
+  expect(fn.indexOf('await checkPin(')).toBeGreaterThan(-1);
+  expect(refusal).toBeLessThan(fn.indexOf('await checkPin('));
 });
 
 test('SEC-02: every route that reads a staff session refuses an issued PIN, except the one screen it opens', () => {

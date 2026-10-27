@@ -108,3 +108,41 @@ Roles in the database: Owner / Admin, Captain, Waiter, Cashier, Chef, Cleaning. 
   a test target. Resuming TEST and running `npm run test:reset` then the functional tier would turn these into
   EXEC.
 - WebKit (`tablet`, `mobile-ios`) does not run in this container (KL-3 — CI runs it).
+
+---
+
+## 7. Round 3 (27-Oct-2026) — the sign-in limit, cross-site writes, and a real database
+
+New legend entries: **PGLITE** — executed in a real Postgres in-process (every migration in order); **RIG** —
+executed against the performance rig (Postgres 16 + PostgREST 12.2.3 + the production build of the app). Rows above
+stand as written; where this section changes one, it says so.
+
+| Scenario | How | Result |
+|---|---|---|
+| Correct PIN / wrong PIN — answer, and what is recorded (no address) | PGLITE | PASS |
+| A shift signing in at once from one wifi (12 correct PINs) | PGLITE | PASS — none refused |
+| A correct PIN never spends the allowance (4 wrong, 6 right, 5th wrong still answered) | PGLITE | PASS |
+| The restaurant's wifi (correct PIN tonight) gets 10 mistakes, not 5 | PGLITE | PASS |
+| Recovery: failures older than the window stop counting | PGLITE | PASS |
+| One network guessing: the 6th in 15 min throttled, with the wait | PGLITE | PASS |
+| **Not an oracle**: over the limit, the right PIN gets the wrong PIN's answer | PGLITE · RIG | PASS |
+| Hammering a throttled network does not extend its wait | PGLITE | PASS |
+| A slow guesser (20 failures spread over 24 h) | PGLITE | PASS |
+| Distributed guessing: 30 untrusted networks → the keypad closes to strangers, not to the trusted wifi | PGLITE | PASS |
+| The owner console has its own budget (15) and the staff keypad is unaffected by it | PGLITE | PASS |
+| Not-a-PIN input (empty, 2 or 6 digits, letters, SQL text) is a counted wrong PIN | PGLITE | PASS |
+| An invalid surface or network key is an error, not a sign-in | PGLITE | PASS |
+| Only service_role may call it; RLS on the attempts, no API-role grant | PGLITE | PASS |
+| **Concurrent attempts**: 50 simultaneous wrong owner PINs from one address | RIG | PASS — exactly 5 judged and recorded, 45 throttled; other addresses signed in |
+| The address never reaches the database; one IPv6 /64 is one network | EXEC (round rig) | PASS |
+| A throttled answer is a 429 with `Retry-After` and a wait in words | EXEC (round rig) | PASS |
+| Database without the migration: sign-in works on the old limit, logged | EXEC (round rig) · RIG | PASS |
+| Old behaviour, for the record: the shared limit locked the restaurant's wifi out after 10 attempts from anyone | RIG | Reproduced (before) |
+| Cross-site POST/PUT/PATCH/DELETE (`Origin` another site, `null`, or `Sec-Fetch-Site: cross-site`) | EXEC | PASS — 403 before the route runs |
+| This site's own writes, reads, and header-less clients (the print bridge) | EXEC | PASS — not refused |
+| Repeated OTP / PIN attempts (§5 row) | — | **Supersedes PARTIAL**: PASS once migration `20261027100000` is applied; until then the old limit |
+| Credential stuffing | — | N/A as a username/password pair; the PIN-only equivalent is the distributed-guessing row |
+| Account enumeration | PGLITE | PASS — refused, throttled and right-but-throttled answers name no account |
+| The data journeys against a real database (KL-1 residual) | RIG | **128/128** on four projects, with and without the 27-Oct migrations; one real defect found and fixed on the way (JP-26) |
+
+**Still not executed:** WebKit projects (KL-3 here); a real phone; production (never an automated target).

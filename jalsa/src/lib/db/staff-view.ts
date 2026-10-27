@@ -171,7 +171,8 @@ function shapeKot(bill: Bill, k: Bill['kots'][number]): StaffKotView {
   };
 }
 
-export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayload> {
+/** `catalog`: the catalog counter the route read first, for the catalog cache; null reads fresh. */
+export async function buildStaffPayload(staff: SignedInStaff, catalog: string | null = null): Promise<StaffPayload> {
   const restaurantId = await currentRestaurantId();
   // Read once and shared with the floor, which shows the same bills and requests.
   const shared = { bills: early(listOpenBills()), requests: early(listOpenRequests()) };
@@ -179,8 +180,8 @@ export async function buildStaffPayload(staff: SignedInStaff): Promise<StaffPayl
     listFloor(shared),
     shared.bills,
     shared.requests,
-    listMenu(),
-    readAllSettings(),
+    listMenu(catalog),
+    readAllSettings(catalog),
     // Names and roles only, for the waiter picker - the same predicate the server checks (G1).
     db()
       .from('staff')
