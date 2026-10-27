@@ -65,3 +65,10 @@ Run **Track B** ([workflows/enhance.md](../../workflows/enhance.md)) with this r
 - Track B modifies surgically: every changed line traces to the request.
 - A behaviour change carries its test cases and fail-first evidence.
 - Close out with `checklists/DEFINITION_OF_DONE.md`, then the test gate.
+
+## REVIEW ROUND (27-Oct-2026 - appended; the sections above are kept as written)
+- code-reviewer and permission-reviewer: no server path refused. Decision 1's grant set narrowed where every
+  call site was traced: `audit_entry` SELECT/INSERT/DELETE, `change_version` and `restaurant` SELECT/UPDATE
+  (answer 3 above is superseded for these three). The remaining 27 tables keep all four verbs.
+- The spec now enforces what the migration header promises (sequences, functions, default privileges, the
+  source's own `.from`/`.rpc` calls).

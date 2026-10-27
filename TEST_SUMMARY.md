@@ -2,6 +2,12 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-27 - Explicit Data API grants, review round - PASS except G8 (unchanged)
+
+Request: `jalsa/requests/2026-10-27-supabase-data-api-grants.md`. The migration (still unapplied everywhere) narrowed `audit_entry`, `change_version` and `restaurant` to the verbs every call site uses; the spec gained five rungs (callable-function inventory, FK set-null without UPDATE, serial sequences, default privileges, a source scan of `.from`/`.rpc`) and a corrected PUBLIC check. Unit 1711 passed; tsc, lint OK; G1-G7, G9-G12 PASS; G8 16 failed / 32 did not run / 80 passed, identical to the pre-fix set. Real PostgreSQL 16: 39/39, fresh and existing identical.
+
+FAIL-FIRST: jalsa/tests/unit/data-api-grants.db.unit.spec.ts (review round) - injected defects (unnarrowed migration; a PUBLIC-executable RPC; no sequence grant; no default-privilege revoke; a source file reading `sign_in_attempt`): the new rungs fail, 6 of 19 and 7 of 22 per injection set; details in `jalsa/TEST_SUMMARY.md`.
+
 ## Application run - jalsa - 2026-10-27 - Explicit Data API grants before Supabase's 30-Oct change - PASS except G8 (unchanged)
 
 Request: `jalsa/requests/2026-10-27-supabase-data-api-grants.md`. Migration `20261027120000_jalsa_explicit_data_api_grants.sql` written and proven on PGlite and a disposable PostgreSQL 16; NOT applied to any Supabase project (awaits the owner). Root cause: RC-029.

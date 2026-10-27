@@ -7,6 +7,48 @@ _Newest run first. Append-only: never overwrite a prior run._
 ## Gate run - 2026-10-27 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.
+Time: 4m 48s total - slowest G8 Functional / integration (2m 15s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (41ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (37ms)
+- **G3 Theme assets present per theme** - PASS (38ms)
+- **G4 No hard-coded colours** - PASS (78ms)
+- **G5 Types** - PASS (2.9s)
+- **G6 Lint** - PASS (16.9s)
+- **G7 Unit + pure specs** - PASS (2m 09s)
+- **G8 Functional / integration** - FAIL (2m 15s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (55ms)
+- **G10 Backward compatibility (fixtures)** - PASS (2.7s)
+- **G11 Wide tables are configurable** - PASS (49ms)
+- **G12 Installable as an application** - PASS (65ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-10-27 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
 Time: 5m 06s total - slowest G8 Functional / integration (2m 21s).
 Application steps ran in .
 
@@ -43,6 +85,17 @@ Application steps ran in .
 - **G12 Installable as an application** - PASS (71ms)
 
 _Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-27 - Explicit Data API grants - review round (code-reviewer, permission-reviewer) - evidence for the gate run above
+
+Neither reviewer found a server path the migration refuses. Acted on: three tables narrowed to the verbs every call site uses (`audit_entry` SELECT/INSERT/DELETE - never rewritten; `change_version` and `restaurant` SELECT/UPDATE); the spec now enforces what the migration header promises (a new `serial` sequence without USAGE, a new verb on an existing table read from `.from(...)` in src/ and scripts/, an RPC still executable by PUBLIC, any default privilege in `public`); the PUBLIC check no longer reads a NULL ACL as "no PUBLIC" (`aclexplode(NULL)` returns nothing; now `acldefault`); MAINTAIN counted; sequences by relkind; the header's `supabase db reset` claim corrected. Not acted on, stated: the other 27 tables keep all four verbs (not proven unused one by one); `favourites.db.unit.spec.ts`'s revoke case no longer discriminates (the blanket revoke now covers it); the migration is not yet run through PostgREST (G8 on the rig).
+
+FAIL-FIRST: tests/unit/data-api-grants.db.unit.spec.ts (review round) - each case run alone. Injection set 1, both together - the committed (unnarrowed) migration AND `revoke ... sign_in_with_pin ... from public` removed from 20261027100000: 6 of 19 fail - the narrowed-grant rungs (fresh, existing, executed verbs), the new "nulls the audit trail's reference without UPDATE on audit_entry" (the UPDATE resolves), the RPC rung and the new "every callable function in public" rung. With the sequence grant and the default-privilege revokes removed and a probe file `src/zz-injected-probe.ts` reading `sign_in_attempt` and calling `zz_new_function`: 7 of 22 fail, the three new rungs among them, the source scan naming "src/zz-injected-probe.ts: SELECT sign_in_attempt". Every injection reverted; 22 of 22 pass on the final tree.
+
+- Real PostgreSQL 16, rebuilt with the revised migration: 39/39 apply on a fresh and an old-defaults database; privileges byte-identical; as service_role an UPDATE of `audit_entry` and a DELETE of `restaurant` are refused, an insert, the counter trigger and `next_number` work, and deleting a dining table nulls its audit row's `table_id` through the foreign key; `anon` is refused.
+- Unit tier: 1711 passed, 0 failed. tsc, lint: PASS. G8 re-run directly: 16 failed / 32 did not run / 80 passed - the failing set identical, test for test, to the pre-fix baseline.
 
 ---
 

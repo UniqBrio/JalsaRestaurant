@@ -12,16 +12,25 @@
 --   secret key every route handler uses (rule 3) - reached all 31 tables purely through that
 --   default. So the live development project keeps working, but ANY database built from these
 --   migrations after 30-Oct - production (not yet provisioned), staging, a preview branch, a
---   rebuilt test project, `supabase db reset` - would answer the server's first request with
+--   rebuilt test project - would answer the server's first request with
 --   `42501 permission denied for table restaurant`, and every surface would show its outage
---   screen. Measured on PGlite with no default privileges: tests/unit/data-api-grants.db.unit.spec.ts.
+--   screen. Measured on PGlite and on PostgreSQL 16 with no default privileges:
+--   tests/unit/data-api-grants.db.unit.spec.ts. (A Supabase CLI `db reset` would stop earlier, at
+--   00000000000000_reference_migration.sql, which references a `public.tenant` that does not
+--   exist; that predates this change and is not addressed here.)
 --   The migration not yet applied to development (20261027100000, sign_in_attempt) would land
 --   the same way if applied after 30-Oct.
 --
 -- THE MODEL (rule 3: the browser never speaks to Supabase)
---   service_role   SELECT, INSERT, UPDATE, DELETE on the 30 tables the server reaches through
---                  PostgREST (`db().from(...)`, src/lib/db/**) or writes as service_role from a
---                  SECURITY INVOKER trigger or RPC (change_version, via the bump triggers).
+--   service_role   SELECT, INSERT, UPDATE, DELETE on the 27 tables the server reaches through
+--                  PostgREST (`db().from(...)`, src/lib/db/**). Narrower where every call site was
+--                  traced (permission review, 27-Oct-2026):
+--                    audit_entry     SELECT, INSERT, DELETE - the record of who did what is never
+--                                    rewritten; DELETE only because scripts/reset-test-db.mjs
+--                                    empties it on the TEST project.
+--                    change_version  SELECT, UPDATE - read by the routes, bumped as service_role by
+--                                    the SECURITY INVOKER counter triggers; its two rows are seeded.
+--                    restaurant      SELECT, UPDATE - the one row is seeded; the owner edits it.
 --                  Not TRUNCATE, REFERENCES, TRIGGER or MAINTAIN: PostgREST cannot use them and
 --                  the server never asks.
 --                  number_series: SELECT, UPDATE only. The application draws numbers through
@@ -59,13 +68,15 @@
 --
 -- THE RULE FOR THE NEXT TABLE: grant it, in the migration that creates it, to service_role, with
 -- the verbs the server uses - and classify it in tests/unit/data-api-grants.db.unit.spec.ts,
--- which fails until you do.
+-- which fails until you do. The same spec reads `.from(...)`/`.rpc(...)` in src/ and scripts/, so
+-- a new verb on an existing table, a `serial` sequence without USAGE, or an RPC still executable
+-- by PUBLIC fails there too.
 --
 -- ROLLBACK (restores the pre-30-Oct state exactly; never needed for the server to work):
 --   alter default privileges for role postgres in schema public grant all on tables    to anon, authenticated, service_role;
 --   alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
 --   alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;
---   grant all on all tables    in schema public to anon, authenticated, service_role;
+--   grant all on all tables    in schema public to anon, authenticated, service_role;   -- also restores audit_entry UPDATE etc.
 --   grant all on all sequences in schema public to anon, authenticated, service_role;
 --   revoke all on public.guest_favourite, public.sign_in_attempt from anon, authenticated;
 -- ============================================================================================
@@ -78,14 +89,12 @@ revoke all on all sequences in schema public from anon, authenticated, service_r
 
 -- ---- 2. The server: the four verbs PostgREST uses, on the tables it reaches -----------------
 grant select, insert, update, delete on table
-  public.audit_entry,
   public.bill,
   public.bill_table,
   public.bridge_discovered_printer,
   public.bridge_pairing_code,
   public.bridge_printer,
   public.bridge_token,
-  public.change_version,            -- written as service_role by the INVOKER bump triggers
   public.dining_table,
   public.expense,
   public.guest_attribution,
@@ -99,7 +108,6 @@ grant select, insert, update, delete on table
   public.menu_item,
   public.print_job,
   public.printer,
-  public.restaurant,
   public.setting,
   public.staff,
   public.staff_permission,
@@ -109,6 +117,14 @@ grant select, insert, update, delete on table
   public.tip,
   public.waitlist_entry
 to service_role;
+
+-- Inserted by mutations.ts, bridge-pairing.ts and the INVOKER RPCs; read by the owner's log. Never
+-- updated. DELETE for scripts/reset-test-db.mjs only (test project).
+grant select, insert, delete on table public.audit_entry to service_role;
+-- Read by every route's first round; bumped by the INVOKER counter triggers, as service_role.
+grant select, update on table public.change_version to service_role;
+-- One seeded row: read everywhere, updated from the owner's settings (owner-mutations.ts).
+grant select, update on table public.restaurant to service_role;
 
 -- Drawn through SECURITY DEFINER next_number(); rewound by scripts/reset-test-db.mjs.
 grant select, update on table public.number_series to service_role;

@@ -65,6 +65,16 @@ const SERVER: Record<string, string[]> = Object.fromEntries(
 );
 /** Drawn only through SECURITY DEFINER next_number(); scripts/reset-test-db.mjs rewinds it by PostgREST. */
 SERVER.number_series = ['SELECT', 'UPDATE'];
+/*
+ * Narrowed after the permission review (27-Oct-2026, before the migration was applied anywhere;
+ * these three previously expected CRUD): every call site traced, these verbs are never used.
+ */
+/** Inserted and read, never rewritten; DELETE only for scripts/reset-test-db.mjs on the test project. */
+SERVER.audit_entry = ['DELETE', 'INSERT', 'SELECT'];
+/** Read by the routes; bumped by the INVOKER counter triggers. Its rows are seeded. */
+SERVER.change_version = ['SELECT', 'UPDATE'];
+/** One seeded row: read everywhere, updated from the owner's settings. */
+SERVER.restaurant = ['SELECT', 'UPDATE'];
 
 /** Reached only inside SECURITY DEFINER functions: no API role holds anything on them. */
 const INTERNAL = ['sign_in_attempt'];
@@ -91,16 +101,16 @@ async function build(defaults: string): Promise<PGlite> {
   return db;
 }
 
-type Grant = { obj: string; role: string; privs: string[] };
+type Grant = { obj: string; kind: string; role: string; privs: string[] };
 
 /** Effective privileges (PUBLIC and membership included) of every API role on every public relation. */
 async function grants(db: PGlite): Promise<Grant[]> {
   return (
     await db.query<Grant>(`
-      select c.relname obj, r.role,
+      select c.relname obj, c.relkind::text kind, r.role,
              array(select p from unnest(case when c.relkind = 'S'
                                              then array['SELECT','UPDATE','USAGE']
-                                             else array['DELETE','INSERT','REFERENCES','SELECT','TRIGGER','TRUNCATE','UPDATE'] end) p
+                                             else array['DELETE','INSERT','MAINTAIN','REFERENCES','SELECT','TRIGGER','TRUNCATE','UPDATE'] end) p
                    where case when c.relkind = 'S' then has_sequence_privilege(r.role, c.oid, p)
                               else has_table_privilege(r.role, c.oid, p) end
                    order by p) privs
@@ -108,7 +118,7 @@ async function grants(db: PGlite): Promise<Grant[]> {
         join pg_namespace n on n.oid = c.relnamespace
        cross join unnest(array['anon','authenticated','service_role']) r(role)
        where n.nspname = 'public' and c.relkind in ('r','p','v','m','f','S')
-       order by 1, 2`)
+       order by c.relname, r.role`)
   ).rows;
 }
 
@@ -184,7 +194,7 @@ for (const [label, get] of [['fresh', () => fresh], ['existing', () => existing]
   });
 
   test(`${label}: service_role may draw the audit sequence, and holds no other sequence`, async () => {
-    const seqs = (await grants(get())).filter((g) => g.role === 'service_role' && g.obj.endsWith('_seq'));
+    const seqs = (await grants(get())).filter((g) => g.role === 'service_role' && g.kind === 'S');
     expect(seqs.length).toBeGreaterThan(0);
     for (const s of seqs) expect(s.privs, s.obj).toEqual(SERVER_SEQUENCES.includes(s.obj) ? ['USAGE'] : []);
   });
@@ -272,11 +282,137 @@ test('every server RPC is executable by service_role and by no browser role or P
                has_function_privilege('service_role', p.oid, 'execute') sr,
                has_function_privilege('anon', p.oid, 'execute') anon,
                has_function_privilege('authenticated', p.oid, 'execute') auth,
-               coalesce(exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0), true) pub
+               exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0) pub
           from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'public' and p.proname = any($1)`, [RPCS])
     ).rows;
     expect(rows.map((r) => r.proname).sort()).toEqual([...RPCS].sort());
     for (const r of rows) expect(r, r.proname).toEqual({ proname: r.proname, sr: true, anon: false, auth: false, pub: false });
   }
+});
+
+/* ── Added after the permission review (27-Oct-2026) ───────────────────────────────────────── */
+
+test('every callable function in public is a known server RPC, and none is executable by PUBLIC, anon or authenticated', async () => {
+  // PostgreSQL grants EXECUTE to PUBLIC on every new function, and nothing in the migrations'
+  // default privileges changes that - so a new RPC that forgets `revoke ... from public` would be
+  // callable with the publishable key. Trigger functions are excluded: they cannot be called directly.
+  for (const db of [fresh, existing]) {
+    const rows = (
+      await db.query<{ proname: string; anon: boolean; auth: boolean; pub: boolean }>(`
+        select p.proname,
+               has_function_privilege('anon', p.oid, 'execute') anon,
+               has_function_privilege('authenticated', p.oid, 'execute') auth,
+               exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0) pub
+          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype`)
+    ).rows;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.map((r) => r.proname).sort()).toEqual([...RPCS].sort());
+    expect(rows.filter((r) => r.anon || r.auth || r.pub)).toEqual([]);
+  }
+});
+
+test('a delete by service_role still nulls the audit trail\'s reference without UPDATE on audit_entry', async () => {
+  // audit_entry.table_id is ON DELETE SET NULL; the referential action runs as the table's owner.
+  const restaurant = (await fresh.query<{ id: string }>(`select id from public.restaurant limit 1`)).rows[0]!.id;
+  const table = (await fresh.query<{ id: string }>(
+    `insert into public.dining_table (restaurant_id, name) values ($1, 'ZZ-probe') returning id`, [restaurant])).rows[0]!.id;
+  const entry = (await fresh.query<{ id: string }>(
+    `insert into public.audit_entry (restaurant_id, action, actor_label, table_id) values ($1, 'probe', 'spec', $2) returning id`,
+    [restaurant, table])).rows[0]!.id;
+  try {
+    await expect(as(fresh, 'service_role', `update public.audit_entry set detail = 'x' where id = $1`, [entry])).rejects.toThrow(/permission denied/);
+    await as(fresh, 'service_role', `delete from public.dining_table where id = $1`, [table]);
+    const after = (await fresh.query<{ table_id: string | null }>(`select table_id from public.audit_entry where id = $1`, [entry])).rows[0]!;
+    expect(after.table_id).toBeNull();
+  } finally {
+    await fresh.query(`delete from public.audit_entry where id = $1`, [entry]);
+    await fresh.query(`delete from public.dining_table where id = $1`, [table]);
+  }
+});
+
+/* ── Added after the code review (27-Oct-2026): enforce what the migration header promises ──── */
+
+test('every sequence a column default draws from, on a table the server inserts into, is usable by service_role', async () => {
+  // A new `bigserial` table granted CRUD would otherwise pass every rung above and fail its first
+  // real insert with `permission denied for sequence`. Identity columns have no default and need nothing.
+  for (const db of [fresh, existing]) {
+    const rows = (
+      await db.query<{ seq: string; tbl: string; ins: boolean; usage: boolean }>(`
+        select distinct s.relname seq, t.relname tbl,
+               has_table_privilege('service_role', t.oid, 'INSERT') ins,
+               has_sequence_privilege('service_role', s.oid, 'USAGE') usage
+          from pg_attrdef ad
+          join pg_depend d on d.classid = 'pg_attrdef'::regclass and d.objid = ad.oid and d.refclassid = 'pg_class'::regclass
+          join pg_class s on s.oid = d.refobjid and s.relkind = 'S'
+          join pg_class t on t.oid = ad.adrelid
+          join pg_namespace n on n.oid = t.relnamespace
+         where n.nspname = 'public'`)
+    ).rows;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.filter((r) => r.ins && !r.usage)).toEqual([]);
+    expect(rows.filter((r) => r.ins).map((r) => r.seq).sort()).toEqual([...SERVER_SEQUENCES].sort());
+  }
+});
+
+test('no default privilege in public grants anything to an API role, for any kind of object', async () => {
+  // The probe above creates only a table; this covers the sequence and function defaults too.
+  for (const db of [fresh, existing]) {
+    const rows = (
+      await db.query<{ objtype: string; grantee: string }>(`
+        select d.defaclobjtype::text objtype, a.grantee::regrole::text grantee
+          from pg_default_acl d
+          join pg_namespace n on n.oid = d.defaclnamespace
+         cross join aclexplode(d.defaclacl) a
+         where n.nspname = 'public' and a.grantee in ('anon'::regrole, 'authenticated'::regrole, 'service_role'::regrole)`)
+    ).rows;
+    expect(rows).toEqual([]);
+  }
+});
+
+/**
+ * What the server's code actually asks of each table, read from the source - so a new
+ * `.from('number_series').insert(...)` or `.rpc('new_function')` fails here, not in production.
+ */
+const SOURCE_ROOTS = ['../../src', '../../scripts'].map((p) => fileURLToPath(new URL(p, import.meta.url)));
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = `${dir}/${e.name}`;
+    if (e.isDirectory()) return e.name === 'perf' ? [] : sourceFiles(full); // the perf rig talks to the app, not PostgREST
+    return /\.(ts|tsx|mjs)$/.test(e.name) ? [full] : [];
+  });
+}
+const VERB_OF: Record<string, string[]> = {
+  select: ['SELECT'], insert: ['INSERT'], update: ['UPDATE'], delete: ['DELETE'], upsert: ['INSERT', 'UPDATE'],
+};
+
+test('every table and RPC the source names is classified, with every verb it uses granted', async () => {
+  const uses: Array<{ file: string; table: string; verbs: string[] }> = [];
+  const rpcs = new Set<string>();
+  const dynamic: string[] = [];
+  for (const file of SOURCE_ROOTS.flatMap(sourceFiles)) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/(\.storage\s*)?\.from\(\s*'([a-z_]+)'\s*\)/g)) {
+      if (m[1]) continue; // a storage bucket, not a table
+      const chain = text.slice(m.index! + m[0].length, m.index! + m[0].length + 3000).split(';')[0]!;
+      const first = [...chain.matchAll(/\.(select|insert|update|upsert|delete)\(/g)][0];
+      uses.push({ file, table: m[2]!, verbs: first ? VERB_OF[first[1]!]! : ['?'] });
+    }
+    for (const m of text.matchAll(/\.rpc\(\s*'([a-z_]+)'/g)) rpcs.add(m[1]!);
+    for (const m of text.matchAll(/\bdb(?:\(\))?\.from\(\s*([a-zA-Z_][\w.]*)\s*\)/g)) dynamic.push(`${file.split('/jalsa/')[1]}:${m[1]}`);
+  }
+  expect(uses.length).toBeGreaterThan(100); // a scan that matched nothing is not a clean result
+  expect(rpcs.size).toBeGreaterThan(0);
+
+  // The one dynamic call: scripts/reset-test-db.mjs empties a fixed list of tables with DELETE.
+  expect(dynamic).toEqual(['scripts/reset-test-db.mjs:table']);
+  const reset = readFileSync(`${SOURCE_ROOTS[1]}/reset-test-db.mjs`, 'utf8').match(/for \(const table of \[([^\]]+)\]\)/)![1]!;
+  const resetTables = [...reset.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!);
+  expect(resetTables.length).toBeGreaterThan(0);
+  for (const table of resetTables) uses.push({ file: 'scripts/reset-test-db.mjs', table, verbs: ['DELETE'] });
+
+  const refused = uses.filter((u) => !u.verbs.every((v) => (SERVER[u.table] ?? []).includes(v)));
+  expect(refused.map((u) => `${u.file.split('/jalsa/').pop()}: ${u.verbs.join('+')} ${u.table}`)).toEqual([]);
+  expect([...rpcs].sort()).toEqual([...RPCS].sort());
 });

@@ -98,6 +98,11 @@ functions' privileges, never the tables'; and the rig emulated the dependency it
 for this app (the spec and the rig); the framework-update workflow was not run - recorded as a candidate for the
 framework's migration checklist.
 
+**Revised (27-Oct-2026, review, before any apply)** — `audit_entry` lost UPDATE, `change_version` and `restaurant`
+lost INSERT/DELETE (every call site traced); the spec now also reads `.from(...)`/`.rpc(...)` in `jalsa/src` and
+`jalsa/scripts`, derives `serial` sequences from column defaults, and refuses any default privilege in `public`, so
+the Prevention line above covers new verbs, sequences and functions, not only new tables.
+
 ---
 
 ## RC-028 — A guest's tap on + was lost when an earlier save answered between taps
