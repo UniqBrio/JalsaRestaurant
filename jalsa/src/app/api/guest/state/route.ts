@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handler, ok, fail } from '@/lib/route';
 import { buildGuestPayload } from '@/lib/db/guest-view';
-import { guestStamp, STAMP_HEADER, UNCHANGED } from '@/lib/db/change-stamp';
+import { guestVersions, STAMP_HEADER, UNCHANGED } from '@/lib/db/change-stamp';
 import { readGuestToken } from '@/lib/sessions';
 
 /**
@@ -24,12 +24,13 @@ export const GET = handler(async (req: Request): Promise<NextResponse> => {
 
   // "Has anything this table shows changed since the stamp I hold?" — one round, and when the
   // answer is no, the only one (change-stamp.ts). Read BEFORE the screen, never beside it.
-  const stamp = await guestStamp(table, await readGuestToken());
+  // The catalog counter it reads keys the catalog cache for the build below (catalog-cache.ts).
+  const { stamp, catalog } = await guestVersions(table, await readGuestToken());
   const init: ResponseInit = stamp ? { headers: { [STAMP_HEADER]: stamp } } : {};
   const since = params.get('since');
   if (stamp && since === stamp) return ok(UNCHANGED, init);
 
-  const payload = await buildGuestPayload(table);
+  const payload = await buildGuestPayload(table, catalog);
   if (!payload) {
     return fail(404, {
       code: 'not-found',

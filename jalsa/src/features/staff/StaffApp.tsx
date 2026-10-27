@@ -48,12 +48,13 @@ export interface StaffScreenProps {
   runBusy: (fn: () => Promise<void>) => void;
 }
 
-export function StaffApp({ initial }: { initial: StaffPayload }) {
+export function StaffApp({ initial, initialStamp = null }: { initial: StaffPayload; initialStamp?: string | null }) {
   const router = useRouter();
   const toast = useToast();
   const { data, staleReason, send } = useLiveData<StaffPayload>('/api/staff/state', initial, 6000, {
     // A KOT's "waiting N min" moves with the clock, not the data: read in full once a minute.
     fullEveryMs: 60_000,
+    initialStamp,
   });
 
   const [tab, setTab] = React.useState<StaffTab>(initial.isWaiter ? 'ready' : 'floor');

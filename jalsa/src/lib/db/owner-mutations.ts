@@ -10,7 +10,7 @@ import { printsKind } from '@/lib/print-routing';
 import { normalizeRoles, rolesLabel } from '@/lib/printer-roles';
 import { audit, ensureOpenBill, nextNumber, type Actor } from './mutations';
 import { openBillForTable } from './queries';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { checkReviewLink } from '@/lib/review-link';
 import { IMAGE_CONTENT_TYPE, IMAGE_MESSAGES, MAX_IMAGE_BYTES, imageProblem, isMediaUrl, sniffImage, type MediaFolder } from '@/lib/media';
 import { hashToken } from '@/lib/bridge-token';
@@ -640,7 +640,8 @@ export async function issuePin(input: { staffId: string; actor: Actor }): Promis
   };
   let pin = '';
   for (let tries = 0; ; tries += 1) {
-    pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    // A credential, so the CSPRNG (26-Oct-2026 audit, SEC-05) - `randomInt` is uniform, no modulo bias.
+    pin = String(randomInt(10000)).padStart(4, '0');
     if (banned.has(pin)) continue;
     if (!(await heldByAnother(pin))) break;
     if (tries > 50) throw new Error('A free PIN could not be drawn. Try again.');

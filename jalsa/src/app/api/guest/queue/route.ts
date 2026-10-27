@@ -59,7 +59,14 @@ export const POST = handler(async (req: Request): Promise<NextResponse> => {
       }
       throw err;
     }
-    jar.set(COOKIE, id, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: A_DAY });
+    // Secure in production like every other cookie here (26-Oct-2026 audit, SEC-06).
+    jar.set(COOKIE, id, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: A_DAY,
+    });
     return ok({ entry: await readQueueEntry(id) });
   }
 

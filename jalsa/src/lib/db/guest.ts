@@ -103,9 +103,12 @@ export function early<T>(p: Promise<T>): Promise<T> {
   return p;
 }
 
-/** The menu and the settings: needed on every guest screen, keyed on nothing. */
-export function startGuestReads(): GuestPrefetch {
-  return { menu: early(listMenu()), settings: early(readAllSettings()) };
+/**
+ * The menu and the settings: needed on every guest screen, keyed on nothing. `catalog`, when the
+ * caller read the counter first, lets them come from the catalog cache (catalog-cache.ts).
+ */
+export function startGuestReads(catalog: string | null = null): GuestPrefetch {
+  return { menu: early(listMenu(catalog)), settings: early(readAllSettings(catalog)) };
 }
 
 function rescanFrom(settings: Record<string, Record<string, unknown>>): number {

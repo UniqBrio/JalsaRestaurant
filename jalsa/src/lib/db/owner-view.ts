@@ -357,7 +357,12 @@ function shapeBill(b: Bill, taxRate: number): OwnerBillView {
   };
 }
 
-export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string): Promise<OwnerPayload> {
+/** `catalog`: the catalog counter the route read first, for the catalog cache; null reads fresh. */
+export async function buildOwnerPayload(
+  staff: SignedInStaff,
+  qrOrigin: string,
+  catalog: string | null = null
+): Promise<OwnerPayload> {
   // Read once and shared with the floor and the staff list, which show the same bills.
   const shared = { bills: early(listOpenBills()), requests: early(listOpenRequests()) };
   const [
@@ -382,14 +387,14 @@ export async function buildOwnerPayload(staff: SignedInStaff, qrOrigin: string):
     pairing,
     grantsRes,
   ] = await Promise.all([
-    readRestaurant(),
-    readAllSettings(),
+    readRestaurant(catalog),
+    readAllSettings(catalog),
     listFloor(shared),
     shared.bills,
     listClosedBillsToday(),
     shared.requests,
     listSuggestions(),
-    listMenu(),
+    listMenu(catalog),
     listStaff(shared),
     listTips(),
     listExpenses(),

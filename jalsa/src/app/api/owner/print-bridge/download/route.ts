@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { NextResponse } from 'next/server';
 import { fail, handler } from '@/lib/route';
-import { currentStaff } from '@/lib/db/auth';
+import { PROVISIONAL_REFUSAL, currentStaff } from '@/lib/db/auth';
 import { currentBridgeDownload } from '@/lib/print-bridge-artifact';
 import { BRIDGE_PACKAGE_FILENAME, DOWNLOAD_UNAVAILABLE } from '@/lib/print-bridge-download';
 
@@ -19,6 +19,9 @@ import { BRIDGE_PACKAGE_FILENAME, DOWNLOAD_UNAVAILABLE } from '@/lib/print-bridg
 export const GET = handler(async (): Promise<NextResponse> => {
   const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in with your PIN before doing that.' });
+  // Rule 5, on the reads as well as the writes (26-Oct-2026 audit, SEC-02): an issued PIN opens
+  // "choose your own PIN" and nothing else.
+  if (staff.provisional) return fail(403, { code: 'forbidden', message: PROVISIONAL_REFUSAL });
   if (!staff.grants.can('set.printer')) {
     return fail(403, {
       code: 'forbidden',

@@ -52,3 +52,19 @@ export function withoutDraft(draft: CartDraft, itemId: string): CartDraft {
   delete next[itemId];
   return next;
 }
+
+/**
+ * A write for this row has answered: drop the draft only if the draft is still the quantity THAT
+ * write carried.
+ *
+ * WHY NOT `withoutDraft` (27-Oct-2026)
+ *   Taps more than the collapse window apart send more than one write. The first answer used to
+ *   drop the row's draft outright — including the newer quantity tapped while it was in flight —
+ *   so the row fell back to the server's older figure, and the next + counted up from THAT. On
+ *   the rig under load: three taps showed 2, and the third was never anywhere (functional spec
+ *   `a tap lands on the row at once`, red 2 of 2 full runs). A newer intention is left in place;
+ *   the write that carries it settles it, on success or failure alike.
+ */
+export function settleDraft(draft: CartDraft, itemId: string, answeredQty: number): CartDraft {
+  return draft[itemId] === answeredQty ? withoutDraft(draft, itemId) : draft;
+}

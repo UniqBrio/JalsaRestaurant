@@ -176,6 +176,10 @@ test('every table a screen reads is watched by a counter — asked of the databa
     dataLayer.flatMap((src) => [...src.matchAll(/\.from\('([a-z_]+)'\)/g)].map((m) => m[1] ?? ''))
   );
   expect(read.size, 'the scan found the data layer').toBeGreaterThan(15);
+  /* SUPERSEDED 27-Oct-2026: the function list below named only bump_change_version,
+     bill_version_from_child and bill_version_self. Migration 20261027090000 moved the
+     statement-level counters to bump_change_version_if_rows (zero-row statements move nothing); a
+     table it watches is watched. Proven separately in change-counters-zero-rows.db.unit.spec.ts. */
   const watched = new Set(
     (
       await db.query<{ t: string }>(`
@@ -184,7 +188,7 @@ test('every table a screen reads is watched by a counter — asked of the databa
           join pg_class c on c.oid = g.tgrelid
           join pg_proc p on p.oid = g.tgfoid
          where not g.tgisinternal
-           and p.proname in ('bump_change_version', 'bill_version_from_child', 'bill_version_self')`)
+           and p.proname in ('bump_change_version', 'bump_change_version_if_rows', 'bill_version_from_child', 'bill_version_self')`)
     ).rows.map((r) => r.t)
   );
   const missing = [...read].filter((t) => !watched.has(t) && !(t in UNWATCHED));

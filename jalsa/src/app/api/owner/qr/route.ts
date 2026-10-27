@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fail, handler } from '@/lib/route';
 import { publicConfig } from '@/lib/config';
-import { currentStaff } from '@/lib/db/auth';
+import { PROVISIONAL_REFUSAL, currentStaff } from '@/lib/db/auth';
 import { blockTablePosterSvg, brandedQrSvg, svgHeaders } from '@/lib/qr-svg';
 import { currentRestaurantId, db } from '@/lib/supabase/server';
 import { restaurantLogo } from '@/lib/db/restaurant-logo';
@@ -24,6 +24,9 @@ import { restaurantLogo } from '@/lib/db/restaurant-logo';
 export const GET = handler(async (req: Request): Promise<NextResponse> => {
   const staff = await currentStaff('owner');
   if (!staff) return fail(401, { code: 'unauthenticated', message: 'Sign in to view a table code.' });
+  // Rule 5, on the reads as well as the writes (26-Oct-2026 audit, SEC-02): an issued PIN opens
+  // "choose your own PIN" and nothing else.
+  if (staff.provisional) return fail(403, { code: 'forbidden', message: PROVISIONAL_REFUSAL });
   /* The same grant governs both: `tables.qr` is "may see the printable codes", and the entrance
      code is one of them. A separate permission would be a second answer to one question. */
   if (!staff.grants.can('tables.qr')) {

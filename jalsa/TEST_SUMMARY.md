@@ -4,6 +4,215 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-10-27 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 5m 24s total - slowest G8 Functional / integration (2m 18s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (49ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (52ms)
+- **G3 Theme assets present per theme** - PASS (47ms)
+- **G4 No hard-coded colours** - PASS (81ms)
+- **G5 Types** - PASS (23.0s)
+- **G6 Lint** - PASS (25.6s)
+- **G7 Unit + pure specs** - PASS (2m 13s)
+- **G8 Functional / integration** - PASS (2m 18s)
+- **G9 Automation addressability** - PASS (53ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (74ms)
+- **G12 Installable as an application** - PASS (65ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
+## 2026-10-27 - Performance, security validation and delivery, round 3 - interim (gate run follows)
+
+Request: `requests/2026-10-27-performance-security-delivery.md`. Report: `docs/audit/PERFORMANCE_OPTIMIZATION_REPORT.md`. Migrations written, proven on the rig and PGlite, NOT applied outside the rig: `20261027090000`, `20261027090100`, `20261027100000`.
+
+- The 16 G8 failures, against a seeded Postgres (the performance rig, functional tier on desktop, desktop-wide, mobile, mobile-short): 127/128 red twice on `guest-total-visibility` > `a tap lands on the row at once` (a real defect, RC-028); after the fix 128/128 x3; 128/128 again with the 27-Oct migrations applied and with them absent.
+- Unit + render before the page change: 2061 passed, 2 failed (both brittle pins superseded in place, below), 4 did not run (serial followers of one of them); the two re-run: 28 passed. After the page change, the two specs it touches: 22 passed.
+- tsc, lint: OK. npm audit (prod and all): 0.
+
+FAIL-FIRST: tests/unit/cart-draft-settle.unit.spec.ts - against the pre-fix GuestApp: 1 of 3 fail - "GuestApp settles a row only by its own write" (the unconditional `withoutDraft` drop matched). The functional rung `a tap lands on the row at once` was red 2 of 2 full runs on the rig before the fix (Expected "3", Received "2").
+NOT OBSERVED FAILING: tests/unit/cart-draft-settle.unit.spec.ts "an older write answering does not erase a newer tap" and "the write carrying the shown figure settles it" - they exercise the new `settleDraft`, which did not exist before.
+FAIL-FIRST: tests/unit/request-reduction.unit.spec.ts - against the pre-change tree: 5 of 14 fail - every read touched all five catalog tables (cold/unchanged/moved/floor-only rungs), the owner's full read took 3 rounds and read `bridge_discovered_printer`, the routes did not read `readVersions()` first.
+NOT OBSERVED FAILING: tests/unit/request-reduction.unit.spec.ts - the five cache-rule rungs (new module), "every read answered", "without a counter ... every read is fresh", the menu-shaping and the echo rungs - they pin behaviour the change keeps or a module that did not exist.
+FAIL-FIRST: tests/unit/change-counters-zero-rows.db.unit.spec.ts - with the two 27-Oct trigger migrations held back, each rung alone: 3 of 6 fail - statement triggers still call `bump_change_version`, seven zero-row statements moved the floor, the four functions have no search_path.
+NOT OBSERVED FAILING: tests/unit/change-counters-zero-rows.db.unit.spec.ts "every table and scope ... still moves the same scopes" and "a statement that changed rows moves exactly the scopes" pin preserved behaviour; "the documented rollback" holds trivially without the change (nothing to roll back).
+FAIL-FIRST: tests/unit/sign-in-throttle.db.unit.spec.ts - with `20261027100000` held back: the first rung fails (relation "sign_in_attempt" does not exist), 14 did not run (serial).
+FAIL-FIRST: tests/unit/sign-in-throttle.unit.spec.ts - against the pre-change auth, route and sessions: 3 fail (the scenario cannot build without `SignInThrottled`; the per-process window still in the route), 3 did not run; 2 pass (network-key, a new module).
+FAIL-FIRST: tests/unit/same-origin.unit.spec.ts - against the pre-change `handler()`: 1 of 4 fails (no `isCrossSiteWrite` before `await fn`); the three rule rungs exercise the new module.
+FAIL-FIRST: tests/render/data-table-first-rows.render.spec.ts - against the pre-change DataTable: 1 of 3 fails - the first commit held 57 rows (Expected 24); the other two pin the resulting table, which is unchanged by design.
+- Superseded in place (contract changes, dated notes in each file): `change-versions.db.unit` (counter function list), `table-move.db.unit` (assumed its migration was the newest), `security-audit-26oct.unit` SEC-01 (first database call is now `checkPin`), `navigation-latency.unit` N-02 (`readVersions`).
+
+## Gate run - 2026-10-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 6m 01s total - slowest G8 Functional / integration (3m 15s).
+Application steps ran in .
+
+> **This run was avoidable.** The tree is byte-identical to the previous gate run, so this verdict was already known. The gate verifies a TREE, not a change: corrections landing in one commit share one verification, and only the last run describes what ships. Corrections in SEPARATE commits each need their own, so every commit is independently bisectable.
+
+- **G1 Theme artifacts in sync** - PASS (56ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (62ms)
+- **G3 Theme assets present per theme** - PASS (49ms)
+- **G4 No hard-coded colours** - PASS (96ms)
+- **G5 Types** - PASS (23.0s)
+- **G6 Lint** - PASS (27.0s)
+- **G7 Unit + pure specs** - PASS (1m 52s)
+- **G8 Functional / integration** - FAIL (3m 15s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (93ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.9s)
+- **G11 Wide tables are configurable** - PASS (71ms)
+- **G12 Installable as an application** - PASS (95ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-26 - Navigation latency, round 2 - PASS except G8 (unchanged, identical to the baseline)
+
+Request: `requests/2026-10-26-navigation-latency.md`. Findings, measurements and plan: `docs/audit/NAVIGATION_*`. No migration.
+
+- N-01: both PIN keypads are marked `aria-disabled` (dimmed, focusable) until React is attached (`useInteractive`). India 4G sign-ins that opened, same data: owner 10/20 -> 20/20 x3, captain 10/20 -> 20/20 x3.
+- N-02: owner and staff pages serve their change stamp; the first poll asks instead of rebuilding. Owner console first minute: 76 calls / 2 rebuilds -> 22 / 0.
+- N-03: the stale-print sweep reads before it writes (an empty UPDATE moved the floor counter: statement-level triggers).
+- N-04: the sign-in audit record is written in `after()`.
+- The gate run two below this one is the keypad built with `disabled`: G8 gained 3 `keyboard-signin` failures (a key focused before hydration lost its focus). Fixed by `aria-disabled`; the newest run above is that fix: G8 back to exactly the baseline's 16.
+- Full: unit + render 2014 passed (before the aria change); new rungs + `signin` + `keyboard-signin` 68 passed after it; tsc, lint OK; audit:all 10/10.
+- G8: 16 failed, 80 passed - `diff` against the unmodified tree's failing set: identical (the four data journeys that need a seeded database).
+
+FAIL-FIRST: tests/unit/navigation-latency.unit.spec.ts - against the pre-fix `src/` (only the new `useInteractive.ts` present): 7 of 8 fail - N-02 `newCheck` (Expected -2/+2, the served stamp ignored), N-02 /owner and /staff "identity and stamp read together" Expected > -1 Received -1, N-02 apps Expected pattern `initialStamp`, N-03 sweep "no UPDATE when nothing is stale" Expected [] Received 1 update (+11 lines), N-04 Expected > -1 Received -1, N-01 keypads Expected substring "const interactive = useInteractive();" (the rung later moved from `disabled` to `aria-disabled`; the pre-fix keypads have neither, so it fails them for the same reason).
+NOT OBSERVED FAILING: tests/unit/navigation-latency.unit.spec.ts "N-01: a control is not interactive in the server-rendered page" - it exercises the new `useInteractive` module itself, which did not exist before; there is no earlier state for it to fail on.
+FAIL-FIRST: tests/render/navigation-latency.render.spec.ts - against the pre-fix `src/`: 1 of 3 fail - "a screen served with its stamp" Expected "/api/probe/state?since=f1", Received "/api/probe/state".
+NOT OBSERVED FAILING: tests/render/navigation-latency.render.spec.ts "served without a stamp" and "after a write ... still reads in full" - they pin behaviour this change keeps; they held before by design.
+
+---
+
+## Gate run - 2026-10-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 6m 16s total - slowest G8 Functional / integration (3m 32s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (83ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (53ms)
+- **G3 Theme assets present per theme** - PASS (61ms)
+- **G4 No hard-coded colours** - PASS (107ms)
+- **G5 Types** - PASS (22.8s)
+- **G6 Lint** - PASS (25.4s)
+- **G7 Unit + pure specs** - PASS (1m 51s)
+- **G8 Functional / integration** - FAIL (3m 32s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (87ms)
+- **G10 Backward compatibility (fixtures)** - PASS (4.3s)
+- **G11 Wide tables are configurable** - PASS (74ms)
+- **G12 Installable as an application** - PASS (99ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## Gate run - 2026-10-26 - VERDICT: FAIL
+
+Steps: 11 pass, 1 fail, 0 blocked.
+Time: 6m 32s total - slowest G8 Functional / integration (3m 29s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (59ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (58ms)
+- **G3 Theme assets present per theme** - PASS (51ms)
+- **G4 No hard-coded colours** - PASS (112ms)
+- **G5 Types** - PASS (23.7s)
+- **G6 Lint** - PASS (27.4s)
+- **G7 Unit + pure specs** - PASS (2m 06s)
+- **G8 Functional / integration** - FAIL (3m 29s)
+
+```
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/test-failed-1.png
+    Error Context: test-results/closure-upsell-tip.functio-1a8e3-dding-never-moves-the-guest-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/test-failed-1.png
+    Error Context: test-results/guest-journey.functional-a-301a9--tips-—-and-the-data-agrees-desktop/error-context.md
+    Error: expect(locator).toBeVisible() failed
+    Expected: visible
+    Error: element(s) not found
+    test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/test-failed-1.png
+    Error Context: test-results/guest-total-visibility.fun-72182--for-it-and-stays-asked-for-desktop/error-context.md
+```
+
+- **G9 Automation addressability** - PASS (72ms)
+- **G10 Backward compatibility (fixtures)** - PASS (4.1s)
+- **G11 Wide tables are configurable** - PASS (77ms)
+- **G12 Installable as an application** - PASS (96ms)
+
+_Merge blocked. Every FAIL above must resolve. No partial merges._
+
+---
+
+## 2026-10-26 - Authentication, performance and security audit - PASS except G8 (unchanged, identical to the baseline)
+
+Request: `requests/2026-10-26-auth-performance-security-audit.md`. Findings and evidence: `docs/audit/`. No migration.
+
+- SEC-01: the shared setup PIN (`1234`; also `0000`, `1111`, `4321`) is refused at sign-in. 4 live accounts were on it (read-only count, production).
+- SEC-02: rule 5 at the 8 read routes that lacked it; a ratchet over every route that reads a staff session.
+- SEC-04/05/06: anti-framing, nosniff and referrer headers; CSPRNG for issued PINs; `Secure` queue cookie.
+- SEC-07: next 16.4.2, zod 4.6.7, sharp 0.35.5, source-map-js 1.2.2, brace-expansion - `npm audit`: 0 vulnerabilities (was 1 critical, 4 high).
+- PERF-02: sales report, expenses and net, tip ledger, expense ledger are paged (they stopped at 1,000 rows).
+- Full: unit 1631 passed (1619 existing + 12 new, 0 failed). tsc, lint OK. audit:all 10/10. `next build` OK on 16.4.2 (same two warnings as on 16.3.4).
+- G8: 16 failed, 80 passed - the four data-journey specs that need a seeded database (`reachability`, `guest-journey`, `guest-total-visibility`, `closure-upsell-tip`) x4 viewports. The UNMODIFIED tree (69b25c5, same container, same env) gives 16 failed, 80 passed, and the two failing sets are identical (`diff`: no difference). Not caused by this change; recorded as OPS-02.
+
+FAIL-FIRST: tests/unit/security-audit-26oct.unit.spec.ts - against the pre-fix `src/` (with only the pure `setup-pins.ts` present): 6 of 7 fail - SEC-01 "signInWithPin refuses a shared setup code" Expected > -1, Received -1; SEC-02 ratchet "routes that serve a provisional (issued-PIN) session" Expected [], Received 8 routes; SEC-02 exact refusal missing in `staff/state`; SEC-04 "a header rule covering every path" Received undefined; SEC-05 Expected substring "String(randomInt(10000))"; SEC-06 cookie pattern not matched.
+NOT OBSERVED FAILING: tests/unit/security-audit-26oct.unit.spec.ts "SEC-01: the shared setup codes are exactly the ones set_own_pin refuses" - a parity check between the new module and the migration; the module did not exist before, so there was no earlier state for it to fail on.
+FAIL-FIRST: tests/unit/security-audit-26oct.unit.spec.ts PERF-02 (pinned) - against the pre-fix `queries.ts`: 3 of 3 failed, Expected substring "const PAGE = 1000;" (listClosedBillsBetween, listTips, and - through a signature too loose, which matched it first - listExpensesBetween). Signatures then tightened to `name(`; with bills and tips fixed, listExpenses and listExpensesBetween failed on their unpaged bodies (2 of 2) before they were paged.
+FAIL-FIRST: tests/unit/security-audit-26oct.unit.spec.ts PERF-02 (executed, tests/support/rounds/paging.scenarios.ts) - against the pre-fix `queries.ts`: "a report or ledger larger than one PostgREST page is read whole" Expected 2007, Received 1000.
+
+---
+
 ## Gate run - 2026-10-22 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.

@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Faster and safer — 27-Oct-2026 — Fewer database calls, a fair sign-in limit, a quicker Menu (docs/audit/PERFORMANCE_OPTIMIZATION_REPORT.md)
+
+- **A guest's quick taps on + all count.** Tapping + slowly enough that the first tap was already saved could make the row jump back and lose a tap (three taps showed 2). Every tap now counts.
+- **Screens ask the database less.** The menu, the settings and the restaurant details are kept between refreshes until they actually change, so the owner console asks 25 questions instead of 31, a captain's phone 10 instead of 14 and a guest's phone 8 instead of 12. Change a dish and every screen shows it on its next refresh, as before.
+- **The owner console no longer waits on the print computer's printer list**, or on the once-a-minute check for stuck kitchen tickets, before it opens.
+- **The Menu opens faster on a slow phone.** The first screenful of dishes appears straight away and the rest follow a moment later, below the fold. On a slow phone the tap now reaches the screen in about 0.36 s instead of 0.47 s. Nothing on the screen looks different.
+- **Signing in: wrong PINs are limited per network, not for everyone at once.** Only PINs that did not work count, so a whole shift signing in together is never stopped. A phone or a computer that keeps guessing is stopped after five wrong PINs for 15 minutes (the restaurant's own wifi gets ten). The keypad says how long to wait. *Takes effect once the owner applies the new database update; until then the old limit stays.*
+- **A page on another website cannot make changes here**, even in a browser that would send our sign-in along.
+- **Database updates ready for the owner to apply** (not applied yet): screens stop refreshing when a check found nothing to change; four internal functions are locked to the right schema; the new sign-in limit.
+
+### Faster — 26-Oct-2026 — Sign-in on a slow phone, and screens rebuilt for nothing (docs/audit/NAVIGATION_*)
+
+- **The PIN keypad shows when it is ready.** On a slow phone the keypad appears about a second before it works. Taps made in that second used to vanish without a sign, so a PIN could be sent with a digit missing — or not sent at all, and the screen just waited. The keys are now dimmed until they work, then light up. On a modelled Indian 4G phone, sign-ins that reached their screen went from 10 in 20 to 20 in 20, in each of three runs. Both keypads: signing in, and choosing your own PIN.
+- **The owner console and the captain's floor no longer rebuild themselves straight after opening.** Signing in, opening or refreshing either one used to load its whole screen a second time a few seconds later. In the console's first minute that is 76 database requests down to 22.
+- **An empty print check no longer makes every screen reload.** A once-a-minute check for stuck kitchen tickets moved the "something changed" counter even when it found nothing, so every open console and captain phone reloaded its whole screen each minute. It now only writes when there is something to fix.
+- **Signing in no longer waits for its own record.** The "signed in" entry in the audit log is still written, just after the screen opens rather than before.
+
+### Security — 26-Oct-2026 — Audit fixes (docs/audit/)
+
+- **The shared setup PIN no longer signs anybody in.** `1234` (and `0000`, `1111`, `4321`) are refused at the keypad with the usual "That PIN did not work". Four accounts were still on `1234`; until the owner issues each of them a PIN (Staff → Generate PIN), they cannot sign in. Before this, anyone who typed `1234` could take one of those accounts over.
+- **An issued PIN opens only "Choose your own PIN" — now on every screen's data as well as its buttons.** The floor, the console, reports, table codes and the print-computer download refuse it too.
+- **Reports and ledgers are read in full.** The sales report, expenses and net, the tip ledger and the expense ledger stopped at the first 1,000 rows without saying so. They now read every row. Nothing changes until a range holds more than 1,000.
+- **Pages cannot be shown inside another site's frame**, and the browser is told not to guess file types or send full addresses to other sites.
+- An issued PIN is drawn from a secure random source; the entrance-queue cookie is sent over HTTPS only.
+- Next.js 16.4.2 and zod 4.6.7 (published security advisories, three of them critical for Next.js). `npm audit`: 0 vulnerabilities.
+
 ### Added — 22-Oct-2026 — Enable KOT Printing and Enable Invoice Printing
 
 - **Settings → Printers & machines → Overview** has two switches, **Enable KOT Printing** and **Enable Invoice Printing**. Both are on unless you turn them off, so printing works as before. Each switch works on its own: turning one on or off does not change the other. Both print on the printers you have already set up. A printer set to print kitchen tickets and bills prints both. There is no second printer setting.

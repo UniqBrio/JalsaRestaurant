@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import type { Surface } from '@/lib/cookie-names';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/states';
+import { useInteractive } from '@/hooks/useInteractive';
 
 /**
  * First use: choose your own PIN.
@@ -34,6 +35,8 @@ export function ChoosePin({ name, surface }: { name: string; surface: Surface })
   const [confirm, setConfirm] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  /* Marked unavailable until a tap can be answered (N-01), as on the sign-in keypad (aria-disabled: still focusable). */
+  const interactive = useInteractive();
 
   const value = step === 'current' ? current : step === 'next' ? next : confirm;
   const setValue = step === 'current' ? setCurrent : step === 'next' ? setNext : setConfirm;
@@ -192,9 +195,10 @@ export function ChoosePin({ name, surface }: { name: string; surface: Surface })
               key={k}
               type="button"
               disabled={busy}
+              aria-disabled={interactive ? undefined : true}
               onClick={() => press(k)}
               aria-label={k === '⌫' ? 'Delete the last digit' : k}
-              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] type-h2 font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] disabled:opacity-45"
+              className="h-14 rounded-[var(--radius-md)] bg-[var(--surface)] type-h2 font-semibold text-[var(--text-body)] shadow-[var(--shadow-card)] transition-colors hover:bg-[var(--surface-sunken)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] disabled:opacity-45 aria-disabled:opacity-45"
             >
               {k}
             </button>

@@ -1,6 +1,6 @@
 import 'server-only';
 import crypto from 'node:crypto';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { serverConfig } from '@/lib/config';
 import { COOKIE_NAMES, type Surface } from '@/lib/cookie-names';
 
@@ -153,3 +153,13 @@ export async function clearGuestToken(): Promise<void> {
 }
 
 export { COOKIE_NAMES };
+
+/**
+ * The address this request came from, for the sign-in throttle's network key (network-key.ts):
+ * `x-real-ip`, else the first `x-forwarded-for` entry — both written by the platform on Vercel.
+ * Empty when neither is present (one shared network, never a free pass).
+ */
+export async function clientAddress(): Promise<string> {
+  const h = await headers();
+  return (h.get('x-real-ip') ?? h.get('x-forwarded-for')?.split(',')[0] ?? '').trim();
+}

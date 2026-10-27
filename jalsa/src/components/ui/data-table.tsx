@@ -75,6 +75,22 @@ export interface DataTableProps<Row> {
   toolbarExtra?: React.ReactNode;
 }
 
+/**
+ * Rows rendered in the click that opens a table; the rest follow straight after (27-Oct-2026, P-7).
+ *
+ * WHY
+ *   The owner's Menu is 57 rows of 25 elements each — 1,523 of the 1,780 on the page — and opening
+ *   it built, styled, laid out and painted every one inside the click: 0.8–0.95 s on a phone 4x
+ *   slower than the rig (navigation baseline), with nothing fetched. Only the first ~17 rows fit a
+ *   900px screen. So the first commit renders these, and React renders the remainder in a
+ *   background pass right after it (`useDeferredValue`, interruptible — a tap is never kept
+ *   waiting by it). The table that results is the same table; only rows below the fold arrive a
+ *   moment later. Search, filters, the row count and the export always use every row.
+ *   24, not 17: a tall monitor shows more, and a gap at the bottom of the first screen would be
+ *   visible.
+ */
+const FIRST_ROWS = 24;
+
 export function DataTable<Row>({
   rows,
   columns,
@@ -141,6 +157,11 @@ export function DataTable<Row>({
       return String(av).localeCompare(String(bv), 'en') * dir;
     });
   }, [narrowed, sort, columns]);
+
+  // False for the first render of this table only, then true for good — never false again, so a
+  // search cleared later shows every row at once (see FIRST_ROWS).
+  const complete = React.useDeferredValue(true, false);
+  const shown = complete || sorted.length <= FIRST_ROWS ? sorted : sorted.slice(0, FIRST_ROWS);
 
   /** The right dropdown for the shape of the column. See Column.filter for why it varies. */
   const filterBody = (c: Column<Row>): React.ReactNode => {
@@ -324,7 +345,7 @@ export function DataTable<Row>({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row) => (
+              {shown.map((row) => (
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}

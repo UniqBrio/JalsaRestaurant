@@ -52,6 +52,11 @@ export interface LiveOptions {
    * at least this often (see `change-check.ts`). Omitted: every tick is a full read, as before.
    */
   fullEveryMs?: number;
+  /**
+   * The stamp the server built `initial` with (read BEFORE it was built, as every stamp is). With it,
+   * the first tick asks "changed?" instead of rebuilding the screen just rendered (26-Oct-2026).
+   */
+  initialStamp?: string | null;
 }
 
 export function useLiveData<T>(url: string, initial: T, intervalMs = 6000, options: LiveOptions = {}): LiveData<T> {
@@ -67,10 +72,23 @@ export function useLiveData<T>(url: string, initial: T, intervalMs = 6000, optio
    *  seconds for a screen that did not change. */
   const lastText = useRef<string | null>(null);
   /** The change-check state, when this screen uses one (fix 4). */
-  const check = useRef<CheckState | null>(options.fullEveryMs ? newCheck(options.fullEveryMs) : null);
+  const [firstCheck] = useState<CheckState | null>(() =>
+    options.fullEveryMs
+      ? newCheck(
+          options.fullEveryMs,
+          options.initialStamp ? { stamp: options.initialStamp, at: Date.now() } : undefined
+        )
+      : null
+  );
+  const check = useRef<CheckState | null>(firstCheck);
   /* A stamp belongs to the URL it came from. Two idle tables can carry identical stamps, so one
-     carried across a change of URL could keep the old screen for a new table (review of fix 4). */
+     carried across a change of URL could keep the old screen for a new table (review of fix 4).
+     A CHANGE of URL, not the first render: on mount this used to throw away the stamp the server
+     rendered with (26-Oct-2026). */
+  const shownUrl = useRef(url);
   useEffect(() => {
+    if (shownUrl.current === url) return;
+    shownUrl.current = url;
     if (check.current) forgetStamp(check.current);
     lastText.current = null;
   }, [url]);

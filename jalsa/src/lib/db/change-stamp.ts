@@ -50,12 +50,30 @@ export function staffStamp(
 
 /** The floor counter alone; `staffStamp` binds it to the person asking. */
 export async function floorStamp(): Promise<string | null> {
+  return (await readVersions()).floor;
+}
+
+/**
+ * Both counters in ONE read (27-Oct-2026): `floor` for the stamp, `catalog` for the catalog cache
+ * (catalog-cache.ts) — read here, in the first round, so the rows the build reads after it are at
+ * least as new as the version they are cached under. Either is null when it cannot be read.
+ */
+export async function readVersions(): Promise<{ floor: string | null; catalog: string | null }> {
   try {
-    const { data, error } = await db().from('change_version').select('version').eq('scope', 'floor').maybeSingle();
-    if (error || !data) return null;
-    return `f${String(data.version)}`;
+    const { data, error } = await db()
+      .from('change_version')
+      .select('scope,version')
+      .in('scope', ['floor', 'catalog']);
+    if (error || !data) return { floor: null, catalog: null };
+    const of = (scope: string) => data.find((r) => r.scope === scope)?.version;
+    const floor = of('floor');
+    const catalog = of('catalog');
+    return {
+      floor: floor === undefined ? null : `f${String(floor)}`,
+      catalog: catalog === undefined ? null : String(catalog),
+    };
   } catch {
-    return null;
+    return { floor: null, catalog: null };
   }
 }
 
@@ -70,6 +88,15 @@ export async function floorStamp(): Promise<string | null> {
  * (review of fix 4, 25-Sep-2026). A full read re-creates the session, as it always did.
  */
 export async function guestStamp(tableName: string, token: string | null): Promise<string | null> {
+  return (await guestVersions(tableName, token)).stamp;
+}
+
+/** `guestStamp`, and the catalog counter it read, for the catalog cache (see `readVersions`). */
+export async function guestVersions(
+  tableName: string,
+  token: string | null
+): Promise<{ stamp: string | null; catalog: string | null }> {
+  const none = { stamp: null, catalog: null };
   try {
     const restaurantId = await currentRestaurantId();
     // The phone's session hangs off its table, so it rides in the table's query: a session on
@@ -92,7 +119,9 @@ export async function guestStamp(tableName: string, token: string | null): Promi
         .eq('guest_session.token', token ?? '')
         .maybeSingle(),
     ]);
-    if (catalog.error || !catalog.data || table.error || !table.data) return null;
+    if (catalog.error || !catalog.data) return none;
+    const catalogVersion = String(catalog.data.version);
+    if (table.error || !table.data) return { stamp: null, catalog: catalogVersion };
     const row = table.data as unknown as {
       active: boolean;
       bill_table?: Array<{ bill?: { id: string; version: number } | null }>;
@@ -107,16 +136,17 @@ export async function guestStamp(tableName: string, token: string | null): Promi
     const bill = row.bill_table?.[0]?.bill ?? null;
     const mine = row.guest_session?.[0] ?? null;
     const cart = (mine?.guest_cart_line ?? []).map((l) => `${l.menu_item_id}:${l.qty}`).sort();
-    return JSON.stringify([
-      String(catalog.data.version),
+    const stamp = JSON.stringify([
+      catalogVersion,
       row.active,
       bill?.id ?? '',
       bill ? String(bill.version) : '',
       row.suggestion?.[0]?.replied_at ?? '',
       mine ? [mine.id, mine.bill_id ?? '', mine.heard_about ?? '', ...cart] : 'no-session',
     ]);
+    return { stamp, catalog: catalogVersion };
   } catch {
-    return null;
+    return none;
   }
 }
 

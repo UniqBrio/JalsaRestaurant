@@ -7,6 +7,7 @@ import { totalBill } from '@/lib/money';
 import { TAKEAWAY_LABEL } from '@/lib/takeaway';
 import { heardKey } from '@/lib/heard-about';
 import { tallyFavourites, type LovedTally } from '@/lib/favourites';
+import { catalogRead } from './catalog-cache';
 import type {
   AuditRow,
   Bill,
@@ -51,7 +52,14 @@ const minutesSince = (iso: string): number => Math.max(0, Math.floor((Date.now()
 
 /* ── Menu ──────────────────────────────────────────────────────────────── */
 
-export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuCategory[]; foodTypes: MenuFoodType[] }> {
+/**
+ * `catalog` is the catalog counter the caller read in its FIRST round, or null. With a version the
+ * rows may come from this instance's catalog cache (catalog-cache.ts); the shaping below always
+ * runs, because it reads the clock. Without one, the read is exactly what it always was.
+ */
+export async function listMenu(
+  catalog: string | null = null
+): Promise<{ items: MenuItem[]; categories: MenuCategory[]; foodTypes: MenuFoodType[] }> {
   const restaurantId = await currentRestaurantId();
 
   /**
@@ -64,31 +72,34 @@ export async function listMenu(): Promise<{ items: MenuItem[]; categories: MenuC
    * payload build: the first page render, the six-second poll, and the write-echo that decides
    * when `guest-placed` appears.
    */
-  const [
-    { data, error },
-    { data: cats },
-    { data: types, error: typesError },
-  ] = await Promise.all([
-    db()
-      .from('menu_item')
-      .select(
-        'id,name,description,price,food_type,food_type_id,image_url,printer_id,station,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
-      )
-      .eq('restaurant_id', restaurantId)
-      .order('sort', { ascending: true }),
-    db()
-      .from('menu_category')
-      .select('id,name,sort,parent_id')
-      .eq('restaurant_id', restaurantId)
-      .order('sort', { ascending: true }),
-    // The restaurant's Food Type list (28-Sep-2026). Read beside the menu, not embedded in it: the
-    // names are joined here by id, so one list serves every dish and every picker.
-    db()
-      .from('menu_food_type')
-      .select('id,name,kot_class,sort')
-      .eq('restaurant_id', restaurantId)
-      .order('sort', { ascending: true }),
-  ]);
+  const [{ data, error }, { data: cats }, { data: types, error: typesError }] = await catalogRead(
+    `${restaurantId}:menu`,
+    catalog,
+    () =>
+      Promise.all([
+        db()
+          .from('menu_item')
+          .select(
+            'id,name,description,price,food_type,food_type_id,image_url,printer_id,station,available,closed_reason,closed_until,sort,menu_category!inner(id,name,sort)'
+          )
+          .eq('restaurant_id', restaurantId)
+          .order('sort', { ascending: true }),
+        db()
+          .from('menu_category')
+          .select('id,name,sort,parent_id')
+          .eq('restaurant_id', restaurantId)
+          .order('sort', { ascending: true }),
+        // The restaurant's Food Type list (28-Sep-2026). Read beside the menu, not embedded in it: the
+        // names are joined here by id, so one list serves every dish and every picker.
+        db()
+          .from('menu_food_type')
+          .select('id,name,kot_class,sort')
+          .eq('restaurant_id', restaurantId)
+          .order('sort', { ascending: true }),
+      ]),
+    // A read that failed is never kept - including the category list, whose error is not thrown.
+    (reads) => reads.every((r) => !r.error)
+  );
   if (error) throw error;
   if (typesError) throw typesError;
   const typeName = new Map((types ?? []).map((t) => [t.id as string, t.name as string]));
@@ -470,16 +481,28 @@ export async function listClosedBillsBetween(from: string, to: string): Promise<
      which silently dropped every bill settled after midnight IST. See lib/restaurant-time.ts. */
   const { start, end } = dayWindow(from, to);
 
-  const { data, error } = await db()
-    .from('bill')
-    .select(BILL_SELECT)
-    .eq('restaurant_id', restaurantId)
-    .eq('status', 'closed')
-    .gte('closed_at', start.toISOString())
-    .lt('closed_at', end.toISOString())
-    .order('closed_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r) => shapeBill(r as Record<string, unknown>));
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and a sales report built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('bill')
+      .select(BILL_SELECT)
+      .eq('restaurant_id', restaurantId)
+      .eq('status', 'closed')
+      .gte('closed_at', start.toISOString())
+      .lt('closed_at', end.toISOString())
+      .order('closed_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((r) => shapeBill(r));
 }
 
 /** A cancelled order, as the operational report lists it (07-Oct-2026). */
@@ -625,16 +648,28 @@ export async function listHeardAboutBetween(from: string, to: string): Promise<s
 /** Expenses over the same range, filtered on the day they were SPENT, not entered. */
 export async function listExpensesBetween(from: string, to: string): Promise<ExpenseRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('expense')
-    .select('id,spent_on,category,note,amount,entered_by')
-    .eq('restaurant_id', restaurantId)
-    .is('deleted_at', null)
-    .gte('spent_on', from)
-    .lte('spent_on', to)
-    .order('spent_on', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((e) => ({
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and an expenses-and-net report built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let at = 0; ; at += PAGE) {
+    const { data: page, error } = await db()
+      .from('expense')
+      .select('id,spent_on,category,note,amount,entered_by')
+      .eq('restaurant_id', restaurantId)
+      .is('deleted_at', null)
+      .gte('spent_on', from)
+      .lte('spent_on', to)
+      .order('spent_on', { ascending: false })
+      .order('id')
+      .range(at, at + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((e) => ({
     id: e.id as string,
     spentOn: e.spent_on as string,
     category: e.category as string,
@@ -938,15 +973,27 @@ export async function grantsFor(staffId: string): Promise<string[]> {
 
 export async function listTips(): Promise<TipRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('tip')
-    .select(
-      'id,amount,settled_at,created_at,staff:staff_id(id,name),bill:bill_id(code,bill_table(dining_table:table_id(name)))'
-    )
-    .eq('restaurant_id', restaurantId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((t) => {
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and a tip ledger built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('tip')
+      .select(
+        'id,amount,settled_at,created_at,staff:staff_id(id,name),bill:bill_id(code,bill_table(dining_table:table_id(name)))'
+      )
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((t) => {
     const bill = t.bill as unknown as { code?: string; bill_table?: Array<{ dining_table: RawRef }> } | null;
     const staff = t.staff as unknown as RawRef | null;
     return {
@@ -964,14 +1011,26 @@ export async function listTips(): Promise<TipRow[]> {
 
 export async function listExpenses(): Promise<ExpenseRow[]> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db()
-    .from('expense')
-    .select('id,spent_on,category,note,amount,entered_by')
-    .eq('restaurant_id', restaurantId)
-    .is('deleted_at', null)
-    .order('spent_on', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((e) => ({
+  /* Paged (26-Oct-2026 audit, PERF-02), exactly as listFavouritesBetween: PostgREST answers at
+     most `max_rows` (1000 by default) per request, and an expense ledger built from the first
+     page alone would under-count without saying so. The id tiebreak keeps pages from overlapping
+     or skipping. */
+  const PAGE = 1000;
+  const data: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await db()
+      .from('expense')
+      .select('id,spent_on,category,note,amount,entered_by')
+      .eq('restaurant_id', restaurantId)
+      .is('deleted_at', null)
+      .order('spent_on', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    data.push(...((page ?? []) as Array<Record<string, unknown>>));
+    if (!page || page.length < PAGE) break;
+  }
+  return data.map((e) => ({
     id: e.id as string,
     spentOn: e.spent_on as string,
     category: e.category as string,
@@ -1190,18 +1249,30 @@ export async function readSettings<T extends Record<string, unknown>>(key: strin
   return { ...fallback, ...((data?.value as T) ?? {}) };
 }
 
-export async function readAllSettings(): Promise<Record<string, Record<string, unknown>>> {
+/** `catalog`: as `listMenu`. */
+export async function readAllSettings(catalog: string | null = null): Promise<Record<string, Record<string, unknown>>> {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db().from('setting').select('key,value').eq('restaurant_id', restaurantId);
+  const { data, error } = await catalogRead(
+    `${restaurantId}:settings`,
+    catalog,
+    async () => db().from('setting').select('key,value').eq('restaurant_id', restaurantId),
+    (r) => !r.error
+  );
   if (error) throw error;
   const out: Record<string, Record<string, unknown>> = {};
   for (const row of data ?? []) out[row.key as string] = (row.value as Record<string, unknown>) ?? {};
   return out;
 }
 
-export async function readRestaurant() {
+/** `catalog`: as `listMenu`. */
+export async function readRestaurant(catalog: string | null = null) {
   const restaurantId = await currentRestaurantId();
-  const { data, error } = await db().from('restaurant').select('*').eq('id', restaurantId).single();
+  const { data, error } = await catalogRead(
+    `${restaurantId}:restaurant`,
+    catalog,
+    async () => db().from('restaurant').select('*').eq('id', restaurantId).single(),
+    (r) => !r.error
+  );
   if (error) throw error;
   return data;
 }
@@ -1386,37 +1457,20 @@ export async function listBridgeTokens(): Promise<BridgeTokenRow[]> {
  */
 export async function listPrintComputers(): Promise<PrintComputerRow[]> {
   const restaurantId = await currentRestaurantId();
+  // The printers each computer reported ride IN this read (27-Oct-2026). They were a second read,
+  // by the ids this one returned: a third serial round on every full read of the owner's console
+  // wherever a computer is paired, which in production it is.
   const { data, error } = await db()
     .from('bridge_token')
-    .select('id,label,source,hostname,bridge_version,last_seen_at,created_at')
+    .select(
+      'id,label,source,hostname,bridge_version,last_seen_at,created_at,bridge_discovered_printer(queue_name,driver_name,port_name,status,is_virtual,reported_at)'
+    )
     .eq('restaurant_id', restaurantId)
     .is('revoked_at', null)
-    .order('created_at', { ascending: true });
+    .eq('bridge_discovered_printer.restaurant_id', restaurantId)
+    .order('created_at', { ascending: true })
+    .order('queue_name', { referencedTable: 'bridge_discovered_printer', ascending: true });
   if (error) throw error;
-  const ids = (data ?? []).map((t) => t.id as string);
-
-  const found = new Map<string, DiscoveredPrinterRow[]>();
-  if (ids.length) {
-    const { data: rows, error: dErr } = await db()
-      .from('bridge_discovered_printer')
-      .select('bridge_token_id,queue_name,driver_name,port_name,status,is_virtual,reported_at')
-      .eq('restaurant_id', restaurantId)
-      .in('bridge_token_id', ids)
-      .order('queue_name', { ascending: true });
-    if (dErr) throw dErr;
-    for (const r of rows ?? []) {
-      const list = found.get(r.bridge_token_id as string) ?? [];
-      list.push({
-        queueName: r.queue_name as string,
-        driverName: (r.driver_name as string) ?? '',
-        portName: (r.port_name as string) ?? '',
-        status: ((r.status as string) ?? 'unknown') as DiscoveredPrinterRow['status'],
-        isVirtual: (r.is_virtual as boolean) ?? false,
-        reportedAt: r.reported_at as string,
-      });
-      found.set(r.bridge_token_id as string, list);
-    }
-  }
 
   return (data ?? []).map((t) => ({
     id: t.id as string,
@@ -1426,7 +1480,14 @@ export async function listPrintComputers(): Promise<PrintComputerRow[]> {
     bridgeVersion: (t.bridge_version as string) ?? '',
     lastSeenAt: (t.last_seen_at as string | null) ?? null,
     createdAt: t.created_at as string,
-    discovered: found.get(t.id as string) ?? [],
+    discovered: ((t.bridge_discovered_printer as Array<Record<string, unknown>> | null) ?? []).map((r) => ({
+      queueName: r.queue_name as string,
+      driverName: (r.driver_name as string) ?? '',
+      portName: (r.port_name as string) ?? '',
+      status: ((r.status as string) ?? 'unknown') as DiscoveredPrinterRow['status'],
+      isVirtual: (r.is_virtual as boolean) ?? false,
+      reportedAt: r.reported_at as string,
+    })),
   }));
 }
 

@@ -14,7 +14,9 @@ export interface StaffSession {
   issuedAt: number;
 }
 
-const g = globalThis as unknown as { __fakeSession?: { guestToken?: string | null; staff?: StaffSession | null } };
+const g = globalThis as unknown as {
+  __fakeSession?: { guestToken?: string | null; staff?: StaffSession | null; address?: string };
+};
 
 export async function readGuestToken(): Promise<string | null> {
   return g.__fakeSession?.guestToken ?? null;
@@ -37,5 +39,13 @@ export function encodeStaffSession(): string {
 }
 export function decodeStaffSession(): StaffSession | null {
   return null;
+}
+/** As the real one: anything but exactly 'owner' is the staff app (27-Oct-2026, sign-in scenarios). */
+export function surfaceFrom(value: unknown): 'owner' | 'staff' {
+  return value === 'owner' ? 'owner' : 'staff';
+}
+/** The caller's address (27-Oct-2026, sign-in throttle): `__fakeSession.address`, else none. */
+export async function clientAddress(): Promise<string> {
+  return g.__fakeSession?.address ?? '';
 }
 export { COOKIE_NAMES };

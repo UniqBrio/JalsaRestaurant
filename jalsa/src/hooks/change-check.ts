@@ -25,7 +25,16 @@ export interface CheckState {
   fullEveryMs: number;
 }
 
-export const newCheck = (fullEveryMs: number): CheckState => ({ stamp: null, lastFullAt: 0, fullEveryMs });
+/**
+ * `first`: the stamp the server rendered the first screen with, and when (26-Oct-2026,
+ * requests/2026-10-26-navigation-latency.md). Without it the first tick after every page load, sign-in
+ * and reload rebuilt the screen the server had just rendered - on the owner console, 28 database calls.
+ */
+export const newCheck = (fullEveryMs: number, first?: { stamp: string; at: number }): CheckState => ({
+  stamp: first?.stamp ?? null,
+  lastFullAt: first?.at ?? 0,
+  fullEveryMs,
+});
 
 /** What this tick asks for. A person-caused read (`force`) is always a full one. */
 export function pollTarget(

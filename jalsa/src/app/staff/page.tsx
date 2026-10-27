@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { NotConfiguredState, UnreachableState } from '@/components/ui/states';
 import { attempt, configurationProblem, isConfigured } from '@/lib/supabase/server';
 import { currentStaff } from '@/lib/db/auth';
+import { readVersions, staffStamp } from '@/lib/db/change-stamp';
 import { buildStaffPayload } from '@/lib/db/staff-view';
 import { PinSignIn } from '@/features/staff/PinSignIn';
 import { ChoosePin } from '@/features/staff/ChoosePin';
@@ -23,11 +24,16 @@ export default async function StaffPage() {
     return <NotConfiguredState problem={configurationProblem() ?? 'Configuration could not be read.'} />;
   }
 
-  const session = await attempt('staff.page.session', () => currentStaff('staff'));
+  /* The floor counter is read beside the identity check - both come BEFORE the screen is built, as a
+     stamp must - so the client's first tick can ask "changed?" instead of rebuilding this screen
+     (26-Oct-2026, requests/2026-10-26-navigation-latency.md). `floorStamp` never throws: null = no stamp.
+     27-Oct-2026: `readVersions` — the same one read, now also the catalog counter, so the build below
+     may take the menu and settings from the catalog cache (catalog-cache.ts, JP-27). */
+  const session = await attempt('staff.page.session', () => Promise.all([currentStaff('staff'), readVersions()]));
   if (!session.ok)
     return <UnreachableState surface="staff" {...(session.detail ? { detail: session.detail } : {})} />;
 
-  const staff = session.value;
+  const [staff, versions] = session.value;
   if (!staff) return <PinSignIn surface="staff" />;
 
   // An issued PIN opens this and nothing else. Not the floor with a banner over it — a banner is
@@ -35,8 +41,8 @@ export default async function StaffPage() {
   // dismissed.
   if (staff.provisional) return <ChoosePin name={staff.name} surface="staff" />;
 
-  const loaded = await attempt('staff.page.payload', () => buildStaffPayload(staff));
+  const loaded = await attempt('staff.page.payload', () => buildStaffPayload(staff, versions.catalog));
   if (!loaded.ok) return <UnreachableState surface="staff" {...(loaded.detail ? { detail: loaded.detail } : {})} />;
 
-  return <StaffApp initial={loaded.value} />;
+  return <StaffApp initial={loaded.value} initialStamp={staffStamp(versions.floor, staff)} />;
 }

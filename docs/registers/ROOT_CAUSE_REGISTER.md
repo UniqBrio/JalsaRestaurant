@@ -59,6 +59,39 @@ No → one line, done. Yes → the framework-update workflow ran, and here is wh
 
 ---
 
+## RC-028 — A guest's tap on + was lost when an earlier save answered between taps
+**Date:** 27-Oct-2026  ·  **Severity:** S3  ·  **Modules:** jalsa guest ordering (`GuestApp`, `cart-draft`)
+
+**Symptom** — Found by the test suite, not reported: the first time the functional tier ran against a real
+database in this container (the performance rig), `guest-total-visibility` › `a tap lands on the row at once` went
+red in 2 of 2 full runs and green 3 of 3 alone. Three taps of + showed 2.
+
+**Root cause** — The phone's draft for a row was dropped by ANY write's answer (`withoutDraft`), including the
+answer to an older write while a newer quantity was still waiting to be sent. The row fell back to the server's
+older figure, and the next + counted up from it. Under load the taps landed more than the 200 ms collapse window
+apart, so there were two writes.
+
+**Fix** — `settleDraft`: an answer drops the draft only if the draft is still the figure that write carried, and
+never while a newer one waits to leave. A newer intention is settled by its own write (JP-26).
+
+**Files** — `jalsa/src/lib/cart-draft.ts`, `jalsa/src/features/guest/GuestApp.tsx`.
+
+**How to verify** — `tests/unit/cart-draft-settle.unit.spec.ts`; and the functional tier against the rig
+(`jalsa/docs/audit/NAVIGATION_PERFORMANCE_TESTS.md` §2), where the named spec passes 3 of 3 full runs.
+
+**Recurrence risk** — Any optimistic overlay settled by a response: searched `withoutDraft` / `setDraft(` and the
+other overlays (`GuestProgress` `pendingLove` is keyed per item and replaced per answer — one write in flight per
+item by construction). One site.
+
+**Prevention** — `tests/unit/cart-draft-settle.unit.spec.ts` (source pin + pure rule). The database-backed
+functional specs still do not run in CI (KL-1's residual) — the reason this sat unseen; recommended in
+`jalsa/docs/audit/PERFORMANCE_OPTIMIZATION_REPORT.md` §8.
+
+**Process check** — Yes: a gate whose database-backed tier never runs cannot catch a timing defect in it. Not
+repaired here (a CI design change, recorded as a recommendation); the framework-update workflow was not run.
+
+---
+
 ## RC-027 — RC-026's split left the owner's pre-deploy sessions valid on the staff app
 **Date:** 25-Sep-2026  ·  **Severity:** S3  ·  **Modules:** auth, sessions
 
