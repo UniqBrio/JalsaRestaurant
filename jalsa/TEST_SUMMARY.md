@@ -4,6 +4,29 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## Gate run - 2026-10-27 - VERDICT: PASS
+
+Steps: 12 pass, 0 fail, 0 blocked.
+Time: 5m 24s total - slowest G8 Functional / integration (2m 18s).
+Application steps ran in .
+
+- **G1 Theme artifacts in sync** - PASS (49ms)
+- **G2 Contrast (all tokens, both themes)** - PASS (52ms)
+- **G3 Theme assets present per theme** - PASS (47ms)
+- **G4 No hard-coded colours** - PASS (81ms)
+- **G5 Types** - PASS (23.0s)
+- **G6 Lint** - PASS (25.6s)
+- **G7 Unit + pure specs** - PASS (2m 13s)
+- **G8 Functional / integration** - PASS (2m 18s)
+- **G9 Automation addressability** - PASS (53ms)
+- **G10 Backward compatibility (fixtures)** - PASS (3.1s)
+- **G11 Wide tables are configurable** - PASS (74ms)
+- **G12 Installable as an application** - PASS (65ms)
+
+_All runnable gates green. Merge is cleared by the mechanical gate; the human review items in checklists/DEFINITION_OF_DONE.md still apply._
+
+---
+
 ## 2026-10-27 - Performance, security validation and delivery, round 3 - interim (gate run follows)
 
 Request: `requests/2026-10-27-performance-security-delivery.md`. Report: `docs/audit/PERFORMANCE_OPTIMIZATION_REPORT.md`. Migrations written, proven on the rig and PGlite, NOT applied outside the rig: `20261027090000`, `20261027090100`, `20261027100000`.

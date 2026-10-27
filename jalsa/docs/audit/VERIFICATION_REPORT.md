@@ -129,3 +129,79 @@ Release note: `CHANGELOG.md`, "Security — 26-Oct-2026".
 | Tier stated | T1, §6. |
 | Run log closed | At commit time. |
 | **Learning check** | Would a correct process have caught SEC-02? The 07-Oct fix applied rule 5 to the write doors by hand, with nothing scanning for the doors it missed — a rule enforced door by door, unexecuted (binding idea 1). This change adds the scan. The same shape caused PERF-02 (one read paged by hand on 03-Oct, its siblings missed). Candidate for `/promote`: "a fix applied per call site ships with a scan over every call site". Parked, not promoted here. |
+
+---
+
+## Round 3 — 27-Oct-2026 ([PERFORMANCE_OPTIMIZATION_REPORT.md](PERFORMANCE_OPTIMIZATION_REPORT.md))
+
+The sections above stand as written for 26-Oct. This one records the verification of round 3.
+
+### Environment
+The performance rig (`scripts/perf/`): Postgres 16 + PostgREST 12.2.3 in Docker, the calibrated gateway, a production
+build of the app built with `scripts/perf/rig.env`. Production was read only (trigger list, Postgres version, a
+count of paired PCs, the security advisor). TEST was not touched.
+
+### Suites and checks (on the final tree)
+| Check | Result |
+|---|---|
+| `npm run gate` | **PASS — 12 pass, 0 fail, 0 blocked** (TEST_SUMMARY.md, newest gate run) — the first full PASS here: G8 ran against a seeded database |
+| G7 unit + pure specs | 1,689 passed |
+| G8 functional (desktop, desktop-wide, mobile, mobile-short; WebKit dropped, KL-3) | **128 passed** against the rig with the 27-Oct migrations; 128/128 also without them (pre-migration snapshot) |
+| Render tier | 378 passed |
+| `npm run audit:all` | 10/10 |
+| tsc, eslint (`--max-warnings 0`) | clean |
+| `npm audit` (production and all) | 0 advisories |
+| Benchmark | Full suite per build, same snapshot; load test three alternating runs per build (report §7) |
+
+### Evidence for each change
+| Change | Executed evidence | Fail-first |
+|---|---|---|
+| RC-028 lost tap | Functional `a tap lands on the row at once`: red 2/2 full runs before, green 3/3 full runs after | Recorded (TEST_SUMMARY) |
+| Catalog cache, merges, sweep | `request-reduction.unit` through the real routes; rig inventory (`/__rig/calls`) owner 31→25, captain 14→10, guest 12→8; load §7.1 | 5 of 14 red before |
+| Zero-row counters | `change-counters-zero-rows.db.unit` (PGlite); rig: zero-row statements, real writes, two concurrent writers, rollback, re-apply | 3 of 6 red without the migration |
+| Sign-in limit | `sign-in-throttle.db.unit` (15), `sign-in-throttle.unit` (8); rig: 50 concurrent guesses → 5 judged; fallback on an unmigrated database | Red without the migration / on the old code |
+| SEC-14 | `same-origin.unit` (rules + wiring) | Wiring rung red on the old `handler()` |
+| SEC-16 | `change-counters-zero-rows.db.unit` (search_path rung); advisor shows the 4 warnings today | Red without the migration |
+| Menu | Event Timing click → paint, n=10 per build; `data-table-first-rows.render` | First-commit rung red on the old DataTable |
+
+### Not verified, said plainly
+- **No migration is applied to production or TEST.** Their production effect is not observed; it is proven on the
+  rig and PGlite, and production's trigger set was confirmed identical to the rig's pre-change set.
+- No real phone, no India network, no Vercel cold start. WebKit projects not run here (KL-3); CI runs them.
+- The sign-in limit's production behaviour depends on Vercel writing `x-real-ip`; observed on the rig with the
+  header set by the test client, not on Vercel.
+- The rig runs Postgres 16; production runs 17.6. The transition-table restriction that shaped the trigger design is
+  the same in both (documented); nothing in the three files is version-specific.
+
+### Definition of done (round 3)
+| Item | |
+|---|---|
+| Implements the request, no unrequested scope | done — every change traces to a priority or a confirmed finding |
+| Every changed line traces to the request | done |
+| Canonical patterns | done — JP-26, JP-27 recorded first |
+| No colour literals | gate: PASS (G4) |
+| Dead weight | done — the route's in-memory limiter moved into the fallback, no orphan |
+| Dependencies | N/A: none added |
+| Component library | N/A: no new component |
+| States looked at | done — throttled answer (429 + wait), outage paths unchanged, fallback on an unmigrated database |
+| Loading terminates | done — no new waits; the sweep is awaited beside the build, never alone |
+| Failure path exercised | done — fallback, throttled, cross-site, failed cache reads not kept |
+| Writes idempotent / one transaction | done — `sign_in_with_pin` is one transaction; migrations re-runnable |
+| Saves proved against data | done — sign-in attempts and counters read back |
+| Screen checklist / both themes / contrast | N/A: no visual change (the Menu's final DOM is identical); gate G1–G3 PASS |
+| Five permission questions | done — no new permission; sign-in throttle and SEC-14 sit before any grant check; RBAC matrix unchanged |
+| Deep route and API gated | N/A: no permission added |
+| Tenant scoping | done — cache keyed by restaurant id; throttle is per restaurant's sign-in |
+| No secret in code/log/repo | done — network key is an HMAC; no address stored; rig placeholders only |
+| Cases and registry delta | done — 7 new spec files, 4 pins superseded with dated notes |
+| Four dimensions | done — behaviour (specs), performance (rig), security (throttle/SEC-14 rungs), concurrency (rig) |
+| Fail-first | done — TEST_SUMMARY.md, every new rung or the honest negative |
+| Gate | PASS |
+| Module doc / feature register | done — report, matrix, plan, changelog; no feature added |
+| Root cause | done — RC-028 |
+| Limitations | N/A: no new platform limit |
+| Decision record | done — Option C and the sign-in rules in the report; SEC-09 left for the owner |
+| Changelog | done — CHANGELOG.md, in the user's language |
+| Business readiness | **T1 (noticeable)**: faster screens under load; a keypad that can say "wait N minutes" once the migration is applied |
+| Run log | done — closed with a marked back-filled start |
+| Learning check | Yes — CI never runs the database-backed journeys (RC-028); recommended, not repaired here |

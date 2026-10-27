@@ -10,7 +10,7 @@
 | Priority | What was found | What changed | Evidence | Production |
 |---|---|---|---|---|
 | — The 16 G8 failures | 15 need a database the build container does not have; **1 is a real defect** — a guest's tap lost when an earlier write answers between taps | `settleDraft` (JP-26) | Functional tier against a seeded Postgres: 127/128 red twice → 128/128 ×3 | Code only |
-| 1. Calls per screen | Five catalog tables re-read by every full read; a third serial round for a paired PC's printers; the sweep a serial round ahead of the console | Catalog cache keyed by the counter the route already reads (JP-27); printers embedded in the PC read; sweep beside the build | Owner 31 → 25 calls and 3 → 2 rounds; captain 14 → 10; guest 12 → 8 (rig, §7) | Code only |
+| 1. Calls per screen | Five catalog tables re-read by every full read; a third serial round for a paired PC's printers; the sweep a serial round ahead of the console | Catalog cache keyed by the counter the route already reads (JP-27); printers embedded in the PC read; sweep beside the build | Owner 31 → 25 calls and 3 → 2 rounds; captain 14 → 10; guest 12 → 8. Under load, guest full read p95 2.6–3.5 s → 1.0–1.2 s (3 runs each, §7.1) | Code only |
 | 2. Counters on zero rows | 26 statement-level triggers fire for statements that change nothing | Per-event triggers with transition tables (`bump_change_version_if_rows`) | PGlite + rig Postgres 16: zero-row statements move nothing, real ones unchanged, concurrency, rollback | **Migration — awaits approval** |
 | 3. Sign-in limit | 10 a minute per process, shared by everyone; per process, so multiplied by instances | Per network (keyed hash, IPv6 /64), per surface, a bound across untrusted networks, failures only, exact under concurrency | 15 database rungs; 50 simultaneous guesses → exactly 5 judged | **Migration — awaits approval**; code falls back until then |
 | 4. Menu on a slow phone | The click built all 57 rows (1,523 of 1,780 elements) | First 24 rows in the click, the rest straight after (`DataTable`) | Click → next paint, 4× CPU: 472 / 576 → 360 / 440 ms p50 / p95 | Code only |
@@ -127,8 +127,60 @@ on with no API-role grant; one owner sign-in succeeds and the app log no longer 
 
 ## 7. Before and after — the full suite
 
-*Filled from `scripts/perf/suite.sh`: baseline `696033b` on the pre-migration snapshot, this branch on the same
-snapshot with the three migrations. See §7 below the line.*
+`scripts/perf/suite.sh`: **before** = `696033b` (a clean worktree) on the rig snapshot of 27-Oct (40 bills paid
+today, 14 open, 69 rounds, one paired PC with 4 printers); **after** = this branch (`bf86b2c`) on the SAME snapshot
+with the three migrations applied. Rig latency 20 ms parallel + 20 ms serial per call (calibrated on production,
+NAVIGATION_PERFORMANCE_BASELINE.md §1). n = 20 per journey per profile; every sample of both builds succeeded.
+
+### 7.1 Under load — the change that matters (1 owner + 5 captains + 20 guests polling, 90 s)
+
+Three runs per build, **alternated** (before, after, before, after; the first pair inside the full suites). Times in
+ms, each cell `run 1 · run 2 · run 3`.
+
+| Request | Before p50 | After p50 | Before p95 | After p95 |
+|---|---|---|---|---|
+| Guest full read (n≈28 each) | 938 · 1,112 · 1,321 | **640 · 464 · 512** | 2,555 · 2,733 · 3,540 | **1,219 · 1,067 · 1,038** |
+| Captain full read | 404 · 411 · 357 | **301 · 307 · 292** | 1,125 · 949 · 1,013 | **763 · 750 · 551** |
+| Owner full read | 856 · 919 · 865 | **615 · 648 · 728** | 1,337 · 3,383 · 1,313 | **774 · 844 · 990** |
+| Captain action (add a round) | 916 · 899 · 935 | 908 · 913 · 939 | 1,543 · 1,099 · 1,510 | 1,164 · 1,288 · 1,114 |
+| Failures | 0 | 0 | | |
+
+The two sets do not overlap on any full read: the slowest "after" guest p95 (1,219) is below the fastest "before"
+(2,555). The prompt's "guest p95 2.9 s under load" is ≈1.1 s on the rig. Why: every full read asks the database
+4–6 fewer things, and in a burst a call's cost is its place in the queue — each removed call shortens everyone
+else's wait. A write (add a round) is unchanged: it was never the reads' problem.
+
+### 7.2 Journeys (click → usable data, ms, p50 / p95)
+
+| Profile | Journey | Calls before → after | Before | After | Verdict |
+|---|---|---|---|---|---|
+| local | Owner PIN → console | 33 → **27** | 1,353 / 1,363 | 1,354 / 1,377 | No change (time is the PIN check and the page, not the calls) |
+| local | Reload `/owner` | 31 → **25** | 899 / 939 | **762 / 818** | Faster (−15 % p50; noise for this journey ≈4 %) |
+| local | Captain PIN → floor | 16 → **12** | 849 / 862 | 850 / 861 | No change |
+| local | Reload `/staff` | 14 → **10** | 459 / 498 | **382 / 427** | Faster (−17 %) |
+| local | Guest scans a QR | 10 → 10 | 449 / 514 | 424 / 500 | No change (the guest PAGE has no counter in hand; its POLLS do) |
+| local | Dashboard → Menu / Reports / Uplift / Expenses / range | 0–7 | 140–287 | 98–280 | No change |
+| india4g | Owner PIN → console | 33 → **27** | 1,625 / 2,012 | 1,538 / **1,708** | p95 −15 %, inside the 15 % sign-in noise band: reported as no change |
+| india4g | Reload `/owner` | 31 → **25** | 1,287 / 1,421 | 1,226 / 1,358 | No change beyond noise |
+| india4g | Dashboard → Menu (journey harness) | 0 | 722 / 1,042 | 623 / 1,051 | No change in this harness (its polling adds ≈150 ms); the Event Timing measurement in §5 is the one that isolates the click |
+| india4g | Captain PIN → floor · Reload `/staff` | 16 → 12 · 14 → 10 | 1,012 · 764 | 973 · 739 | No change beyond noise |
+| india4g | Guest scan · scan with a running bill | 10 | 705 · 711 | 697 · 693 | No change |
+
+### 7.3 Idle cost (60 s per open screen) and hydration
+
+| Screen | Before: calls / full rebuilds | After |
+|---|---|---|
+| Owner console | 22 / 0 | 22 / 0 |
+| Captain floor | 41 / 1 | 41 / 1 |
+| Guest phone (running bill) | 31 / 1 | **27** / 1 |
+| Owner: two actions, then 20 s | 107 / 3 | 104 / 3 |
+
+Hydration gap (India 4G, p50): owner 825 → 725, staff 802 → 739, guest 887 → 911 — no change beyond noise; nothing
+here touched hydration.
+
+**The migrations' effect is invisible in these numbers by construction:** the rig's sweep no longer writes when
+nothing is stale (26-Oct), so no zero-row statement happens during a suite. Their effect is proven by the counters
+(§3), and in production it is the 52 rebuilds-for-nothing a day measured on 24-Oct.
 
 ## 8. What is not done, and why
 
