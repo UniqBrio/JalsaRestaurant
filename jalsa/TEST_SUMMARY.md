@@ -4,6 +4,19 @@ _Newest run first. Append-only: never overwrite a prior run._
 
 ---
 
+## 2026-10-29 - Development apply of the four 27-Oct migrations - live verification (no gate run: no code changed)
+
+Request: `requests/2026-10-27-supabase-data-api-grants.md` (and `requests/2026-10-27-performance-security-delivery.md` for the first three). Approved by the owner on 29-Oct. Target `yxgxmbyilpivbmeemqkp` (Postgres 17.6). Details: `docs/registers/ENVIRONMENTS.md`, note of 29-Oct.
+
+- Applied, in order, one approval each: `20261027090000`, `20261027090100`, `20261027100000`, `20261027120000` - history `20261029161100`/`161118`/`161149`/`161220`.
+- Effective privileges read live: identical to what `tests/unit/data-api-grants.db.unit.spec.ts` asserts on PGlite (every table, sequence, default ACL and callable function).
+- 15 role probes executed live, nothing written: 15 as expected (service_role reads, updates `restaurant`, inserts `audit_entry` and draws its sequence; is refused UPDATE on `audit_entry`, DELETE on `restaurant` and `number_series`, and anything on `sign_in_attempt`; anon/authenticated refused on `restaurant`, `staff`, `bill`, `guest_session` and `next_number`).
+- Security advisors: 4 `function_search_path_mutable` warnings cleared; 32 INFO `rls_enabled_no_policy` (by design).
+- Edge logs: 873 requests 12:00-16:11 UTC, all secret-key; after the grants, the live app's requests answer 200; no 4xx/5xx, no PostgREST or Postgres error.
+- NOT RUN: a publishable-key request through the Data API from this container (network policy refuses the host); the test project (INACTIVE) is still behind by these four migrations.
+
+---
+
 ## Gate run - 2026-10-27 - VERDICT: FAIL
 
 Steps: 11 pass, 1 fail, 0 blocked.

@@ -2,6 +2,10 @@
 
 _Newest run first. **Append-only: never overwrite a prior run.**_
 
+## Application run - jalsa - 2026-10-29 - Four 27-Oct migrations applied to DEVELOPMENT, verified live
+
+Owner-approved apply to `yxgxmbyilpivbmeemqkp` of `20261027090000`, `20261027090100`, `20261027100000`, `20261027120000`. Live privileges match `jalsa/tests/unit/data-api-grants.db.unit.spec.ts`; 15/15 role probes as expected; advisor search_path warnings cleared; the app's post-change Data API requests answer 200 with no errors. Test project not touched (INACTIVE). Details: `jalsa/TEST_SUMMARY.md`, `jalsa/docs/registers/ENVIRONMENTS.md`.
+
 ## Application run - jalsa - 2026-10-27 - Explicit Data API grants, review round - PASS except G8 (unchanged)
 
 Request: `jalsa/requests/2026-10-27-supabase-data-api-grants.md`. The migration (still unapplied everywhere) narrowed `audit_entry`, `change_version` and `restaurant` to the verbs every call site uses; the spec gained five rungs (callable-function inventory, FK set-null without UPDATE, serial sequences, default privileges, a source scan of `.from`/`.rpc`) and a corrected PUBLIC check. Unit 1711 passed; tsc, lint OK; G1-G7, G9-G12 PASS; G8 16 failed / 32 did not run / 80 passed, identical to the pre-fix set. Real PostgreSQL 16: 39/39, fresh and existing identical.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Applied — 29-Oct-2026 — The 27-October database updates are live on the development database
+
+- **The database updates that were waiting for approval are now applied:** screens stop refreshing when a check found nothing to change, four internal functions are locked to the right schema, the fairer sign-in limit is on, and every table states that only this application's server may read or change it. Checked afterwards on the live database; nothing on any screen changes.
+
 ### Safer — 27-Oct-2026 — The database keeps working after Supabase's 30-October change (requests/2026-10-27-supabase-data-api-grants.md)
 
 - **Database update ready for the owner to apply** (not applied yet): every table now states, in the database itself, that only this application's server may read or change it. From 30 October Supabase stops granting that by default, so without this a new or rebuilt database (production, a test copy) would have refused the app everything and every screen would have shown "We cannot reach the till just now". Nothing changes on any screen; the browser's keys, which the app never uses, are now refused outright.
